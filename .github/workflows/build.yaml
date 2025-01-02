@@ -34,5 +34,5 @@ jobs:
           sbt clean coverage test coverageReport
       - uses: 5monkeys/cobertura-action@v14
         with:
-          path: ./framework/arcane-framework/target/scala-3.6.1/coverage-report/cobertura.xml
+          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
           minimum_coverage: 40
