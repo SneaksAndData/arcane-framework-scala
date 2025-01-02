@@ -1,8 +1,26 @@
 val scala361 = "3.6.1"
 
-ThisBuild / version := "0.1.0-SNAPSHOT"
-
+ThisBuild / version := "0.0.1-SNAPSHOT"
+ThisBuild / organization := "com.sneaksanddata"
 ThisBuild / scalaVersion := scala361
+
+publishTo := {
+    val ghRepo = "SneaksAndData/arcane-framework-scala"
+    val ghUser = "_"
+    val ghToken = sys.env.get("GITHUB_TOKEN")
+    ghToken.map { token =>
+        "GitHub Package Registry" at s"https://maven.pkg.github.com/$ghRepo"
+    }
+}
+
+credentials += Credentials(
+    "GitHub Package Registry",
+    "maven.pkg.github.com",
+    sys.env.getOrElse("GITHUB_ACTOR", ""),
+    sys.env.getOrElse("GITHUB_TOKEN", "")
+)
+
+publishMavenStyle := true
 
 lazy val root = (project in file("."))
   .settings(

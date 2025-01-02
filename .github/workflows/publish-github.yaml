@@ -12,3 +12,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Setup Scala
+        uses: japgolly/setup-everything-scala@v3.1
+        with:
+          java-version: temurin:1.23.0.1
+      - name: Build and test
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
+        run: |
+          sbt publish
