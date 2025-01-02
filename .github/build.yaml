@@ -1,0 +1,43 @@
+name: Run tests with coverage (Scala code)
+
+on:
+  push:
+    branches:
+      - scala
+  pull_request:
+    branches:
+      - scala
+
+env:
+  PROJECT_NAME: Arcane.Stream.SqlServerChangeTracking
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate_commit:
+    name: Validate commit
+    runs-on: ubuntu-latest
+    if: ${{ github.ref != 'refs/heads/main' }}
+    permissions:
+      id-token: write      # required for dependabot PRs
+      pull-requests: write # required for dependabot PRs
+      contents: read       # required for dependabot PRs
+
+      checks: write       # required for cobertura-action
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Scala
+        uses: japgolly/setup-everything-scala@v3.1
+        with:
+          java-version: temurin:1.23.0.1
+      - name: Build the Docker Compose stack
+        run: docker compose up -d
+      - name: Build and test
+        shell: bash
+        run: |
+          export $(cat unit-tests.env| xargs)
+          sbt clean coverage test coverageReport
+      - uses: 5monkeys/cobertura-action@v14
+        with:
+          path: ./framework/arcane-framework/target/scala-3.6.1/coverage-report/cobertura.xml
+          minimum_coverage: 40
