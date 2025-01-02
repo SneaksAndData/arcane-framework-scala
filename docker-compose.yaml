@@ -1,0 +1,119 @@
+version: '3.3'
+networks:
+  mesh:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.1.0.0/16
+          gateway: 10.1.0.1
+
+services:
+  mssql:
+    container_name: sql-server
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "tMIxN11yGZgMC"
+    ports:
+      - "1433:1433"
+  minio:
+    container_name: minio
+    hostname: minio-e2e
+    image: quay.io/minio/minio
+    restart: always
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.2
+    command:
+      - server
+      - /data
+      - "--console-address"
+      - ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9001" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  prepare_buckets:
+    container_name: minio-setup
+    image: quay.io/minio/minio
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.3
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - |
+        mc alias set e2e "http://10.1.0.2:9000" minioadmin minioadmin
+        mc admin info e2e
+        mc mb e2e/tmp && mc mb e2e/lakehouse
+  # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
+  # note there is no publicly available image for Polaris yet
+  # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
+  polaris:
+    container_name: polaris
+    image: ghcr.io/sneaksanddata/apache-polaris:latest
+    restart: always
+    depends_on:
+      prepare_buckets:
+        condition: service_completed_successfully
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.4
+    ports:
+      - "8181:8181"
+      - "8182:8182"
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL_S3: http://10.1.0.2:9000
+      AWS_ENDPOINT_URL_STS: http://10.1.0.2:9000
+      # add aws keys as dropwizard config
+      JAVA_OPTS: -Ddw.awsAccessKey=minioadmin -Ddw.awsSecretKey=minioadmin
+
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:8182/healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+  create-polaris-catalog:
+    image: curlimages/curl
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.5
+    depends_on:
+      polaris:
+        condition: service_healthy
+    volumes:
+      - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
+    command: ["/bin/sh", "/create-polaris-catalog.sh"]
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    restart: always
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.6
+    command:
+      - azurite-blob
+      - "--blobHost"
+      - "10.1.0.6"
+      - "--blobPort"
+      - "10001"
+    ports:
+      - "10001:10001"
+  create-cdm-container:
+    image: python:3.11-slim-bookworm
+    depends_on:
+      - azurite
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.7
+    volumes:
+      - ./populate-cdm-container.py:/populate-cdm-container.py
+    command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
