@@ -1,0 +1,14 @@
+name: Release to Maven (Github)
+run-name: Release ${{github.ref_name}} to Maven by @${{ github.actor }}
+
+on: workflow_dispatch
+
+jobs:
+  release_to_maven:
+    name: Release distribution to Maven (private feed)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0

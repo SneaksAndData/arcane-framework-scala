@@ -99,3 +99,11 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# Added manually by IDEA
+/.idea/.name
+/.idea/modules/arcane-framework.arcane-framework-build.iml
+/.idea/modules/arcane-framework.iml
+/.bsp/sbt.json
+/.idea/scala_compiler.xml
+/.idea/scala_settings.xml
