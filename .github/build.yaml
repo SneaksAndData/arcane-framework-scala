@@ -3,15 +3,10 @@ name: Run tests with coverage (Scala code)
 on:
   push:
     branches:
-      - scala
+      - main
   pull_request:
     branches:
-      - scala
-
-env:
-  PROJECT_NAME: Arcane.Stream.SqlServerChangeTracking
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+      - main
 
 jobs:
   validate_commit:
