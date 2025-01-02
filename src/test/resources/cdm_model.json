@@ -1,0 +1,550 @@
+{
+  "name": "cdm",
+  "description": "cdm",
+  "version": "1.0",
+  "entities": [
+    {
+      "$type": "LocalEntity",
+      "name": "currency",
+      "description": "currency",
+      "annotations": [
+        {
+          "name": "Athena:PartitionGranularity",
+          "value": "Year"
+        },
+        {
+          "name": "Athena:InitialSyncState",
+          "value": "Completed"
+        },
+        {
+          "name": "Athena:InitialSyncDataCompletedTime",
+          "value": "01/1/2020 0:01:00 PM"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "Id",
+          "dataType": "guid",
+          "maxLength": -1
+        },
+        {
+          "name": "iseuro",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "roundofftypeprice",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "roundofftypepurch",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "roundofftypesales",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "sysdatastatecode",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "currencycode",
+          "dataType": "string",
+          "maxLength": 3,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 3
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "currencycodeiso",
+          "dataType": "string",
+          "maxLength": 3,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 3
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "roundingprecision",
+          "dataType": "decimal",
+          "maxLength": -1,
+          "cdm:traits": [
+            {
+              "traitReference": "is.dataFormat.numeric.shaped",
+              "arguments": [
+                {
+                  "name": "precision",
+                  "value": 38
+                },
+                {
+                  "name": "scale",
+                  "value": 6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "symbol",
+          "dataType": "string",
+          "maxLength": 5,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "txt",
+          "dataType": "string",
+          "maxLength": 120,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 120
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "modifieddatetime",
+          "dataType": "dateTime",
+          "maxLength": -1
+        },
+        {
+          "name": "modifiedby",
+          "dataType": "string",
+          "maxLength": 20,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 20
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "modifiedtransactionid",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "createddatetime",
+          "dataType": "dateTime",
+          "maxLength": -1
+        },
+        {
+          "name": "createdby",
+          "dataType": "string",
+          "maxLength": 20,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 20
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "createdtransactionid",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "recversion",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "partition",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "sysrowversion",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "recid",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "tableid",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "versionnumber",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "createdon",
+          "dataType": "dateTimeOffset",
+          "maxLength": -1
+        },
+        {
+          "name": "modifiedon",
+          "dataType": "dateTime",
+          "maxLength": -1
+        },
+        {
+          "name": "IsDelete",
+          "dataType": "boolean",
+          "maxLength": -1
+        }
+      ],
+      "partitions": []
+    },
+    {
+      "$type": "LocalEntity",
+      "name": "custinvoicejour",
+      "description": "custinvoicejour",
+      "annotations": [
+        {
+          "name": "Athena:PartitionGranularity",
+          "value": "Year"
+        },
+        {
+          "name": "Athena:InitialSyncState",
+          "value": "Completed"
+        },
+        {
+          "name": "Athena:InitialSyncDataCompletedTime",
+          "value": "01/1/2020 0:01:00 PM"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "Id",
+          "dataType": "guid",
+          "maxLength": -1
+        },
+        {
+          "name": "backorder",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "onetimecustomer",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "prepayment",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "proforma",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "sysdatastatecode",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "orderaccount",
+          "dataType": "string",
+          "maxLength": 20,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 20
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "invoiceid",
+          "dataType": "string",
+          "maxLength": 20,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 20
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "documentdate",
+          "dataType": "dateTime",
+          "maxLength": -1
+        },
+        {
+          "name": "documentnum",
+          "dataType": "string",
+          "maxLength": 20,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 20
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "duedate",
+          "dataType": "dateTime",
+          "maxLength": -1
+        },
+        {
+          "name": "qty",
+          "dataType": "decimal",
+          "maxLength": -1,
+          "cdm:traits": [
+            {
+              "traitReference": "is.dataFormat.numeric.shaped",
+              "arguments": [
+                {
+                  "name": "precision",
+                  "value": 38
+                },
+                {
+                  "name": "scale",
+                  "value": 6
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "partitions": [
+        {
+          "name": "2020",
+          "location": "https://myaccount.dfs.core.windows.net:443/dataverse-identifier/2020-10-01T00.00.00Z/custinvoicejour/2020.csv",
+          "cdm:traits": [
+            {
+              "traitReference": "is.partition.format.CSV",
+              "arguments": [
+                {
+                  "name": "raggedRight",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "fileFormatSettings": {
+            "$type": "CsvFormatSettings",
+            "columnHeaders": false,
+            "delimiter": ",",
+            "quoteStyle": "QuoteStyle.Csv",
+            "csvStyle": "CsvStyle.QuoteAlways",
+            "encoding": "UTF-8"
+          },
+          "annotations": [
+            {
+              "name": "Athena:PartitionYear",
+              "value": "2020"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "$type": "LocalEntity",
+      "name": "custinvoiceline",
+      "description": "custinvoiceline",
+      "annotations": [
+        {
+          "name": "Athena:PartitionGranularity",
+          "value": "Year"
+        },
+        {
+          "name": "Athena:InitialSyncState",
+          "value": "Completed"
+        },
+        {
+          "name": "Athena:InitialSyncDataCompletedTime",
+          "value": "01/1/2020 0:01:00 PM"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "Id",
+          "dataType": "guid",
+          "maxLength": -1
+        },
+        {
+          "name": "sysdatastatecode",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "origcountryregionid",
+          "dataType": "string",
+          "maxLength": 10,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "accountingdistributiontemplate",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "amountcur",
+          "dataType": "decimal",
+          "maxLength": -1,
+          "cdm:traits": [
+            {
+              "traitReference": "is.dataFormat.numeric.shaped",
+              "arguments": [
+                {
+                  "name": "precision",
+                  "value": 38
+                },
+                {
+                  "name": "scale",
+                  "value": 6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "amountdetails",
+          "dataType": "string",
+          "maxLength": 9999,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 9999
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "description",
+          "dataType": "string",
+          "maxLength": 9999,
+          "cdm:traits": [
+            {
+              "traitReference": "is.constrained",
+              "arguments": [
+                {
+                  "name": "maximumLength",
+                  "value": 9999
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "recversion",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "partition",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "sysrowversion",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "recid",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "tableid",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "versionnumber",
+          "dataType": "int64",
+          "maxLength": -1
+        },
+        {
+          "name": "createdon",
+          "dataType": "dateTimeOffset",
+          "maxLength": -1
+        },
+        {
+          "name": "modifiedon",
+          "dataType": "dateTime",
+          "maxLength": -1
+        },
+        {
+          "name": "IsDelete",
+          "dataType": "boolean",
+          "maxLength": -1
+        }
+      ],
+      "partitions": []
+    }
+  ]
+}
