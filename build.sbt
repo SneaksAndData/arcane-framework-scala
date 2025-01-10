@@ -57,10 +57,9 @@ lazy val root = (project in file("."))
     libraryDependencies += "io.trino" % "trino-jdbc" % "465",
 
     // Azure dependencies
-    // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
     libraryDependencies += "com.azure" % "azure-storage-blob" % "12.29.0",
-    // https://mvnrepository.com/artifact/com.azure/azure-identity
     libraryDependencies += "com.azure" % "azure-identity" % "1.14.2",
+    libraryDependencies += "com.azure" % "azure-core-http-okhttp" % "1.12.1",
 
 
     // Test dependencies
@@ -73,7 +72,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-logging-slf4j" % "2.3.0",
 
     // For DataDog
-//    libraryDependencies += "org.slf4j" % "log4j-over-slf4j" % "2.0.13",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6",
     libraryDependencies +=  "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
   )

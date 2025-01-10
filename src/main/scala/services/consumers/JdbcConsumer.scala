@@ -34,7 +34,7 @@ type BatchApplicationResult = Boolean
 /**
  * The result of applying a batch.
  */
-type BatchArchivationResult = ResultSet
+class BatchArchivationResult
 
 /**
  * A consumer that consumes batches from a JDBC source.
@@ -42,11 +42,11 @@ type BatchArchivationResult = ResultSet
  * @param options The options for the consumer.
  */
 class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptions) extends AutoCloseable:
-  require(options.isValid, "Invalid JDBC url provided for the consumer")
+//  require(options.isValid, "Invalid JDBC url provided for the consumer")
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   
-  private val logger: Logger = LoggerFactory.getLogger(classOf[BackfillDataGraphBuilder])
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
   
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
@@ -66,8 +66,9 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptio
     }
     
   def archiveBatch(batch: Batch): Future[BatchArchivationResult] =
-    Future(sqlConnection.prepareStatement(batch.archiveExpr).executeQuery())
-      .flatMap(_ => Future(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}").executeQuery()))
+    Future(sqlConnection.prepareStatement(batch.archiveExpr).execute())
+      .flatMap(_ => Future(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}").execute()))
+      .map(_ => new BatchArchivationResult)
 
   def close(): Unit = sqlConnection.close()
 
