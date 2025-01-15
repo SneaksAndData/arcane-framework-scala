@@ -29,7 +29,7 @@ trait StagedBatch[Query <: StreamingBatchQuery]:
    * Query that should be used to archive this batch data
    * @return SQL query text
    */
-  def archiveExpr: String
+  def archiveExpr(archiveTableName: String): String
 
 
 /**

@@ -65,8 +65,9 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptio
       sqlConnection.prepareStatement(batch.batchQuery.query).execute()
     }
     
-  def archiveBatch(batch: Batch): Future[BatchArchivationResult] =
-    Future(sqlConnection.prepareStatement(batch.archiveExpr).execute())
+  def archiveBatch(batch: Batch, archiveTableName: String): Future[BatchArchivationResult] =
+    // TODO: Replace hardcoded archive_expr with a parameter
+    Future(sqlConnection.prepareStatement(batch.archiveExpr(archiveTableName)).execute())
       .flatMap(_ => Future(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}").execute()))
       .map(_ => new BatchArchivationResult)
 
