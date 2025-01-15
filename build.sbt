@@ -57,9 +57,10 @@ lazy val root = (project in file("."))
     libraryDependencies += "io.trino" % "trino-jdbc" % "465",
 
     // Azure dependencies
+    // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
     libraryDependencies += "com.azure" % "azure-storage-blob" % "12.29.0",
+    // https://mvnrepository.com/artifact/com.azure/azure-identity
     libraryDependencies += "com.azure" % "azure-identity" % "1.14.2",
-    libraryDependencies += "com.azure" % "azure-core-http-okhttp" % "1.12.1",
 
 
     // Test dependencies

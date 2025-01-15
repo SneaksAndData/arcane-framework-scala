@@ -42,7 +42,7 @@ class BatchArchivationResult
  * @param options The options for the consumer.
  */
 class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptions) extends AutoCloseable:
-//  require(options.isValid, "Invalid JDBC url provided for the consumer")
+  require(options.isValid, "Invalid JDBC url provided for the consumer")
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   
@@ -66,7 +66,6 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptio
     }
     
   def archiveBatch(batch: Batch, archiveTableName: String): Future[BatchArchivationResult] =
-    // TODO: Replace hardcoded archive_expr with a parameter
     Future(sqlConnection.prepareStatement(batch.archiveExpr(archiveTableName)).execute())
       .flatMap(_ => Future(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}").execute()))
       .map(_ => new BatchArchivationResult)
