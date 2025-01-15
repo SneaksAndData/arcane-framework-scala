@@ -1,6 +1,6 @@
 val scala361 = "3.6.1"
 
-ThisBuild / version := "0.0.1-SNAPSHOT"
+ThisBuild / version := "0.0.2-SNAPSHOT"
 ThisBuild / organization := "com.sneaksanddata"
 ThisBuild / scalaVersion := scala361
 
