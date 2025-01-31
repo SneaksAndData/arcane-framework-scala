@@ -73,7 +73,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-logging-slf4j" % "2.3.0",
 
     // For DataDog
-//    libraryDependencies += "org.slf4j" % "log4j-over-slf4j" % "2.0.13",
-    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.6",
-    libraryDependencies +=  "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
+    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.24.3",
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.16",
+    libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
   )
