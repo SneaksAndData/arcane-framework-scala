@@ -1,6 +1,6 @@
 val scala361 = "3.6.1"
 
-ThisBuild / version := "0.0.1-SNAPSHOT"
+ThisBuild / version := "0.0.3-SNAPSHOT"
 ThisBuild / organization := "com.sneaksanddata"
 ThisBuild / scalaVersion := scala361
 
@@ -71,7 +71,7 @@ lazy val root = (project in file("."))
     // For ZIO
     libraryDependencies += "dev.zio" %% "zio-logging" % "2.3.0",
     libraryDependencies += "dev.zio" %% "zio-logging-slf4j" % "2.3.0",
-
+    
     // For DataDog
     libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.24.3",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.16",

@@ -43,7 +43,7 @@ class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: Arcan
 
   override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr)
 
-  def archiveExpr: String = s"INSERT OVERWRITE ${targetName}_stream_archive $reduceExpr"
+  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
 
 object  SqlServerChangeTrackingBackfillBatch:
   /**
@@ -66,7 +66,7 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
   override val batchQuery: MergeQuery =
     SqlServerChangeTrackingMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionValues = partitionValues, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
-  def archiveExpr: String = s"INSERT INTO ${targetName}_stream_archive $reduceExpr"
+  def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
 object SqlServerChangeTrackingMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]]): StagedVersionedBatch =

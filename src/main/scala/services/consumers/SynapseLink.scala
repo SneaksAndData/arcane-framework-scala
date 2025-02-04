@@ -6,12 +6,12 @@ import models.querygen.{MergeQuery, MergeQueryCommons, OnSegment, OverwriteQuery
 
 object MatchedAppendOnlyDelete:
   def apply(): WhenMatchedDelete = new WhenMatchedDelete {
-    override val segmentCondition: Option[String] = Some(s"${MergeQueryCommons.SOURCE_ALIAS}.IsDelete = true")
+    override val segmentCondition: Option[String] = Some(s"coalesce(${MergeQueryCommons.SOURCE_ALIAS}.IsDelete, false) = true")
   }
 
 object MatchedAppendOnlyUpdate {
   def apply(cols: Seq[String]): WhenMatchedUpdate = new WhenMatchedUpdate {
-    override val segmentCondition: Option[String] = Some(s"${MergeQueryCommons.SOURCE_ALIAS}.IsDelete = false AND ${MergeQueryCommons.SOURCE_ALIAS}.versionnumber > ${MergeQueryCommons.TARGET_ALIAS}.versionnumber")
+    override val segmentCondition: Option[String] = Some(s"coalesce(${MergeQueryCommons.SOURCE_ALIAS}.IsDelete, false) = false AND ${MergeQueryCommons.SOURCE_ALIAS}.versionnumber > ${MergeQueryCommons.TARGET_ALIAS}.versionnumber")
     override val columns: Seq[String] = cols
   }
 }
@@ -19,7 +19,7 @@ object MatchedAppendOnlyUpdate {
 object NotMatchedAppendOnlyInsert {
   def apply(cols: Seq[String]): WhenNotMatchedInsert = new WhenNotMatchedInsert {
     override val columns: Seq[String] = cols
-    override val segmentCondition: Option[String] = Some(s"${MergeQueryCommons.SOURCE_ALIAS}.IsDelete = false")
+    override val segmentCondition: Option[String] = Some(s"coalesce(${MergeQueryCommons.SOURCE_ALIAS}.IsDelete, false) = false")
   }
 }
 
@@ -43,11 +43,11 @@ class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, tar
     // thus, we need identify which of the latest versions were deleted after we have found the latest versions for each `Id` - since for backfill we must exclude deletions
     s"""SELECT * FROM (
        | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
-       |) WHERE IsDelete = false""".stripMargin
+       |) WHERE coalesce(IsDelete, false) = false""".stripMargin
 
   override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr)
 
-  def archiveExpr: String = s"INSERT OVERWRITE ${targetName}_stream_archive $reduceExpr"
+  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
 
 object  SynapseLinkBackfillBatch:
   /**
@@ -68,7 +68,7 @@ class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, target
   override val batchQuery: MergeQuery =
     SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionValues = partitionValues, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
-  def archiveExpr: String = s"INSERT INTO ${targetName}_stream_archive $reduceExpr"
+  override def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
 object SynapseLinkMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]]): StagedVersionedBatch =
