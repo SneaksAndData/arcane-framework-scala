@@ -69,8 +69,8 @@ lazy val root = (project in file("."))
 
     // Logging and metrics
     // For ZIO
-    libraryDependencies += "dev.zio" %% "zio-logging" % "2.3.0",
-    libraryDependencies += "dev.zio" %% "zio-logging-slf4j" % "2.3.0",
+    libraryDependencies += "dev.zio" %% "zio-logging" % "2.3.2",
+    libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.3.2",
     
     // For DataDog
     libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.24.3",
