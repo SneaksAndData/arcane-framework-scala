@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package logging
 
-import zio.ZIO
+import zio.{Cause, ZIO}
 import zio.logging.LogAnnotation
 import upickle.default.read
 
@@ -23,21 +23,28 @@ object ZIOLogAnnotations:
     .map { (annotation, value) => annotation(value) }
     .foldLeft(initial)(_ @@ _)
 
-
   /**
    * @param name Name for the annotation
    * @return ZIO log annotation with the provided name
    */
-  final def getStringAnnotation(name: String): LogAnnotation[String] = LogAnnotation[String](
+  private def getStringAnnotation(name: String): LogAnnotation[String] = LogAnnotation[String](
     name = name,
     combine = (_, s) => s,
     render = s => s
   )
 
+  /**
+   * @param name Name for the annotation
+   * @param value String value to assign
+   * @return
+   */
+  @unused
+  final def getAnnotation(name: String, value: String): (LogAnnotation[String], String) = (getStringAnnotation(name), value)
+
   private val defaults: Seq[(LogAnnotation[String], String)] = Seq(
     (getStringAnnotation(name = "streamKind"), streamClass),
     (getStringAnnotation(name = "streamId"), streamId),
-    (getStringAnnotation(name = "streamVersion"), streamVersion)
+    (getStringAnnotation(name = "ApplicationVersion"), streamVersion)
   ) ++ read[Map[String, String]](streamExtraProperties).map { (key, value) => (getStringAnnotation(key), value) }
 
 
@@ -50,3 +57,14 @@ object ZIOLogAnnotations:
   def zlog(message: String, annotations: Option[Seq[(LogAnnotation[String], String)]] = None): zio.UIO[Unit] = annotations match
     case Some(values) => logEnriched(ZIO.log(message), defaults ++ values)
     case None => logEnriched(ZIO.log(message), defaults)
+
+  /**
+   * @param message Log message to record
+   * @param cause Error cause.
+   * @param annotations Optional ZIO log annotations and values.
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlogError(message: String, cause: Cause[Any], annotations: Option[Seq[(LogAnnotation[String], String)]] = None): zio.UIO[Unit] = annotations match
+    case Some(values) => logEnriched(ZIO.logErrorCause(message, cause), defaults ++ values)
+    case None => logEnriched(ZIO.logErrorCause(message, cause), defaults)
