@@ -22,4 +22,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
         run: |
+          git config --global user.email "delamain@esdservices.net"
+          git config --global user.name "Delamain Network"
           sbt 'release with-defaults'
