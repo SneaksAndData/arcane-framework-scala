@@ -1,4 +1,4 @@
-name: Release next version
+name: Release next version to GitHub Maven Repository
 
 on: workflow_dispatch
 
