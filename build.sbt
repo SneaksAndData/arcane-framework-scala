@@ -4,15 +4,7 @@ val scala361 = "3.6.1"
 
 ThisBuild / organization := "com.sneaksanddata"
 ThisBuild / scalaVersion := scala361
-
-publishTo := {
-    val ghRepo = "SneaksAndData/arcane-framework-scala"
-    val ghUser = "_"
-    val ghToken = sys.env.get("GITHUB_TOKEN")
-    ghToken.map { token =>
-        "GitHub Package Registry" at s"https://maven.pkg.github.com/$ghRepo"
-    }
-}
+ThisBuild / versionScheme := Some("semver-spec")
 
 credentials += Credentials(
     "GitHub Package Registry",
@@ -21,8 +13,6 @@ credentials += Credentials(
     sys.env.getOrElse("GITHUB_TOKEN", "")
 )
 
-publishMavenStyle := true
-
 releaseVersionFile := file("version.sbt")
 releaseVersionBump := sbtrelease.Version.Bump.Bugfix
 releaseProcess := Seq[ReleaseStep](
@@ -30,13 +20,18 @@ releaseProcess := Seq[ReleaseStep](
     inquireVersions,                        // : ReleaseStep
     runClean,                               // : ReleaseStep
     setReleaseVersion,                      // : ReleaseStep
-    commitReleaseVersion,                   // : ReleaseStep, performs the initial git checks
-    tagRelease,                             // : ReleaseStep
-    publishArtifacts,                       // : ReleaseStep, checks whether `publishTo` is properly set up
-    setNextVersion,                         // : ReleaseStep
-    commitNextVersion,                      // : ReleaseStep
-    pushChanges                             // : ReleaseStep, also checks that an upstream branch is properly configured
+    publishArtifacts,                       // : ReleaseStep
 )
+releaseIgnoreUntrackedFiles := true
+publishTo := {
+    val ghRepo = "SneaksAndData/arcane-framework-scala"
+    val ghUser = "_"
+    val ghToken = sys.env.get("GITHUB_TOKEN")
+    ghToken.map { token =>
+        "GitHub Package Registry" at s"https://maven.pkg.github.com/$ghRepo"
+    }
+}
+publishMavenStyle := true
 
 lazy val root = (project in file("."))
   .settings(

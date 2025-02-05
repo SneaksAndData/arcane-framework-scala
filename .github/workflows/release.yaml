@@ -1,4 +1,4 @@
-name: Release next version
+name: Publish tagged commit to GitHub Maven Repository
 
 on: workflow_dispatch
 
@@ -6,7 +6,6 @@ jobs:
   release:
     name: SBT Release
     runs-on: ubuntu-latest
-    if: ${{ github.ref != 'refs/heads/main' }}
     permissions:
       id-token: write
       pull-requests: write
@@ -19,5 +18,8 @@ jobs:
           java-version: temurin:1.23.0.1
       - name: Release new version
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
+          IS_DEV: ${{ !startsWith(github.ref, 'refs/heads/release') }}
         run: |
-          sbt release with-defaults
+          sbt 'release with-defaults'
