@@ -16,7 +16,7 @@ jobs:
         uses: japgolly/setup-everything-scala@v3.1
         with:
           java-version: temurin:1.23.0.1
-      - name: Build and test
+      - name: Publish to Maven
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}

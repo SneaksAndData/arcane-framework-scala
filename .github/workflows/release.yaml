@@ -1,0 +1,23 @@
+name: Release next version
+
+on: workflow_dispatch
+
+jobs:
+  release:
+    name: SBT Release
+    runs-on: ubuntu-latest
+    if: ${{ github.ref != 'refs/heads/main' }}
+    permissions:
+      id-token: write
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Scala
+        uses: japgolly/setup-everything-scala@v3.1
+        with:
+          java-version: temurin:1.23.0.1
+      - name: Release new version
+        shell: bash
+        run: |
+          sbt release with-defaults
