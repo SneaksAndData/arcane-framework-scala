@@ -19,5 +19,7 @@ jobs:
           java-version: temurin:1.23.0.1
       - name: Release new version
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
         run: |
           sbt release with-defaults
