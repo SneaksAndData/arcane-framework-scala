@@ -1,4 +1,4 @@
-name: Release next version to GitHub Maven Repository
+name: Publish tagged commit to GitHub Maven Repository
 
 on: workflow_dispatch
 
@@ -6,7 +6,7 @@ jobs:
   release:
     name: SBT Release
     runs-on: ubuntu-latest
-    #if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ startsWith(github.ref, 'refs/tags') }}
     permissions:
       id-token: write
       pull-requests: write
@@ -21,10 +21,6 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
+          IS_DEV: ${{ !startsWith(github.ref, 'refs/heads/release') }}
         run: |
-          git config --global user.email "delamain@esdservices.net"
-          git config --global user.name "Delamain Network"
           sbt 'release with-defaults'
-          
-          currentVersion=$(git describe --tags --abbrev=7)
-          gh release create "$currentVersion" --generate-notes
