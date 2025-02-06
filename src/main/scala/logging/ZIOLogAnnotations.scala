@@ -4,6 +4,7 @@ package logging
 import zio.{Cause, ZIO}
 import zio.logging.LogAnnotation
 import upickle.default.read
+import zio.stream.ZStream
 
 import scala.annotation.unused
 
@@ -34,7 +35,7 @@ object ZIOLogAnnotations:
   )
 
   /**
-   * @param name Name for the annotation
+   * @param name  Name for the annotation
    * @param value String value to assign
    * @return
    */
@@ -49,22 +50,80 @@ object ZIOLogAnnotations:
 
 
   /**
-   * @param message Log message to record
-   * @param annotations Optional ZIO log annotations and values.
+   * Log using default annotations
+   *
+   * @param message     Log message to record
    * @return ZIO Workflow
    */
   @unused
-  def zlog(message: String, annotations: Option[Seq[(LogAnnotation[String], String)]] = None): zio.UIO[Unit] = annotations match
-    case Some(values) => logEnriched(ZIO.log(message), defaults ++ values)
-    case None => logEnriched(ZIO.log(message), defaults)
+  def zlog(message: String): zio.UIO[Unit] = logEnriched(ZIO.log(message), defaults)
 
   /**
-   * @param message Log message to record
-   * @param cause Error cause.
+   * Log using default and additional custom annotations
+   *
+   * @param message     Log message to record
+   * @param annotations ZIO log annotations and values
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlog(message: String, annotations: Seq[(LogAnnotation[String], String)]): zio.UIO[Unit] = logEnriched(ZIO.log(message), defaults ++ annotations)
+
+  /**
+   * Log error using default annotations
+   *
+   * @param message     Log message to record
+   * @param cause       Error cause
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlog(message: String, cause: Cause[Any]): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(message, cause), defaults)
+
+  /**
+   * Log error using default and additional custom annotations
+   *
+   * @param message     Log message to record
+   * @param cause       Error cause
+   * @param annotations ZIO log annotations and values
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlog(message: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)]): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(message, cause), defaults ++ annotations)
+
+  /**
+   * Log via a ZStream log pipeline using default annotations
+   *
+   * @param message     Log message to record
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlogStream(message: String): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(message), defaults))
+
+  /**
+   * Log via a ZStream log pipeline using default and additional custom annotations
+   *
+   * @param message     Log message to record
    * @param annotations Optional ZIO log annotations and values.
    * @return ZIO Workflow
    */
   @unused
-  def zlogError(message: String, cause: Cause[Any], annotations: Option[Seq[(LogAnnotation[String], String)]] = None): zio.UIO[Unit] = annotations match
-    case Some(values) => logEnriched(ZIO.logErrorCause(message, cause), defaults ++ values)
-    case None => logEnriched(ZIO.logErrorCause(message, cause), defaults)
+  def zlogStream(message: String, annotations: Seq[(LogAnnotation[String], String)]): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(message), defaults ++ annotations))
+
+  /**
+   * Log error via a ZStream log pipeline using default annotations
+   *
+   * @param message     Log message to record
+   * @param annotations Optional ZIO log annotations and values.
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlogStream(message: String, cause: Cause[Any]): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(message, cause), defaults))
+
+  /**
+   * Log error via a ZStream log pipeline using default and additional custom annotations
+   *
+   * @param message     Log message to record
+   * @param annotations Optional ZIO log annotations and values.
+   * @return ZIO Workflow
+   */
+  @unused
+  def zlogStream(message: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)]): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(message, cause), defaults ++ annotations))
