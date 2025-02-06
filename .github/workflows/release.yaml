@@ -1,4 +1,4 @@
-name: Publish tagged commit to GitHub Maven Repository
+name: Publish to GitHub Maven Repository
 
 on: workflow_dispatch
 
