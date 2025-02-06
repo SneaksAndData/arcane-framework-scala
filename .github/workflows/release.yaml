@@ -1,4 +1,4 @@
-name: Publish tagged commit to GitHub Maven Repository
+name: Publish to GitHub Maven Repository
 
 on: workflow_dispatch
 
@@ -12,14 +12,31 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        if: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags') && always() }}
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/checkout@v4
+        if: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags')) && always() }}
+        with:
+          fetch-depth: 0
       - name: Setup Scala
         uses: japgolly/setup-everything-scala@v3.1
         with:
           java-version: temurin:1.23.0.1
+      - name: Prepare release command
+        shell: bash
+        run:
+          releaseVersion=$(git describe --tags --abbrev=7)
+          rvn="${releaseVersion:1}"
+          
+          commandText="release release-version $rvn next-version $rvn-SNAPSHOT"
+          
+          echo "command=$commandText" >> "$GITHUB_OUTPUT"
+        id: release_command
       - name: Release new version
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
-          IS_DEV: ${{ !startsWith(github.ref, 'refs/heads/release') }}
         run: |
-          sbt 'release with-defaults'
+          sbt '${{ steps.release_command.outputs.command }}'

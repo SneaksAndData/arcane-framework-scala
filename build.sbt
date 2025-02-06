@@ -4,7 +4,6 @@ val scala361 = "3.6.1"
 
 ThisBuild / organization := "com.sneaksanddata"
 ThisBuild / scalaVersion := scala361
-ThisBuild / versionScheme := Some("semver-spec")
 
 credentials += Credentials(
     "GitHub Package Registry",
