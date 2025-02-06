@@ -22,4 +22,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
           IS_DEV: ${{ !startsWith(github.ref, 'refs/heads/release') }}
         run: |
-          sbt 'release with-defaults'
+          releaseVersion=$(git describe --tags --abbrev=7)
+          
+          sbt "release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT"
