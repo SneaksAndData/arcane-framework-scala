@@ -16,6 +16,7 @@ releaseVersionFile := file("version.sbt")
 releaseVersionBump := sbtrelease.Version.Bump.Bugfix
 releaseProcess := Seq[ReleaseStep](
     checkSnapshotDependencies,              // : ReleaseStep
+    inquireVersions,                        // : ReleaseStep
     runClean,                               // : ReleaseStep
     setReleaseVersion,                      // : ReleaseStep
     publishArtifacts,                       // : ReleaseStep

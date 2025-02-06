@@ -32,4 +32,4 @@ jobs:
         run: |
           releaseVersion=$(git describe --tags --abbrev=7)
           
-          sbt "release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT"
+          sbt "release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT with-defaults"
