@@ -27,7 +27,10 @@ jobs:
       - name: Prepare release command
         run:
           releaseVersion=$(git describe --tags --abbrev=7)
-          echo "command=release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT" >> "$GITHUB_OUTPUT"
+          
+          commandText="release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT"
+          
+          echo "command=$commandText" >> "$GITHUB_OUTPUT"
         id: release_command
       - name: Release new version
         shell: bash
