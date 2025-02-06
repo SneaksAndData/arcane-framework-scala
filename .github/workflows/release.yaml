@@ -24,12 +24,14 @@ jobs:
         uses: japgolly/setup-everything-scala@v3.1
         with:
           java-version: temurin:1.23.0.1
+      - name: Prepare release command
+        run:
+          releaseVersion=$(git describe --tags --abbrev=7)
+          echo "command=release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT" >> "$GITHUB_OUTPUT"
+        id: release_command
       - name: Release new version
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
-          IS_DEV: ${{ !startsWith(github.ref, 'refs/heads/release') }}
         run: |
-          releaseVersion=$(git describe --tags --abbrev=7)
-          
-          sbt "release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT with-defaults"
+          sbt '${{ steps.release_command.outputs.command }}'
