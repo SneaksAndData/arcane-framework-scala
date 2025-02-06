@@ -25,10 +25,12 @@ jobs:
         with:
           java-version: temurin:1.23.0.1
       - name: Prepare release command
+        shell: bash
         run:
           releaseVersion=$(git describe --tags --abbrev=7)
+          rvn="${releaseVersion:1}"
           
-          commandText="release release-version $releaseVersion next-version $releaseVersion-SNAPSHOT"
+          commandText="release release-version $rvn next-version $rvn-SNAPSHOT"
           
           echo "command=$commandText" >> "$GITHUB_OUTPUT"
         id: release_command
