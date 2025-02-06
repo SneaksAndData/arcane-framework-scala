@@ -18,8 +18,10 @@
         <ssl />
     </appender>
 
-    <root level="DEBUG">
-        <appender-ref ref="JSON_TCP" />
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
+    </root>
+    <root level="INFO">
+        <appender-ref ref="JSON_TCP" />
     </root>
 </configuration>
