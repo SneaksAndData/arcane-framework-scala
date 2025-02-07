@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.query
 
-import Utils.SqlUtils.toArcaneType
+import utils.SqlUtils.toArcaneType
 import models.{DataCell, DataRow}
 import services.mssql.base.{CanPeekHead, QueryResult, ResultSetOwner}
 

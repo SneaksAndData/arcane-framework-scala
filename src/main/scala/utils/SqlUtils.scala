@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package Utils
+package utils
 
 import models.*
 

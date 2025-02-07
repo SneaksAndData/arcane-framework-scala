@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import Utils.SqlUtils.toArcaneType
+import utils.SqlUtils.toArcaneType
 import models.{ArcaneSchema, ArcaneType, Field, MergeKeyField}
 import services.base.{CanAdd, SchemaProvider}
 import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
