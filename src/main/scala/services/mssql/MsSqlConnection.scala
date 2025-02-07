@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import utils.SqlUtils.toArcaneType
 import models.{ArcaneSchema, ArcaneType, Field, MergeKeyField}
 import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch, toArcaneType}
+import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
@@ -206,31 +207,6 @@ object MsSqlConnection:
         for connectionOptions <- ZIO.service[ConnectionOptions] yield MsSqlConnection(connectionOptions)
       }
     }
-
-  /**
-   * Converts a SQL type to an Arcane type.
-   *
-   * @param sqlType The SQL type.
-   * @return The Arcane type.
-   */
-  def toArcaneType(sqlType: Int): Try[ArcaneType] = sqlType match
-    case java.sql.Types.BIGINT => Success(ArcaneType.LongType)
-    case java.sql.Types.BINARY => Success(ArcaneType.ByteArrayType)
-    case java.sql.Types.BIT => Success(ArcaneType.BooleanType)
-    case java.sql.Types.CHAR => Success(ArcaneType.StringType)
-    case java.sql.Types.DATE => Success(ArcaneType.DateType)
-    case java.sql.Types.TIMESTAMP => Success(ArcaneType.TimestampType)
-    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
-    case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType)
-    case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
-    case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
-    case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
-    case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
-    case java.sql.Types.TIME => Success(ArcaneType.TimeType)
-    case java.sql.Types.NCHAR => Success(ArcaneType.StringType)
-    case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
-    case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
-    case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
 
   /**
    * Represents a batch of data.
