@@ -48,13 +48,13 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
 
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
-    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.7.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.7.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-core
-    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.7.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.7.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-parquet
-    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.7.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.7.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
-    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.7.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.7.1",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
     libraryDependencies += "software.amazon.awssdk" % "auth" % "2.25.27",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
