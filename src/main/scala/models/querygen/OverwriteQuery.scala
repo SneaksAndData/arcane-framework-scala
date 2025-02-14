@@ -8,7 +8,7 @@ package models.querygen
  */
 case class OverwriteQuery(sourceQuery: String, targetName: String) extends StreamingBatchQuery:
   def query: String =
-      s"""INSERT OVERWRITE $targetName
+      s"""CREATE OR REPLACE TABLE $targetName AS
          |$sourceQuery""".stripMargin
 
 object OverwriteQuery:
