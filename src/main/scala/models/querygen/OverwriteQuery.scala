@@ -2,14 +2,6 @@ package com.sneaksanddata.arcane.framework
 package models.querygen
 
 /**
- * Represents an SQL query used to replace ALL data in the target table
- * @param sourceQuery Query that provides data for replacement
- * @param targetName Target table name
+ * Marker trait, represents a query used to process a backfill streaming batch
  */
-case class OverwriteQuery(sourceQuery: String, targetName: String) extends StreamingBatchQuery:
-  def query: String =
-      s"""CREATE OR REPLACE TABLE $targetName AS
-         |$sourceQuery""".stripMargin
-
-object OverwriteQuery:
-  def apply(sourceQuery: String, targetName: String): OverwriteQuery = new OverwriteQuery(sourceQuery, targetName)
+trait OverwriteQuery extends StreamingBatchQuery

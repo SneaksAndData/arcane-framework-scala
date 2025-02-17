@@ -2,7 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.consumers
 
 import models.ArcaneSchema
-import models.querygen.{MergeQuery, MergeQueryCommons, OnSegment, OverwriteQuery, WhenMatchedDelete, WhenMatchedUpdate, WhenNotMatchedInsert}
+import models.querygen.{MergeQuery, MergeQueryCommons, OnSegment, OverwriteQuery, OverwriteReplaceQuery, WhenMatchedDelete, WhenMatchedUpdate, WhenNotMatchedInsert}
+import models.settings.TablePropertiesSettings
 
 object MatchedAppendOnlyDelete:
   def apply(): WhenMatchedDelete = new WhenMatchedDelete {
@@ -32,9 +33,12 @@ object SynapseLinkMergeQuery:
     ++ NotMatchedAppendOnlyInsert(columns)
 
 object SynapseLinkBackfillQuery:
-  def apply(targetName: String, sourceQuery: String): OverwriteQuery = OverwriteQuery(sourceQuery, targetName)
+  def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
+    OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
-class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String) extends StagedBackfillBatch:
+class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings)
+  extends StagedBackfillBatch:
+  
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
@@ -45,7 +49,7 @@ class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, tar
        | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
        |) WHERE coalesce(IsDelete, false) = false""".stripMargin
 
-  override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr)
+  override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
   def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
 
@@ -53,7 +57,8 @@ object  SynapseLinkBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String): StagedBackfillBatch = new SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillBatch =
+    new SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
 class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]], mergeKey: String) extends StagedVersionedBatch:
   override val name: String = batchName
