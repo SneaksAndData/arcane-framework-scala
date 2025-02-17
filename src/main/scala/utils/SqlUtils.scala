@@ -18,8 +18,8 @@ object SqlUtils:
     val columns = resultSet.getColumns.map(c => (c._1, toArcaneType(c._2)))
     val arcaneColumns = for c <- columns
       yield c match
-        case (MergeKeyField.name, Success(_)) => Success(MergeKeyField)
-        case (DatePartitionField.name, Success(_)) => Success(DatePartitionField)
+        case (MergeKeyField.name.toLowerCase(), Success(_)) => Success(MergeKeyField)
+        case (DatePartitionField.name.toLowerCase(), Success(_)) => Success(DatePartitionField)
         case (name, Success(arcaneType)) => Success(Field(name, arcaneType))
         case (_, Failure(e)) => Failure(e)
         

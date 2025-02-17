@@ -16,7 +16,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   it should "generate a valid overwrite query" in {
     val query = SynapseLinkBackfillQuery("test.table_a",
       """SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
         |) WHERE IsDelete = false""".stripMargin, TestTablePropertiesSettings)
     val expected = Using(Source.fromURL(getClass.getResource("/generate_an_overwrite_query_synapse_link.sql"))) {
       _.getLines().mkString("\n")
@@ -28,7 +28,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     val query = SynapseLinkMergeQuery(
       "test.table_a",
       """SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Map(),
       "ARCANE_MERGE_KEY",
@@ -45,7 +45,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     val query = SynapseLinkMergeQuery(
       "test.table_a",
       """SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Map(
         "colA" -> List("a", "b", "c")
