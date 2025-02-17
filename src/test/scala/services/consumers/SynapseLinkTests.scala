@@ -3,6 +3,7 @@ package services.consumers
 
 import models.ArcaneType.{LongType, StringType}
 import models.{Field, MergeKeyField}
+import utils.TestTablePropertiesSettings
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -16,7 +17,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     val query = SynapseLinkBackfillQuery("test.table_a",
       """SELECT * FROM (
         | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
-        |) WHERE IsDelete = false""".stripMargin)
+        |) WHERE IsDelete = false""".stripMargin, TestTablePropertiesSettings)
     val expected = Using(Source.fromURL(getClass.getResource("/generate_an_overwrite_query_synapse_link.sql"))) {
       _.getLines().mkString("\n")
     }.get
@@ -79,7 +80,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         name = "Id",
         fieldType = StringType
       )
-    ), "test.table_a")
+    ), "test.table_a", TestTablePropertiesSettings)
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_batch_query.sql"))) {
       _.getLines().mkString("\n")

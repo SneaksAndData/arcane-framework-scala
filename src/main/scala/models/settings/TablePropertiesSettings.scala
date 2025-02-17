@@ -38,3 +38,27 @@ trait TablePropertiesSettings:
    * List of columns to use for Parquet bloom filter. It improves the performance of queries using Equality and IN predicates when reading Parquet files. Requires Parquet format
    */
   val parquetBloomFilterColumns: Array[String]
+  
+object TablePropertiesSettings:
+
+  /**
+   * Serializes the table properties to a Trino with expression
+   */
+  extension (properties: TablePropertiesSettings) def serializeToWithExpression: String =
+    val supportedProperties = properties.serializeToMap.map { (propertyKey, propertyValue) => s"$propertyKey=$propertyValue" }.mkString(", ")
+    s"WITH ($supportedProperties)"
+
+  /**
+   * Serializes the table properties to a HashMap
+   */
+  extension (properties: TablePropertiesSettings) def serializeToMap: Map[String, String] =
+    Map(
+      "partitioning" -> serializeArrayProperty(properties.partitionExpressions),
+      "format" -> s"'${properties.format.toString}'",
+      "sorted_by" -> serializeArrayProperty(properties.sortedBy),
+      "parquet_bloom_filter_columns" -> serializeArrayProperty(properties.parquetBloomFilterColumns)
+    )
+    
+  private def serializeArrayProperty(prop: Array[String]): String =
+    val value = prop.map { expr => s"'$expr'" }.mkString(",")
+    s"ARRAY[$value]"

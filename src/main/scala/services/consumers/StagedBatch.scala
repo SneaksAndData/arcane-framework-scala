@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.consumers
 
-import models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery, InitializeQuery}
+import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteReplaceQuery, StreamingBatchQuery}
 import models.ArcaneSchema
 
 
