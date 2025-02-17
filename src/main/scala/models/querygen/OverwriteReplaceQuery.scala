@@ -4,7 +4,8 @@ package models.querygen
 import models.settings.TablePropertiesSettings
 
 /**
- * Represents an SQL query used to replace ALL data in the target table
+ * Represents an SQL query used to replace ALL data in the target table.
+ * This type of query uses the CREATE OR REPLACE TABLE statement to replace (or update) data in the target table.
  *
  * @param sourceQuery Query that provides data for replacement
  * @param targetName Target table name
