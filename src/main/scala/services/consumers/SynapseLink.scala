@@ -38,7 +38,7 @@ object SynapseLinkBackfillQuery:
 
 class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings)
   extends StagedBackfillBatch:
-  
+
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
@@ -46,7 +46,7 @@ class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, tar
     // important to note that append-only nature of the source must be taken into account
     // thus, we need identify which of the latest versions were deleted after we have found the latest versions for each `Id` - since for backfill we must exclude deletions
     s"""SELECT * FROM (
-       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
        |) WHERE coalesce(IsDelete, false) = false""".stripMargin
 
   override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
@@ -67,7 +67,7 @@ class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, target
   override def reduceExpr: String =
     // for merge query, we must carry over deletions so they can be applied in a MERGE statement by MatchedAppendOnlyDelete
     s"""SELECT * FROM (
-       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
 
   override val batchQuery: MergeQuery =
