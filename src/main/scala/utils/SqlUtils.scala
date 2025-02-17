@@ -15,7 +15,7 @@ object SqlUtils:
    * @return The schema of the table.
    */
   extension (resultSet: ResultSet) def readArcaneSchema: Try[ArcaneSchema] =
-    val columns = resultSet.getColumns.map(c => (c._1, toArcaneType(c._2)))
+    val columns = resultSet.getColumns.map(c => (c._1.toUpperCase(), toArcaneType(c._2)))
     val arcaneColumns = for c <- columns
       yield c match
         case (MergeKeyField.name, Success(_)) => Success(MergeKeyField)
