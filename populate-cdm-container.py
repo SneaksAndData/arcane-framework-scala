@@ -52,6 +52,11 @@ MODEL_JSON = """{
                       ],
                       "attributes": [
                         {
+                          "name": "Id",
+                          "dataType": "guid",
+                          "maxLength": -1
+                        },
+                        {
                           "name": "SinkCreatedOn",
                           "dataType": "dateTime",
                           "maxLength": -1
