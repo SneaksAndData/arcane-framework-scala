@@ -3,7 +3,7 @@ package services.consumers
 
 import models.ArcaneType.{LongType, StringType}
 import models.{Field, MergeKeyField}
-import utils.TestTablePropertiesSettings
+import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -30,7 +30,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       """SELECT * FROM (
         | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
-      Map(),
+      Seq(),
       "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", "versionnumber")
     )
@@ -47,9 +47,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       """SELECT * FROM (
         | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
-      Map(
-        "colA" -> List("a", "b", "c")
-      ),
+      Seq("colA"),
       "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", "versionnumber")
     )
@@ -110,8 +108,8 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       )
     ),
       "test.table_a",
-      Map("colA" -> List("a", "b", "c")
-      ))
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
+    )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_merge_query_with_partitions.sql"))) {
       _.getLines().mkString("\n")

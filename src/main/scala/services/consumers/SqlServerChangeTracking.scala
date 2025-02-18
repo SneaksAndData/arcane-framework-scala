@@ -25,9 +25,9 @@ object WhenNotMatchedInsert {
 }
 
 object SqlServerChangeTrackingMergeQuery:
-  def apply(targetName: String, sourceQuery: String, partitionValues: Map[String, List[String]], mergeKey: String, columns: Seq[String]): MergeQuery =
+  def apply(targetName: String, sourceQuery: String, partitionFields: Seq[String], mergeKey: String, columns: Seq[String]): MergeQuery =
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(partitionValues, mergeKey)
+      ++ OnSegment(Map(), mergeKey, partitionFields)
       ++ WhenMatchedDelete()
       ++ WhenMatchedUpdate(columns.filterNot(c => c == mergeKey))
       ++ WhenNotMatchedInsert(columns)
@@ -56,7 +56,7 @@ object  SqlServerChangeTrackingBackfillBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillBatch =
     new SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
-class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]], mergeKey: String) extends StagedVersionedBatch:
+class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
@@ -69,10 +69,10 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
        |""".stripMargin
 
   override val batchQuery: MergeQuery =
-    SqlServerChangeTrackingMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionValues = partitionValues, mergeKey = mergeKey, columns = schema.map(f => f.name))
+    SqlServerChangeTrackingMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
   def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
 object SqlServerChangeTrackingMergeBatch:
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]]): StagedVersionedBatch =
-    new SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, partitionValues: Map[String, List[String]], batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
+    new SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, batchSchema.mergeKey.name)

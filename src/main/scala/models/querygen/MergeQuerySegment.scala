@@ -45,11 +45,10 @@ given WhenNotMatchedWildcardInsert: MergeQuerySegment with
 object OnSegment:
   private def generateInClause(content: String, partName: String): String = s"${MergeQueryCommons.TARGET_ALIAS}.$partName IN ($content)"
 
-  def apply(partitionValues: Map[String, List[String]], mergeKey: String): OnSegment = new OnSegment {
+  def apply(partitionValues: Map[String, List[String]], mergeKey: String, extraMatchKeys: Seq[String]): OnSegment = new OnSegment {
     override val segmentCondition: Option[String] =
       val baseCondition = s"${MergeQueryCommons.TARGET_ALIAS}.$mergeKey = ${MergeQueryCommons.SOURCE_ALIAS}.$mergeKey"
-      partitionValues
-        .map(values => generateInClause(values._2.map(part => s"'$part'").mkString(","), values._1)) match
-        case partExpr if partExpr.nonEmpty => Some(s"$baseCondition AND ${partExpr.mkString(" AND ")}")
-        case _ => Some(baseCondition)
+      val inClause = partitionValues.map(values => generateInClause(values._2.map(part => s"'$part'").mkString(","), values._1)).mkString(" AND ")
+      val extraMatchClause = extraMatchKeys.map(key => s"${MergeQueryCommons.TARGET_ALIAS}.$key = ${MergeQueryCommons.SOURCE_ALIAS}.$key").mkString(" AND ")
+      Some(Array(baseCondition, inClause, extraMatchClause).filter(_.nonEmpty).mkString(" AND "))
   }
