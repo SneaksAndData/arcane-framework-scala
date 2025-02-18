@@ -2,11 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.consumers
 
 import models.app.StreamContext
-import models.settings.SinkSettings
+import models.settings.{SinkSettings, TablePropertiesSettings}
 import models.{ArcaneSchema, DataRow}
 import services.base.SchemaProvider
 import services.consumers.{BatchApplicationResult, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+
 import IcebergStreamingConsumer.{getTableName, toStagedBatch}
 import services.streaming.base.{BatchConsumer, BatchProcessor}
 
@@ -33,6 +34,7 @@ trait StreamingConsumer extends BatchConsumer[Chunk[DataRow]]
  */
 class IcebergStreamingConsumer(streamContext: StreamContext,
                                sinkSettings: SinkSettings,
+                               tablePropertiesSettings: TablePropertiesSettings,
                                catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                schemaProvider: SchemaProvider[ArcaneSchema],
                                mergeProcessor: BatchProcessor[StagedVersionedBatch, BatchApplicationResult]) extends StreamingConsumer:
@@ -64,7 +66,7 @@ class IcebergStreamingConsumer(streamContext: StreamContext,
     for
       arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
-    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, Map())
+    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, tablePropertiesSettings)
 
 object IcebergStreamingConsumer:
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
@@ -74,9 +76,9 @@ object IcebergStreamingConsumer:
 
   extension (table: Table) def toStagedBatch(batchSchema: ArcaneSchema,
                                              targetName: String,
-                                             partitionValues: Map[String, List[String]]): StagedVersionedBatch =
+                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
     val batchName = table.name().split('.').last
-    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, partitionValues)
+    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
 
   /**
@@ -90,10 +92,11 @@ object IcebergStreamingConsumer:
    */
   def apply(streamContext: StreamContext,
             sinkSettings: SinkSettings,
+            tablePropertiesSettings: TablePropertiesSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             schemaProvider: SchemaProvider[ArcaneSchema],
             mergeProcessor: BatchProcessor[StagedVersionedBatch, Boolean]): IcebergStreamingConsumer =
-    new IcebergStreamingConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
+    new IcebergStreamingConsumer(streamContext, sinkSettings, tablePropertiesSettings, catalogWriter, schemaProvider, mergeProcessor)
 
   /**
    * The required environment for the IcebergConsumer.
@@ -103,6 +106,7 @@ object IcebergStreamingConsumer:
     & BatchProcessor[StagedVersionedBatch, Boolean]
     & StreamContext
     & SinkSettings
+    & TablePropertiesSettings
 
   /**
    * The ZLayer that creates the IcebergConsumer.
@@ -112,8 +116,9 @@ object IcebergStreamingConsumer:
       for
         streamContext <- ZIO.service[StreamContext]
         sinkSettings <- ZIO.service[SinkSettings]
+        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
         mergeProcessor <- ZIO.service[BatchProcessor[StagedVersionedBatch, Boolean]]
-      yield IcebergStreamingConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor)
+      yield IcebergStreamingConsumer(streamContext, sinkSettings, tablePropertiesSettings, catalogWriter, schemaProvider, mergeProcessor)
     }

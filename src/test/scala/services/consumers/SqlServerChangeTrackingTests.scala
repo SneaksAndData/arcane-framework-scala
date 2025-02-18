@@ -6,6 +6,7 @@ import models.settings.{TableFormat, TablePropertiesSettings}
 import models.{Field, MergeKeyField}
 import utils.TestTablePropertiesSettings
 
+import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -13,6 +14,14 @@ import scala.io.Source
 import scala.util.Using
 
 class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
+  
+  object MockTablePropertiesSettings:
+    def apply(partitions: Seq[String]): TablePropertiesSettings = new TablePropertiesSettings {
+      override val partitionExpressions: Array[String] = partitions.toArray
+      override val parquetBloomFilterColumns: Array[String] = Array.empty
+      override val format: TableFormat = PARQUET
+      override val sortedBy: Array[String] = Array.empty
+    }
   
   it should "generate a valid overwrite query" in {
     val query = SqlServerChangeTrackingBackfillQuery("test.table_a", "SELECT * FROM test.staged_a", TestTablePropertiesSettings)
@@ -24,7 +33,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     val query = SqlServerChangeTrackingMergeQuery(
       "test.table_a",
       "SELECT * FROM test.staged_a",
-      Map(),
+      Seq(),
       "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
@@ -37,9 +46,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     val query = SqlServerChangeTrackingMergeQuery(
       "test.table_a",
       "SELECT * FROM test.staged_a",
-      Map(
-        "colA" -> List("a", "b", "c")
-      ),
+      Seq("colA"),
       "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
@@ -84,8 +91,8 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      Map("colA" -> List("a", "b", "c")
-    ))
+      MockTablePropertiesSettings(Seq("bucket(colA, 32)"))
+    )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_merge_query_with_partitions.sql"))) {
       _.getLines().mkString("\n")
