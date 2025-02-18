@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.metrics.base
+package services.base
 
 /**
  * A object that contains the declared metrics names.

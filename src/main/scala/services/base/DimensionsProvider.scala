@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.metrics.base
+package services.base
 
 import scala.collection.immutable.SortedMap
 

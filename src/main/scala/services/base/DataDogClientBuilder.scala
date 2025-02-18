@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.metrics.datadog.base
+package services.base
 
 import services.metrics.datadog.{NoOpClientBuilder, UnixDomainSocketClientBuilder}
 
