@@ -86,4 +86,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.24.3",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.16",
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
+
+    // Metrics
+    libraryDependencies += "com.datadoghq" % "java-dogstatsd-client" % "4.4.1",
   )
