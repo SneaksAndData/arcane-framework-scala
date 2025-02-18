@@ -3,7 +3,7 @@ package services.consumers
 
 import models.ArcaneType.{LongType, StringType}
 import models.{Field, MergeKeyField}
-import utils.TestTablePropertiesSettings
+import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -108,7 +108,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       )
     ),
       "test.table_a",
-      TestTablePropertiesSettings
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_merge_query_with_partitions.sql"))) {

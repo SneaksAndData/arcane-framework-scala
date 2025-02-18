@@ -66,7 +66,7 @@ object TablePropertiesSettings:
     .partitionExpressions
     .map { pe =>
       val matchingPart = partitionExpressionParts.filter(pep => pe.toLowerCase.startsWith(pep._1)).head
-      pe.substring(pe.indexOf("("), pe.indexOf(matchingPart._2))
+      pe.substring(pe.indexOf("(") + 1, pe.indexOf(matchingPart._2))
     }
     
   private def serializeArrayProperty(prop: Array[String]): String =

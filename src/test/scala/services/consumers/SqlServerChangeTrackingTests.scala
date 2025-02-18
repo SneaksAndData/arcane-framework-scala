@@ -4,7 +4,7 @@ package services.consumers
 import models.ArcaneType.StringType
 import models.settings.{TableFormat, TablePropertiesSettings}
 import models.{Field, MergeKeyField}
-import utils.TestTablePropertiesSettings
+import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,14 +14,6 @@ import scala.io.Source
 import scala.util.Using
 
 class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
-  
-  object MockTablePropertiesSettings:
-    def apply(partitions: Seq[String]): TablePropertiesSettings = new TablePropertiesSettings {
-      override val partitionExpressions: Array[String] = partitions.toArray
-      override val parquetBloomFilterColumns: Array[String] = Array.empty
-      override val format: TableFormat = PARQUET
-      override val sortedBy: Array[String] = Array.empty
-    }
   
   it should "generate a valid overwrite query" in {
     val query = SqlServerChangeTrackingBackfillQuery("test.table_a", "SELECT * FROM test.staged_a", TestTablePropertiesSettings)
@@ -91,7 +83,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      MockTablePropertiesSettings(Seq("bucket(colA, 32)"))
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)"))
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_merge_query_with_partitions.sql"))) {
