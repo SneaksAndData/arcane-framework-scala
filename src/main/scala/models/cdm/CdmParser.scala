@@ -3,6 +3,7 @@ package models.cdm
 
 import models.{ArcaneSchema, DataCell, DataRow, MergeKeyField}
 
+import java.util.regex.Matcher
 import scala.language.implicitConversions
 import scala.util.matching.Regex
 
@@ -84,7 +85,7 @@ object CSVParser:
 
   def replaceQuotedNewlines(csvLine: String): String = {
     val regex = new Regex("\"[^\"]*(?:\"\"[^\"]*)*\"")
-    regex.replaceSomeIn(csvLine, m => Some(m.matched.replace("\n", ""))).replace("\r", "")
+    regex.replaceSomeIn(csvLine, m => Some(Matcher.quoteReplacement(m.matched.replace("\n", "")))).replace("\r", "")
   }
 
 
