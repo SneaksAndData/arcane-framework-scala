@@ -5,7 +5,11 @@ import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteRe
 import models.ArcaneSchema
 
 
-trait StagedBatch[Query <: StreamingBatchQuery]:
+trait StagedBatch:
+
+  type Query <: StreamingBatchQuery
+
+
   /**
    * Name of the table in the linked Catalog that holds batch data
    */
@@ -35,14 +39,23 @@ trait StagedBatch[Query <: StreamingBatchQuery]:
 /**
  * StagedBatch that overwrites the whole table and all partitions that it might have
  */
-type StagedInitBatch = StagedBatch[InitializeQuery]
+trait StagedInitBatch extends StagedBatch:
+  override type Query = InitializeQuery
 
 /**
- * StagedBatch that overwrites the whole table and all partitions that it might have
+ * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode
  */
-type StagedBackfillBatch = StagedBatch[OverwriteQuery]
+trait StagedBackfillOverwriteBatch extends StagedBatch:
+  override type Query = OverwriteQuery
+
+/**
+ * StagedBatch that performs a backfill operation on the table in MERGE mode
+ */
+trait StagedBackfillMergeBatch extends StagedBatch:
+  override type Query = MergeQuery
 
 /**
  * StagedBatch that updates data in the table
  */
-type StagedVersionedBatch = StagedBatch[MergeQuery]
+trait StagedVersionedBatch extends StagedBatch:
+  override type Query = MergeQuery

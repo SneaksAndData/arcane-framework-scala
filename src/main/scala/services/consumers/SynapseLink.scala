@@ -37,7 +37,7 @@ object SynapseLinkBackfillQuery:
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
 class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings)
-  extends StagedBackfillBatch:
+  extends StagedBackfillOverwriteBatch:
 
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
@@ -57,7 +57,7 @@ object  SynapseLinkBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillBatch =
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
     new SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
 class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:

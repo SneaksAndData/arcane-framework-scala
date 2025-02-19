@@ -14,7 +14,7 @@ import zio.{ZIO, ZLayer}
  * @param jdbcConsumer The JDBC consumer.
  */
 class MergeProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
-  extends BatchProcessor[StagedBatch[MergeQuery], BatchApplicationResult]:
+  extends BatchProcessor[StagedVersionedBatch, BatchApplicationResult]:
 
   /**
    * Processes the incoming data.
