@@ -57,10 +57,10 @@ object  SynapseLinkBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillBatch =
     new SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
-class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:
+class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with StagedBackfillMergeBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
@@ -76,5 +76,5 @@ class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, target
   override def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
 object SynapseLinkMergeBatch:
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkMergeBatch =
     new SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, batchSchema.mergeKey.name)
