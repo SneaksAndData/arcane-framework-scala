@@ -60,7 +60,7 @@ object  SynapseLinkBackfillBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
     new SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
-class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:
+class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with StagedBackfillMergeBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
