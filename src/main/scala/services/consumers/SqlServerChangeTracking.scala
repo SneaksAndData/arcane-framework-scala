@@ -37,7 +37,7 @@ object SqlServerChangeTrackingBackfillQuery:
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
 class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings)
-  extends StagedBackfillBatch:
+  extends StagedBackfillOverwriteBatch:
   
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
@@ -53,7 +53,7 @@ object  SqlServerChangeTrackingBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillBatch =
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
     new SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
 class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:
