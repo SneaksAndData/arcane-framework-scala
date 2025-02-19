@@ -37,21 +37,26 @@ trait StagedBatch:
 
 
 /**
- * StagedBatch that overwrites the whole table and all partitions that it might have
+ * StagedBatch initializes the table.
  */
 trait StagedInitBatch extends StagedBatch:
   override type Query = InitializeQuery
 
 /**
- * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode
+ * Common trait for StagedBatch that performs a backfill operation on the table.
  */
-trait StagedBackfillOverwriteBatch extends StagedBatch:
+trait StagedBackfillBatch extends StagedBatch
+
+/**
+ * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
+ */
+trait StagedBackfillOverwriteBatch extends StagedBackfillBatch:
   override type Query = OverwriteQuery
 
 /**
- * StagedBatch that performs a backfill operation on the table in MERGE mode
+ * StagedBatch that performs a backfill operation on the table in MERGE mode.
  */
-trait StagedBackfillMergeBatch extends StagedBatch:
+trait StagedBackfillMergeBatch extends StagedBackfillBatch:
   override type Query = MergeQuery
 
 /**
