@@ -49,6 +49,6 @@ object OnSegment:
     override val segmentCondition: Option[String] =
       val baseCondition = s"${MergeQueryCommons.TARGET_ALIAS}.$mergeKey = ${MergeQueryCommons.SOURCE_ALIAS}.$mergeKey"
       val inClause = partitionValues.map(values => generateInClause(values._2.map(part => s"'$part'").mkString(","), values._1)).mkString(" AND ")
-      val extraMatchClause = extraMatchKeys.map(key => s"(${MergeQueryCommons.TARGET_ALIAS}.$key = ${MergeQueryCommons.SOURCE_ALIAS}.$key OR ${MergeQueryCommons.TARGET_ALIAS}.$key IS NULL)").mkString(" AND ")
+      val extraMatchClause = extraMatchKeys.map(key => s"(${MergeQueryCommons.TARGET_ALIAS}.$key = ${MergeQueryCommons.SOURCE_ALIAS}.$key OR ${MergeQueryCommons.SOURCE_ALIAS}.$key IS NULL)").mkString(" AND ")
       Some(Array(baseCondition, inClause, extraMatchClause).filter(_.nonEmpty).mkString(" AND "))
   }
