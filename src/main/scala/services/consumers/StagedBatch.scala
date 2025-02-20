@@ -9,7 +9,6 @@ trait StagedBatch:
 
   type Query <: StreamingBatchQuery
 
-
   /**
    * Name of the table in the linked Catalog that holds batch data
    */
@@ -34,13 +33,18 @@ trait StagedBatch:
    * @return SQL query text
    */
   def archiveExpr(archiveTableName: String): String
-  
+
   /**
    * Query that should be used to archive this batch data
    * @return SQL query text
    */
   def archiveExpr(arcaneSchema: ArcaneSchema): String
 
+  /**
+   * Query that should be used to dispose of this batch data.
+   * @return SQL query text
+   */
+  def disposeExpr: String = s"DROP TABLE $name"
 
 /**
  * StagedBatch initializes the table.

@@ -47,7 +47,7 @@ class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: Arcan
 
   override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
-  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
+  def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
   override def archiveExpr(actualSchema: ArcaneSchema): String =
     s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
