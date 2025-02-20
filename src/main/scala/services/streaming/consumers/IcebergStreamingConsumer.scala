@@ -4,12 +4,11 @@ package services.streaming.consumers
 import models.app.StreamContext
 import models.settings.{SinkSettings, TablePropertiesSettings}
 import models.{ArcaneSchema, DataRow}
-import services.base.SchemaProvider
-import services.consumers.{BatchApplicationResult, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
+import services.base.{BatchApplicationResult, SchemaProvider}
+import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
-
-import IcebergStreamingConsumer.{getTableName, toStagedBatch}
 import services.streaming.base.{BatchConsumer, BatchProcessor}
+import services.streaming.consumers.IcebergStreamingConsumer.{getTableName, toStagedBatch}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

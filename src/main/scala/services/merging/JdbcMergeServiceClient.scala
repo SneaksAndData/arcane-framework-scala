@@ -2,9 +2,16 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-import models.ArcaneSchema
-import models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery}
-import services.base.{BatchApplicationResult, BatchArchivationResult, BatchDisposeResult, MergeServiceClient, TableManager}
+import com.sneaksanddata.arcane.framework.models.ArcaneSchema
+import services.base.*
+import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.models.given_ConditionallyApplicable_JdbcOptimizationRequest
+import services.merging.models.given_ConditionallyApplicable_JdbcSnapshotExpirationRequest
+import services.merging.models.given_ConditionallyApplicable_JdbcOrphanFilesExpirationRequest
+import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRequest
+import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
+import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
+
 
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -13,14 +20,7 @@ import java.time.Duration
 import scala.concurrent.Future
 import scala.util.Try;
 
-case class JdbcOptimizationRequest(tableName: String, optimizeThreshold: Long, fileSizeThreshold: String)
-
-case class JdbcSnapshotExpirationRequest(tableName: String, optimizeThreshold: Long, fileSizeThreshold: String)
-
-case class JdbcOrphanFilesExpirationRequest(tableName: String, optimizeThreshold: Long, fileSizeThreshold: String)
-
-
-trait JdbcConsumerOptions:
+trait JdbcMergeServiceClientOptions:
   /**
    * The connection URL.
    */
@@ -38,7 +38,7 @@ trait JdbcConsumerOptions:
  *
  * @param options The options for the consumer.
  */
-class JdbcMergeServiceClient(options: JdbcConsumerOptions)
+class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
   extends MergeServiceClient with TableManager with AutoCloseable:
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
@@ -63,11 +63,53 @@ class JdbcMergeServiceClient(options: JdbcConsumerOptions)
   def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
     executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
 
-  type BatchOptimizationRequest = JdbcOptimizationRequest
 
-  type SnapshotExpirationRequest = JdbcSnapshotExpirationRequest
+  /**
+   * @inheritdoc
+   */
+  override type TableOptimizationRequest = JdbcOptimizationRequest
 
-  type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
+  /**
+   * @inheritdoc
+   */
+  override type SnapshotExpirationRequest = JdbcSnapshotExpirationRequest
+
+  /**
+   * @inheritdoc
+   */
+  override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
+
+  /**
+   * @inheritdoc
+   */
+  override def optimizeTable(request: TableOptimizationRequest): Task[BatchOptimizationResult] =
+    if request.isApplicable then
+      executeBatchQuery(request.toSqlExpression, request.name, "Archiving", _ => BatchOptimizationResult())
+    else
+      ZIO.succeed(BatchOptimizationResult())
+
+  /**
+   * @inheritdoc
+   */
+  override def expireSnapshots(request: SnapshotExpirationRequest): Task[BatchOptimizationResult] =
+    if request.isApplicable then
+      executeBatchQuery(request.toSqlExpression, request.name, "Running Snapshot Expiration task", _ => BatchOptimizationResult())
+    else
+      ZIO.succeed(BatchOptimizationResult())
+
+  /**
+   * @inheritdoc
+   */
+  override def expireOrphanFiles(request: OrphanFilesExpirationRequest): Task[BatchOptimizationResult] =
+    if request.isApplicable then
+      executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult())
+    else
+      ZIO.succeed(BatchOptimizationResult())
+
+  /**
+   * @inheritdoc
+   */
+  override def close(): Unit = sqlConnection.close()
 
   private type ResultMapper[Result] = Boolean => Result
 
@@ -80,72 +122,20 @@ class JdbcMergeServiceClient(options: JdbcConsumerOptions)
       yield resultMapper(applicationResult)
     }
 
-
-  override def optimizeTable(batchOptimizationRequest: BatchOptimizationRequest): Task[BatchApplicationResult] =
-    if (batchNumber+1) % optimizeThreshold == 0 then
-      val query = ZIO.attemptBlocking {
-        sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute optimize(file_size_threshold => '$fileSizeThreshold')")
-      }
-      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
-        for
-          _ <- zlog(s"Optimizing table $tableName. Batch number: $batchNumber. fileSizeThreshold: $fileSizeThreshold")
-          _ <- ZIO.attemptBlocking { statement.execute() }
-        yield true
-      }
-    else
-      ZIO.succeed(false)
-
-  def expireSnapshots(tableName: String, batchNumber: Long, optimizeThreshold: Long, retentionThreshold: String): Task[BatchApplicationResult] =
-    if (batchNumber+1) % optimizeThreshold == 0 then
-      val query = ZIO.attemptBlocking {
-        sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute expire_snapshots(retention_threshold => '$retentionThreshold')")
-      }
-      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
-        for
-          _ <- zlog(s"Run expire_snapshots for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
-          _ <- ZIO.attemptBlocking { statement.execute() }
-        yield true
-      }
-    else
-      ZIO.succeed(false)
-
-  def expireOrphanFiles(tableName: String, batchNumber: Long, optimizeThreshold: Long, retentionThreshold: String): Task[BatchApplicationResult] =
-    if (batchNumber+1) % optimizeThreshold == 0 then
-      val query = ZIO.attemptBlocking {
-        sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute remove_orphan_files(retention_threshold => '$retentionThreshold')")
-      }
-      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
-        for
-          _ <- zlog(s"Run remove_orphan_files for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
-          _ <- ZIO.attemptBlocking { statement.execute() }
-        yield true
-      }
-    else
-      ZIO.succeed(false)
-
-  def close(): Unit = sqlConnection.close()
-
-  private def collectPartitionColumn(resultSet: ResultSet, columnName: String): Seq[String] =
-    // do not fail on closed result sets
-    if resultSet.isClosed then
-      Seq.empty
-    else
-      val current = resultSet.getString(columnName)
-      if resultSet.next() then
-        collectPartitionColumn(resultSet, columnName) :+ current
-      else
-        resultSet.close()
-        Seq(current)
-
-
 object JdbcMergeServiceClient:
+
+  /**
+   * The environment type for the JdbcConsumer.
+   */
+  private type Environment = JdbcMergeServiceClientOptions
+  
   /**
    * Factory method to create JdbcConsumer.
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply[Query <: StreamingBatchQuery](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcMergeServiceClient =
-    new JdbcMergeServiceClient(options, archiveTableSettings)
+  def apply(options: JdbcMergeServiceClientOptions): JdbcMergeServiceClient =
+    new JdbcMergeServiceClient(options)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -154,9 +144,8 @@ object JdbcMergeServiceClient:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          connectionOptions <- ZIO.service[JdbcConsumerOptions]
-          archiveTableSettings <- ZIO.service[ArchiveTableSettings]
-        yield JdbcConsumer(connectionOptions, archiveTableSettings)
+          connectionOptions <- ZIO.service[JdbcMergeServiceClientOptions]
+        yield JdbcMergeServiceClient(connectionOptions)
       }
     }
 

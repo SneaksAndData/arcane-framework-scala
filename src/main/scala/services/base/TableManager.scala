@@ -4,16 +4,54 @@ package services.base
 import zio.Task
 
 /**
+ * A type class that converts a value to a SQL expression.
+ *
+ * @tparam A The type of the value to convert.
+ */
+trait SqlExpressionConvertable[A]:
+  /**
+   * Converts a value to a SQL expression.
+   *
+   * @param a The value to convert.
+   * @return The SQL expression.
+   */
+  extension (a: A) def toSqlExpression: String
+
+  extension (a: A) def name: String
+
+/**
+ * A type class that converts a value to a SQL expression.
+ *
+ * @tparam A The type of the value to convert.
+ */
+trait ConditionallyApplicable[A]:
+  /**
+   * Converts a value to a SQL expression.
+   *
+   * @param a The value to convert.
+   * @return The SQL expression.
+   */
+  extension (a: A) def isApplicable: Boolean
+
+/**
  * The result of a table optimization operation.
  */
 class BatchOptimizationResult
+
+object BatchOptimizationResult:
+  /**
+   * Creates a new instance of the result.
+   *
+   * @return The result.
+   */
+  def apply(): BatchOptimizationResult = new BatchOptimizationResult
 
 /**
  * A service that is responsible for managing tables.
  */
 trait TableManager:
   
-  type BatchOptimizationRequest
+  type TableOptimizationRequest
   
   type SnapshotExpirationRequest
   
@@ -25,7 +63,7 @@ trait TableManager:
    * @param batchOptimizationRequest The optimization request.
    * @return The result of the optimization operation.
    */
-  def optimizeTable(batchOptimizationRequest: BatchOptimizationRequest): Task[BatchOptimizationResult]
+  def optimizeTable(batchOptimizationRequest: TableOptimizationRequest): Task[BatchOptimizationResult]
 
   /**
    * Expires snapshots.
