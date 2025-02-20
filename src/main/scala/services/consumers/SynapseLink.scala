@@ -45,9 +45,7 @@ class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, tar
   override def reduceExpr: String =
     // important to note that append-only nature of the source must be taken into account
     // thus, we need identify which of the latest versions were deleted after we have found the latest versions for each `Id` - since for backfill we must exclude deletions
-    s"""SELECT * FROM (
-       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
-       |) WHERE coalesce(IsDelete, false) = false""".stripMargin
+    s"""SELECT * FROM $name""".stripMargin
 
   override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
