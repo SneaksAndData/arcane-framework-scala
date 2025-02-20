@@ -82,3 +82,8 @@ object ArcaneSchema:
    * @return An empty ArcaneSchema.
    */
   def empty(): ArcaneSchema = Seq.empty
+
+  /**
+   * Converts a schema to an SQL column expression.
+   */
+  extension (schema: ArcaneSchema) def toColumnsExpression: String = s"(${schema.map(f => f.name).mkString(", ")})"
