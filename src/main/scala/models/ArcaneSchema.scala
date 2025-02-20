@@ -3,7 +3,7 @@ package models
 
 import models.ArcaneType.StringType
 
-import scala.language.{existentials, implicitConversions}
+import scala.language.implicitConversions
 
 /**
  * Types of fields in ArcaneSchema.
