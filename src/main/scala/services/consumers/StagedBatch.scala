@@ -34,6 +34,12 @@ trait StagedBatch:
    * @return SQL query text
    */
   def archiveExpr(archiveTableName: String): String
+  
+  /**
+   * Query that should be used to archive this batch data
+   * @return SQL query text
+   */
+  def archiveExpr(arcaneSchema: ArcaneSchema): String
 
 
 /**
