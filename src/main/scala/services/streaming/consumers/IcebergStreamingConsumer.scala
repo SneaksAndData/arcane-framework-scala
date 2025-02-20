@@ -33,6 +33,7 @@ trait StreamingConsumer extends BatchConsumer[Chunk[DataRow]]
  */
 class IcebergStreamingConsumer(streamContext: StreamContext,
                                sinkSettings: SinkSettings,
+                               arvhiveTab
                                tablePropertiesSettings: TablePropertiesSettings,
                                catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                schemaProvider: SchemaProvider[ArcaneSchema],
@@ -75,9 +76,10 @@ object IcebergStreamingConsumer:
 
   extension (table: Table) def toStagedBatch(batchSchema: ArcaneSchema,
                                              targetName: String,
+                                             archiveName: String,
                                              tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
     val batchName = table.name().split('.').last
-    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
+    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, archiveName, tablePropertiesSettings)
 
 
   /**
