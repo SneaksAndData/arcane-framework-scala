@@ -2,13 +2,14 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.consumers
 
 import models.app.StreamContext
-import models.settings.{SinkSettings, TablePropertiesSettings}
+import models.settings.{ArchiveTableSettings, SinkSettings, TablePropertiesSettings}
 import models.{ArcaneSchema, DataRow}
-import services.base.{BatchApplicationResult, SchemaProvider}
-import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
+import services.base.SchemaProvider
+import services.consumers.{BatchApplicationResult, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+
+import IcebergStreamingConsumer.{getTableName, toStagedBatch}
 import services.streaming.base.{BatchConsumer, BatchProcessor}
-import services.streaming.consumers.IcebergStreamingConsumer.{getTableName, toStagedBatch}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -33,7 +34,7 @@ trait StreamingConsumer extends BatchConsumer[Chunk[DataRow]]
  */
 class IcebergStreamingConsumer(streamContext: StreamContext,
                                sinkSettings: SinkSettings,
-                               arvhiveTab
+                               archiveTableSettings: ArchiveTableSettings,
                                tablePropertiesSettings: TablePropertiesSettings,
                                catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                schemaProvider: SchemaProvider[ArcaneSchema],
@@ -66,7 +67,7 @@ class IcebergStreamingConsumer(streamContext: StreamContext,
     for
       arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
-    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, tablePropertiesSettings)
+    yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, archiveTableSettings.fullName, tablePropertiesSettings)
 
 object IcebergStreamingConsumer:
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
@@ -93,11 +94,12 @@ object IcebergStreamingConsumer:
    */
   def apply(streamContext: StreamContext,
             sinkSettings: SinkSettings,
+            archiveTableSettings: ArchiveTableSettings,
             tablePropertiesSettings: TablePropertiesSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             schemaProvider: SchemaProvider[ArcaneSchema],
             mergeProcessor: BatchProcessor[StagedVersionedBatch, Boolean]): IcebergStreamingConsumer =
-    new IcebergStreamingConsumer(streamContext, sinkSettings, tablePropertiesSettings, catalogWriter, schemaProvider, mergeProcessor)
+    new IcebergStreamingConsumer(streamContext, sinkSettings, archiveTableSettings, tablePropertiesSettings, catalogWriter, schemaProvider, mergeProcessor)
 
   /**
    * The required environment for the IcebergConsumer.
@@ -108,6 +110,7 @@ object IcebergStreamingConsumer:
     & StreamContext
     & SinkSettings
     & TablePropertiesSettings
+    & ArchiveTableSettings
 
   /**
    * The ZLayer that creates the IcebergConsumer.
@@ -117,9 +120,10 @@ object IcebergStreamingConsumer:
       for
         streamContext <- ZIO.service[StreamContext]
         sinkSettings <- ZIO.service[SinkSettings]
+        archiveTableSettings <- ZIO.service[ArchiveTableSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
         mergeProcessor <- ZIO.service[BatchProcessor[StagedVersionedBatch, Boolean]]
-      yield IcebergStreamingConsumer(streamContext, sinkSettings, tablePropertiesSettings, catalogWriter, schemaProvider, mergeProcessor)
+      yield IcebergStreamingConsumer(streamContext, sinkSettings, archiveTableSettings, tablePropertiesSettings, catalogWriter, schemaProvider, mergeProcessor)
     }

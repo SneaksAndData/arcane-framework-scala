@@ -49,6 +49,8 @@ class SynapseLinkBackfillBatch(batchName: String, batchSchema: ArcaneSchema, tar
 
   override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
+  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
+
   override def archiveExpr(actualSchema: ArcaneSchema): String =
     s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
 
@@ -68,6 +70,8 @@ class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, target
 
   override val batchQuery: MergeQuery =
     SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
+
+  override def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
   override def archiveExpr(actualSchema: ArcaneSchema): String =
     s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
