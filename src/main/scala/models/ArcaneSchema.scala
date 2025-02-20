@@ -87,3 +87,6 @@ object ArcaneSchema:
    * Converts a schema to an SQL column expression.
    */
   extension (schema: ArcaneSchema) def toColumnsExpression: String = s"(${schema.map(f => f.name).mkString(", ")})"
+
+given NamedCell[ArcaneSchemaField] with
+  extension (field: ArcaneSchemaField) def name: String = field.name

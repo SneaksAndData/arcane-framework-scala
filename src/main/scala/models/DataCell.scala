@@ -20,3 +20,6 @@ case class DataCell(name: String, Type: ArcaneType, value: Any)
  */
 object DataCell:
   def apply(name: String, Type: ArcaneType, value: Any): DataCell = new DataCell(name, Type, value)
+  
+given NamedCell[DataCell] with
+  extension (field: DataCell) def name: String = field.name
