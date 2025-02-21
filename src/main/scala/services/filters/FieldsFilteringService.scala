@@ -18,8 +18,8 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
    * @return The filtered data/schema.
    */
   def filter[T: NamedCell](row: Seq[T]): Seq[T] = fieldSelectionRule.rule match
-    case includeFields: FieldSelectionRule.IncludeFields => row.filter(entry => includeFields.fields.contains(entry.name.toLowerCase()))
-    case excludeFields: FieldSelectionRule.ExcludeFields => row.filter(entry => !excludeFields.fields.contains(entry.name.toLowerCase()))
+    case includeFields: FieldSelectionRule.IncludeFields => row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
+    case excludeFields: FieldSelectionRule.ExcludeFields => row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
     case _ => row
 
 object FieldsFilteringService:
