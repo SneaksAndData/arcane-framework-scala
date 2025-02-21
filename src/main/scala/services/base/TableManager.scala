@@ -17,6 +17,12 @@ trait SqlExpressionConvertable[A]:
    */
   extension (a: A) def toSqlExpression: String
 
+  /**
+   * Gets the name of the value.
+   *
+   * @param a The value to convert.
+   * @return The SQL expression.
+   */
   extension (a: A) def name: String
 
 /**
