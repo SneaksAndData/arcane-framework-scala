@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.consumers
 
 import models.ArcaneType.StringType
+import models.settings.TableFormat.PARQUET
 import models.settings.{TableFormat, TablePropertiesSettings}
 import models.{Field, MergeKeyField}
 import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
-import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -61,7 +61,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         name = "colB",
         fieldType = StringType
       )
-    ), "test.table_a", TestTablePropertiesSettings)
+    ), "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
       _.getLines().mkString("\n")
@@ -83,6 +83,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
+      "test.archive_table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)"))
     )
 

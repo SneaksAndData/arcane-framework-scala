@@ -89,7 +89,7 @@ object CSVParser:
 
 
 given Conversion[(String, ArcaneSchema), DataRow] with
-  private val arcaneMergeKeyFieldName = "recid"
+  private val arcaneMergeKeyFieldName = "Id"
 
   override def apply(schemaBoundCsvLine: (String, ArcaneSchema)): DataRow = schemaBoundCsvLine match
     case (csvLine, schema) =>
@@ -97,7 +97,7 @@ given Conversion[(String, ArcaneSchema), DataRow] with
         line = csvLine,
         headerCount = schema.size - SimpleCdmModel.systemFieldCount)
 
-      val mergeKeyIndex = schema.zipWithIndex.find(v => v._1.name.toLowerCase() == arcaneMergeKeyFieldName)
+      val mergeKeyIndex = schema.zipWithIndex.find(v => v._1.name.toLowerCase() == arcaneMergeKeyFieldName.toLowerCase())
       val mergeKeyValue = mergeKeyIndex
         .map(v => parsed(v._2))
         .getOrElse(throw Exception(s"Primary key $arcaneMergeKeyFieldName not found in schema"))

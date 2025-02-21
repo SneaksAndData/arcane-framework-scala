@@ -5,7 +5,10 @@ import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteRe
 import models.ArcaneSchema
 
 
-trait StagedBatch[Query <: StreamingBatchQuery]:
+trait StagedBatch:
+
+  type Query <: StreamingBatchQuery
+
   /**
    * Name of the table in the linked Catalog that holds batch data
    */
@@ -31,18 +34,43 @@ trait StagedBatch[Query <: StreamingBatchQuery]:
    */
   def archiveExpr(archiveTableName: String): String
 
+  /**
+   * Query that should be used to archive this batch data
+   * @return SQL query text
+   */
+  def archiveExpr(arcaneSchema: ArcaneSchema): String
+
+  /**
+   * Query that should be used to dispose of this batch data.
+   * @return SQL query text
+   */
+  def disposeExpr: String = s"DROP TABLE $name"
 
 /**
- * StagedBatch that overwrites the whole table and all partitions that it might have
+ * StagedBatch initializes the table.
  */
-type StagedInitBatch = StagedBatch[InitializeQuery]
+trait StagedInitBatch extends StagedBatch:
+  override type Query = InitializeQuery
 
 /**
- * StagedBatch that overwrites the whole table and all partitions that it might have
+ * Common trait for StagedBatch that performs a backfill operation on the table.
  */
-type StagedBackfillBatch = StagedBatch[OverwriteQuery]
+trait StagedBackfillBatch extends StagedBatch
+
+/**
+ * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
+ */
+trait StagedBackfillOverwriteBatch extends StagedBackfillBatch:
+  override type Query = OverwriteQuery
+
+/**
+ * StagedBatch that performs a backfill operation on the table in MERGE mode.
+ */
+trait StagedBackfillMergeBatch extends StagedBackfillBatch:
+  override type Query = MergeQuery
 
 /**
  * StagedBatch that updates data in the table
  */
-type StagedVersionedBatch = StagedBatch[MergeQuery]
+trait StagedVersionedBatch extends StagedBatch:
+  override type Query = MergeQuery

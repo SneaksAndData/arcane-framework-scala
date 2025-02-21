@@ -78,7 +78,9 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         name = "Id",
         fieldType = StringType
       )
-    ), "test.table_a", TestTablePropertiesSettings)
+    ), "test.table_a",
+      "test.archive_table_a",
+      TestTablePropertiesSettings)
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_batch_query.sql"))) {
       _.getLines().mkString("\n")
@@ -108,6 +110,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       )
     ),
       "test.table_a",
+      "test.archive_table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 

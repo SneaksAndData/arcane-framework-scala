@@ -36,8 +36,8 @@ object SqlServerChangeTrackingBackfillQuery:
   def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
-class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings)
-  extends StagedBackfillBatch:
+class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings)
+  extends StagedBackfillOverwriteBatch:
   
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
@@ -47,16 +47,19 @@ class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: Arcan
 
   override val batchQuery: OverwriteQuery = SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
-  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
+  def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
+
+  override def archiveExpr(actualSchema: ArcaneSchema): String =
+    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
 
 object  SqlServerChangeTrackingBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillBatch =
-    new SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
+    new SqlServerChangeTrackingBackfillBatch(batchName, batchSchema, targetName, archiveName, tablePropertiesSettings)
 
-class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:
+class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
@@ -73,6 +76,9 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
 
   def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
+  override def archiveExpr(actualSchema: ArcaneSchema): String =
+    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
+
 object SqlServerChangeTrackingMergeBatch:
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
-    new SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
+    new SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, archiveName, tablePropertiesSettings, batchSchema.mergeKey.name)
