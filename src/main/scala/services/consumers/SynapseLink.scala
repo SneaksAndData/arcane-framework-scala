@@ -83,7 +83,7 @@ class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
 
-  override def reduceExpr: String = s"""SELECT * FROM $name""".stripMargin
+  override def reduceExpr: String = s"SELECT * FROM $name"
 
   override val batchQuery: MergeQuery = SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
