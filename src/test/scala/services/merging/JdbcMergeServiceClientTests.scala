@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.merging
 
-import services.consumers.{SynapseLinkBackfillBatch, SynapseLinkBackfillQuery, SynapseLinkMergeBatch}
+import services.consumers.SynapseLinkMergeBatch
 import utils.TestTablePropertiesSettings
 
 import com.sneaksanddata.arcane.framework.models.{Field, MergeKeyField}
