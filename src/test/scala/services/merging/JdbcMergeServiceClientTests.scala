@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.merging
 
-import models.ArcaneSchema.toColumnsExpression
-import models.ArcaneType.{BooleanType, LongType, StringType}
-import models.{Field, MergeKeyField}
 import services.consumers.{SynapseLinkBackfillBatch, SynapseLinkBackfillQuery, SynapseLinkMergeBatch}
 import utils.TestTablePropertiesSettings
 
+import com.sneaksanddata.arcane.framework.models.{Field, MergeKeyField}
+import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
+import com.sneaksanddata.arcane.framework.models.ArcaneSchema.toColumnsExpression
 import io.trino.jdbc.TrinoDriver
 import org.scalatest.Assertion
 import org.scalatest.flatspec.{AnyFlatSpec, AsyncFlatSpec}
