@@ -19,8 +19,6 @@ import java.util.Properties
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Using
-import org.easymock.EasyMock
-import org.easymock.EasyMock.{createMock, expect, replay}
 
 
 class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
@@ -68,43 +66,43 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
 
-//  it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-//    val mergeServiceClient = new JdbcMergeServiceClient(options)
-//    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
-//
-//    for _ <- mergeServiceClient.applyBatch(batch)
-//        rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}")
-//        _ = rs.next()
-//        targetCount = rs.getInt(1)
-//
-//    // assert that the statement was actually executed
-//    yield targetCount should be(10)
-//  }
-//
-//  it should "should be able to archive a batch to archive table" in withTargetAndArchiveTables("table_a") { connection =>
-//    val mergeServiceClient = new JdbcMergeServiceClient(options)
-//    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
-//
-//    for _ <- mergeServiceClient.archiveBatch(batch, batch.schema)
-//        rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM archive_table_a")
-//        _ = rs.next()
-//        targetCount = rs.getInt(1)
-//
-//    // assert that the statement was actually executed
-//    yield targetCount should be(10)
-//  }
-//
-//  it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
-//    val mergeServiceClient = new JdbcMergeServiceClient(options)
-//    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
-//
-//    for _ <- mergeServiceClient.disposeBatch(batch)
-//        rs = connection.getMetaData.getTables(null, null, "staged_table_a", null)
-//        stagingTableExists = rs.next()
-//
-//    // assert that the statement was actually executed
-//    yield stagingTableExists should be(false)
-//  }
+  it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
+    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+
+    for _ <- mergeServiceClient.applyBatch(batch)
+        rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}")
+        _ = rs.next()
+        targetCount = rs.getInt(1)
+
+    // assert that the statement was actually executed
+    yield targetCount should be(10)
+  }
+
+  it should "should be able to archive a batch to archive table" in withTargetAndArchiveTables("table_a") { connection =>
+    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+
+    for _ <- mergeServiceClient.archiveBatch(batch, batch.schema)
+        rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM archive_table_a")
+        _ = rs.next()
+        targetCount = rs.getInt(1)
+
+    // assert that the statement was actually executed
+    yield targetCount should be(10)
+  }
+
+  it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
+    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+
+    for _ <- mergeServiceClient.disposeBatch(batch)
+        rs = connection.getMetaData.getTables(null, null, "staged_table_a", null)
+        stagingTableExists = rs.next()
+
+    // assert that the statement was actually executed
+    yield stagingTableExists should be(false)
+  }
 
   it should "should be able to run optimizeTable queries without errors" in withTargetTable("table_a") { connection =>
     val tableName = "table_a"
@@ -120,13 +118,13 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
   }
 
   it should "should be able to run expireSnapshots queries without errors" in withTargetTable("table_a") { connection =>
-    
+
     val tableName = "table_a"
     val optimizeThreshold = 10
     val retentionThreshold = "8d"
     val batchIndex = 9
     val request = JdbcSnapshotExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
-    
+
     val mergeServiceClient = new JdbcMergeServiceClient(options)
     for result <- mergeServiceClient.expireSnapshots(request)
       yield result.skipped should be(false)
