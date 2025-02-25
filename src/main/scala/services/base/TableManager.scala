@@ -42,7 +42,7 @@ trait ConditionallyApplicable[A]:
 /**
  * The result of a table optimization operation.
  */
-class BatchOptimizationResult
+case class BatchOptimizationResult(skipped: Boolean)
 
 object BatchOptimizationResult:
   /**
@@ -50,7 +50,7 @@ object BatchOptimizationResult:
    *
    * @return The result.
    */
-  def apply(): BatchOptimizationResult = new BatchOptimizationResult
+  def apply(skipped: Boolean): BatchOptimizationResult = new BatchOptimizationResult(skipped)
 
 /**
  * A service that is responsible for managing tables.

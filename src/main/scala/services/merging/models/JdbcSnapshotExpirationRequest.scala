@@ -8,9 +8,9 @@ import services.base.{ConditionallyApplicable, SqlExpressionConvertable}
  * @param tableName The name of the table to optimize.
  * @param optimizeThreshold The threshold for optimization.
  * @param retentionThreshold The retention threshold.
- * @param batchNumber The batch number.
+ * @param batchIndex The batch number.
  */
-case class JdbcSnapshotExpirationRequest(tableName: String, optimizeThreshold: Long, retentionThreshold: String, batchNumber: Long)
+case class JdbcSnapshotExpirationRequest(tableName: String, optimizeThreshold: Long, retentionThreshold: String, batchIndex: Long)
 
 /**
  * @inheritdoc
@@ -36,5 +36,5 @@ given ConditionallyApplicable[JdbcSnapshotExpirationRequest] with
   /**
    * @inheritdoc
    */
-  extension (request: JdbcSnapshotExpirationRequest) def isApplicable: Boolean = (request.batchNumber + 1) % request.optimizeThreshold == 0
+  extension (request: JdbcSnapshotExpirationRequest) def isApplicable: Boolean = (request.batchIndex + 1) % request.optimizeThreshold == 0
 

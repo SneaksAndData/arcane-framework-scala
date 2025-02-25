@@ -84,27 +84,27 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
    */
   override def optimizeTable(request: TableOptimizationRequest): Task[BatchOptimizationResult] =
     if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Archiving", _ => BatchOptimizationResult())
+      executeBatchQuery(request.toSqlExpression, request.name, "Optimizing", _ => BatchOptimizationResult(false))
     else
-      ZIO.succeed(BatchOptimizationResult())
+      ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
   override def expireSnapshots(request: SnapshotExpirationRequest): Task[BatchOptimizationResult] =
     if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Running Snapshot Expiration task", _ => BatchOptimizationResult())
+      executeBatchQuery(request.toSqlExpression, request.name, "Running Snapshot Expiration task", _ => BatchOptimizationResult(false))
     else
-      ZIO.succeed(BatchOptimizationResult())
+      ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
   override def expireOrphanFiles(request: OrphanFilesExpirationRequest): Task[BatchOptimizationResult] =
     if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult())
+      executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult(false))
     else
-      ZIO.succeed(BatchOptimizationResult())
+      ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
