@@ -2,7 +2,8 @@ package com.sneaksanddata.arcane.framework
 package models.cdm
 
 import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType, Field, MergeKeyField}
-import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
+import services.storage.models.azure.AdlsStoragePath
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 
 import upickle.default.*
 import zio.{Task, ZIO}

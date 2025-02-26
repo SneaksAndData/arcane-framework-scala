@@ -1,25 +1,23 @@
 package com.sneaksanddata.arcane.framework
-package services.storage.models.azure
+package services.storage.services
 
+import logging.ZIOLogAnnotations.zlog
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AzureModelConversions.given
+import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import services.storage.models.base.StoredBlob
 
 import com.azure.core.credential.TokenCredential
-import com.azure.core.http.rest.PagedResponse
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO}
 
 import java.io.{BufferedReader, InputStreamReader}
 import java.time.Duration
-import scala.annotation.tailrec
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 

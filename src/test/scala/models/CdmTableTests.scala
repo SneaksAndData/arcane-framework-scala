@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package models
 
 import models.cdm.SimpleCdmModel
-import services.storage.models.azure.AzureBlobStorageReader
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 //import services.cdm.{CdmTable, CdmTableSettings}
 //
 //import org.scalatest.flatspec.AsyncFlatSpec
