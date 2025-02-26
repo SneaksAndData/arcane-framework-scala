@@ -21,7 +21,7 @@ import scala.io.Source
 import scala.util.Using
 
 
-class JdbcMergeServiceClientTests extends AnyFlatSpec with Matchers:
+class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
 
   private val connectionUri = "jdbc:trino://localhost:8080/iceberg/test?user=test"
   private val schema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) :: Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) :: Nil
@@ -52,19 +52,19 @@ class JdbcMergeServiceClientTests extends AnyFlatSpec with Matchers:
       val insertCmd = s"insert into test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
       updateStatement.execute(insertCmd)
 
-  private def withTargetTable(tableName: String)(test: Connection => Task[Assertion]): Assertion =
+  private def withTargetTable(tableName: String)(test: Connection => Task[Assertion]): Future[Assertion] =
     createTable(tableName)
     val connection = createTable(s"staged_$tableName")
     insertValues(s"staged_$tableName")
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(test(connection)).getOrThrowFiberFailure())
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
 
-  private def withTargetAndArchiveTables(tableName: String)(test: Connection => Task[Assertion]): Assertion =
+  private def withTargetAndArchiveTables(tableName: String)(test: Connection => Task[Assertion]): Future[Assertion] =
     createTable(tableName)
     createTable(s"archive_$tableName")
     val connection = createTable(s"staged_$tableName")
     insertValues(s"staged_$tableName")
 
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(test(connection)).getOrThrowFiberFailure())
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
 
   it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
     val mergeServiceClient = new JdbcMergeServiceClient(options)
