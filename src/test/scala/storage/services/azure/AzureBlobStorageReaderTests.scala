@@ -12,8 +12,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
 import zio.{Runtime, Unsafe}
 
-import scala.util.Try
-
 class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
   private val runtime = Runtime.default
 
@@ -23,9 +21,9 @@ class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
   private val accessKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
   private val credential = StorageSharedKeyCredential(storageAccount, accessKey)
-  private val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
 
   it should "be able to list files in a container" in {
+    val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
     val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/")
     val stream = storageReader.streamPrefixes(path.get).runCollect
 
@@ -44,6 +42,7 @@ class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
   )
 
   it should "be able to check if blob exist in container" in {
+    val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
     forAll(blobsToList) { (blob, expected) =>
       val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blob")
       val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(storageReader.blobExists(path.get)).getOrThrowFiberFailure())
