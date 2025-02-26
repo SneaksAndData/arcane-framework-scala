@@ -97,7 +97,8 @@ object AzureBlobStorageReader:
    * @param credential TokenCredential (accessToken provider)
    * @return AzureBlobStorageReader instance
    */
-  def apply(accountName: String, credential: TokenCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, Some(credential), None)
+  def apply(accountName: String, credential: TokenCredential): AzureBlobStorageReader =
+    new AzureBlobStorageReader(accountName, None, Some(credential), None)
 
   /**
    * Create AzureBlobStorageReader for the account using StorageSharedKeyCredential
@@ -106,7 +107,8 @@ object AzureBlobStorageReader:
    * @param credential  StorageSharedKeyCredential (account key)
    * @return AzureBlobStorageReader instance
    */
-  def apply(accountName: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, None, Some(credential))
+  def apply(accountName: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader =
+    new AzureBlobStorageReader(accountName, None, None, Some(credential))
 
   /**
    * Create AzureBlobStorageReader for the account using StorageSharedKeyCredential and custom endpoint
@@ -116,7 +118,8 @@ object AzureBlobStorageReader:
    * @param credential  StorageSharedKeyCredential (account key)
    * @return AzureBlobStorageReader instance
    */
-  def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, Some(endpoint), None, Some(credential))
+  def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential): AzureBlobStorageReader =
+    new AzureBlobStorageReader(accountName, Some(endpoint), None, Some(credential))
   
   /**
    * Create AzureBlobStorageReader for the account using default credential chain
@@ -124,4 +127,5 @@ object AzureBlobStorageReader:
    * @param accountName Storage account name
    * @return AzureBlobStorageReader instance
    */ 
-  def apply(accountName: String): AzureBlobStorageReader = new AzureBlobStorageReader(accountName, None, None, None)
+  def apply(accountName: String): AzureBlobStorageReader =
+    new AzureBlobStorageReader(accountName, None, None, None)
