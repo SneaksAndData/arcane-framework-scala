@@ -26,15 +26,13 @@ trait ToInFlightBatch[T]:
  */
 trait RowGroupTransformer:
   
-  type ToInFlightBatch = (Iterable[StagedVersionedBatch], Long, Chunk[IncomingElement]) => OutgoingElement
+  type ToInFlightBatch = (Iterable[StagedVersionedBatch], Long, Any /*Chunk[IncomingElement]*/) => OutgoingElement
   
   type OutgoingElement <: IndexedStagedBatches
-  
-  type IncomingElement <: MetadataEnrichedRowStreamElement[IncomingElement]
   
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process(toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement]
+  def process[IncomingElement: MetadataEnrichedRowStreamElement](toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement]
