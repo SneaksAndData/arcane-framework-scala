@@ -3,6 +3,8 @@ package services.base
 
 import models.ArcaneType
 
+import zio.Task
+
 import scala.concurrent.Future
 
 /**
@@ -30,7 +32,7 @@ trait SchemaProvider[Schema: CanAdd] {
    *
    * @return A future containing the schema for the data produced by Arcane.
    */
-  def getSchema: Future[SchemaType]
+  def getSchema: Task[SchemaType]
 
   /**
    * Gets an empty schema.
