@@ -29,13 +29,12 @@ class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
   private val credential = StorageSharedKeyCredential(storageAccount, accessKey)
 
   it should "be able to list files in a container" in {
-//    val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
-//    val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/")
-//    val stream = storageReader.streamPrefixes(path.get).runCollect
-//
-//    val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(stream).getOrThrowFiberFailure())
-//    result.size should be >= 8
-  assert(true)
+    val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
+    val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/")
+    val stream = storageReader.streamPrefixes(path.get).runCollect
+
+    val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(stream).getOrThrowFiberFailure())
+    result.size should be >= 8
   }
 
   private val blobsToList = Table(
@@ -49,12 +48,11 @@ class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
   )
 
   it should "be able to check if blob exist in container" in {
-//    val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
+    val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
     forAll(blobsToList) { (blob, expected) =>
-//      val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blob")
-//      val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(storageReader.blobExists(path.get)).getOrThrowFiberFailure())
-//      result shouldBe expected
-      assert(true)
+      val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blob")
+      val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(storageReader.blobExists(path.get)).getOrThrowFiberFailure())
+      result shouldBe expected
     }
   }
 
