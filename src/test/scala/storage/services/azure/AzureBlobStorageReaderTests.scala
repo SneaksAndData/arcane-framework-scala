@@ -60,11 +60,12 @@ class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
 //  it should "be able to read data from container" in {
 //    forAll(blobsToList) { (blob, expected) =>
 //      val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blob")
-//      val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(storageReader.streamBlobContent(path.get)).getOrThrowFiberFailure())
-//        if (expected) {
-//          Try(result.get.readLine() should not be null)
-//        } else {
+//      val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(storageReader.streamBlobContent(path.get)))
+//      result match {
+//        case Success(reader) =>
+//          Try(reader.readLine() should not be null)
+//        case Failure(_) =>
 //          Try(result.isFailure shouldBe true)
-//        }
+//      }
 //      }
 //  }
