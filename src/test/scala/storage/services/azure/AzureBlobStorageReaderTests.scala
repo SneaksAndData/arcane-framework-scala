@@ -15,10 +15,16 @@ import zio.{Runtime, Unsafe}
 class AzureBlobStorageReaderTests extends AnyFlatSpec with Matchers:
   private val runtime = Runtime.default
 
-  private val endpoint = "http://localhost:10001/devstoreaccount1"
-  private val container = "cdm-e2e"
-  private val storageAccount = "devstoreaccount1"
-  private val accessKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+  private val integrationTestEndpoint = sys.env.get("ARCANE_FRAMEWORK__STORAGE_ENDPOINT").get
+  private val integrationTestContainer = sys.env.get("ARCANE_FRAMEWORK__STORAGE_CONTAINER").get
+  private val integrationTestAccount = sys.env.get("ARCANE_FRAMEWORK__STORAGE_ACCOUNT").get
+  private val integrationTestAccessKey = sys.env.get("ARCANE_FRAMEWORK__STORAGE_ACCESS_KEY").get
+  private val integrationTestTableName = sys.env.get("ARCANE_FRAMEWORK__CDM_TEST_TABLE").get
+
+  private val endpoint = integrationTestEndpoint
+  private val container = integrationTestContainer
+  private val storageAccount = integrationTestAccount
+  private val accessKey = integrationTestAccessKey
 
   private val credential = StorageSharedKeyCredential(storageAccount, accessKey)
 
