@@ -641,6 +641,7 @@ FOLDERS = [
   "2020-02-01T01.05.38Z"
 ]
 
+blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
 def upload_blob_file(blob_service_client: BlobServiceClient, container_name: str, blob_name: str, content: str):
     blob_service_client.get_container_client(container=container_name).upload_blob(name=blob_name, data=content.encode('utf-8'), overwrite=True)
 
@@ -652,14 +653,13 @@ def create_container():
    except Exception as e:
       print(e)
 
-blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
 def create_blobs():
     for folder in FOLDERS:
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
 
     upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON)
 
-upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", "2020-02-01T01.05.38Z")
 
 create_container()
 create_blobs()
+upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", "2020-02-01T01.05.38Z")
