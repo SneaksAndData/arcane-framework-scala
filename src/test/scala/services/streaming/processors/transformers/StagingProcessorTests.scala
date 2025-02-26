@@ -22,20 +22,24 @@ import zio.{Chunk, Runtime, Unsafe}
 
 import scala.concurrent.Future
 
-given MetadataEnrichedRowStreamElement[DataRow] with
-  extension (element: DataRow) def isDataRow: Boolean = true
-  extension (element: DataRow) def toDataRow: DataRow = element
-  extension (element: DataRow) def fromDataRow: DataRow = element
+type TestInput = DataRow|String
+
+given MetadataEnrichedRowStreamElement[TestInput] with
+  extension (element: TestInput) def isDataRow: Boolean = element.isInstanceOf[DataRow]
+  extension (element: TestInput) def toDataRow: DataRow = element.asInstanceOf[DataRow]
+  extension (element: DataRow) def fromDataRow: TestInput = element
 
 class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val testInput: Chunk[DataRow] = Chunk.fromIterable(List(
+  private val testInput: Chunk[TestInput] = Chunk.fromIterable(List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-    List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1"))
+    "metadata",
+    List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
+    "source delete request",
   ))
 
-  it should "group data rows by schema and write them into separate tables" in  {
+  it should "write data rows grouped by schema to staging tables" in  {
     // Arrange
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
@@ -66,7 +70,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
     // Act
     val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
-    
+
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       verify (catalogWriter)
@@ -75,3 +79,48 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     }
   }
 
+  it should "allow accessing stream metadata" in {
+    // Arrange
+    val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
+    val tableMock = mock[Table]
+
+    expecting {
+      tableMock
+        .name()
+        .andReturn("database.namespace.name")
+        .anyTimes()
+
+      catalogWriter
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(Future.successful(tableMock))
+        .anyTimes()
+    }
+    replay(tableMock)
+    replay(catalogWriter)
+
+
+
+    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch],
+                                           override val batchIndex: Long,
+                                           val others: Chunk[String])
+      extends IndexedStagedBatches(groupedBySchema, batchIndex)
+      
+    val stagingProcessor = StagingProcessor(TestStagingDataSettings,
+      TestTablePropertiesSettings,
+      TestTargetTableSettings,
+      TestIcebergCatalogSettings,
+      TestArchiveTableSettings,
+      catalogWriter)
+      
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
+      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString));
+
+    // Act
+    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
+
+    // Assert
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
+      val batch = result.get.asInstanceOf[IndexedStagedBatchesWithMetadata]
+      batch.others shouldBe Chunk("metadata", "source delete request")
+    }
+  }

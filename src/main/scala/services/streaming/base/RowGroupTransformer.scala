@@ -25,10 +25,10 @@ trait ToInFlightBatch[T]:
   * A trait that represents a row processor.
  */
 trait RowGroupTransformer:
-  
-  type ToInFlightBatch = (Iterable[StagedVersionedBatch], Long, Any /*Chunk[IncomingElement]*/) => OutgoingElement
-  
+
   type OutgoingElement <: IndexedStagedBatches
+  
+  type ToInFlightBatch = (Iterable[StagedVersionedBatch], Long, Chunk[Any]) => OutgoingElement
   
   /**
    * Processes the incoming data.
