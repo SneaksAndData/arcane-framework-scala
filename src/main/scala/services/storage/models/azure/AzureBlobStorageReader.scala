@@ -8,11 +8,15 @@ import services.storage.models.base.StoredBlob
 import com.azure.core.credential.TokenCredential
 import com.azure.core.http.rest.PagedResponse
 import com.azure.identity.DefaultAzureCredentialBuilder
-import com.azure.storage.blob.models.ListBlobsOptions
+import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
+import zio.stream.ZStream
+import zio.{Schedule, Task, ZIO}
 
+import java.io.{BufferedReader, InputStreamReader}
 import java.time.Duration
 import scala.annotation.tailrec
 import scala.concurrent.Future
@@ -25,7 +29,12 @@ import scala.language.implicitConversions
  * @param tokenCredential Optional token credential provider
  * @param sharedKeyCredential Optional access key credential
  */
-final class AzureBlobStorageReader(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings] = None) extends BlobStorageReader[AdlsStoragePath]:
+final class AzureBlobStorageReader(accountName: String,
+                                   endpoint: Option[String],
+                                   tokenCredential: Option[TokenCredential],
+                                   sharedKeyCredential: Option[StorageSharedKeyCredential],
+                                   settings: Option[AzureBlobStorageReaderSettings] = None) extends BlobStorageReader[AdlsStoragePath]:
+  
   private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings()) 
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val serviceClient =
@@ -40,7 +49,6 @@ final class AzureBlobStorageReader(accountName: String, endpoint: Option[String]
       .buildClient()
 
   private val defaultTimeout = Duration.ofSeconds(30)
-  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private def getBlobClient(blobPath: AdlsStoragePath): BlobClient =
     require(blobPath.accountName == accountName, s"Account name in the path `${blobPath.accountName}` does not match account name `$accountName` initialized for this reader")
@@ -49,53 +57,40 @@ final class AzureBlobStorageReader(accountName: String, endpoint: Option[String]
   private def getBlobContainerClient(blobPath: AdlsStoragePath): BlobContainerClient =
     serviceClient.getBlobContainerClient(blobPath.container)
 
-  private val stringContentSerializer: Array[Byte] => String = _.map(_.toChar).mkString
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
   
-  @tailrec
-  private def getPage[ElementType, ResultElementType](pageToken: Option[String], result: Iterable[ResultElementType], pager: Option[String] => PagedResponse[ElementType])(implicit converter: ElementType => ResultElementType): Iterable[ResultElementType] =
-    val page = pager(pageToken)
-    val pageData = page.getValue.asScala.map(implicitly)
-    val continuationToken = Option(page.getContinuationToken)
-
-    if continuationToken.isEmpty then
-      result ++ pageData
-    else
-      getPage(continuationToken, result ++ pageData, pager)
-
   /**
-   *
-   * @param blobPath The path to the blob.
-   * @param deserializer function to deserialize the content of the blob. Deserializes all content as String if not implementation is provided
-   * @tparam Result The type of the result.
-   *  @return The result of applying the function to the content of the blob.
+   * @inheritdoc
    */
-  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Future[Result] =
+  override def streamBlobContent(blobPath: AdlsStoragePath): Task[BufferedReader] =
     val client = getBlobClient(blobPath)
-    Future(deserializer(client.downloadContent().toBytes))
-    
-  def listPrefixes(rootPrefix: AdlsStoragePath): LazyList[StoredBlob] =
-    val client = getBlobContainerClient(rootPrefix)
+    for
+      _ <- zlog("Downloading blob content from data file: " + blobPath.toHdfsPath)
+      stream <- ZIO.attemptBlocking {
+        val stream = client.openInputStream()
+        new BufferedReader(new InputStreamReader(stream))
+      }
+    yield stream
+
+  override def streamPrefixes(rootPrefix: AdlsStoragePath): ZStream[Any, Throwable, StoredBlob] =
+    val client = serviceClient.getBlobContainerClient(rootPrefix.container)
     val listOptions = new ListBlobsOptions()
       .setPrefix(rootPrefix.blobPrefix)
       .setMaxResultsPerPage(serviceClientSettings.maxResultsPerPage)
+      .setDetails(
+        BlobListDetails()
+          .setRetrieveMetadata(false)
+          .setRetrieveDeletedBlobs(false)
+          .setRetrieveVersions(false)
+      )
 
-    LazyList.from(getPage(
-      None,
-      List.empty[StoredBlob],
-      token => client.listBlobsByHierarchy("/", listOptions, defaultTimeout).iterableByPage(token.orNull).iterator().next()
-    ))
+    val publisher = ZIO.attemptBlocking(client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly))
+    ZStream.fromIterableZIO(publisher) retry retryPolicy
 
-  def listBlobs(blobPath: AdlsStoragePath): LazyList[StoredBlob] =
-    val client = getBlobContainerClient(blobPath)
-    val listOptions = new ListBlobsOptions()
-      .setPrefix(blobPath.blobPrefix)
-      .setMaxResultsPerPage(serviceClientSettings.maxResultsPerPage)
-
-    LazyList.from(getPage(
-      None, 
-      List.empty[StoredBlob], 
-      token => client.listBlobs(listOptions, token.orNull, defaultTimeout).iterableByPage().iterator().next()
-    ))
+  override def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
+    ZIO.attemptBlocking(getBlobClient(blobPath).exists())
+      .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: $result") *> ZIO.succeed(result))
+    
 
 object AzureBlobStorageReader:
   /**

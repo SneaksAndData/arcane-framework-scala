@@ -5,6 +5,7 @@ import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType, Field, MergeKeyField
 import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 
 import upickle.default.*
+import zio.{Task, ZIO}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
@@ -65,8 +66,12 @@ object SimpleCdmModel:
   // currently MergeKeyField only
   val systemFieldCount: Int = 1
 
-  def apply(rootPath: String, reader: AzureBlobStorageReader): Future[SimpleCdmModel] =
+  def apply(rootPath: String, reader: AzureBlobStorageReader): Task[SimpleCdmModel] =
     AdlsStoragePath(rootPath).map(_ + "model.json") match {
-      case Success(modelPath) => reader.getBlobContent(modelPath).map(read[SimpleCdmModel](_))
-      case Failure(ex) => Future.failed(ex)
+      case Success(modelPath) => reader.streamBlobContent(modelPath).map { reader =>
+        val model = read[SimpleCdmModel](reader.readLine())
+        reader.close()
+        model
+      }
+      case Failure(ex) => ZIO.fail(ex)
     }
