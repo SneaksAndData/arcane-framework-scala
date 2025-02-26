@@ -13,11 +13,11 @@ import utils.*
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
-import org.easymock.EasyMock.{createMock, expect, replay}
+import org.easymock.EasyMock.{createMock, expect, replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
-import zio.stream.ZStream
+import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Runtime, Unsafe}
 
 import scala.concurrent.Future
@@ -35,7 +35,8 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1"))
   ))
 
-  it should "group data rows by schema" in  {
+  it should "group data rows by schema and write them into separate tables" in  {
+    // Arrange
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
 
@@ -48,7 +49,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(Future.successful(tableMock))
-        .anyTimes()
+        .times(2)
     }
     replay(tableMock)
     replay(catalogWriter)
@@ -63,9 +64,14 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
       new IndexedStagedBatches(batches, index){};
 
-    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).runCollect
+    // Act
+    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
+    
+    // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
-      result should have size 1
+      verify (catalogWriter)
+      val batch = result.get
+      (batch.groupedBySchema.size, batch.batchIndex) shouldBe(2, 0)
     }
   }
 

@@ -2,12 +2,14 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.{StagingDataSettings, TablePropertiesSettings}
+import models.DataCell.schema
+import models.settings.{ArchiveTableSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
 import models.{ArcaneSchema, DataRow, MergeKeyField}
 import services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.IcebergCatalogSettings
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import services.streaming.base.{BatchProcessor, MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
+import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -17,12 +19,8 @@ import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
-import com.sneaksanddata.arcane.framework.models.settings.ArchiveTableSettings
-import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
-import com.sneaksanddata.arcane.framework.models.DataCell.schema
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
-trait IndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch], batchIndex: Long)
+trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch], val batchIndex: Long)
 
 
 class StagingProcessor(stagingDataSettings: StagingDataSettings,
