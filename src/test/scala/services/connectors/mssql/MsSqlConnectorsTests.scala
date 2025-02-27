@@ -10,6 +10,7 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
+import zio.{Runtime, Unsafe}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
@@ -22,6 +23,8 @@ import scala.language.postfixOps
 case class TestConnectionInfo(connectionOptions: ConnectionOptions, connection: Connection)
 
 class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
+  private val runtime = Runtime.default
+  
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
   private implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
@@ -129,7 +132,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   
   "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    connection.getSchema map { schema =>
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
       val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.name
       fields should be (List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "y", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY"))
     }
@@ -138,7 +141,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "be able to extract schema column types from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    connection.getSchema map { schema =>
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
       val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.fieldType
       fields should be(List(IntType, LongType, StringType, IntType, LongType, StringType, StringType))
     }
@@ -146,7 +149,8 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    for schema <- connection.getSchema
+    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
+    for schema <- future
         backfill <- connection.backfill
         result = backfill.read.toList
     yield {
@@ -156,7 +160,8 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    for schema <- connection.getSchema
+    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
+    for schema <- future
         backfill <- connection.backfill
         result = backfill.read.toList
         head = result.head
@@ -167,7 +172,8 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    for schema <- connection.getSchema
+    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
+    for schema <- future
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
         changedData = columns.read.toList
@@ -178,7 +184,8 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    for schema <- connection.getSchema
+    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
+    for schema <- future
         result <- connection.getChanges(None, Duration.ofDays(1))
         (_, latestVersion) = result
     yield {

@@ -51,13 +51,13 @@ class IcebergBackfillConsumer(streamContext: StreamContext,
 
   private def createTable(rows: Chunk[DataRow], name: String): ZIO[Any, Throwable, Boolean] =
     for
-      arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
+      arcaneSchema <- schemaProvider.getSchema
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
     yield true
     
   private def writeWithWriter(rows: Chunk[DataRow], name: String): ZIO[Any, Throwable, Boolean] =
     for
-      arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
+      arcaneSchema <- schemaProvider.getSchema
       table <- ZIO.fromFuture(implicit ec => catalogWriter.append(rows, name, arcaneSchema))
     yield true
 
