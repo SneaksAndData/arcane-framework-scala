@@ -56,23 +56,6 @@ trait JdbcTableManager extends TableManager:
    */
   override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
 
-class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
-  /**
-   * @inheritdoc
-   */
-  override def getSchema: Task[ArcaneSchema] =
-    val query = s"SELECT * FROM $tableName where true and false"
-    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
-    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
-      for
-        schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
-        tryFields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
-        fields <- ZIO.fromTry(tryFields)
-      yield fields
-    }
-
-  def empty: ArcaneSchema = ArcaneSchema.empty()
-
 /**
  * A consumer that consumes batches from a JDBC source.
  *
@@ -80,6 +63,24 @@ class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends S
  */
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
   extends MergeServiceClient with JdbcTableManager with AutoCloseable:
+
+  class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
+    /**
+     * @inheritdoc
+     */
+    override def getSchema: Task[ArcaneSchema] =
+      val query = s"SELECT * FROM $tableName where true and false"
+      val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
+      ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+        for
+          schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
+          tryFields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
+          fields <- ZIO.fromTry(tryFields)
+        yield fields
+      }
+
+    def empty: ArcaneSchema = ArcaneSchema.empty()
+
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
@@ -140,7 +141,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
           _ <- addColumns(tableName, missingFields)
       yield ()
 
-  def getSchemaProvider(tableName: String): JdbcSchemaProvider = JdbcSchemaProvider(tableName, sqlConnection)
+  def getSchemaProvider(tableName: String): JdbcSchemaProvider = this.JdbcSchemaProvider(tableName, sqlConnection)
 
   private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
     for _ <- ZIO.foreach(missingFields)(field => {

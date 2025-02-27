@@ -6,20 +6,16 @@ import utils.TestTablePropertiesSettings
 
 import com.sneaksanddata.arcane.framework.models.{Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema.toColumnsExpression
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import io.trino.jdbc.TrinoDriver
 import org.scalatest.Assertion
-import org.scalatest.flatspec.{AnyFlatSpec, AsyncFlatSpec}
+import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import zio.{Runtime, Task, Unsafe, ZIO}
+import zio.{Runtime, Task, Unsafe}
 
-import java.sql.{Connection, DriverManager}
+import java.sql.Connection
 import java.util.Properties
-import scala.{+:, ::}
 import scala.concurrent.Future
-import scala.io.Source
-import scala.util.Using
 
 
 class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
