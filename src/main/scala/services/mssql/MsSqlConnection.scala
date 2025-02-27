@@ -10,7 +10,7 @@ import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 import java.sql.ResultSet
 import java.time.Duration
@@ -132,7 +132,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    *
    * @return A future containing the schema for the data produced by Arcane.
    */
-  override lazy val getSchema: Future[this.SchemaType] = readSchemaFromSource
+  override lazy val getSchema: Task[this.SchemaType] = ZIO.fromFuture( implicit ec => readSchemaFromSource)
 
   /**
    * Gets the schema for the data produced by Arcane.

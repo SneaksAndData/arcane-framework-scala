@@ -65,7 +65,7 @@ class IcebergStreamingConsumer(streamContext: StreamContext,
 
   private def writeWithWriter(rows: Chunk[DataRow], name: String): Task[StagedVersionedBatch] =
     for
-      arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
+      arcaneSchema <- schemaProvider.getSchema
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
     yield table.toStagedBatch(arcaneSchema, sinkSettings.sinkLocation, archiveTableSettings.fullName, tablePropertiesSettings)
 
