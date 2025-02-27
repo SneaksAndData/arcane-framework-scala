@@ -6,8 +6,8 @@ import models.DataCell.schema
 import models.settings.{ArchiveTableSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
 import models.{ArcaneSchema, DataRow, MergeKeyField}
 import services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
-import services.lakehouse.base.IcebergCatalogSettings
-import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
+import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{BatchProcessor, MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
 import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
@@ -48,9 +48,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch] =
-    val tableWriterEffect =
-        zlog("Attempting to write data to staging table") *>
-        ZIO.fromFuture(implicit ec => catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema))
+    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
     for
       table <- tableWriterEffect.retry(retryPolicy)
       batch = table.toStagedBatch(icebergCatalogSettings.namespace,
