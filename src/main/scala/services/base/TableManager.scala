@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
+import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import zio.Task
 
 /**
@@ -57,11 +58,11 @@ object BatchOptimizationResult:
  */
 trait TableManager:
   
-  type TableOptimizationRequest
+  type TableOptimizationRequest //<: SqlExpressionConvertable[TableOptimizationRequest] & ConditionallyApplicable[TableOptimizationRequest]
   
-  type SnapshotExpirationRequest
+  type SnapshotExpirationRequest //<: SqlExpressionConvertable[SnapshotExpirationRequest] & ConditionallyApplicable[SnapshotExpirationRequest]
   
-  type OrphanFilesExpirationRequest
+  type OrphanFilesExpirationRequest //<: SqlExpressionConvertable[OrphanFilesExpirationRequest] & ConditionallyApplicable[OrphanFilesExpirationRequest]
 
   /**
    * Optimizes a table.
@@ -87,3 +88,11 @@ trait TableManager:
    */
   def expireOrphanFiles(orphanFilesExpirationRequest: OrphanFilesExpirationRequest): Task[BatchOptimizationResult]
 
+  /**
+   * Migrates the schema of a table.
+   *
+   * @param newSchema The new schema coming from the batch.
+   * @param tableName The name of the table.
+   * @return The result of the schema migration operation.
+   */
+  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit]

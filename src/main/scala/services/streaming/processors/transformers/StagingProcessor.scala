@@ -4,11 +4,12 @@ package services.streaming.processors.transformers
 import logging.ZIOLogAnnotations.zlog
 import models.DataCell.schema
 import models.settings.{ArchiveTableSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
-import models.{ArcaneSchema, DataRow, MergeKeyField}
-import services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
+import models.{ArcaneSchema, DataRow}
+import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.IcebergCatalogSettings
 import services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
-import services.streaming.base.{BatchProcessor, MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
+import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer}
 import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -16,11 +17,9 @@ import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
-import java.time.format.DateTimeFormatter
-import java.time.{Duration, ZoneOffset, ZonedDateTime}
-import java.util.UUID
+import java.time.Duration
 
-trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch], val batchIndex: Long)
+trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 
 
 class StagingProcessor(stagingDataSettings: StagingDataSettings,
@@ -47,7 +46,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .zipWithIndex
       .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
 
-  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch] =
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch] =
     val tableWriterEffect =
         zlog("Attempting to write data to staging table") *>
         ZIO.fromFuture(implicit ec => catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema))
@@ -69,7 +68,7 @@ object StagingProcessor:
                                              batchSchema: ArcaneSchema,
                                              targetName: String,
                                              archiveTableFullName: String,
-                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
+                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch =
     val batchName = table.name().split('.').last
     SynapseLinkMergeBatch(batchName, batchSchema, targetName, archiveTableFullName, tablePropertiesSettings)
 

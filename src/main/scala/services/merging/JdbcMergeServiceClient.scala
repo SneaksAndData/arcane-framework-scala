@@ -32,14 +32,31 @@ trait JdbcMergeServiceClientOptions:
    * @return True if the connection URL is valid, false otherwise.
    */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
+  
+trait JdbcTableManager extends TableManager:
+  /**
+   * @inheritdoc
+   */
+  override type TableOptimizationRequest = JdbcOptimizationRequest
 
+  /**
+   * @inheritdoc
+   */
+  override type SnapshotExpirationRequest = JdbcSnapshotExpirationRequest
+
+  /**
+   * @inheritdoc
+   */
+  override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
+  
+  
 /**
  * A consumer that consumes batches from a JDBC source.
  *
  * @param options The options for the consumer.
  */
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
-  extends MergeServiceClient with TableManager with AutoCloseable:
+  extends MergeServiceClient with JdbcTableManager with AutoCloseable:
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
@@ -63,21 +80,6 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
   def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
     executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
 
-
-  /**
-   * @inheritdoc
-   */
-  override type TableOptimizationRequest = JdbcOptimizationRequest
-
-  /**
-   * @inheritdoc
-   */
-  override type SnapshotExpirationRequest = JdbcSnapshotExpirationRequest
-
-  /**
-   * @inheritdoc
-   */
-  override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
 
   /**
    * @inheritdoc
@@ -106,6 +108,11 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
     else
       ZIO.succeed(BatchOptimizationResult(true))
 
+  /**
+   * @inheritdoc
+   */
+  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit] = ???
+  
   /**
    * @inheritdoc
    */
