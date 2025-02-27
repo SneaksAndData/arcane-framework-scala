@@ -18,6 +18,7 @@
 #
 
 from azure.storage.blob import BlobServiceClient
+from datetime import datetime, timedelta
 import os
 
 CONTENT = """50bff458-d47a-4924-804b-31c0a83108e6,"1/1/2020 0:00:00 PM","1/1/2020 0:00:00 PM",0,1111000000,1111000010,"F1234567",1,,"2020-01-01T00:15:00.0000000Z","acc1",111111110,"2020-01-01T00:15:00.0000000Z","acc1",0,"dat",1,1111000001,2111000001,1111000001,21111,2111000001,"2020-01-01T00:15:00.0000000+00:00","2020-01-01T00:15:00.0000000Z",
@@ -631,15 +632,14 @@ MODEL_JSON = """{
 
 AZURITE_CONNECTION_STRING='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://10.1.0.6:10001/devstoreaccount1'
 CONTAINER = "cdm-e2e"
-FOLDERS = [
-  "2020-01-01T00.15.12Z",
-  "2020-01-01T00.26.42Z",
-  "2020-01-01T00.34.31Z",
-  "2020-01-01T01.12.48Z",
-  "2020-01-01T02.05.38Z",
-  "2020-01-02T01.05.38Z",
-  "2020-02-01T01.05.38Z"
-]
+# Get the current date and time
+now = datetime.utcnow()
+
+# Subtract 6 hours
+start_time = now - timedelta(hours=8)
+
+# Generate formatted strings for each hour
+FOLDERS = [(start_time + timedelta(hours=i)).strftime("%Y-%m-%dT%H.%M.%SZ") for i in range(8)]
 
 blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
 def upload_blob_file(blob_service_client: BlobServiceClient, container_name: str, blob_name: str, content: str):
@@ -656,6 +656,7 @@ def create_container():
 def create_blobs():
     for folder in FOLDERS:
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON)
 
     upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON)
 
