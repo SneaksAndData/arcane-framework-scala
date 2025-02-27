@@ -5,8 +5,7 @@ import models.settings.TableFormat.PARQUET
 import models.settings.*
 import models.*
 import services.consumers.StagedVersionedBatch
-import services.lakehouse.base.IcebergCatalogSettings
-import services.lakehouse.{CatalogWriter, S3CatalogFileIO}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
 import utils.*
 

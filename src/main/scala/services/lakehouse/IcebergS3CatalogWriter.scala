@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
 import models.{ArcaneSchema, DataRow}
-import services.lakehouse.base.IcebergCatalogSettings
+import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings, S3CatalogFileIO}
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
 import org.apache.iceberg.catalog.TableIdentifier
@@ -12,7 +12,7 @@ import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -27,30 +27,28 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
   
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(
-                              namespace: String,
+class IcebergS3CatalogWriter(namespace: String,
                               warehouse: String,
                               catalogUri: String,
                               additionalProperties: Map[String, String],
                               s3CatalogFileIO: S3CatalogFileIO,
                               locationOverride: Option[String] = None,
-                        ) extends CatalogWriter[RESTCatalog, Table, Schema]:
+                        ) extends CatalogWriter[RESTCatalog, Table, Schema] with CatalogWriterBuilder[RESTCatalog, Table, Schema]:
 
-  private def createTable(name: String, schema: Schema): Future[Table] =
+  private def createTable(name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(namespace, name)
-    // TODO: add support for partition spec
-    Future({
+    ZIO.attemptBlocking(
       locationOverride match
         case Some(newLocation) => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), newLocation + "/" + name, Map().asJava)
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
-    })
+    )
 
   private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
     val record = GenericRecord.create(schema)
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Future[Table] = Future {
+  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = ZIO.attemptBlocking{
       val appendTran = tbl.newTransaction()
       // create iceberg records
       val records = data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
@@ -80,8 +78,10 @@ class IcebergS3CatalogWriter(
       }
     }
   
-  override def write(data: Iterable[DataRow], name: String, schema: Schema): Future[Table] =
-    createTable(name, schema).flatMap(appendData(data, schema, true))
+  override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
+    for table <- createTable(name, schema)
+        _ <- ZIO.attemptBlocking(appendData(data, schema, false)(table))
+     yield table
 
   override implicit val catalog: RESTCatalog = new RESTCatalog()
   override implicit val catalogProperties: Map[String, String] = Map(
@@ -101,13 +101,15 @@ class IcebergS3CatalogWriter(
     catalog.initialize(catalogName, catalogProperties.asJava)
     this
   
-  override def delete(tableName: String): Future[Boolean] =
+  override def delete(tableName: String): Task[Boolean] =
     val tableId = TableIdentifier.of(namespace, tableName)
-    Future(catalog.dropTable(tableId))
+    ZIO.attemptBlocking(catalog.dropTable(tableId))
 
-  def append(data: Iterable[DataRow], name: String, schema: Schema): Future[Table] =
+  def append(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(namespace, name)
-    Future(catalog.loadTable(tableId)).flatMap(appendData(data, schema, false))
+    for table <- ZIO.attemptBlocking(catalog.loadTable(tableId))
+      _ <- ZIO.attemptBlocking(appendData(data, schema, false)(table))
+    yield table
 
 object IcebergS3CatalogWriter:
   /**
@@ -136,16 +138,15 @@ object IcebergS3CatalogWriter:
             additionalProperties: Map[String, String],
             s3CatalogFileIO: S3CatalogFileIO,
             locationOverride: Option[String]): IcebergS3CatalogWriter =
-    val writer = new IcebergS3CatalogWriter(
-      namespace = namespace,
-      warehouse = warehouse,
-      catalogUri = catalogUri,
-      additionalProperties = additionalProperties,
-      s3CatalogFileIO = s3CatalogFileIO,
-      locationOverride = locationOverride,
+    new IcebergS3CatalogWriter(
+      namespace,
+      warehouse,
+      catalogUri,
+      additionalProperties,
+      s3CatalogFileIO,
+      locationOverride,
     )
-    writer.initialize()
-  
+
   /**
    * Factory method to create IcebergS3CatalogWriter
     * @param icebergSettings Iceberg settings
@@ -153,10 +154,10 @@ object IcebergS3CatalogWriter:
    */
   def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
       IcebergS3CatalogWriter(
-        namespace = icebergSettings.namespace,
-        warehouse = icebergSettings.warehouse,
-        catalogUri = icebergSettings.catalogUri,
-        additionalProperties = icebergSettings.additionalProperties, 
-        s3CatalogFileIO = icebergSettings.s3CatalogFileIO,
-        locationOverride = icebergSettings.stagingLocation,
+        icebergSettings.namespace,
+        icebergSettings.warehouse,
+        icebergSettings.catalogUri,
+        icebergSettings.additionalProperties,
+        icebergSettings.s3CatalogFileIO,
+        icebergSettings.stagingLocation,
       )
