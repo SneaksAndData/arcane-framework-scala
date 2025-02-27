@@ -16,6 +16,7 @@ import zio.{Runtime, Task, Unsafe, ZIO}
 
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
+import scala.{+:, ::}
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Using
@@ -141,4 +142,16 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
     val mergeServiceClient = new JdbcMergeServiceClient(options)
     for result <- mergeServiceClient.expireOrphanFiles(request)
       yield result.skipped should be(false)
+  }
+
+  it should "should be able to perform schema migrations" in withTargetTable("table_a") { connection =>
+
+    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+      Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
+      Field("new_column", StringType) :: Nil
+
+    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+      newSchema <- mergeServiceClient.getSchemaProvider("table_a").getSchema
+      yield newSchema should contain theSameElementsAs updatedSchema
   }
