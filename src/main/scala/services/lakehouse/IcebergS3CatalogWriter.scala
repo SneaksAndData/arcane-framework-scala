@@ -138,14 +138,15 @@ object IcebergS3CatalogWriter:
             additionalProperties: Map[String, String],
             s3CatalogFileIO: S3CatalogFileIO,
             locationOverride: Option[String]): IcebergS3CatalogWriter =
-    new IcebergS3CatalogWriter(
-      namespace,
-      warehouse,
-      catalogUri,
-      additionalProperties,
-      s3CatalogFileIO,
-      locationOverride,
+    val writer = new IcebergS3CatalogWriter(
+      namespace = namespace,
+      warehouse = warehouse,
+      catalogUri = catalogUri,
+      additionalProperties = additionalProperties,
+      s3CatalogFileIO = s3CatalogFileIO,
+      locationOverride = locationOverride,
     )
+    writer.initialize()
 
   /**
    * Factory method to create IcebergS3CatalogWriter
