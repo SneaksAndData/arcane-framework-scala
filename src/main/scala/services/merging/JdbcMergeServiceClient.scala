@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
+
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import services.base.*
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
@@ -12,7 +13,13 @@ import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRe
 import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
 import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
 
-
+import com.sneaksanddata.arcane.framework.services.lakehouse.SchemaConversions
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateAlterTableSQL
+import com.sneaksanddata.arcane.framework.utils.SqlUtils.readArcaneSchema
+import services.mssql.given_CanAdd_ArcaneSchema
+import org.apache.iceberg.types.Type
+import org.apache.iceberg.types.Type.TypeID
+import org.apache.iceberg.types.Types.TimestampType
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -32,7 +39,7 @@ trait JdbcMergeServiceClientOptions:
    * @return True if the connection URL is valid, false otherwise.
    */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
-  
+
 trait JdbcTableManager extends TableManager:
   /**
    * @inheritdoc
@@ -48,8 +55,7 @@ trait JdbcTableManager extends TableManager:
    * @inheritdoc
    */
   override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
-  
-  
+
 /**
  * A consumer that consumes batches from a JDBC source.
  *
@@ -57,6 +63,23 @@ trait JdbcTableManager extends TableManager:
  */
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
   extends MergeServiceClient with JdbcTableManager with AutoCloseable:
+
+  class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
+    /**
+     * @inheritdoc
+     */
+    override def getSchema: Task[ArcaneSchema] =
+      val query = s"SELECT * FROM $tableName where true and false"
+      val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
+      ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+        for
+          schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
+          tryFields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
+          fields <- ZIO.fromTry(tryFields)
+        yield fields
+      }
+
+    def empty: ArcaneSchema = ArcaneSchema.empty()
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
@@ -111,8 +134,22 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
   /**
    * @inheritdoc
    */
-  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit] = ???
-  
+  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit] =
+      for targetSchema <- getSchemaProvider(tableName).getSchema
+          missingFields = targetSchema.getMissingFields(newSchema)
+          _ <- addColumns(tableName, missingFields)
+      yield ()
+
+  def getSchemaProvider(tableName: String): JdbcSchemaProvider = this.JdbcSchemaProvider(tableName, sqlConnection)
+
+  private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
+    for _ <- ZIO.foreach(missingFields)(field => {
+      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+    })
+    yield ()
+
   /**
    * @inheritdoc
    */
@@ -130,6 +167,26 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
     }
 
 object JdbcMergeServiceClient:
+
+  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String = s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
+
+  // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
+  extension (icebergType: Type) private def convertType: String = icebergType.typeId() match {
+    case TypeID.BOOLEAN => "BOOLEAN"
+    case TypeID.INTEGER => "INTEGER"
+    case TypeID.LONG => "BIGINT"
+    case TypeID.FLOAT => "REAL"
+    case TypeID.DOUBLE => "DOUBLE"
+    case TypeID.DECIMAL => "DECIMAL(1, 2)"
+    case TypeID.DATE => "DATE"
+    case TypeID.TIME => "TIME(6)"
+    case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
+    case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && !icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6)"
+    case TypeID.STRING => "VARCHAR"
+    case TypeID.UUID => "UUID"
+    case TypeID.BINARY => "VARBINARY"
+    case _ => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
+  }
 
   /**
    * The environment type for the JdbcConsumer.
@@ -155,4 +212,3 @@ object JdbcMergeServiceClient:
         yield JdbcMergeServiceClient(connectionOptions)
       }
     }
-

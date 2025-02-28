@@ -6,19 +6,16 @@ import utils.TestTablePropertiesSettings
 
 import com.sneaksanddata.arcane.framework.models.{Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema.toColumnsExpression
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import io.trino.jdbc.TrinoDriver
 import org.scalatest.Assertion
-import org.scalatest.flatspec.{AnyFlatSpec, AsyncFlatSpec}
+import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import zio.{Runtime, Task, Unsafe, ZIO}
+import zio.{Runtime, Task, Unsafe}
 
-import java.sql.{Connection, DriverManager}
+import java.sql.Connection
 import java.util.Properties
 import scala.concurrent.Future
-import scala.io.Source
-import scala.util.Using
 
 
 class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
@@ -141,4 +138,15 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
     val mergeServiceClient = new JdbcMergeServiceClient(options)
     for result <- mergeServiceClient.expireOrphanFiles(request)
       yield result.skipped should be(false)
+  }
+
+  it should "should be able to perform schema migrations" in withTargetTable("table_a") { connection =>
+    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+      Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
+      Field("new_column", StringType) :: Nil
+
+    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+      newSchema <- mergeServiceClient.getSchemaProvider("table_a").getSchema
+      yield newSchema should contain theSameElementsAs updatedSchema
   }
