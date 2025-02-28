@@ -4,9 +4,8 @@ package services.streaming.processors.transformers
 import models.settings.TableFormat.PARQUET
 import models.settings.*
 import models.*
-import services.consumers.StagedVersionedBatch
-import services.lakehouse.base.IcebergCatalogSettings
-import services.lakehouse.{CatalogWriter, S3CatalogFileIO}
+import services.consumers.{MergeableBatch, StagedVersionedBatch}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
 import utils.*
 
@@ -18,7 +17,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Runtime, Unsafe}
+import zio.{Chunk, Runtime, Unsafe, ZIO}
 
 import scala.concurrent.Future
 
@@ -52,7 +51,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(Future.successful(tableMock))
+        .andReturn(ZIO.succeed(tableMock))
         .times(2)
     }
     replay(tableMock)
@@ -65,7 +64,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestArchiveTableSettings,
       catalogWriter)
 
-    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
       new IndexedStagedBatches(batches, index){};
 
     // Act
@@ -92,7 +91,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(Future.successful(tableMock))
+        .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
     }
     replay(tableMock)
@@ -100,7 +99,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
 
 
-    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch],
+    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
                                            override val batchIndex: Long,
                                            val others: Chunk[String])
       extends IndexedStagedBatches(groupedBySchema, batchIndex)
@@ -112,7 +111,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestArchiveTableSettings,
       catalogWriter)
       
-    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString));
 
     // Act
