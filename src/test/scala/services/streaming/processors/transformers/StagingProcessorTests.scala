@@ -4,7 +4,7 @@ package services.streaming.processors.transformers
 import models.settings.TableFormat.PARQUET
 import models.settings.*
 import models.*
-import services.consumers.StagedVersionedBatch
+import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
 import utils.*
@@ -64,7 +64,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestArchiveTableSettings,
       catalogWriter)
 
-    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
       new IndexedStagedBatches(batches, index){};
 
     // Act
@@ -99,7 +99,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
 
 
-    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch],
+    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
                                            override val batchIndex: Long,
                                            val others: Chunk[String])
       extends IndexedStagedBatches(groupedBySchema, batchIndex)
@@ -111,7 +111,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestArchiveTableSettings,
       catalogWriter)
       
-    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString));
 
     // Act

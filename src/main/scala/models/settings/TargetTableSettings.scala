@@ -3,6 +3,4 @@ package models.settings
 
 trait TargetTableSettings:
   val targetTableFullName: String
-  val targetOptimizeSettings: Option[OptimizeSettings]
-  val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings]
-  val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings]
+  val maintenanceSettings: TableMaintenanceSettings
