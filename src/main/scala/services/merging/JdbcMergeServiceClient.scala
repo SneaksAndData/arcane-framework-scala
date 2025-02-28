@@ -62,7 +62,7 @@ trait JdbcTableManager extends TableManager:
  * @param options The options for the consumer.
  */
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
-  extends MergeServiceClient with JdbcTableManager with AutoCloseable:
+  extends MergeServiceClient with JdbcTableManager with AutoCloseable with ArchiveServiceClient:
 
   class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
     /**
