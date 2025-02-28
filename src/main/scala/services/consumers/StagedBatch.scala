@@ -11,7 +11,7 @@ trait MergeableBatch:
    */
   val targetTableName: String
 
-trait ArchivableeBatch:
+trait AchievableBatch:
 
   /**
    * Name of the target table in the linked Catalog that holds batch data

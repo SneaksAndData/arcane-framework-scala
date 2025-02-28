@@ -7,7 +7,7 @@ import services.base.{ArchiveServiceClient, MergeServiceClient}
 import services.merging.{JdbcMergeServiceClient, JdbcTableManager}
 import services.streaming.base.StagedBatchProcessor
 
-import com.sneaksanddata.arcane.framework.services.consumers.{ArchivableeBatch, MergeableBatch, StagedVersionedBatch}
+import com.sneaksanddata.arcane.framework.services.consumers.{AchievableBatch, MergeableBatch, StagedVersionedBatch}
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
@@ -35,7 +35,7 @@ class ArchivationProcessor(archiveServiceClient: ArchiveServiceClient,
       yield batchesSet
     )
     
-  private def archiveTargets(groupedByTarget: Map[String, Iterable[StagedVersionedBatch & MergeableBatch & ArchivableeBatch]]): Task[Unit] =
+  private def archiveTargets(groupedByTarget: Map[String, Iterable[StagedVersionedBatch & MergeableBatch & AchievableBatch]]): Task[Unit] =
     ZIO.foreachDiscard(groupedByTarget) {
       case (archiveTableName, batches) =>
         for
