@@ -655,6 +655,9 @@ def create_container():
 
 def create_blobs():
     for folder in FOLDERS:
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2021.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2022.csv", CONTENT)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON)
 

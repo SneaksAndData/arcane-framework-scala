@@ -1,11 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.cdm
 
-import services.cdm.AzureBlobStorageReaderExtensions.{enrichWithSchema, getRootPrefixes}
+import services.cdm.AzureBlobStorageReaderExtensions.*
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import org.scalatest.Inspectors
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
@@ -71,5 +72,42 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
     val stream = storageReader.getRootPrefixes(path, startDate).enrichWithSchema(storageReader, path, tableName).runCollect
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       result.length should be(8)
+    }
+  }
+
+  it should "be able to filter the exact matches" in {
+    val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
+    val startDate = OffsetDateTime.now().minus(Duration.ofHours(12))
+
+    val allPrefixes = storageReader
+      .getRootPrefixes(path, startDate)
+      .enrichWithSchema(storageReader, path, tableName)
+      .flatMap(seb => storageReader.streamPrefixes(path + seb.blob.name).addSchema(seb.schemaProvider))
+      .filterByTableName("dimensionattributelevel")
+      .runCollect
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(allPrefixes)).map { result =>
+      val prefixes = result.map(blob => blob.blob.name).toList
+      
+      Inspectors.forAll(prefixes) { name =>
+        name should (include("dimensionattributelevel") and not include("dimensionattributelevelvalue"))
+      }
+    }
+  }
+
+  it should "be able list all files belonging to a specific table in the storage container" in {
+    val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
+    val startDate = OffsetDateTime.now().minus(Duration.ofHours(12))
+    val tableName = "dimensionattributelevel"
+
+    val allPrefixes = storageReader
+      .getRootPrefixes(path, startDate)
+      .enrichWithSchema(storageReader, path, tableName)
+      .getFilesStream(storageReader, tableName, path)
+      .runCollect
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(allPrefixes)).map { result =>
+      val prefixes = result.map(blob => blob.blob.name).toList
+      prefixes should have size 24
     }
   }
