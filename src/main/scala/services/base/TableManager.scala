@@ -58,11 +58,11 @@ object BatchOptimizationResult:
  */
 trait TableManager:
   
-  type TableOptimizationRequest //<: SqlExpressionConvertable[TableOptimizationRequest] & ConditionallyApplicable[TableOptimizationRequest]
+  type TableOptimizationRequest
   
-  type SnapshotExpirationRequest //<: SqlExpressionConvertable[SnapshotExpirationRequest] & ConditionallyApplicable[SnapshotExpirationRequest]
+  type SnapshotExpirationRequest
   
-  type OrphanFilesExpirationRequest //<: SqlExpressionConvertable[OrphanFilesExpirationRequest] & ConditionallyApplicable[OrphanFilesExpirationRequest]
+  type OrphanFilesExpirationRequest
 
   /**
    * Optimizes a table.
