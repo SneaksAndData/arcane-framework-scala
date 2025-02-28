@@ -108,8 +108,8 @@ class IcebergS3CatalogWriter(namespace: String,
   def append(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(namespace, name)
     for table <- ZIO.attemptBlocking(catalog.loadTable(tableId))
-      _ <- ZIO.attemptBlocking(appendData(data, schema, false)(table))
-    yield table
+      updatedTable <- appendData(data, schema, false)(table)
+    yield updatedTable
 
 object IcebergS3CatalogWriter:
   /**
