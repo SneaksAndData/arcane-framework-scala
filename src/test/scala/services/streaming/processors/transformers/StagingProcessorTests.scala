@@ -17,7 +17,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Runtime, Unsafe}
+import zio.{Chunk, Runtime, Unsafe, ZIO}
 
 import scala.concurrent.Future
 
@@ -51,7 +51,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(Future.successful(tableMock))
+        .andReturn(ZIO.succeed(tableMock))
         .times(2)
     }
     replay(tableMock)

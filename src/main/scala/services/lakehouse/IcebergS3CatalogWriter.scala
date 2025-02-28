@@ -80,8 +80,8 @@ class IcebergS3CatalogWriter(namespace: String,
   
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     for table <- createTable(name, schema)
-        _ <- ZIO.attemptBlocking(appendData(data, schema, false)(table))
-     yield table
+        updatedTable <- appendData(data, schema, false)(table)
+     yield updatedTable
 
   override implicit val catalog: RESTCatalog = new RESTCatalog()
   override implicit val catalogProperties: Map[String, String] = Map(
