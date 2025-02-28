@@ -55,10 +55,11 @@ object  SynapseLinkBackfillOverwriteBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillOverwriteBatch =
     new SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName, archiveName, tablePropertiesSettings)
 
-class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch:
+class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch with ArchivableeBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
   override val targetTableName: String = targetName
+  override val archiveTableName: String = archiveName
 
   override def reduceExpr: String =
     // for merge query, we must carry over deletions so they can be applied in a MERGE statement by MatchedAppendOnlyDelete
