@@ -39,7 +39,7 @@ trait JdbcMergeServiceClientOptions:
    * @return True if the connection URL is valid, false otherwise.
    */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
-  
+
 trait JdbcTableManager extends TableManager:
   /**
    * @inheritdoc
@@ -80,7 +80,6 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
       }
 
     def empty: ArcaneSchema = ArcaneSchema.empty()
-
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
