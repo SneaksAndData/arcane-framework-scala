@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package services.lakehouse
+package services.lakehouse.base
 
 import models.{ArcaneSchema, DataRow}
+
+import zio.Task
 
 import scala.concurrent.Future
 
@@ -45,17 +47,17 @@ object S3CatalogFileIO extends S3CatalogFileIO:
   override val endpoint: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT", "")
   override val region: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_REGION", "us-east-1")
 
-trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
-  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  implicit val catalog: CatalogImpl
-  implicit val catalogProperties: Map[String, String]
-  implicit val catalogName: String
-
+trait CatalogWriterBuilder[CatalogImpl, TableImpl, SchemaImpl]:
   /**
    * Initialize the catalog connection
    * @return CatalogWriter instance ready to perform data operations
    */
   def initialize(): CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]
+  
+trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
+  implicit val catalog: CatalogImpl
+  implicit val catalogProperties: Map[String, String]
+  implicit val catalogName: String
 
   /**
    * Creates a table published to the configured Catalog from the data provided.
@@ -63,14 +65,14 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
    * @param name Name for the table in the catalog
    * @return Reference to the created table
    */
-  def write(data: Iterable[DataRow], name: String, schema: SchemaImpl): Future[TableImpl]
+  def write(data: Iterable[DataRow], name: String, schema: SchemaImpl): Task[TableImpl]
 
   /**
    * Deletes the specified table from the catalog
    * @param tableName Table to delete
    * @return true if successful, false otherwise
    */
-  def delete(tableName: String): Future[Boolean]
+  def delete(tableName: String): Task[Boolean]
 
   /**
    * Appends provided rows to the table.
@@ -78,4 +80,4 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
    * @param name Table to append to
    * @return Reference to the updated table
    */
-  def append(data: Iterable[DataRow], name: String, schema: SchemaImpl): Future[TableImpl]
+  def append(data: Iterable[DataRow], name: String, schema: SchemaImpl): Task[TableImpl]

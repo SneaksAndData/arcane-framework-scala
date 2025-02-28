@@ -1,8 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package utils
 
-import services.lakehouse.S3CatalogFileIO
-import services.lakehouse.base.IcebergCatalogSettings
+import services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 
 object TestIcebergCatalogSettings extends IcebergCatalogSettings:
   /**
