@@ -30,6 +30,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
   private val schema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
+  private val icebergWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(settings)
 
   it should "create a table when provided schema and rows" in {
     val rows = Seq(
@@ -39,32 +40,28 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
       List(DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key4"), DataCell(name = "colA", Type = IntType, value = 3), DataCell(name = "colB", Type = StringType, value = "tyr"))
     )
 
-    val icebergWriterBuilder: IcebergS3CatalogWriter = IcebergS3CatalogWriter(settings)
-    val task = icebergWriterBuilder.write(
+    val task = icebergWriterBuilder.initialize().write(
       data = rows,
       name = UUID.randomUUID.toString,
       schema = schema
     ).map(tbl => tbl.history().asScala.isEmpty should equal(false))
-
+    
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   it should "create an empty table" in {
-
-    val icebergWriterBuilder: IcebergS3CatalogWriter = IcebergS3CatalogWriter(settings)
-    val task = icebergWriterBuilder.write(
+    val task = icebergWriterBuilder.initialize().write(
       data = Seq(),
       name = UUID.randomUUID.toString,
       schema = schema
     ).map(tbl => tbl.history().asScala.isEmpty should equal(false))
-
+    
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   it should "delete table successfully after creating it" in {
     val tblName = UUID.randomUUID.toString
-    val icebergWriterBuilder: IcebergS3CatalogWriter = IcebergS3CatalogWriter(settings)
-    val writer = icebergWriterBuilder
+    val writer = icebergWriterBuilder.initialize()
     val task = writer.write(
       data = Seq(List(
         DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key1"), DataCell(name = "colA", Type = IntType, value = 1), DataCell(name = "colB", Type = StringType, value = "abc"),
@@ -74,13 +71,12 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     ).flatMap { _ => writer.delete(tblName) }.map {
       _ should equal(true)
     }
-
+    
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   it should "create a table and then append rows to it" in {
     val tblName = UUID.randomUUID.toString
-    val icebergWriterBuilder: IcebergS3CatalogWriter = IcebergS3CatalogWriter(settings)
     val initialData = Seq(List(
       DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key1"), DataCell(name = "colA", Type = IntType, value = 1), DataCell(name = "colB", Type = StringType, value = "abc"),
     ))
@@ -88,7 +84,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
       DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key2"), DataCell(name = "colA", Type = IntType, value = 2), DataCell(name = "colB", Type = StringType, value = "def"),
     ))
 
-    val writer = icebergWriterBuilder
+    val writer = icebergWriterBuilder.initialize()
     val task = writer.write(
       data = initialData,
       name = tblName,
@@ -98,6 +94,6 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
       // table creation has no data so no data snapshot there
       _.currentSnapshot().sequenceNumber() should equal(2)
     }
-
+    
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
