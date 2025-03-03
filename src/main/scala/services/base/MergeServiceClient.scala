@@ -38,6 +38,10 @@ trait MergeServiceClient:
    */
   def applyBatch(batch: Batch): Task[BatchApplicationResult]
 
+trait ArchiveServiceClient:
+
+  type Batch = StagedBatch
+  
   /**
    * Applies a batch to the archive table.
    *
@@ -48,9 +52,10 @@ trait MergeServiceClient:
   def archiveBatch(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult]
 
   /**
-   * Disposes of a batch.
+   * Disposes of a batch. NOTE: this method should not be called until the archivation of the batch is completed.
    *
    * @param batch The batch to dispose.
    * @return The result of disposing of the batch.
    */
   def disposeBatch(batch: Batch): Task[BatchDisposeResult]
+
