@@ -5,7 +5,7 @@ import models.ArcaneType.LongType
 import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import models.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.consumers.{AchievableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.merging.JdbcTableManager
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
@@ -22,7 +22,7 @@ import zio.stream.ZStream
 import zio.{Runtime, Unsafe, ZIO}
 
 
-class TestIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch & AchievableBatch], override val batchIndex: Long)
+class TestIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], override val batchIndex: Long)
   extends IndexedStagedBatches(groupedBySchema, batchIndex) with SnapshotExpirationRequestConvertable with OrphanFilesExpirationRequestConvertable with OptimizationRequestConvertable:
 
   def getOptimizationRequest(settings: OptimizeSettings): JdbcOptimizationRequest =
