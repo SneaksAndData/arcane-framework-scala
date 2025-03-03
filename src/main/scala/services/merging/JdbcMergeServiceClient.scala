@@ -2,21 +2,29 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-import models.ArcaneSchema
+
+import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import services.base.*
+import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.models.given_ConditionallyApplicable_JdbcOptimizationRequest
+import services.merging.models.given_ConditionallyApplicable_JdbcSnapshotExpirationRequest
+import services.merging.models.given_ConditionallyApplicable_JdbcOrphanFilesExpirationRequest
+import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRequest
+import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
+import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
+
 import services.lakehouse.SchemaConversions
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
-import services.merging.models.*
-import services.mssql.given_CanAdd_ArcaneSchema
 import utils.SqlUtils.readArcaneSchema
+import services.mssql.given_CanAdd_ArcaneSchema
 
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.TimestampType
-import zio.{Task, ZIO, ZLayer}
+import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
-import scala.util.Try;
+import scala.util.Try
 
 trait JdbcMergeServiceClientOptions:
   /**
@@ -93,7 +101,6 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
    */
   def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
     executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
-
 
   /**
    * @inheritdoc

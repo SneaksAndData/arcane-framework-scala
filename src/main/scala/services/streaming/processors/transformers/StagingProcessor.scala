@@ -8,8 +8,7 @@ import models.{ArcaneSchema, DataRow}
 import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer}
+import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
 import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -33,7 +32,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
-  type OutgoingElement = IndexedStagedBatches
+  type OutgoingElement = StagedBatchProcessor#BatchType
 
   override def process[IncomingElement: MetadataEnrichedRowStreamElement](toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
