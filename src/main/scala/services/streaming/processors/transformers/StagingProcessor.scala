@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.DataCell.schema
 import models.settings.{ArchiveTableSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
 import models.{ArcaneSchema, DataRow}
-import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
@@ -19,7 +19,7 @@ import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
 import java.time.Duration
 
-trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
+trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], val batchIndex: Long)
 
 
 class StagingProcessor(stagingDataSettings: StagingDataSettings,
@@ -46,7 +46,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .zipWithIndex
       .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
 
-  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch] =
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch & ArchiveableBatch] =
     val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
     for
       table <- tableWriterEffect.retry(retryPolicy)
@@ -66,7 +66,7 @@ object StagingProcessor:
                                              batchSchema: ArcaneSchema,
                                              targetName: String,
                                              archiveTableFullName: String,
-                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch =
+                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch & ArchiveableBatch =
     val batchName = table.name().split('.').last
     SynapseLinkMergeBatch(batchName, batchSchema, targetName, archiveTableFullName, tablePropertiesSettings)
 
