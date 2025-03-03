@@ -2,29 +2,20 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema
+import models.ArcaneSchema
 import services.base.*
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import services.merging.models.given_ConditionallyApplicable_JdbcOptimizationRequest
-import services.merging.models.given_ConditionallyApplicable_JdbcSnapshotExpirationRequest
-import services.merging.models.given_ConditionallyApplicable_JdbcOrphanFilesExpirationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
-
-import com.sneaksanddata.arcane.framework.services.lakehouse.SchemaConversions
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateAlterTableSQL
-import com.sneaksanddata.arcane.framework.utils.SqlUtils.readArcaneSchema
+import services.lakehouse.SchemaConversions
+import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
+import services.merging.models.*
 import services.mssql.given_CanAdd_ArcaneSchema
+import utils.SqlUtils.readArcaneSchema
+
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.TimestampType
-import zio.{Schedule, Task, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
-import java.time.Duration
-import scala.concurrent.Future
 import scala.util.Try;
 
 trait JdbcMergeServiceClientOptions:
@@ -140,6 +131,30 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
           _ <- addColumns(tableName, missingFields)
       yield ()
 
+  /**
+   * @inheritdoc
+   */
+  def cleanupStagingTables(stagingCatalog: String, tableNamePrefix: String): Task[Unit] =
+    val sql = s"SHOW TABLES FROM $stagingCatalog LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
+          resultSet <- ZIO.attemptBlocking(statement.executeQuery())
+          tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
+          _ <- ZIO.foreachDiscard(tableNames)(tableName => {
+            zlog("Found lost staging table: " + tableName) *> dropTable(tableName)
+          })
+      yield ()
+    }
+
+  private def dropTable(tableName: String): Task[Unit] =
+    val sql = s"DROP TABLE IF EXISTS $tableName"
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
+          _ <- zlog("Dropping table: " + tableName)
+          _ <- ZIO.attemptBlocking(statement.execute())
+      yield ()
+    }
+
   def getSchemaProvider(tableName: String): JdbcSchemaProvider = this.JdbcSchemaProvider(tableName, sqlConnection)
 
   private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
@@ -167,6 +182,11 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
     }
 
 object JdbcMergeServiceClient:
+
+  private def readStrings(row: ResultSet): List[String] =
+    Iterator.iterate(row.next())(_ => row.next())
+      .takeWhile(identity)
+      .map(_ => row.getString(1)).toList
 
   def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String = s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
 

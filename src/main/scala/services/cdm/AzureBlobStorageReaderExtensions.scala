@@ -41,13 +41,6 @@ object AzureBlobStorageReaderExtensions:
    * The shorthand method for filtering out the CSV files from the stream
    * @return The stream that contains only exact matches for the table name.
    */
-  extension (stream: SchemaEnrichedBlobStream) def getFilesStream: SchemaEnrichedBlobStream =
-    stream.filter(schemaEnrichedBlob => schemaEnrichedBlob.blob.name.endsWith(".csv"))
-    
-  /**
-   * The shorthand method for filtering out the CSV files from the stream
-   * @return The stream that contains only exact matches for the table name.
-   */
   extension (stream: SchemaEnrichedBlobStream) def onlyCSVs: SchemaEnrichedBlobStream =
     stream.filter(schemaEnrichedBlob => schemaEnrichedBlob.blob.name.endsWith(".csv"))
 
