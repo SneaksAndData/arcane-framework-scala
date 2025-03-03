@@ -6,9 +6,11 @@ import models.settings.*
 import models.*
 import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
-import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
+import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, ToInFlightBatch}
 import utils.*
 
+import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -65,7 +67,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       catalogWriter)
 
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
-      new IndexedStagedBatches(batches, index){};
+      new TestIndexedStagedBatches(batches, index)
 
     // Act
     val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
@@ -102,7 +104,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch],
                                            override val batchIndex: Long,
                                            val others: Chunk[String])
-      extends IndexedStagedBatches(groupedBySchema, batchIndex)
+      extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
       
     val stagingProcessor = StagingProcessor(TestStagingDataSettings,
       TestTablePropertiesSettings,
@@ -112,7 +114,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       catalogWriter)
       
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
-      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString));
+      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
     // Act
     val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
