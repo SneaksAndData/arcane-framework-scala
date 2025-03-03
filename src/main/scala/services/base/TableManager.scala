@@ -123,3 +123,9 @@ trait TableManager:
    */
   def createArchiveTable: Task[Unit]
 
+  /**
+   * Creates the archive table.
+   *
+   * @return The result of the archive table creation operation.
+   */
+  def createBackFillTable: Task[Unit]
