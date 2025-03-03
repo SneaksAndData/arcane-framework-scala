@@ -3,6 +3,7 @@ package services.base
 
 import models.ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import zio.Task
 
 /**
@@ -107,3 +108,18 @@ trait TableManager:
    * @return The list of tables.
    */
   def cleanupStagingTables(stagingCatalog: String, tableNamePrefix: String): Task[Unit]
+
+  /**
+   * Creates the target table.
+   *
+   * @return The result of the target table creation operation.
+   */
+  def createTargetTable: Task[Unit]
+  
+  /**
+   * Creates the archive table.
+   *
+   * @return The result of the archive table creation operation.
+   */
+  def createArchiveTable: Task[Unit]
+

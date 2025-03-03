@@ -4,6 +4,10 @@ package services.merging
 import logging.ZIOLogAnnotations.*
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
+import com.sneaksanddata.arcane.framework.models.given_NamedCell_ArcaneSchemaField
+import com.sneaksanddata.arcane.framework.services.lakehouse.SchemaConversions.toIcebergSchemaFromFields
+
+import scala.jdk.CollectionConverters.*
 import services.base.*
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.merging.models.given_ConditionallyApplicable_JdbcOptimizationRequest
@@ -12,12 +16,15 @@ import services.merging.models.given_ConditionallyApplicable_JdbcOrphanFilesExpi
 import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRequest
 import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
 import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
-
 import services.lakehouse.SchemaConversions
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
 import utils.SqlUtils.readArcaneSchema
 import services.mssql.given_CanAdd_ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.models.settings.{ArchiveTableSettings, TablePropertiesSettings, TargetTableSettings}
+import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
+import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.TimestampType
@@ -60,7 +67,12 @@ trait JdbcTableManager extends TableManager:
  *
  * @param options The options for the consumer.
  */
-class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
+class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
+                             targetTableSettings: TargetTableSettings,
+                             archiveTableSettings: ArchiveTableSettings,
+                             schemaProvider: SchemaProvider[ArcaneSchema],
+                             fieldsFilteringService: FieldsFilteringService,
+                             tablePropertiesSettings: TablePropertiesSettings)
   extends MergeServiceClient with JdbcTableManager with AutoCloseable with ArchiveServiceClient:
 
   class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
@@ -153,6 +165,23 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions)
       yield ()
     }
 
+  def createTargetTable: Task[Unit] =
+    for
+      _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
+      schema: ArcaneSchema <- schemaProvider.getSchema
+      created <- createTable(targetTableSettings.targetTableFullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
+    yield ()
+
+  def createArchiveTable: Task[Unit] =
+    for
+      _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.fullName)))
+      schema: ArcaneSchema <- schemaProvider.getSchema
+      created <- createTable(archiveTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
+    yield ()
+
+  private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
+    ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
+
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
     ZIO.scoped {
@@ -197,6 +226,10 @@ object JdbcMergeServiceClient:
 
   def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String = s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
 
+  def generateCreateTableSQL(tableName: String, schema: Schema, properties: TablePropertiesSettings): String =
+    val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
+    s"CREATE TABLE IF NOT EXISTS $tableName ($columns) ${properties.serializeToWithExpression}"
+
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
   extension (icebergType: Type) private def convertType: String = icebergType.typeId() match {
     case TypeID.BOOLEAN => "BOOLEAN"
@@ -219,14 +252,24 @@ object JdbcMergeServiceClient:
    * The environment type for the JdbcConsumer.
    */
   private type Environment = JdbcMergeServiceClientOptions
+    & TargetTableSettings
+    & ArchiveTableSettings
+    & SchemaProvider[ArcaneSchema]
+    & FieldsFilteringService
+    & TablePropertiesSettings
   
   /**
    * Factory method to create JdbcConsumer.
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply(options: JdbcMergeServiceClientOptions): JdbcMergeServiceClient =
-    new JdbcMergeServiceClient(options)
+  def apply(options: JdbcMergeServiceClientOptions,
+            targetTableSettings: TargetTableSettings,
+            archiveTableSettings: ArchiveTableSettings,
+            schemaProvider: SchemaProvider[ArcaneSchema],
+            fieldsFilteringService: FieldsFilteringService,
+            tablePropertiesSettings: TablePropertiesSettings): JdbcMergeServiceClient =
+    new JdbcMergeServiceClient(options, targetTableSettings, archiveTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -236,6 +279,11 @@ object JdbcMergeServiceClient:
       ZIO.fromAutoCloseable {
         for
           connectionOptions <- ZIO.service[JdbcMergeServiceClientOptions]
-        yield JdbcMergeServiceClient(connectionOptions)
+          targetTableSettings <- ZIO.service[TargetTableSettings]
+          archiveTableSettings <- ZIO.service[ArchiveTableSettings]
+          schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
+          fieldsFilteringService <- ZIO.service[FieldsFilteringService]
+          tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, archiveTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
       }
     }
