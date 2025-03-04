@@ -3,8 +3,8 @@ package services.streaming.base
 
 import models.DataRow
 
-import com.sneaksanddata.arcane.framework.services.consumers.{MergeableBatch, StagedBatch, StagedVersionedBatch}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.IndexedStagedBatches
+import services.consumers.{MergeableBatch, StagedBatch, StagedVersionedBatch}
+import services.streaming.processors.transformers.IndexedStagedBatches
 import zio.Chunk
 import zio.stream.ZPipeline
 
