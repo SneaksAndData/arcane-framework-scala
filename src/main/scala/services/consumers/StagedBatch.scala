@@ -11,14 +11,6 @@ trait MergeableBatch:
    */
   val targetTableName: String
 
-trait ArchiveableBatch:
-
-  /**
-   * Name of the target table in the linked Catalog that holds batch data
-   */
-  val archiveTableName: String
-
-
 trait StagedBatch:
 
   type Query <: StreamingBatchQuery
@@ -41,18 +33,6 @@ trait StagedBatch:
    * @return SQL query text
    */
   def reduceExpr: String
-
-  /**
-   * Query that should be used to archive this batch data
-   * @return SQL query text
-   */
-  def archiveExpr(archiveTableName: String): String
-
-  /**
-   * Query that should be used to archive this batch data
-   * @return SQL query text
-   */
-  def archiveExpr(arcaneSchema: ArcaneSchema): String
 
   /**
    * Query that should be used to dispose of this batch data.

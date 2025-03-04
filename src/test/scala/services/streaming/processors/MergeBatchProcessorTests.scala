@@ -5,7 +5,7 @@ import models.ArcaneType.LongType
 import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import models.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.merging.JdbcTableManager
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
@@ -30,10 +30,10 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     .takeWhile(_ < 20)
     .map { i =>
       val schema = ArcaneSchema(Seq(MergeKeyField))
-      val batch = SynapseLinkMergeBatch(s"staging_$i", schema, "target", "archive", TablePropertiesSettings)
+      val batch = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings)
 
       val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
-      val secondBatch = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", "archive", TablePropertiesSettings)
+      val secondBatch = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings)
 
       TestIndexedStagedBatches(Seq(batch, secondBatch), i)
     }

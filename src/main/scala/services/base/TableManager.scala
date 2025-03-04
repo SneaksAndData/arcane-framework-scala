@@ -115,13 +115,6 @@ trait TableManager:
    * @return The result of the target table creation operation.
    */
   def createTargetTable: Task[Unit]
-  
-  /**
-   * Creates the archive table.
-   *
-   * @return The result of the archive table creation operation.
-   */
-  def createArchiveTable: Task[Unit]
 
   /**
    * Creates the archive table.
