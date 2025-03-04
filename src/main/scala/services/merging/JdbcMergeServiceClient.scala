@@ -21,6 +21,7 @@ import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrin
 import utils.SqlUtils.readArcaneSchema
 import services.mssql.given_CanAdd_ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
@@ -70,10 +71,11 @@ trait JdbcTableManager extends TableManager:
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
                              targetTableSettings: TargetTableSettings,
                              backfillTableSettings: BackfillSettings,
+                             streamContext: StreamContext,
                              schemaProvider: SchemaProvider[ArcaneSchema],
                              fieldsFilteringService: FieldsFilteringService,
                              tablePropertiesSettings: TablePropertiesSettings)
-  extends MergeServiceClient with JdbcTableManager with AutoCloseable:
+  extends MergeServiceClient with JdbcTableManager with AutoCloseable with DisposeServiceClient:
 
   class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
     /**
@@ -105,7 +107,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
+  override def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
     executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
 
   /**
@@ -173,11 +175,15 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    * @inheritdoc
    */
   def createBackFillTable: Task[Unit] =
-    for
-      _ <- zlog("Creating archive table", Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)))
-      schema: ArcaneSchema <- schemaProvider.getSchema
-      created <- createTable(backfillTableSettings.backfillTableFullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
-    yield ()
+    if streamContext.IsBackfilling then
+      for
+        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", backfillTableSettings.fullName)))
+        schema: ArcaneSchema <- schemaProvider.getSchema
+        created <- createTable(backfillTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
+      yield ()
+    else
+      ZIO.unit
+
 
   private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
     ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
@@ -256,8 +262,9 @@ object JdbcMergeServiceClient:
     & SchemaProvider[ArcaneSchema]
     & FieldsFilteringService
     & TablePropertiesSettings
+    & StreamContext
     & BackfillSettings
-  
+
   /**
    * Factory method to create JdbcConsumer.
    * @param options The options for the consumer.
@@ -266,10 +273,11 @@ object JdbcMergeServiceClient:
   def apply(options: JdbcMergeServiceClientOptions,
             targetTableSettings: TargetTableSettings,
             backfillTableSettings: BackfillSettings,
+            streamContext: StreamContext,
             schemaProvider: SchemaProvider[ArcaneSchema],
             fieldsFilteringService: FieldsFilteringService,
             tablePropertiesSettings: TablePropertiesSettings): JdbcMergeServiceClient =
-    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -284,6 +292,7 @@ object JdbcMergeServiceClient:
           schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
           fieldsFilteringService <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+          streamContext <- ZIO.service[StreamContext]
+        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
       }
     }

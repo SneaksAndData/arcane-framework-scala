@@ -79,7 +79,6 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         fieldType = StringType
       )
     ), "test.table_a",
-      "test.archive_table_a",
       TestTablePropertiesSettings)
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_overwrite_query.sql"))) {
@@ -109,7 +108,6 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         fieldType = LongType
       )
     ), "test.table_a",
-      "test.archive_table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 
