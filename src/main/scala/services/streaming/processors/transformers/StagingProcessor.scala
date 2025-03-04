@@ -47,7 +47,9 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch & ArchiveableBatch] =
-    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+    val tableWriterEffect = zlog("Attempting to write data to staging table") *>
+      catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+
     val retryEffect = stagingDataSettings.retryPolicy.toSchedule match
       case Some(schedule) => tableWriterEffect.retry(schedule)
       case None => tableWriterEffect
