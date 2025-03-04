@@ -47,7 +47,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch] =
     val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
     for
-      table <- tableWriterEffect.retry(retryPolicy)
+      table <- tableWriterEffect.tapErrorCause(cause => zlog(s"Error writing data to staging table: $cause")).retry(retryPolicy)
       batch = table.toStagedBatch(icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
