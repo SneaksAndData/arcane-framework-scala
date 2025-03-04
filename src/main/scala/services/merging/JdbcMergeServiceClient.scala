@@ -177,9 +177,9 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   def createBackFillTable: Task[Unit] =
     if streamContext.IsBackfilling then
       for
-        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", backfillTableSettings.fullName)))
+        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)))
         schema: ArcaneSchema <- schemaProvider.getSchema
-        created <- createTable(backfillTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
+        created <- createTable(backfillTableSettings.backfillTableFullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
       yield ()
     else
       ZIO.unit
