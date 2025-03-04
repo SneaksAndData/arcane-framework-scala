@@ -33,6 +33,13 @@ trait MergeServiceClient:
    */
   def applyBatch(batch: Batch): Task[BatchApplicationResult]
 
+/**
+ * A service client that disposes of data batches.
+ */
+trait DisposeServiceClient:
+  
+  type Batch = StagedBatch
+  
   /**
    * Disposes of a batch.
    *

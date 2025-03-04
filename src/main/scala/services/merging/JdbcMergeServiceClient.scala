@@ -73,7 +73,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
                              schemaProvider: SchemaProvider[ArcaneSchema],
                              fieldsFilteringService: FieldsFilteringService,
                              tablePropertiesSettings: TablePropertiesSettings)
-  extends MergeServiceClient with JdbcTableManager with AutoCloseable:
+  extends MergeServiceClient with JdbcTableManager with AutoCloseable with DisposeServiceClient:
 
   class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
     /**
@@ -105,7 +105,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
+  override def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
     executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
 
   /**
