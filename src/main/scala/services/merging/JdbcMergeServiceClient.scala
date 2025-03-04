@@ -21,6 +21,7 @@ import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrin
 import utils.SqlUtils.readArcaneSchema
 import services.mssql.given_CanAdd_ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillTableSettings, TablePropertiesSettings, TargetTableSettings}
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
@@ -70,6 +71,7 @@ trait JdbcTableManager extends TableManager:
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
                              targetTableSettings: TargetTableSettings,
                              backfillTableSettings: BackfillTableSettings,
+                             streamContext: StreamContext,
                              schemaProvider: SchemaProvider[ArcaneSchema],
                              fieldsFilteringService: FieldsFilteringService,
                              tablePropertiesSettings: TablePropertiesSettings)
@@ -173,11 +175,15 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    * @inheritdoc
    */
   def createBackFillTable: Task[Unit] =
-    for
-      _ <- zlog("Creating archive table", Seq(getAnnotation("backfillTableName", backfillTableSettings.fullName)))
-      schema: ArcaneSchema <- schemaProvider.getSchema
-      created <- createTable(backfillTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
-    yield ()
+    if streamContext.IsBackfilling then
+      for
+        _ <- zlog("Creating archive table", Seq(getAnnotation("backfillTableName", backfillTableSettings.fullName)))
+        schema: ArcaneSchema <- schemaProvider.getSchema
+        created <- createTable(backfillTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
+      yield ()
+    else
+      ZIO.unit
+  
 
   private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
     ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
