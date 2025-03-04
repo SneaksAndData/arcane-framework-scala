@@ -2,15 +2,18 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import services.consumers.SynapseLinkMergeBatch
-import utils.TestTablePropertiesSettings
+import utils.{TestArchiveTableSettings, TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
-import com.sneaksanddata.arcane.framework.models.{Field, MergeKeyField}
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
+import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import io.trino.jdbc.TrinoDriver
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.easymock.EasyMockSugar
 import zio.{Runtime, Task, Unsafe}
 
 import java.sql.Connection
@@ -18,11 +21,14 @@ import java.util.Properties
 import scala.concurrent.Future
 
 
-class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
+class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
 
   private val connectionUri = "jdbc:trino://localhost:8080/iceberg/test?user=test"
   private val schema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) :: Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) :: Nil
   private val runtime = Runtime.default
+
+  private val schemaProviderMock = mock[SchemaProvider[ArcaneSchema]]
+  private val fieldsFilteringServiceMock = mock[FieldsFilteringService]
 
   private val options = new JdbcMergeServiceClientOptions:
     /**
@@ -63,9 +69,17 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
 
+  private def getSystemUnderTest = new JdbcMergeServiceClient(options,
+      TestTargetTableSettings,
+      TestBackfillTableSettings,
+      TestArchiveTableSettings,
+      schemaProviderMock,
+      fieldsFilteringServiceMock,
+      TestTablePropertiesSettings)
+
   it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
     val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+    val mergeServiceClient = getSystemUnderTest
 
     for _ <- mergeServiceClient.applyBatch(batch)
         rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}")
@@ -77,7 +91,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
   }
 
   it should "should be able to archive a batch to archive table" in withTargetAndArchiveTables("table_a") { connection =>
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val mergeServiceClient = getSystemUnderTest
     val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
 
     for _ <- mergeServiceClient.archiveBatch(batch, batch.schema)
@@ -90,7 +104,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
   }
 
   it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val mergeServiceClient = getSystemUnderTest
     val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
 
     for _ <- mergeServiceClient.disposeBatch(batch)
@@ -109,9 +123,9 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
     val request = JdbcOptimizationRequest(tableName, optimizeThreshold, fileSizeThreshold, batchIndex)
 
 
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
-      for result <- mergeServiceClient.optimizeTable(request)
-      yield result.skipped should be(false)
+    val mergeServiceClient = getSystemUnderTest
+    for result <- mergeServiceClient.optimizeTable(request)
+    yield result.skipped should be(false)
   }
 
   it should "should be able to run expireSnapshots queries without errors" in withTargetTable("table_a") { connection =>
@@ -122,9 +136,9 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
     val batchIndex = 9
     val request = JdbcSnapshotExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
 
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val mergeServiceClient = getSystemUnderTest
     for result <- mergeServiceClient.expireSnapshots(request)
-      yield result.skipped should be(false)
+    yield result.skipped should be(false)
   }
 
   it should "should be able to run expireOrphanFiles queries without errors" in withTargetTable("table_a") { connection =>
@@ -135,9 +149,9 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
     val batchIndex = 9
     val request = JdbcOrphanFilesExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
 
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val mergeServiceClient = getSystemUnderTest
     for result <- mergeServiceClient.expireOrphanFiles(request)
-      yield result.skipped should be(false)
+    yield result.skipped should be(false)
   }
 
   it should "should be able to perform schema migrations" in withTargetTable("table_a") { connection =>
@@ -145,8 +159,8 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers:
       Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
       Field("new_column", StringType) :: Nil
 
-    val mergeServiceClient = new JdbcMergeServiceClient(options)
+    val mergeServiceClient = getSystemUnderTest
     for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-      newSchema <- mergeServiceClient.getSchemaProvider("table_a").getSchema
-      yield newSchema should contain theSameElementsAs updatedSchema
+        newSchema <- mergeServiceClient.getSchemaProvider("table_a").getSchema
+    yield newSchema should contain theSameElementsAs updatedSchema
   }
