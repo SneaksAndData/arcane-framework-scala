@@ -6,6 +6,7 @@ import utils.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTarget
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
@@ -29,6 +30,11 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
 
   private val schemaProviderMock = mock[SchemaProvider[ArcaneSchema]]
   private val fieldsFilteringServiceMock = mock[FieldsFilteringService]
+  private val streamContext = new StreamContext:
+    override val streamId: String = "test"
+    override val IsBackfilling: Boolean = true
+    override val streamKind: String = "test"
+    
 
   private val options = new JdbcMergeServiceClientOptions:
     /**
@@ -72,6 +78,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   private def getSystemUnderTest = new JdbcMergeServiceClient(options,
       TestTargetTableSettings,
       TestBackfillTableSettings,
+      streamContext,
       schemaProviderMock,
       fieldsFilteringServiceMock,
       TestTablePropertiesSettings)

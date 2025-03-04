@@ -36,7 +36,7 @@ object SynapseLinkBackfillQuery:
   def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
-class SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings)
+class SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings)
   extends StagedBackfillOverwriteBatch:
 
   override val name: String = batchName
@@ -46,11 +46,9 @@ class SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSc
 
   override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
-  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
-
 object  SynapseLinkBackfillOverwriteBatch:
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillOverwriteBatch =
-    new SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName, archiveName, tablePropertiesSettings)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillOverwriteBatch =
+    new SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
 class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch:
   override val name: String = batchName
@@ -70,7 +68,7 @@ object SynapseLinkMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkMergeBatch =
     new SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
 
-class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
+class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String,  tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
   extends StagedBackfillMergeBatch with MergeableBatch:
 
   override val name: String = batchName
@@ -81,9 +79,7 @@ class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema
 
   override val batchQuery: MergeQuery = SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
-  def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
-
 object SynapseLinkBackfillMergeBatch:
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillMergeBatch =
-    new SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName, archiveName, tablePropertiesSettings, batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillMergeBatch =
+    new SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
 
