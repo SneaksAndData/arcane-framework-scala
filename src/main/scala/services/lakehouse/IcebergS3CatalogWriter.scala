@@ -115,11 +115,13 @@ object IcebergS3CatalogWriter:
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
    */
-  val layer: ZLayer[IcebergCatalogSettings, Nothing, CatalogWriter[RESTCatalog, Table, Schema]] =
+  val layer: ZLayer[IcebergCatalogSettings, Throwable, IcebergS3CatalogWriter] =
     ZLayer {
       for
         settings <- ZIO.service[IcebergCatalogSettings]
-      yield IcebergS3CatalogWriter(settings)
+        icebergS3CatalogWriterBuilder = IcebergS3CatalogWriter(settings)
+        writer <- ZIO.attemptBlocking(icebergS3CatalogWriterBuilder.initialize())
+      yield writer
     }
 
   /**
