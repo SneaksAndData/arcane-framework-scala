@@ -4,8 +4,17 @@ package services.consumers
 import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteReplaceQuery, StreamingBatchQuery}
 import models.ArcaneSchema
 
+trait MergeableBatch:
 
-trait StagedBatch[Query <: StreamingBatchQuery]:
+  /**
+   * Name of the target table in the linked Catalog that holds batch data
+   */
+  val targetTableName: String
+
+trait StagedBatch:
+
+  type Query <: StreamingBatchQuery
+
   /**
    * Name of the table in the linked Catalog that holds batch data
    */
@@ -26,23 +35,36 @@ trait StagedBatch[Query <: StreamingBatchQuery]:
   def reduceExpr: String
 
   /**
-   * Query that should be used to archive this batch data
+   * Query that should be used to dispose of this batch data.
    * @return SQL query text
    */
-  def archiveExpr(archiveTableName: String): String
-
-
-/**
- * StagedBatch that overwrites the whole table and all partitions that it might have
- */
-type StagedInitBatch = StagedBatch[InitializeQuery]
+  def disposeExpr: String = s"DROP TABLE $name"
 
 /**
- * StagedBatch that overwrites the whole table and all partitions that it might have
+ * StagedBatch initializes the table.
  */
-type StagedBackfillBatch = StagedBatch[OverwriteQuery]
+trait StagedInitBatch extends StagedBatch:
+  override type Query = InitializeQuery
+
+/**
+ * Common trait for StagedBatch that performs a backfill operation on the table.
+ */
+trait StagedBackfillBatch extends StagedBatch
+
+/**
+ * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
+ */
+trait StagedBackfillOverwriteBatch extends StagedBackfillBatch:
+  override type Query = OverwriteQuery
+
+/**
+ * StagedBatch that performs a backfill operation on the table in MERGE mode.
+ */
+trait StagedBackfillMergeBatch extends StagedBackfillBatch:
+  override type Query = MergeQuery
 
 /**
  * StagedBatch that updates data in the table
  */
-type StagedVersionedBatch = StagedBatch[MergeQuery]
+trait StagedVersionedBatch extends StagedBatch:
+  override type Query = MergeQuery

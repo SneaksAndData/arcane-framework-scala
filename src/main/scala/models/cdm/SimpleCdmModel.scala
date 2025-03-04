@@ -1,13 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.cdm
 
-import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType, Field, MergeKeyField}
-import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
+import models.*
 
 import upickle.default.*
 
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
 import scala.language.implicitConversions
 
 /**
@@ -60,13 +57,8 @@ given Conversion[SimpleCdmEntity, ArcaneSchema] with
   override def apply(entity: SimpleCdmEntity): ArcaneSchema = entity.attributes.map(implicitly) :+ MergeKeyField
 
 object SimpleCdmModel:
-  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   // number of fields in the schema of each entity which do not originate from CDM
   // currently MergeKeyField only
   val systemFieldCount: Int = 1
 
-  def apply(rootPath: String, reader: AzureBlobStorageReader): Future[SimpleCdmModel] =
-    AdlsStoragePath(rootPath).map(_ + "model.json") match {
-      case Success(modelPath) => reader.getBlobContent(modelPath).map(read[SimpleCdmModel](_))
-      case Failure(ex) => Future.failed(ex)
-    }
+  def apply(json: String): SimpleCdmModel = read[SimpleCdmModel](json)

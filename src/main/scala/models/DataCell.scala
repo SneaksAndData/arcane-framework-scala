@@ -20,3 +20,16 @@ case class DataCell(name: String, Type: ArcaneType, value: Any)
  */
 object DataCell:
   def apply(name: String, Type: ArcaneType, value: Any): DataCell = new DataCell(name, Type, value)
+
+  /**
+   * Extension method to get the schema of a DataRow.
+   */
+  extension (row: DataRow) def schema: ArcaneSchema =
+    row.foldLeft(ArcaneSchema.empty()) {
+      case (schema, cell) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
+      case (schema, cell) if cell.name == DatePartitionField.name => schema ++ Seq(DatePartitionField)
+      case (schema, cell) => schema ++ Seq(Field(cell.name, cell.Type))
+    }
+
+given NamedCell[DataCell] with
+  extension (field: DataCell) def name: String = field.name

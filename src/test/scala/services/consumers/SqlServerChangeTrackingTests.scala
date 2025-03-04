@@ -2,9 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.consumers
 
 import models.ArcaneType.StringType
+import models.settings.TableFormat.PARQUET
 import models.settings.{TableFormat, TablePropertiesSettings}
 import models.{Field, MergeKeyField}
-import utils.TestTablePropertiesSettings
+import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +25,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     val query = SqlServerChangeTrackingMergeQuery(
       "test.table_a",
       "SELECT * FROM test.staged_a",
-      Map(),
+      Seq(),
       "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
@@ -37,9 +38,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     val query = SqlServerChangeTrackingMergeQuery(
       "test.table_a",
       "SELECT * FROM test.staged_a",
-      Map(
-        "colA" -> List("a", "b", "c")
-      ),
+      Seq("colA"),
       "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
@@ -62,7 +61,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         name = "colB",
         fieldType = StringType
       )
-    ), "test.table_a", TestTablePropertiesSettings)
+    ), "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
       _.getLines().mkString("\n")
@@ -84,8 +83,9 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      Map("colA" -> List("a", "b", "c")
-    ))
+      "test.archive_table_a",
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)"))
+    )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_merge_query_with_partitions.sql"))) {
       _.getLines().mkString("\n")
