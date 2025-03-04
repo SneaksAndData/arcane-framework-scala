@@ -49,9 +49,6 @@ class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: Arcan
 
   def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
-  override def archiveExpr(actualSchema: ArcaneSchema): String =
-    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
-
 object  SqlServerChangeTrackingBackfillBatch:
   /**
    *
@@ -75,9 +72,6 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
     SqlServerChangeTrackingMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
   def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
-
-  override def archiveExpr(actualSchema: ArcaneSchema): String =
-    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
 
 object SqlServerChangeTrackingMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =

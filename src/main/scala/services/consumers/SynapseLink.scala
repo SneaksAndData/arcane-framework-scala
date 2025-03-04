@@ -48,18 +48,14 @@ class SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSc
 
   def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
 
-  override def archiveExpr(actualSchema: ArcaneSchema): String =
-    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
-
 object  SynapseLinkBackfillOverwriteBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillOverwriteBatch =
     new SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName, archiveName, tablePropertiesSettings)
 
-class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch with ArchiveableBatch:
+class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
   override val targetTableName: String = targetName
-  override val archiveTableName: String = archiveName
 
   override def reduceExpr: String =
     // for merge query, we must carry over deletions so they can be applied in a MERGE statement by MatchedAppendOnlyDelete
@@ -70,14 +66,9 @@ class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, target
   override val batchQuery: MergeQuery =
     SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
-  override def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
-
-  override def archiveExpr(actualSchema: ArcaneSchema): String =
-    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
-
 object SynapseLinkMergeBatch:
-  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkMergeBatch =
-    new SynapseLinkMergeBatch(batchName, batchSchema, targetName, archiveName, tablePropertiesSettings, batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkMergeBatch =
+    new SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
 
 class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
   extends StagedBackfillMergeBatch with MergeableBatch:
@@ -91,9 +82,6 @@ class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema
   override val batchQuery: MergeQuery = SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
   def archiveExpr(archiveTableName: String): String = s"INSERT OVERWRITE $archiveTableName $reduceExpr"
-
-  override def archiveExpr(actualSchema: ArcaneSchema): String =
-    s"INSERT INTO $archiveName ${actualSchema.toColumnsExpression} $reduceExpr"
 
 object SynapseLinkBackfillMergeBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillMergeBatch =

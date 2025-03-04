@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import services.consumers.SynapseLinkMergeBatch
-import utils.{TestArchiveTableSettings, TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
+import utils.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
@@ -72,13 +72,12 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   private def getSystemUnderTest = new JdbcMergeServiceClient(options,
       TestTargetTableSettings,
       TestBackfillTableSettings,
-      TestArchiveTableSettings,
       schemaProviderMock,
       fieldsFilteringServiceMock,
       TestTablePropertiesSettings)
 
   it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
     val mergeServiceClient = getSystemUnderTest
 
     for _ <- mergeServiceClient.applyBatch(batch)
@@ -90,22 +89,9 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     yield targetCount should be(10)
   }
 
-  it should "should be able to archive a batch to archive table" in withTargetAndArchiveTables("table_a") { connection =>
-    val mergeServiceClient = getSystemUnderTest
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
-
-    for _ <- mergeServiceClient.archiveBatch(batch, batch.schema)
-        rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM archive_table_a")
-        _ = rs.next()
-        targetCount = rs.getInt(1)
-
-    // assert that the statement was actually executed
-    yield targetCount should be(10)
-  }
-
   it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
     val mergeServiceClient = getSystemUnderTest
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
 
     for _ <- mergeServiceClient.disposeBatch(batch)
         rs = connection.getMetaData.getTables(null, null, "staged_table_a", null)

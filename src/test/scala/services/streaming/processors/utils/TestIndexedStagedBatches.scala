@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.utils
 
 import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
-import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch}
+import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
 import services.streaming.processors.transformers.IndexedStagedBatches
 
-class TestIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], override val batchIndex: Long)
+class TestIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], override val batchIndex: Long)
   extends IndexedStagedBatches(groupedBySchema, batchIndex) with SnapshotExpirationRequestConvertable with OrphanFilesExpirationRequestConvertable with OptimizationRequestConvertable:
 
   def getOptimizationRequest(settings: OptimizeSettings): JdbcOptimizationRequest =

@@ -141,7 +141,6 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       )
     ),
       "test.table_a",
-      "test.archive_table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 

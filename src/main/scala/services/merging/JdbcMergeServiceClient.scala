@@ -70,11 +70,10 @@ trait JdbcTableManager extends TableManager:
 class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
                              targetTableSettings: TargetTableSettings,
                              backfillTableSettings: BackfillTableSettings,
-                             archiveTableSettings: ArchiveTableSettings,
                              schemaProvider: SchemaProvider[ArcaneSchema],
                              fieldsFilteringService: FieldsFilteringService,
                              tablePropertiesSettings: TablePropertiesSettings)
-  extends MergeServiceClient with JdbcTableManager with AutoCloseable with ArchiveServiceClient:
+  extends MergeServiceClient with JdbcTableManager with AutoCloseable:
 
   class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
     /**
@@ -102,12 +101,6 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    */
   override def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     executeBatchQuery(batch.batchQuery.query, batch.name, "Applying", _ => true)
-
-  /**
-   * @inheritdoc
-   */
-  override def archiveBatch(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult] =
-    executeBatchQuery(batch.archiveExpr(actualSchema), batch.name, "Archiving", _ => new BatchArchivationResult)
 
   /**
    * @inheritdoc
@@ -179,19 +172,9 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  def createArchiveTable: Task[Unit] =
-    for
-      _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.fullName)))
-      schema: ArcaneSchema <- schemaProvider.getSchema
-      created <- createTable(archiveTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
-    yield ()
-
-  /**
-   * @inheritdoc
-   */
   def createBackFillTable: Task[Unit] =
     for
-      _ <- zlog("Creating archive table", Seq(getAnnotation("backfillTableName", archiveTableSettings.fullName)))
+      _ <- zlog("Creating archive table", Seq(getAnnotation("backfillTableName", backfillTableSettings.fullName)))
       schema: ArcaneSchema <- schemaProvider.getSchema
       created <- createTable(backfillTableSettings.fullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
     yield ()
@@ -270,7 +253,6 @@ object JdbcMergeServiceClient:
    */
   private type Environment = JdbcMergeServiceClientOptions
     & TargetTableSettings
-    & ArchiveTableSettings
     & SchemaProvider[ArcaneSchema]
     & FieldsFilteringService
     & TablePropertiesSettings
@@ -287,7 +269,7 @@ object JdbcMergeServiceClient:
             schemaProvider: SchemaProvider[ArcaneSchema],
             fieldsFilteringService: FieldsFilteringService,
             tablePropertiesSettings: TablePropertiesSettings): JdbcMergeServiceClient =
-    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, archiveTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -299,10 +281,9 @@ object JdbcMergeServiceClient:
           connectionOptions <- ZIO.service[JdbcMergeServiceClientOptions]
           targetTableSettings <- ZIO.service[TargetTableSettings]
           backfillTableSettings <- ZIO.service[BackfillTableSettings]
-          archiveTableSettings <- ZIO.service[ArchiveTableSettings]
           schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
           fieldsFilteringService <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, archiveTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
       }
     }
