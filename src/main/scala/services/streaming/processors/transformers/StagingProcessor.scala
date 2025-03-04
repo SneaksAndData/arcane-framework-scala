@@ -11,6 +11,7 @@ import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
 import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
+import com.sneaksanddata.arcane.framework.models.settings.RetryPolicyType.ExponentialBackoff
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
@@ -47,8 +48,11 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch & ArchiveableBatch] =
     val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+    val retryEffect = stagingDataSettings.retryPolicy.toSchedule match
+      case Some(schedule) => tableWriterEffect.retry(schedule)
+      case None => tableWriterEffect
     for
-      table <- tableWriterEffect.retry(retryPolicy)
+      table <- retryEffect
       batch = table.toStagedBatch(icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
