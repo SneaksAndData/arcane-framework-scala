@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package utils
 
-import models.settings.BackfillTableSettings
+import models.settings.BackfillSettings
 
-object TestBackfillTableSettings extends BackfillTableSettings:
-  val fullName: String = "test_full_name"
+object TestBackfillTableSettings extends BackfillSettings:
+  val backfillTableFullName: String = "test_full_name"
