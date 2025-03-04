@@ -183,7 +183,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
       yield ()
     else
       ZIO.unit
-  
+
 
   private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
     ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
@@ -263,6 +263,7 @@ object JdbcMergeServiceClient:
     & FieldsFilteringService
     & TablePropertiesSettings
     & BackfillTableSettings
+    & StreamContext
   
   /**
    * Factory method to create JdbcConsumer.
@@ -272,10 +273,11 @@ object JdbcMergeServiceClient:
   def apply(options: JdbcMergeServiceClientOptions,
             targetTableSettings: TargetTableSettings,
             backfillTableSettings: BackfillTableSettings,
+            streamContext: StreamContext,
             schemaProvider: SchemaProvider[ArcaneSchema],
             fieldsFilteringService: FieldsFilteringService,
             tablePropertiesSettings: TablePropertiesSettings): JdbcMergeServiceClient =
-    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -290,6 +292,7 @@ object JdbcMergeServiceClient:
           schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
           fieldsFilteringService <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+          streamContext <- ZIO.service[StreamContext]
+        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
       }
     }
