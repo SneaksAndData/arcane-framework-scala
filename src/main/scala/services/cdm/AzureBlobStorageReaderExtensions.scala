@@ -28,6 +28,33 @@ object AzureBlobStorageReaderExtensions:
   private type SchemaEnrichedBlobStream = ZStream[Any, Throwable, SchemaEnrichedBlob]
 
   /**
+   * The shorthand method for filtering out the CSV files from the stream
+   * @return The stream that contains only exact matches for the table name.
+   */
+  extension (stream: SchemaEnrichedBlobStream) def getFilesStream(reader: AzureBlobStorageReader, tableName: String, rootPath: AdlsStoragePath): SchemaEnrichedBlobStream =
+    stream.flatMap(seb => reader.streamPrefixes(rootPath + seb.blob.name).addSchema(seb.schemaProvider))
+    .filterByTableName(tableName)
+    .flatMap(seb => reader.streamPrefixes(rootPath + seb.blob.name).addSchema(seb.schemaProvider))
+    .onlyCSVs
+
+  /**
+   * The shorthand method for filtering out the CSV files from the stream
+   * @return The stream that contains only exact matches for the table name.
+   */
+  extension (stream: SchemaEnrichedBlobStream) def onlyCSVs: SchemaEnrichedBlobStream =
+    stream.filter(schemaEnrichedBlob => schemaEnrichedBlob.blob.name.endsWith(".csv"))
+
+  /**
+   * The method we use to filter blob streams can lead to a case when two different tables are stored with the same
+   * prefix, e.g. `table1` and `table11`. This method filters out the prefixes that are not the exact match for
+   * the table name.
+   * @param tableName The name of the table
+   * @return The stream that contains only exact matches for the table name.
+   */
+  extension (stream: SchemaEnrichedBlobStream) def filterByTableName(tableName: String): SchemaEnrichedBlobStream =
+    stream.filter(schemaEnrichedBlob => schemaEnrichedBlob.blob.name.endsWith(s"/$tableName/"))
+    
+  /**
    * Add schema information to the stream
    * This is shorthand method for adding schema information to the stream
    * @param schemaProvider The schema provider

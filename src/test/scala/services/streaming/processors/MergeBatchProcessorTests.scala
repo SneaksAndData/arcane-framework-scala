@@ -11,8 +11,9 @@ import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirati
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
 import services.streaming.processors.batch_processors.MergeBatchProcessor
 import services.streaming.processors.transformers.IndexedStagedBatches
-import utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
 
+import com.sneaksanddata.arcane.framework.utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
+import utils.TestIndexedStagedBatches
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -21,18 +22,6 @@ import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Runtime, Unsafe, ZIO}
 
-
-class TestIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], override val batchIndex: Long)
-  extends IndexedStagedBatches(groupedBySchema, batchIndex) with SnapshotExpirationRequestConvertable with OrphanFilesExpirationRequestConvertable with OptimizationRequestConvertable:
-
-  def getOptimizationRequest(settings: OptimizeSettings): JdbcOptimizationRequest =
-    JdbcOptimizationRequest("database", settings.batchThreshold, settings.fileSizeThreshold, batchIndex)
-
-  def getSnapshotExpirationRequest(settings: SnapshotExpirationSettings): JdbcSnapshotExpirationRequest =
-    JdbcSnapshotExpirationRequest("database", settings.batchThreshold, settings.retentionThreshold, batchIndex)
-
-  def getOrphanFileExpirationRequest(settings: OrphanFilesExpirationSettings): JdbcOrphanFilesExpirationRequest =
-    JdbcOrphanFilesExpirationRequest("database", settings.batchThreshold, settings.retentionThreshold, batchIndex)
 
 class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
