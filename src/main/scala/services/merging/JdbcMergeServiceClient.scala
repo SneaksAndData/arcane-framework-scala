@@ -21,7 +21,7 @@ import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrin
 import utils.SqlUtils.readArcaneSchema
 import services.mssql.given_CanAdd_ArcaneSchema
 
-import com.sneaksanddata.arcane.framework.models.settings.{ArchiveTableSettings, BackfillTableSettings, TablePropertiesSettings, TargetTableSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillTableSettings, TablePropertiesSettings, TargetTableSettings}
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
 import org.apache.iceberg.Schema
@@ -284,7 +284,6 @@ object JdbcMergeServiceClient:
   def apply(options: JdbcMergeServiceClientOptions,
             targetTableSettings: TargetTableSettings,
             backfillTableSettings: BackfillTableSettings,
-            archiveTableSettings: ArchiveTableSettings,
             schemaProvider: SchemaProvider[ArcaneSchema],
             fieldsFilteringService: FieldsFilteringService,
             tablePropertiesSettings: TablePropertiesSettings): JdbcMergeServiceClient =

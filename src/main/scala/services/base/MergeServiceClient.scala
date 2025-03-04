@@ -14,11 +14,6 @@ type BatchApplicationResult = Boolean
 
 
 /**
- * The result of applying a batch.
- */
-class BatchArchivationResult
-
-/**
  * The result of disposing of a batch.
  */
 class BatchDisposeResult
@@ -38,24 +33,10 @@ trait MergeServiceClient:
    */
   def applyBatch(batch: Batch): Task[BatchApplicationResult]
 
-trait ArchiveServiceClient:
-
-  type Batch = StagedBatch
-  
   /**
-   * Applies a batch to the archive table.
-   *
-   * @param batch         The batch to archive.
-   * @param actualSchema  The actual schema of the batch.
-   * @return The result of archiving the batch.
-   */
-  def archiveBatch(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult]
-
-  /**
-   * Disposes of a batch. NOTE: this method should not be called until the archivation of the batch is completed.
+   * Disposes of a batch.
    *
    * @param batch The batch to dispose.
    * @return The result of disposing of the batch.
    */
   def disposeBatch(batch: Batch): Task[BatchDisposeResult]
-

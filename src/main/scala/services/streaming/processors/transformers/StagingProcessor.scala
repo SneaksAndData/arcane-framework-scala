@@ -3,7 +3,7 @@ package services.streaming.processors.transformers
 
 import logging.ZIOLogAnnotations.zlog
 import models.DataCell.schema
-import models.settings.{ArchiveTableSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
 import models.{ArcaneSchema, DataRow}
 import services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
