@@ -11,8 +11,10 @@ import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
 import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
+import com.sneaksanddata.arcane.framework.models.settings.RetryPolicyType.ExponentialBackoff
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
+import zio.Cause.Fail
 import zio.stream.ZPipeline
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
@@ -46,9 +48,16 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch & ArchiveableBatch] =
-    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+    val tableWriterEffect = zlog("Attempting to write data to staging table") *>
+      catalogWriter
+        .write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+        .tapErrorCause(e => zlog("Failed to write data to staging table", e))
+
+    val retryEffect = stagingDataSettings.retryPolicy.toSchedule match
+      case Some(schedule) => tableWriterEffect.retry(schedule)
+      case None => tableWriterEffect
     for
-      table <- tableWriterEffect.retry(retryPolicy)
+      table <- retryEffect
       batch = table.toStagedBatch(icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
