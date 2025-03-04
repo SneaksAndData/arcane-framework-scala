@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.metrics
 
 import models.app.StreamContext
+import services.base.DimensionsProvider
 import services.metrics.ArcaneDimensionsProvider.camelCaseToSnakeCase
-import services.metrics.base.DimensionsProvider
 
 import zio.{ZIO, ZLayer}
 
