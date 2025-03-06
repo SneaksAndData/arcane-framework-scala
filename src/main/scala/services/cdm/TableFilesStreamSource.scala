@@ -38,5 +38,5 @@ class TableFilesStreamSource(settings: VersionedDataGraphBuilderSettings,
   private def streamFilenamesWithTimeGap(interval: Duration) =
     for
       latestPrefix <- ZStream.fromZIO(reader.getLastCommitDate(containerRoot))
-      p <- reader.streamTableContent(containerRoot, latestPrefix.minus(interval), tableSettings.name)
+      p <- reader.streamTableContent(containerRoot, latestPrefix.minus(interval), latestPrefix, tableSettings.name)
     yield p

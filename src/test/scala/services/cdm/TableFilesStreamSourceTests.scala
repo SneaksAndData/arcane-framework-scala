@@ -22,7 +22,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
 
   private val settings = new VersionedDataGraphBuilderSettings {
     override val lookBackInterval: Duration = Duration.ofHours(1)
-    override val changeCaptureInterval: Duration = Duration.ofMillis(1)
+    override val changeCaptureInterval: Duration = Duration.ofSeconds(1)
     override val changeCapturePeriod: Duration = Duration.ofMinutes(15)
   }
 
@@ -34,6 +34,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
         .once()
       reader.streamPrefixes(AdlsStoragePath("storageAccount","container", anyString()))
         .andReturn(ZStream.fromIterable(Seq[StoredBlob]()))
+//        .andReturn(ZStream.repeat(blog))
         .atLeastOnce()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
@@ -48,21 +49,51 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
   }
 
   it should "return a change capture stream in the target table" in {
+    // Arrange
     val reader = mock[BlobStorageReader[AdlsStoragePath]]
+
+    val rootBlob = StoredBlob(name = "2021-10-01T00.00.00Z", createdOn = None)
+    val tableBlob = StoredBlob(name = "2021-10-01T00.00.00Z/table/", createdOn = None)
+    val fileBlob = StoredBlob(name = "2021-10-01T00.00.00Z/table/1.csv", createdOn = None)
+
+    // This is an expected happy path call sequence for the MicrosoftSynapseLinkDataProvider
     expecting {
+
+      // The changelog file is read 4 times, once for the initial read, and twice for the change capture stream
       reader.streamBlobContent(AdlsStoragePath("storageAccount", "container", "Changelog/changelog.info"))
         .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
-        .atLeastOnce()
-      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", anyString()))
-        .andReturn(ZStream.fromIterable(Seq[StoredBlob]()))
+        .times(3, 7)
+
+      // Iterate over timestamps, starting from the current time minus at least one hour.
+      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", "2021-08-31T23"))
+        // We mock the stream to return the same blob twice since the stream drops the last element
+        .andReturn(ZStream.fromIterable(Seq(rootBlob, rootBlob)))
+        .anyTimes()
+
+      // We simulate the stream of the table blob
+      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", rootBlob.name))
+        .andReturn(ZStream.succeed(tableBlob))
+        .anyTimes()
+
+      // We simulate the stream of the file blob
+      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", tableBlob.name))
+        .andReturn(ZStream.succeed(fileBlob))
+        .anyTimes()
+
+      // We must return true when checking if the blob exists since the stream checks if the model.json exists and
+      // filters out the prefixes that do not have it
+      reader.blobExists(AdlsStoragePath("storageAccount","container", anyString()))
+        .andReturn(ZIO.succeed(true))
         .atLeastOnce()
     }
+    replay(reader)
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
     val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
+
+    // Act
     val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).changeCaptureStream.take(3).runCollect
 
-    replay(reader)
-
+    // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { _ =>
       noException should be thrownBy verify(reader)
     }

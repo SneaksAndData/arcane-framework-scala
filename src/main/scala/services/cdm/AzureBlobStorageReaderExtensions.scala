@@ -42,16 +42,16 @@ object AzureBlobStorageReaderExtensions:
   /**
    * Stream the content of the table from the Azure Blob Storage.
    * Also, this method is used in the backfill process.
-   * 
+   *
    * @param reader The reader for the Azure Blob Storage.
    * @param storagePath The path to the storage account
    * @param startDate Folders from Synapse export to include in the snapshot, based on the start date provided.
    * @param tableName The name of the table.
    * @return A stream of file paths contains list of CSV files belonging to a specific table starting from date in the storage path.
    */
-  extension (reader: BlobStorageReader[AdlsStoragePath]) def streamTableContent(storagePath: AdlsStoragePath, startDate: OffsetDateTime, tableName: String): SchemaEnrichedBlobStream =
-    val streamTask = reader.getRootPrefixes(storagePath, startDate).dropLast.enrichWithSchema(reader, storagePath, tableName)
-    streamTask.getFilesStream(reader, tableName, storagePath)
+  extension (reader: BlobStorageReader[AdlsStoragePath]) def streamTableContent(storagePath: AdlsStoragePath, startDate: OffsetDateTime, endDate: OffsetDateTime, tableName: String): SchemaEnrichedBlobStream =
+    reader.getRootPrefixes(storagePath, startDate, endDate).dropLast
+      .enrichWithSchema(reader, storagePath, tableName).getFilesStream(reader, tableName, storagePath)
 
   /**
    * The shorthand method for filtering out the CSV files from the stream
@@ -110,12 +110,11 @@ object AzureBlobStorageReaderExtensions:
    * @param startFrom Folders from Synapse export to include in the snapshot, based on the start date provided.
    * @return A stream of root prefixes
    */
-  extension (reader: BlobStorageReader[AdlsStoragePath]) def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): BlobStream =
+  extension (reader: BlobStorageReader[AdlsStoragePath]) def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime, endDate: OffsetDateTime): BlobStream =
     for _ <- zlogStream("Getting root prefixes stating from " + startFrom)
-        list <- ZStream.succeed(getListPrefixes(Some(startFrom)))
-        listZIO = ZIO.foreach(list)(prefix => ZIO.attemptBlocking { reader.streamPrefixes(storagePath + prefix) })
-        prefixes <- ZStream.fromIterableZIO(listZIO)
-        zippedWithDate <- prefixes.map(blob => (interpretAsDate(blob), blob))
+        prefix <- ZStream.fromIterable(getListPrefixes(startFrom, endDate))
+        blob <- reader.streamPrefixes(storagePath + prefix)
+        zippedWithDate = (interpretAsDate(blob), blob)
         eligibleToProcess <- zippedWithDate match
           case (Some(date), blob) if date.isAfter(startFrom) || date.isEqual(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
@@ -132,10 +131,10 @@ object AzureBlobStorageReaderExtensions:
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
-  private def getListPrefixes(startDate: Option[OffsetDateTime]): Seq[String] =
+  private def getListPrefixes(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
     val defaultFromYears: Int = 1
-    val currentMoment = OffsetDateTime.now(ZoneOffset.UTC).plusHours(1)
-    val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears)).minus(Duration.ofHours(1))
+    val currentMoment = endDate
+    val startMoment = startDate
     Iterator.iterate(startMoment)(_.plusHours(1))
       .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
       .map { moment =>

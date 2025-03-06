@@ -58,7 +58,7 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
   it should "be able read root prefixes starting from specific dates" in {
     forAll(getRootPrefixesTestCases) { (startDate, expected) =>
       val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-      val stream = storageReader.getRootPrefixes(path, startDate).runCollect
+      val stream = storageReader.getRootPrefixes(path, startDate, OffsetDateTime.now()).runCollect
       Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
         result.length should be(expected)
       }
@@ -87,7 +87,7 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
   it should "be able read root prefixes starting from specific dates and drop last element" in {
     forAll(getPrefixesFromDateTestCases) { (startDate, expected) =>
       val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-      val stream = storageReader.streamTableContent(path, startDate, tableName).runCollect
+      val stream = storageReader.streamTableContent(path, startDate, OffsetDateTime.now(), tableName).runCollect
       Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
         result.length should be(expected)
       }
@@ -99,7 +99,7 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
     val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
     val startDate = OffsetDateTime.now().minus(Duration.ofHours(12))
 
-    val stream = storageReader.streamTableContent(path, startDate, tableName).mapZIO(r => r.schemaProvider.getSchema).runCollect
+    val stream = storageReader.streamTableContent(path, startDate, OffsetDateTime.now(), tableName).mapZIO(r => r.schemaProvider.getSchema).runCollect
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       // Check that all schemas are the same for this table
       result forall(_ == result.head) should be(true)
@@ -111,11 +111,11 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
     val startDate = OffsetDateTime.now().minus(Duration.ofHours(12))
 
     val tableName = "dimensionattributelevel"
-    val allPrefixes = storageReader.streamTableContent(path, startDate, tableName).runCollect
+    val allPrefixes = storageReader.streamTableContent(path, startDate, OffsetDateTime.now(), tableName).runCollect
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(allPrefixes)).map { result =>
       val prefixes = result.map(blob => blob.blob.name).toList
-      
+
       Inspectors.forAll(prefixes) { name =>
         name should (include("dimensionattributelevel") and not include("dimensionattributelevelvalue"))
       }
@@ -127,7 +127,7 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
     val startDate = OffsetDateTime.now().minus(Duration.ofHours(12))
     val tableName = "dimensionattributelevel"
 
-    val allPrefixes = storageReader.streamTableContent(path, startDate, tableName).runCollect
+    val allPrefixes = storageReader.streamTableContent(path, startDate, OffsetDateTime.now(), tableName).runCollect
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(allPrefixes)).map { result =>
       val prefixes = result.map(blob => blob.blob.name).toList
