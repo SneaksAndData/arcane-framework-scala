@@ -5,7 +5,7 @@ import models.settings.VersionedDataGraphBuilderSettings
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 
-import org.easymock.EasyMock.{replay, verify}
+import org.easymock.EasyMock.{anyString, replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
@@ -30,6 +30,9 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
       reader.streamBlobContent(AdlsStoragePath("storageAccount","container","Changelog/changelog.info"))
         .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
         .once()
+      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", anyString()))
+        .andReturn(ZIO.succeed(List()))
+        .once()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
     val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
@@ -48,6 +51,9 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
       reader.streamBlobContent(AdlsStoragePath("storageAccount", "container", "Changelog/changelog.info"))
         .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
         .times(3)
+      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", anyString()))
+        .andReturn(ZIO.succeed(List()))
+        .once()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
     val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
