@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.cdm
 
-import logging.ZIOLogAnnotations.zlogStream
+import extensions.ZStreamExtensions.dropLast
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.ArcaneSchema
 import services.base.SchemaProvider
 import services.storage.base.BlobStorageReader
@@ -23,15 +24,40 @@ case class SchemaEnrichedBlob(blob: StoredBlob, schemaProvider: SchemaProvider[A
  */
 object AzureBlobStorageReaderExtensions:
 
+  type SchemaEnrichedBlobStream = ZStream[Any, Throwable, SchemaEnrichedBlob]
+
   private type BlobStream = ZStream[Any, Throwable, StoredBlob]
 
-  private type SchemaEnrichedBlobStream = ZStream[Any, Throwable, SchemaEnrichedBlob]
+  extension (reader: BlobStorageReader[AdlsStoragePath]) def getLastCommitDate(storageRoot: AdlsStoragePath): Task[OffsetDateTime] =
+    ZIO.scoped {
+      for
+        reader <- ZIO.fromAutoCloseable(reader.streamBlobContent(storageRoot + "Changelog/changelog.info"))
+        text <- ZIO.attemptBlocking(reader.readLine())
+        _ <- zlog(s"Read latest prefix from changelog.info: $text")
+        latestPrefix = OffsetDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX"))
+      yield latestPrefix
+    }
+
+
+  /**
+   * Stream the content of the table from the Azure Blob Storage.
+   * Also, this method is used in the backfill process.
+   * 
+   * @param reader The reader for the Azure Blob Storage.
+   * @param storagePath The path to the storage account
+   * @param startDate Folders from Synapse export to include in the snapshot, based on the start date provided.
+   * @param tableName The name of the table.
+   * @return A stream of file paths contains list of CSV files belonging to a specific table starting from date in the storage path.
+   */
+  extension (reader: BlobStorageReader[AdlsStoragePath]) def streamTableContent(storagePath: AdlsStoragePath, startDate: OffsetDateTime, tableName: String): SchemaEnrichedBlobStream =
+    val streamTask = reader.getRootPrefixes(storagePath, startDate).dropLast.enrichWithSchema(reader, storagePath, tableName)
+    streamTask.getFilesStream(reader, tableName, storagePath)
 
   /**
    * The shorthand method for filtering out the CSV files from the stream
    * @return The stream that contains only exact matches for the table name.
    */
-  extension (stream: SchemaEnrichedBlobStream) def getFilesStream(reader: AzureBlobStorageReader, tableName: String, rootPath: AdlsStoragePath): SchemaEnrichedBlobStream =
+  extension (stream: SchemaEnrichedBlobStream) def getFilesStream(reader: BlobStorageReader[AdlsStoragePath], tableName: String, rootPath: AdlsStoragePath): SchemaEnrichedBlobStream =
     stream.flatMap(seb => reader.streamPrefixes(rootPath + seb.blob.name).addSchema(seb.schemaProvider))
     .filterByTableName(tableName)
     .flatMap(seb => reader.streamPrefixes(rootPath + seb.blob.name).addSchema(seb.schemaProvider))
@@ -71,7 +97,7 @@ object AzureBlobStorageReaderExtensions:
    * @param name The name of the table
    * @return A stream of blobs enriched with schema information
    */
-  extension (stream: BlobStream) def enrichWithSchema(azureBlobStorageReader: AzureBlobStorageReader, storagePath: AdlsStoragePath, name: String): SchemaEnrichedBlobStream =
+  extension (stream: BlobStream) def enrichWithSchema(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], storagePath: AdlsStoragePath, name: String): SchemaEnrichedBlobStream =
     stream.filterZIO(prefix => azureBlobStorageReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
       val schemaProvider = CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name)
       SchemaEnrichedBlob(prefix, schemaProvider)
