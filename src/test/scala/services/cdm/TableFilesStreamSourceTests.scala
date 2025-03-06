@@ -5,11 +5,13 @@ import models.settings.VersionedDataGraphBuilderSettings
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 
+import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import org.easymock.EasyMock.{anyString, replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import org.scalatestplus.easymock.EasyMockSugar
+import zio.stream.ZStream
 import zio.{Runtime, Unsafe, ZIO}
 
 import java.io.{BufferedReader, StringReader}
@@ -20,7 +22,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
 
   private val settings = new VersionedDataGraphBuilderSettings {
     override val lookBackInterval: Duration = Duration.ofHours(1)
-    override val changeCaptureInterval: Duration = Duration.ofSeconds(1)
+    override val changeCaptureInterval: Duration = Duration.ofMillis(1)
     override val changeCapturePeriod: Duration = Duration.ofMinutes(15)
   }
 
@@ -31,8 +33,8 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
         .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
         .once()
       reader.streamPrefixes(AdlsStoragePath("storageAccount","container", anyString()))
-        .andReturn(ZIO.succeed(List()))
-        .once()
+        .andReturn(ZStream.fromIterable(Seq[StoredBlob]()))
+        .atLeastOnce()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
     val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
@@ -50,10 +52,10 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
     expecting {
       reader.streamBlobContent(AdlsStoragePath("storageAccount", "container", "Changelog/changelog.info"))
         .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
-        .times(3)
+        .atLeastOnce()
       reader.streamPrefixes(AdlsStoragePath("storageAccount","container", anyString()))
-        .andReturn(ZIO.succeed(List()))
-        .once()
+        .andReturn(ZStream.fromIterable(Seq[StoredBlob]()))
+        .atLeastOnce()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
     val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
