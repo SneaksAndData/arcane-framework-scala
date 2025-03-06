@@ -51,17 +51,11 @@ object AzureBlobStorageReaderExtensions:
    */
   extension (reader: BlobStorageReader[AdlsStoragePath]) def streamTableContent(storagePath: AdlsStoragePath, startDate: OffsetDateTime, endDate: OffsetDateTime, tableName: String): SchemaEnrichedBlobStream =
     reader.getRootPrefixes(storagePath, startDate, endDate).dropLast
-      .enrichWithSchema(reader, storagePath, tableName).getFilesStream(reader, tableName, storagePath)
-
-  /**
-   * The shorthand method for filtering out the CSV files from the stream
-   * @return The stream that contains only exact matches for the table name.
-   */
-  extension (stream: SchemaEnrichedBlobStream) def getFilesStream(reader: BlobStorageReader[AdlsStoragePath], tableName: String, rootPath: AdlsStoragePath): SchemaEnrichedBlobStream =
-    stream.flatMap(seb => reader.streamPrefixes(rootPath + seb.blob.name).addSchema(seb.schemaProvider))
-    .filterByTableName(tableName)
-    .flatMap(seb => reader.streamPrefixes(rootPath + seb.blob.name).addSchema(seb.schemaProvider))
-    .onlyCSVs
+      .enrichWithSchema(reader, storagePath, tableName)
+      .flatMap(seb => reader.streamPrefixes(storagePath + seb.blob.name).addSchema(seb.schemaProvider))
+      .filterByTableName(tableName)
+      .flatMap(seb => reader.streamPrefixes(storagePath + seb.blob.name).addSchema(seb.schemaProvider))
+      .onlyCSVs
 
   /**
    * The shorthand method for filtering out the CSV files from the stream

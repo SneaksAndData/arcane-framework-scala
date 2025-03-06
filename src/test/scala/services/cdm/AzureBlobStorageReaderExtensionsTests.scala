@@ -32,7 +32,7 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
   private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
 
   /*
-    * Test cases for getRootPrefixes method. These tast cases reliing on the following assumptions:
+    * Test cases for getRootPrefixes method. These test cases relying on the following assumptions:
     * - The test date was created by the populate-cdm-container.py script no longer than 1 hour ago
     * - The test container was cleaned up before running the populate-cdm-container.py script
     * Changing this behavior is too expensive for the current scope.
