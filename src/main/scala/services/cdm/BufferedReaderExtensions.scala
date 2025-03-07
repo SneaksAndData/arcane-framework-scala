@@ -15,7 +15,7 @@ object BufferedReaderExtensions:
    *                   The reader should be closed after the stream is consumed.
    * @return A ZStream effect that represents the next line of the CSV file.
    */
-  extension (javaReader: BufferedReader) def readMultilineCSV: ZStream[Any, Throwable, String] =
+  extension (javaReader: BufferedReader) def streamMultilineCsv: ZStream[Any, Throwable, String] =
     ZStream.repeatZIO(javaReader.readMultilineCsvLine)
       .collectWhile { case Some(line) => line }
 

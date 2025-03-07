@@ -8,6 +8,7 @@ import services.mssql.given_CanAdd_ArcaneSchema
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
+import services.storage.base.BlobStorageReader
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -20,7 +21,7 @@ import java.io.IOException
  * @param tableLocation          The location of the table.
  * @param tableName              The name of the table.
  */
-class CdmSchemaProvider(azureBlobStorageReader: AzureBlobStorageReader, tableLocation: String, tableName: String)
+class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String)
   extends SchemaProvider[ArcaneSchema]:
 
   /**
