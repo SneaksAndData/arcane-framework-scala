@@ -31,7 +31,10 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
 
   private def getEntity: Task[SimpleCdmEntity] =
     for modelPath <- ZIO.fromTry(AdlsStoragePath(tableLocation).map(_ + "model.json"))
-        reader = ZIO.fromAutoCloseable(azureBlobStorageReader.streamBlobContent(modelPath)).refineToOrDie[IOException]
+    
+        readingTask <- ZIO.memoize(p => azureBlobStorageReader.streamBlobContent(p))
+    
+        reader = ZIO.fromAutoCloseable(readingTask(modelPath)).refineToOrDie[IOException]
         stream = ZStream.fromReaderScoped(reader)
         json <- stream.runCollect.map(_.mkString)
         model = SimpleCdmModel(json)
