@@ -1,6 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
+import models.ArcaneSchema
+
+import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import zio.Task
 
 /**
@@ -17,6 +20,12 @@ trait SqlExpressionConvertable[A]:
    */
   extension (a: A) def toSqlExpression: String
 
+  /**
+   * Gets the name of the value.
+   *
+   * @param a The value to convert.
+   * @return The SQL expression.
+   */
   extension (a: A) def name: String
 
 /**
@@ -36,7 +45,7 @@ trait ConditionallyApplicable[A]:
 /**
  * The result of a table optimization operation.
  */
-class BatchOptimizationResult
+case class BatchOptimizationResult(skipped: Boolean)
 
 object BatchOptimizationResult:
   /**
@@ -44,7 +53,7 @@ object BatchOptimizationResult:
    *
    * @return The result.
    */
-  def apply(): BatchOptimizationResult = new BatchOptimizationResult
+  def apply(skipped: Boolean): BatchOptimizationResult = new BatchOptimizationResult(skipped)
 
 /**
  * A service that is responsible for managing tables.
@@ -81,3 +90,35 @@ trait TableManager:
    */
   def expireOrphanFiles(orphanFilesExpirationRequest: OrphanFilesExpirationRequest): Task[BatchOptimizationResult]
 
+  /**
+   * Migrates the schema of a table.
+   *
+   * @param newSchema The new schema coming from the batch.
+   * @param tableName The name of the table.
+   * @return The result of the schema migration operation.
+   */
+  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit]
+
+  /**
+   * Cleans up the staging tables in the specific catalog by table name prefix.
+   * This method is used to ensure that the staging tables are cleaned up after the streaming job restart.
+   *
+   * @param stagingCatalog The catalog of the staging table.
+   * @param tableNamePrefix The prefix of the staging table name.
+   * @return The list of tables.
+   */
+  def cleanupStagingTables(stagingCatalog: String, tableNamePrefix: String): Task[Unit]
+
+  /**
+   * Creates the target table.
+   *
+   * @return The result of the target table creation operation.
+   */
+  def createTargetTable: Task[Unit]
+
+  /**
+   * Creates the archive table.
+   *
+   * @return The result of the archive table creation operation.
+   */
+  def createBackFillTable: Task[Unit]

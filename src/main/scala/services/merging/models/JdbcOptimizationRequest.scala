@@ -8,9 +8,11 @@ import services.base.{ConditionallyApplicable, SqlExpressionConvertable}
  * @param tableName The name of the table to optimize.
  * @param optimizeThreshold The threshold for optimization.
  * @param fileSizeThreshold The file size threshold.
- * @param batchNumber The batch number.
+ * @param batchIndex The batch index.
  */
-case class JdbcOptimizationRequest(tableName: String, optimizeThreshold: Long, fileSizeThreshold: String, batchNumber: Long)
+case class JdbcOptimizationRequest(tableName: String, optimizeThreshold: Long, fileSizeThreshold: String, batchIndex: Long):
+  require(optimizeThreshold > 0, "Optimize threshold must be greater than 0")
+  
 
 /**
  * @inheritdoc
@@ -36,4 +38,4 @@ given ConditionallyApplicable[JdbcOptimizationRequest] with
   /**
    * @inheritdoc
    */
-  extension (request: JdbcOptimizationRequest) def isApplicable: Boolean = (request.batchNumber+1) % request.optimizeThreshold == 0
+  extension (request: JdbcOptimizationRequest) def isApplicable: Boolean = (request.batchIndex+1) % request.optimizeThreshold == 0

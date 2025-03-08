@@ -117,3 +117,15 @@ services:
     volumes:
       - ./populate-cdm-container.py:/populate-cdm-container.py
     command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
+  trino:
+    depends_on:
+      polaris:
+        condition: service_healthy
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.9
+    ports:
+      - "8080:8080"
+    image: "trinodb/trino:455"
+    volumes:
+      - ./unit-tests.properties:/etc/trino/catalog/iceberg.properties

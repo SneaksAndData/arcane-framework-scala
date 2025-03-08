@@ -4,6 +4,12 @@ package services.consumers
 import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteReplaceQuery, StreamingBatchQuery}
 import models.ArcaneSchema
 
+trait MergeableBatch:
+
+  /**
+   * Name of the target table in the linked Catalog that holds batch data
+   */
+  val targetTableName: String
 
 trait StagedBatch:
 
@@ -27,18 +33,6 @@ trait StagedBatch:
    * @return SQL query text
    */
   def reduceExpr: String
-
-  /**
-   * Query that should be used to archive this batch data
-   * @return SQL query text
-   */
-  def archiveExpr(archiveTableName: String): String
-
-  /**
-   * Query that should be used to archive this batch data
-   * @return SQL query text
-   */
-  def archiveExpr(arcaneSchema: ArcaneSchema): String
 
   /**
    * Query that should be used to dispose of this batch data.

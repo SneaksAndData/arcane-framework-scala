@@ -59,8 +59,8 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     query.query should equal(expected)
   }
 
-  "SynapseLinkBackfillBatch" should "generate a valid backfill batch" in {
-    val batch = SynapseLinkBackfillBatch("test.staged_a", Seq(
+  "SynapseLinkBackfillOverwriteBatch" should "generate a valid backfill overwrite batch" in {
+    val batch = SynapseLinkBackfillOverwriteBatch("test.staged_a", Seq(
       MergeKeyField,
       Field(
         name = "colA",
@@ -79,10 +79,39 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         fieldType = StringType
       )
     ), "test.table_a",
-      "test.archive_table_a",
       TestTablePropertiesSettings)
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_batch_query.sql"))) {
+    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_overwrite_query.sql"))) {
+      _.getLines().mkString("\n")
+    }.get
+
+    batch.batchQuery.query should equal(expected)
+  }
+  
+  "SynapseLinkBackfillMergeBatch" should "generate a valid backfill merge batch" in {
+    val batch = SynapseLinkBackfillMergeBatch("test.staged_a", Seq(
+      MergeKeyField,
+      Field(
+        name = "colA",
+        fieldType = StringType
+      ),
+      Field(
+        name = "colB",
+        fieldType = StringType
+      ),
+      Field(
+        name = "Id",
+        fieldType = StringType
+      ),
+      Field(
+        name = "versionnumber",
+        fieldType = LongType
+      )
+    ), "test.table_a",
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
+    )
+
+    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_merge_query.sql"))) {
       _.getLines().mkString("\n")
     }.get
 
@@ -110,7 +139,6 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       )
     ),
       "test.table_a",
-      "test.archive_table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 

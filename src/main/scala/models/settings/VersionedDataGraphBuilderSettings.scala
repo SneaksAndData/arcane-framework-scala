@@ -9,12 +9,17 @@ import java.time.Duration
 trait VersionedDataGraphBuilderSettings {
 
   /**
-   * The interval to look back for changes if the version is empty.
+   * The interval to look back for changes on the startup of the stream.
    */
   val lookBackInterval: Duration
 
   /**
-   * The interval to look back for changes if the version is empty.
+   * The interval for periodic change capture operation.
    */
   val changeCaptureInterval: Duration
+  
+  /**
+   * The interval to look back for changes on each iteration of the stream.
+   */
+  val changeCapturePeriod: Duration
 }

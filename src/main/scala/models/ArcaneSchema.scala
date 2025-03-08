@@ -33,7 +33,10 @@ trait ArcaneSchemaField:
 /**
  * Field is a case class that represents a field in ArcaneSchema
  */
-final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField
+final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField:
+  override def equals(obj: Any): Boolean = obj match
+    case Field(n, t) => n.toLowerCase() == name.toLowerCase() && t == fieldType
+    case _ => false
 
 /**
  * MergeKeyField represents a field used for batch merges
@@ -87,3 +90,20 @@ object ArcaneSchema:
    * Converts a schema to an SQL column expression.
    */
   extension (schema: ArcaneSchema) def toColumnsExpression: String = s"(${schema.map(f => f.name).mkString(", ")})"
+  
+  /**
+   * Gets the fields that are missing in the target schema.
+   *
+   * @param batches The schema to compare.
+   * @param targetSchema The target schema.
+   * @return The missing fields.
+   */
+  extension (targetSchema: ArcaneSchema) def getMissingFields(batches: ArcaneSchema): Seq[ArcaneSchemaField] =
+    batches.filter { batchField =>
+      !targetSchema.exists(targetField => targetField.name.toLowerCase() == batchField.name.toLowerCase()
+        && targetField.fieldType == batchField.fieldType)
+    }
+
+
+given NamedCell[ArcaneSchemaField] with
+  extension (field: ArcaneSchemaField) def name: String = field.name

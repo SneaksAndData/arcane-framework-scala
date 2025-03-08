@@ -3,6 +3,11 @@ package services.storage.base
 
 import services.storage.models.base.{BlobPath, StoredBlob}
 
+import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
+import zio.Task
+import zio.stream.ZStream
+
+import java.io.{BufferedReader, Reader}
 import scala.concurrent.Future
 
 /**
@@ -15,10 +20,20 @@ trait BlobStorageReader[PathType <: BlobPath]:
    * Gets the content of the blob at the given path.
    *
    * @param blobPath The path to the blob.
-   * @param deserializer function to deserialize the content of the blob.
-   * @tparam Result The type of the result.
-   * @return The result of applying the function to the content of the blob.
+   * @return A task containing the Reader instance. The reader returned by the function will be closed by the caller.
    */
-  def getBlobContent[Result](blobPath: PathType, deserializer: Array[Byte] => Result): Future[Result]
-  
-  def listBlobs(blobPath: PathType): LazyList[StoredBlob]
+  def streamBlobContent(blobPath: AdlsStoragePath): Task[BufferedReader]
+
+  /**
+   * Streams the prefixes of the blobs at the given root prefix.
+   * @param rootPrefix The root prefix.
+   * @return The stream of the prefixes.
+   */
+  def streamPrefixes(rootPrefix: PathType): ZStream[Any, Throwable, StoredBlob]
+
+  /**
+   * Checks if the blob exists at the given path.
+   * @param blobPath The path to the blob.
+   * @return A future that will be completed with true if the blob exists, false otherwise.
+   */
+  def blobExists(blobPath: PathType): Task[Boolean]
