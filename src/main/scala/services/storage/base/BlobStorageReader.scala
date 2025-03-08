@@ -22,7 +22,7 @@ trait BlobStorageReader[PathType <: BlobPath]:
    * @param blobPath The path to the blob.
    * @return A task containing the Reader instance. The reader returned by the function will be closed by the caller.
    */
-  def streamBlobContent(blobPath: AdlsStoragePath): Task[Reader]
+  def streamBlobContent(blobPath: AdlsStoragePath): Task[BufferedReader]
 
   /**
    * Streams the prefixes of the blobs at the given root prefix.

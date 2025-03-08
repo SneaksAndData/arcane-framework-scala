@@ -4,12 +4,13 @@ package services.streaming.processors.transformers
 import models.settings.TableFormat.PARQUET
 import models.settings.*
 import models.*
-import services.consumers.StagedVersionedBatch
-import services.lakehouse.base.IcebergCatalogSettings
-import services.lakehouse.{CatalogWriter, S3CatalogFileIO}
-import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, ToInFlightBatch}
+import services.consumers.{MergeableBatch, StagedVersionedBatch}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, ToInFlightBatch}
 import utils.*
 
+import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -18,7 +19,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Runtime, Unsafe}
+import zio.{Chunk, Runtime, Unsafe, ZIO}
 
 import scala.concurrent.Future
 
@@ -52,7 +53,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(Future.successful(tableMock))
+        .andReturn(ZIO.succeed(tableMock))
         .times(2)
     }
     replay(tableMock)
@@ -62,11 +63,10 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestTablePropertiesSettings,
       TestTargetTableSettings,
       TestIcebergCatalogSettings,
-      TestArchiveTableSettings,
       catalogWriter)
 
-    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
-      new IndexedStagedBatches(batches, index){};
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
+      new TestIndexedStagedBatches(batches, index)
 
     // Act
     val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
@@ -92,7 +92,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(Future.successful(tableMock))
+        .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
     }
     replay(tableMock)
@@ -100,20 +100,19 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
 
 
-    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch],
+    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
                                            override val batchIndex: Long,
                                            val others: Chunk[String])
-      extends IndexedStagedBatches(groupedBySchema, batchIndex)
+      extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
       
     val stagingProcessor = StagingProcessor(TestStagingDataSettings,
       TestTablePropertiesSettings,
       TestTargetTableSettings,
       TestIcebergCatalogSettings,
-      TestArchiveTableSettings,
       catalogWriter)
       
-    def toInFlightBatch(batches: Iterable[StagedVersionedBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
-      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString));
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
+      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
     // Act
     val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)

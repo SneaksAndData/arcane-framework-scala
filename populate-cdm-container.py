@@ -25,7 +25,8 @@ CONTENT = """50bff458-d47a-4924-804b-31c0a83108e6,"1/1/2020 0:00:00 PM","1/1/202
 5b4bc74e-2132-4d8e-8572-48ce4260f182,"1/1/2020 0:00:01 PM","1/1/2020 0:00:01 PM",0,1111000001,1111000011,"F1234568",1,,"2020-01-01T00:16:00.0000000Z","acc2",111111111,"2020-01-01T00:16:00.0000000Z","acc2",0,"dat",1,1111000002,2111000002,1111000001,21111,2111000001,"2020-01-01T00:16:00.0000000+00:00","2020-01-01T00:16:00.0000000Z",
 aae2094d-cd17-42b4-891e-3b268e2b6713,"1/1/2020 0:00:01 PM","1/1/2020 0:00:01 PM",0,1111000002,1111000012,"F1234569",1,,"2020-01-01T00:17:00.0000000Z","acc2",111111112,"2020-01-01T00:17:00.0000000Z","acc2",0,"dat",1,1111000003,2111000003,1111000001,21111,2111000001,"2020-01-01T00:17:00.0000000+00:00","2020-01-01T00:17:00.0000000Z",
 9633be9a-c485-4afa-8bb7-4ba380eaa206,"1/1/2020 0:00:01 PM","1/1/2020 0:00:01 PM",0,1111000003,1111000013,"F1234578",1,,"2020-01-01T00:18:00.0000000Z","acc1",111111113,"2020-01-01T00:18:00.0000000Z","acc1",0,"dat",1,1111000004,2111000004,1111000001,21111,2111000001,"2020-01-01T00:18:00.0000000+00:00","2020-01-01T00:18:00.0000000Z",
-b62c7b67-b8f8-4635-8cef-1c23591d5c4c,"1/1/2020 0:00:01 PM","1/1/2020 0:00:01 PM",0,1111000004,1111000014,"F1234511",1,,"2020-01-01T00:19:00.0000000Z","acc2",111111114,"2020-01-01T00:19:00.0000000Z","acc2",0,"dat",1,1111000005,2111000005,1111000001,21111,2111000001,"2020-01-01T00:19:00.0000000+00:00","2020-01-01T00:19:00.0000000Z","""
+b62c7b67-b8f8-4635-8cef-1c23591d5c4c,"1/1/2020 0:00:01 PM","1/1/2020 0:00:01 PM",0,1111000004,1111000014,"F1234511",1,,"2020-01-01T00:19:00.0000000Z","acc2",111111114,"2020-01-01T00:19:00.0000000Z","acc2",0,"dat",1,1111000005,2111000005,1111000001,21111,2111000001,"2020-01-01T00:19:00.0000000+00:00","2020-01-01T00:19:00.0000000Z",
+"""
 MODEL_JSON = """{
                   "name": "cdm",
                   "description": "cdm",
@@ -655,6 +656,9 @@ def create_container():
 
 def create_blobs():
     for folder in FOLDERS:
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2021.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2022.csv", CONTENT)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON)
 
@@ -663,4 +667,4 @@ def create_blobs():
 
 create_container()
 create_blobs()
-upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", "2020-02-01T01.05.38Z")
+upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", datetime.utcnow().strftime("%Y-%m-%dT%H.%M.%SZ"))

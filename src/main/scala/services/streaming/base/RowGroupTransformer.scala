@@ -3,8 +3,8 @@ package services.streaming.base
 
 import models.DataRow
 
-import com.sneaksanddata.arcane.framework.services.consumers.{StagedBatch, StagedVersionedBatch}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.IndexedStagedBatches
+import services.consumers.{MergeableBatch, StagedBatch, StagedVersionedBatch}
+import services.streaming.processors.transformers.IndexedStagedBatches
 import zio.Chunk
 import zio.stream.ZPipeline
 
@@ -28,7 +28,7 @@ trait RowGroupTransformer:
 
   type OutgoingElement <: IndexedStagedBatches
   
-  type ToInFlightBatch = (Iterable[StagedVersionedBatch], Long, Chunk[Any]) => OutgoingElement
+  type ToInFlightBatch = (Iterable[StagedVersionedBatch & MergeableBatch], Long, Chunk[Any]) => OutgoingElement
   
   /**
    * Processes the incoming data.
