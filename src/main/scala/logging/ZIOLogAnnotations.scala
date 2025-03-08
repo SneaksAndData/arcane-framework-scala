@@ -48,82 +48,93 @@ object ZIOLogAnnotations:
     (getStringAnnotation(name = "ApplicationVersion"), streamVersion)
   ) ++ read[Map[String, String]](streamExtraProperties).map { (key, value) => (getStringAnnotation(key), value) }
 
+  private def defaultsWithTemplate(template: String): Seq[(LogAnnotation[String], String)] =
+    defaults ++ Seq((getStringAnnotation(name = "messageTemplate"), template))
+
 
   /**
    * Log using default annotations
    *
-   * @param message     Log message to record
+   * @param template  Log message template to use
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlog(message: String): zio.UIO[Unit] = logEnriched(ZIO.log(message), defaults)
+  def zlog(template: String, values: String*): zio.UIO[Unit] = logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template))
 
   /**
    * Log using default and additional custom annotations
    *
-   * @param message     Log message to record
+   * @param template     Log message to record
    * @param annotations ZIO log annotations and values
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlog(message: String, annotations: Seq[(LogAnnotation[String], String)]): zio.UIO[Unit] = logEnriched(ZIO.log(message), defaults ++ annotations)
+  def zlog(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] = logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template) ++ annotations)
 
   /**
    * Log error using default annotations
    *
-   * @param message     Log message to record
+   * @param template     Log message to record
    * @param cause       Error cause
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlog(message: String, cause: Cause[Any]): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(message, cause), defaults)
+  def zlog(template: String, cause: Cause[Any], values: String*): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template))
 
   /**
    * Log error using default and additional custom annotations
    *
-   * @param message     Log message to record
+   * @param template     Log message to record
    * @param cause       Error cause
    * @param annotations ZIO log annotations and values
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlog(message: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)]): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(message, cause), defaults ++ annotations)
+  def zlog(template: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template) ++ annotations)
 
   /**
    * Log via a ZStream log pipeline using default annotations
    *
-   * @param message     Log message to record
+   * @param template     Log message to record
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(message: String): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(message), defaults))
+  def zlogStream(template: String, values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template)))
 
   /**
    * Log via a ZStream log pipeline using default and additional custom annotations
    *
-   * @param message     Log message to record
+   * @param template     Log message to record
    * @param annotations Optional ZIO log annotations and values.
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(message: String, annotations: Seq[(LogAnnotation[String], String)]): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(message), defaults ++ annotations))
+  def zlogStream(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template) ++ annotations))
 
   /**
    * Log error via a ZStream log pipeline using default annotations
    *
-   * @param message     Log message to record
-   * @param annotations Optional ZIO log annotations and values.
+   * @param template     Log message to record
+   * @param cause Error cause.
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(message: String, cause: Cause[Any]): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(message, cause), defaults))
+  def zlogStream(template: String, cause: Cause[Any], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template)))
 
   /**
    * Log error via a ZStream log pipeline using default and additional custom annotations
    *
-   * @param message     Log message to record
+   * @param template     Log message to record
    * @param annotations Optional ZIO log annotations and values.
+   * @param values Values for rendering the template
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(message: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)]): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(message, cause), defaults ++ annotations))
+  def zlogStream(template: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template) ++ annotations))
