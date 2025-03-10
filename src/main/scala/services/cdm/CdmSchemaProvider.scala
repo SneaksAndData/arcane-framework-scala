@@ -28,6 +28,9 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
    */
   override lazy val getSchema: Task[SchemaType] = getEntity.map(toArcaneSchema)
 
+  /**
+   * @inheritdoc
+   */
   private def getEntity: Task[SimpleCdmEntity] =
     for modelPath <- ZIO.fromTry(AdlsStoragePath(tableLocation).map(_ + "model.json"))
         reader = ZIO.fromAutoCloseable(azureBlobStorageReader.streamBlobContent(modelPath)).refineToOrDie[IOException]
@@ -36,8 +39,14 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
         model = SimpleCdmModel(json)
     yield model.entities.find(_.name == tableName).getOrElse(throw new Exception(s"Table $tableName not found in model $tableLocation"))
 
+  /**
+   * @inheritdoc
+   */
   override def empty: SchemaType = ArcaneSchema.empty()
 
+  /**
+   * @inheritdoc
+   */
   private def toArcaneSchema(simpleCdmModel: SimpleCdmEntity): ArcaneSchema = simpleCdmModel
 
 object CdmSchemaProvider:

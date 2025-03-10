@@ -71,6 +71,29 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
         .once()
     }
     replay(storageReaderMock)
+
+    val task = CdmSchemaProvider(storageReaderMock, path, tableName).freeze.map(provider =>
+      List.unfold(0, provider.getSchema, (i: Int) => if (i < 5) Some((i + 1, provider.getSchema)) else None)
+    )
+
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task)).map { result =>
+      noException should be thrownBy verify(storageReaderMock)
+    }
+  }
+
+  "FrozenSchemaProvider" should "NOT read the schema every time" in {
+    val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
+    val storageReaderMock = mock[BlobStorageReader[AdlsStoragePath]]
+    expecting {
+      storageReaderMock.streamBlobContent(AdlsStoragePath("devstoreaccount1", "cdm-e2e", s"model.json")).andAnswer(() => {
+          val arg = EasyMock.getCurrentArgument[AdlsStoragePath](0)
+          storageReader.streamBlobContent(arg)
+        })
+        .once()
+    }
+    replay(storageReaderMock)
+
     val task = CdmSchemaProvider(storageReaderMock, path, tableName).freeze.map(provider =>
       List.unfold(0, provider.getSchema, (i: Int) => if (i < 5) Some((i + 1, provider.getSchema)) else None)
     )
