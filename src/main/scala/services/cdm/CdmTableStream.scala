@@ -27,9 +27,11 @@ case class MetadataEnrichedReader(javaStream: BufferedReader, filePath: AdlsStor
 case class SchemaEnrichedContent[TContent](content: TContent, schema: ArcaneSchema)
 
 class MicrosoftSynapseLinkDataProvider(fileNameStreamSource: TableFilesStreamSource, reader: BlobStorageReader[AdlsStoragePath], rootPath: AdlsStoragePath) //(name: String, storagePath: AdlsStoragePath, azureBlogStorageReader: AzureBlobStorageReader, reader: AzureBlobStorageReader, streamContext: StreamContext)
-  extends StreamDataProvider[SynapseLinkStreamElement]:
+  extends StreamDataProvider:
 
-  override def stream: ZStream[Any, Throwable, SynapseLinkStreamElement]  = fileNameStreamSource
+  override type StreamElementType = SynapseLinkStreamElement
+
+  override def stream: ZStream[Any, Throwable, StreamElementType]  = fileNameStreamSource
     .lookBackStream
     .concat(fileNameStreamSource.changeCaptureStream)
     .mapZIO(openContentReader)

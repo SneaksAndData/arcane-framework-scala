@@ -1,11 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import zio.Task
 import zio.stream.ZStream
 
-import java.time.Duration
+trait StreamDataProvider:
 
-trait StreamDataProvider[StreamElementType: MetadataEnrichedRowStreamElement]:
-  
+  type StreamElementType
+
   def stream: ZStream[Any, Throwable, StreamElementType]
