@@ -159,7 +159,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
     // Act
-    val stream = ZStream.repeat(Chunk[TestInput]()).take(60).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
+    val stream = ZStream.succeed(Chunk[TestInput]()).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
 
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
