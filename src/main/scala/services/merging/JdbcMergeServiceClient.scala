@@ -19,7 +19,7 @@ import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExp
 import services.lakehouse.SchemaConversions
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
 import utils.SqlUtils.readArcaneSchema
-import services.mssql.given_CanAdd_ArcaneSchema
+import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
