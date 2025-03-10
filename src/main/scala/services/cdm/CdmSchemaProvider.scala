@@ -3,8 +3,8 @@ package services.cdm
 
 import models.ArcaneSchema
 import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
+import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import services.base.SchemaProvider
-import services.mssql.given_CanAdd_ArcaneSchema
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
@@ -21,8 +21,7 @@ import java.io.IOException
  * @param tableLocation          The location of the table.
  * @param tableName              The name of the table.
  */
-class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String)
-  extends SchemaProvider[ArcaneSchema]:
+class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String) extends SchemaProvider[ArcaneSchema]:
 
   /**
    * @inheritdoc

@@ -9,6 +9,8 @@ import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchem
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 
+import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
+
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.{Task, ZIO, ZLayer}
 
@@ -50,14 +52,6 @@ case class ConnectionOptions(connectionUrl: String,
                              schemaName: String,
                              tableName: String,
                              partitionExpression: Option[String])
-
-/**
- * Required typeclass implementation
- */
-given CanAdd[ArcaneSchema] with
-  extension (a: ArcaneSchema) def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = fieldName match
-    case MergeKeyField.name => a :+ MergeKeyField
-    case _ => a :+ Field(fieldName, fieldType)
 
 /**
  * Represents a connection to a Microsoft SQL Server database.
