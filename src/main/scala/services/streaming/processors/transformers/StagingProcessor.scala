@@ -32,13 +32,15 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
   type OutgoingElement = StagedBatchProcessor#BatchType
+  
+  type IncomingElement = DataRow|Any
 
-  override def process[IncomingElement: MetadataEnrichedRowStreamElement](toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
+  override def process(toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements =>
-        val groupedBySchema = elements.withFilter(e => e.isDataRow).map(e => e.toDataRow).groupBy(row => row.schema)
-        val others = elements.filterNot(e => e.isDataRow)
+        val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(row => row.schema)
+        val others = elements.filterNot(e => e.isInstanceOf[DataRow])
         val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema))
         applyTasks.map(batches => (batches, others))
       )

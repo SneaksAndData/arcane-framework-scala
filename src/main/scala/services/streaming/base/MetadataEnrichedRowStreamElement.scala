@@ -7,7 +7,7 @@ import models.DataRow
  * A trait that represents a stream item that can contain stream of data rows interleaved with metadata of
  * any other kind.
  */
-trait MetadataEnrichedRowStreamElement[A]:
+trait MetadataEnrichedRowStreamElement[-A]:
   /**
    * Checks if the element is a data row.
    *
@@ -21,10 +21,3 @@ trait MetadataEnrichedRowStreamElement[A]:
    * @return The data row.
    */
   extension (a: A) def toDataRow: DataRow
-
-  /**
-   * Converts the element from a data row.
-   *
-   * @return The element.
-   */
-  extension (a: DataRow) def fromDataRow: A
