@@ -35,6 +35,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
   override def process[IncomingElement: MetadataEnrichedRowStreamElement](toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
+      .filter(_.nonEmpty)
       .mapZIO(elements =>
         val groupedBySchema = elements.withFilter(e => e.isDataRow).map(e => e.toDataRow).groupBy(row => row.schema)
         val others = elements.filterNot(e => e.isDataRow)
