@@ -6,6 +6,10 @@ import services.streaming.processors.transformers.StagingProcessor
 
 import zio.Chunk
 
+/**
+ * Manages hooks for the streaming process.
+ * Hooks can be used to enrich the data, log the results, etc. in future implementations.
+ */
 trait HookManager:
   
   /**

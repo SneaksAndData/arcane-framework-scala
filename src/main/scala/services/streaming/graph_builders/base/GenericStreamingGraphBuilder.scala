@@ -11,6 +11,10 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
 
+/**
+ * Provides the complete data stream for the streaming process including all the stages and services
+ * except the sink and lifetime service.
+ */
 class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
                                    fieldFilteringProcessor: FieldFilteringTransformer,
                                    groupTransformer: GenericGroupingTransformer,
@@ -20,8 +24,14 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
                                    hookManager: HookManager)
   extends StreamingGraphBuilder:
 
-  type ProcessedBatch = DisposeBatchProcessor#BatchType
+  /**
+   * @inheritdoc
+   */
+  override type ProcessedBatch = DisposeBatchProcessor#BatchType
 
+  /**
+   * @inheritdoc
+   */
   override def produce: ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream
       .via(fieldFilteringProcessor.process)
@@ -32,6 +42,9 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
 
 object GenericStreamingGraphBuilder:
 
+  /**
+   * The environment required for the GenericStreamingGraphBuilder.
+   */
   type Environment = StreamDataProvider
     & GenericGroupingTransformer
     & FieldFilteringTransformer
@@ -42,13 +55,24 @@ object GenericStreamingGraphBuilder:
     & HookManager
 
 
-  def apply[T: MetadataEnrichedRowStreamElement: Tag](streamDataProvider: StreamDataProvider,
-                                                      fieldFilteringProcessor: FieldFilteringTransformer,
-                                                      groupTransformer: GenericGroupingTransformer,
-                                                      stagingProcessor: StagingProcessor,
-                                                      mergeProcessor: MergeBatchProcessor,
-                                                      disposeBatchProcessor: DisposeBatchProcessor,
-                                                      hookManager: HookManager): GenericStreamingGraphBuilder =
+  /**
+   * Creates a new GenericStreamingGraphBuilder.
+   * @param streamDataProvider The stream data provider.
+   * @param fieldFilteringProcessor The field filtering processor.
+   * @param groupTransformer The group transformer.
+   * @param stagingProcessor The staging processor.
+   * @param mergeProcessor The merge processor.
+   * @param disposeBatchProcessor The dispose batch processor.
+   * @param hookManager The hook manager.
+   * @return The GenericStreamingGraphBuilder instance.
+   */
+  def apply(streamDataProvider: StreamDataProvider,
+            fieldFilteringProcessor: FieldFilteringTransformer,
+            groupTransformer: GenericGroupingTransformer,
+            stagingProcessor: StagingProcessor,
+            mergeProcessor: MergeBatchProcessor,
+            disposeBatchProcessor: DisposeBatchProcessor,
+            hookManager: HookManager): GenericStreamingGraphBuilder =
     new GenericStreamingGraphBuilder(streamDataProvider,
       fieldFilteringProcessor,
       groupTransformer,
@@ -57,7 +81,10 @@ object GenericStreamingGraphBuilder:
       disposeBatchProcessor,
       hookManager)
 
-  def layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
+  /**
+   * The ZLayer for the GenericStreamingGraphBuilder.
+   */
+  val layer: ZLayer[Environment, Nothing, StreamingGraphBuilder] =
     ZLayer {
       for
         streamDataProvider <- ZIO.service[StreamDataProvider]

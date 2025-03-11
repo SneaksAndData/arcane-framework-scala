@@ -21,12 +21,3 @@ trait MetadataEnrichedRowStreamElement[-A]:
    * @return The data row.
    */
   extension (a: A) def toDataRow: DataRow
-
-//trait MetadataEnrichedRowStreamElement[-A]:
-//
-//  /**
-//   * Converts the element from a data row.
-//   *
-//   * @return The element.
-//   */
-//  extension (a: DataRow) def fromDataRow: A
