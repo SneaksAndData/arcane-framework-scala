@@ -3,6 +3,7 @@ package services.streaming
 
 import models.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import services.app.GenericStreamRunnerService
+import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.CatalogWriter
@@ -75,7 +76,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     }
     replay(catalogWriter, streamDataProvider, tableMock, hookManager)
 
-    val streamRunnerService = ZIO.service[GenericStreamRunnerService].provide(
+    val streamRunnerService = ZIO.service[StreamRunnerService].provide(
       // Real services
       GenericStreamRunnerService.layer,
       GenericStreamingGraphBuilder.layer,
