@@ -8,14 +8,20 @@ import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.base.MssqlVersionedDataProvider
 import services.streaming.base.StreamDataProvider
 
-import zio.ZIO
+import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
+/**
+ * Streaming data provider for Microsoft SQL Server.
+ */
 class MsSqlStreamingDataProvider(dataProvider: MssqlVersionedDataProvider[Long, VersionedBatch],
                                  settings: VersionedDataGraphBuilderSettings) extends StreamDataProvider:
 
   type StreamElementType = DataRow
 
+  /**
+   * @inheritdoc
+   */
   override def stream: ZStream[Any, Throwable, DataRow] =
     for data <- ZStream.unfoldZIO(None)(v => continueStream(v))
         aquired <- ZStream.acquireReleaseWith(ZIO.succeed(data))(b => ZIO.succeed(b.close()))
@@ -30,3 +36,32 @@ class MsSqlStreamingDataProvider(dataProvider: MssqlVersionedDataProvider[Long, 
       (queryResult, _) = versionedBatch
       _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
     yield Some(queryResult, latestVersion)
+
+object MsSqlStreamingDataProvider:
+
+  /**
+   * The environment for the MsSqlStreamingDataProvider.
+   */
+  type Environment = MssqlVersionedDataProvider[Long, VersionedBatch]
+    & VersionedDataGraphBuilderSettings
+
+
+  /**
+   * Creates a new instance of the MsSqlStreamingDataProvider class.
+   * @param dataProvider Underlying data provider.
+   * @param settings    The settings for the data graph builder.
+   * @return A new instance of the MsSqlStreamingDataProvider class.
+   */
+  def apply(dataProvider: MssqlVersionedDataProvider[Long, VersionedBatch],
+            settings: VersionedDataGraphBuilderSettings): MsSqlStreamingDataProvider =
+    new MsSqlStreamingDataProvider(dataProvider, settings)
+
+  /**
+   * The ZLayer that creates the MsSqlStreamingDataProvider.
+   */
+  val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
+    ZLayer {
+      for dataProvider <- ZIO.service[MssqlVersionedDataProvider[Long, VersionedBatch]]
+          settings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      yield MsSqlStreamingDataProvider(dataProvider, settings)
+    }
