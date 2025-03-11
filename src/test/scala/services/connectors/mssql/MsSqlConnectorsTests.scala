@@ -3,6 +3,7 @@ package services.connectors.mssql
 
 import models.ArcaneSchemaField
 import models.ArcaneType.{IntType, LongType, StringType}
+import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
 
@@ -19,8 +20,6 @@ import java.util.Properties
 import scala.List
 import scala.concurrent.Future
 import scala.language.postfixOps
-
-case class TestConnectionInfo(connectionOptions: ConnectionOptions, connection: Connection)
 
 class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
@@ -41,7 +40,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val statement = con.createStatement()
     statement.execute(query)
     createTable(tableName, con)
-    TestConnectionInfo(
+    util.TestConnectionInfo(
       ConnectionOptions(
         connectionUrl,
         "arcane",
