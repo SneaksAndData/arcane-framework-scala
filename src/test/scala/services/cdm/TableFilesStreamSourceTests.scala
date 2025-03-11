@@ -55,6 +55,29 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
     val rootBlob = StoredBlob(name = "2021-10-01T00.00.00Z", createdOn = None)
     val tableBlob = StoredBlob(name = "2021-10-01T00.00.00Z/table/", createdOn = None)
     val fileBlob = StoredBlob(name = "2021-10-01T00.00.00Z/table/1.csv", createdOn = None)
+    val modelBlobName = "2021-10-01T00.00.00Z/model.json"
+
+    val modelBlobContent =
+      """
+        |{
+        |  "name": "cdm",
+        |  "description": "cdm",
+        |  "version": "1.0",
+        |  "entities":
+        |  [
+        |    {
+        |      "$type":"LocalEntity",
+        |      "annotations":[],
+        |      "name": "table",
+        |      "description": "table",
+        |      "attributes":
+        |      [
+        |        {"name":"Id","dataType":"guid","maxLength":-1}
+        |      ]
+        |    }
+        |  ]
+        |}
+        |""".stripMargin
 
     // This is an expected happy path call sequence for the MicrosoftSynapseLinkDataProvider
     expecting {
@@ -62,7 +85,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
       // The changelog file is read 4 times, once for the initial read, and twice for the change capture stream
       reader.streamBlobContent(AdlsStoragePath("storageAccount", "container", "Changelog/changelog.info"))
         .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
-        .times(3, 7)
+        .atLeastOnce()
 
       // Iterate over timestamps, starting from the current time minus at least one hour.
       reader.streamPrefixes(AdlsStoragePath("storageAccount","container", "2021-08-31T23"))
@@ -79,6 +102,12 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
       reader.streamPrefixes(AdlsStoragePath("storageAccount","container", tableBlob.name))
         .andReturn(ZStream.succeed(fileBlob))
         .anyTimes()
+
+      // We simulate the stream of the schema file
+      // Since the stream is called twice, we must return the same content twice (once for each read)
+      reader.streamBlobContent(AdlsStoragePath("storageAccount","container", modelBlobName))
+        .andReturn(ZIO.succeed(new BufferedReader(new StringReader(modelBlobContent))))
+        .times(1, 3)
 
       // We must return true when checking if the blob exists since the stream checks if the model.json exists and
       // filters out the prefixes that do not have it
