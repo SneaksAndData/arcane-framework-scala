@@ -1,37 +1,83 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import com.sneaksanddata.arcane.framework.models.{ArcaneType, DataCell, DataRow, MergeKeyField}
-import com.sneaksanddata.arcane.framework.models.given_MetadataEnrichedRowStreamElement_DataRow
-import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.base.GenericStreamingGraphBuilder
-import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.DisposeBatchProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.MergeBatchProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.FieldFilteringTransformer.Environment
-import com.sneaksanddata.arcane.framework.utils.TestStreamLifetimeService
-import org.easymock.EasyMock.verify
+import models.{ArcaneType, DataCell, DataRow, MergeKeyField}
+import services.app.GenericStreamRunnerService
+import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.filters.FieldsFilteringService
+import services.lakehouse.base.CatalogWriter
+import services.merging.JdbcTableManager
+import services.streaming.base.{HookManager, StreamDataProvider}
+import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
+import services.streaming.processors.GenericGroupingTransformer
+import services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
+import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.utils.TestIndexedStagedBatches
+import utils.*
+
+import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.{Schema, Table}
+import org.easymock.EasyMock
+import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import org.scalatestplus.easymock.EasyMockSugar
-import zio.{Chunk, Runtime, Unsafe, ZIO, ZLayer}
+import zio.stream.ZStream
+import zio.{Chunk, Runtime, Schedule, Unsafe, ZIO, ZLayer}
 
 class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val testInput: Chunk[DataRow] = Chunk.fromIterable(List(
+  private val testInput = List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-  ))
+  )
 
-  it should "run the stream" in {
+  it should "gracefully handle stream shutdown" in {
     // Arrange
+    val streamRepeatCount = 5
+
+    val disposeServiceClient = mock[DisposeServiceClient]
+    val mergeServiceClient = mock[MergeServiceClient]
+    val jdbcTableManager = mock[JdbcTableManager]
+    val hookManager = mock[HookManager]
+    val streamDataProvider = mock[StreamDataProvider]
+
+    val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
+    val tableMock = mock[Table]
+
+    expecting {
+
+      // The table mock, does not verify anything
+      tableMock
+        .name()
+        .andReturn("database.namespace.name")
+        .anyTimes()
+
+      // The data provider mock provides an infinite stream of test input
+      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
+
+      // The catalogWriter.write method is called ``streamRepeatCount`` times
+      catalogWriter
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(ZIO.succeed(tableMock))
+        .times(streamRepeatCount)
+
+      // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
+      // It produces the empty set of staged batches, so the rest  of the pipeline can continue
+      // but no further stages being invoked
+      hookManager
+        .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
+        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
+        .times(streamRepeatCount)
+    }
+    replay(catalogWriter, streamDataProvider, tableMock, hookManager)
+
     val streamRunnerService = ZIO.service[GenericStreamRunnerService].provide(
+      // Real services
       GenericStreamRunnerService.layer,
-      ZLayer.succeed(new TestStreamLifetimeService(5, identity)),
       GenericStreamingGraphBuilder.layer,
       GenericGroupingTransformer.layer,
       DisposeBatchProcessor.layer,
@@ -39,18 +85,28 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
+
+      // Settings
+      ZLayer.succeed(TestGroupingSettings),
+      ZLayer.succeed(TestStagingDataSettings),
+      ZLayer.succeed(TablePropertiesSettings),
+      ZLayer.succeed(TestTargetTableSettings),
+      ZLayer.succeed(TestIcebergCatalogSettings),
+      ZLayer.succeed(TestFieldSelectionRuleSettings),
+
+      // Mocks
+      ZLayer.succeed(catalogWriter),
+      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount-1, identity)),
+      ZLayer.succeed(disposeServiceClient),
+      ZLayer.succeed(mergeServiceClient),
+      ZLayer.succeed(jdbcTableManager),
+      ZLayer.succeed(hookManager),
+      ZLayer.succeed(streamDataProvider)
     )
 
-
     // Act
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService)).map { result =>
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService.flatMap(_.run))).map { result =>
       // Assert
-      result should not be null
+      noException should be thrownBy verify(catalogWriter, streamDataProvider, tableMock, hookManager)
     }
-
-//    // Act
-//    val result = runtime.unsafeRun(streamRunnerService.run)
-//
-//    // Assert
-//    result mustBe testInput
   }
