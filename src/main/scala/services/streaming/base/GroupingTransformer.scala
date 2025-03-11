@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import com.sneaksanddata.arcane.framework.models.DataRow
 import zio.Chunk
 import zio.stream.ZPipeline
 
@@ -9,9 +10,11 @@ import zio.stream.ZPipeline
   */
 trait GroupingTransformer:
   
+  type Element = DataRow|Any
+  
  /**
   * Processes the incoming data.
   *
   * @return ZPipeline (stream source for the stream graph).
   */
-  def process[Element: MetadataEnrichedRowStreamElement]: ZPipeline[Any, Throwable, Element, Chunk[Element]]
+  def process: ZPipeline[Any, Throwable, Element, Chunk[Element]]

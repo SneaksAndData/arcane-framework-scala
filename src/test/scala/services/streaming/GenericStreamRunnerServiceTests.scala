@@ -6,11 +6,12 @@ import com.sneaksanddata.arcane.framework.models.given_MetadataEnrichedRowStream
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.base.GenericStreamingGraphBuilder
-import GenericStreamingGraphBuilder.Environment
+import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.DisposeBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.MergeBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.FieldFilteringTransformer.Environment
+import com.sneaksanddata.arcane.framework.utils.TestStreamLifetimeService
 import org.easymock.EasyMock.verify
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -26,20 +27,21 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
   ))
 
-  val layer =
-    FieldsFilteringService.layer >>>
-    FieldFilteringTransformer.layer >>>
-    StagingProcessor.layer >>>
-    MergeBatchProcessor.layer >>>
-    DisposeBatchProcessor.layer
-    GenericStreamingGraphBuilder.layer >>>
-    GenericStreamRunnerService.layer
-
   it should "run the stream" in {
     // Arrange
-    val streamRunnerService = ZIO.service[GenericStreamRunnerService].provide(layer)
-    
-    
+    val streamRunnerService = ZIO.service[GenericStreamRunnerService].provide(
+      GenericStreamRunnerService.layer,
+      ZLayer.succeed(new TestStreamLifetimeService(5, identity)),
+      GenericStreamingGraphBuilder.layer,
+      GenericGroupingTransformer.layer,
+      DisposeBatchProcessor.layer,
+      FieldFilteringTransformer.layer,
+      MergeBatchProcessor.layer,
+      StagingProcessor.layer,
+      FieldsFilteringService.layer,
+    )
+
+
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService)).map { result =>
       // Assert

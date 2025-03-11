@@ -18,11 +18,11 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends Gro
   /**
    * @inheritdoc
    */
-  def process[Element: MetadataEnrichedRowStreamElement]: ZPipeline[Any, Throwable, Element, Chunk[Element]] = ZPipeline
+  def process: ZPipeline[Any, Throwable, Element, Chunk[Element]] = ZPipeline
     .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
     .mapZIO(logBatchSize)
 
-  private def logBatchSize[Element: MetadataEnrichedRowStreamElement](batch: Chunk[Element]): ZIO[Any, Nothing, Chunk[Element]] =
+  private def logBatchSize(batch: Chunk[Element]) =
     for _ <- zlog(s"Received batch with ${batch.size} rows from streaming source") yield batch
     
 /**

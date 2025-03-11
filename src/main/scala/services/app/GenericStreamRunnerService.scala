@@ -27,7 +27,7 @@ object GenericStreamRunnerService:
     def apply(builder: StreamingGraphBuilder, lifetimeService: StreamLifetimeService): GenericStreamRunnerService =
       new GenericStreamRunnerService(builder, lifetimeService)
 
-    val layer: ZLayer[Environment, Nothing, StreamRunnerService] =
+    val layer: ZLayer[Environment, Nothing, GenericStreamRunnerService] =
       ZLayer{
         for
           lifetimeService <- ZIO.service[StreamLifetimeService]
