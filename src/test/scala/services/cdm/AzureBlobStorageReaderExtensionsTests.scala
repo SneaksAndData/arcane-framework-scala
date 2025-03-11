@@ -99,7 +99,7 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
     val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
     val startDate = OffsetDateTime.now().minus(Duration.ofHours(12))
 
-    val stream = storageReader.streamTableContent(path, startDate, OffsetDateTime.now(), tableName).mapZIO(r => r.schemaProvider.getSchema).runCollect
+    val stream = storageReader.streamTableContent(path, startDate, OffsetDateTime.now(), tableName).map(r => r.schemaProvider.getSchema).runCollect
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       // Check that all schemas are the same for this table
       result forall(_ == result.head) should be(true)

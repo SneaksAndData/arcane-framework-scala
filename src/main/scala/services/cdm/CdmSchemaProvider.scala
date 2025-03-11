@@ -3,8 +3,8 @@ package services.cdm
 
 import models.ArcaneSchema
 import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
+import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import services.base.SchemaProvider
-import services.mssql.given_CanAdd_ArcaneSchema
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
@@ -21,14 +21,16 @@ import java.io.IOException
  * @param tableLocation          The location of the table.
  * @param tableName              The name of the table.
  */
-class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String)
-  extends SchemaProvider[ArcaneSchema]:
+class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String) extends SchemaProvider[ArcaneSchema]:
 
   /**
    * @inheritdoc
    */
   override lazy val getSchema: Task[SchemaType] = getEntity.map(toArcaneSchema)
 
+  /**
+   * @inheritdoc
+   */
   private def getEntity: Task[SimpleCdmEntity] =
     for modelPath <- ZIO.fromTry(AdlsStoragePath(tableLocation).map(_ + "model.json"))
         reader = ZIO.fromAutoCloseable(azureBlobStorageReader.streamBlobContent(modelPath)).refineToOrDie[IOException]
@@ -37,8 +39,14 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
         model = SimpleCdmModel(json)
     yield model.entities.find(_.name == tableName).getOrElse(throw new Exception(s"Table $tableName not found in model $tableLocation"))
 
+  /**
+   * @inheritdoc
+   */
   override def empty: SchemaType = ArcaneSchema.empty()
 
+  /**
+   * @inheritdoc
+   */
   private def toArcaneSchema(simpleCdmModel: SimpleCdmEntity): ArcaneSchema = simpleCdmModel
 
 object CdmSchemaProvider:

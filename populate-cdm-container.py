@@ -627,6 +627,208 @@ MODEL_JSON = """{
                         }
                       ],
                       "partitions": []
+                    },
+                    {
+                      "$type": "LocalEntity",
+                      "name": "dimensionattributelevel",
+                      "description": "dimensionattributelevel",
+                      "annotations": [
+                        {
+                          "name": "Athena:PartitionGranularity",
+                          "value": "Year"
+                        },
+                        {
+                          "name": "Athena:InitialSyncState",
+                          "value": "Completed"
+                        },
+                        {
+                          "name": "Athena:InitialSyncDataCompletedTime",
+                          "value": "1/1/2020 0:00:00 PM"
+                        }
+                      ],
+                      "attributes": [
+                        {
+                          "name": "Id",
+                          "dataType": "guid",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "SinkCreatedOn",
+                          "dataType": "dateTime",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "SinkModifiedOn",
+                          "dataType": "dateTime",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "sysdatastatecode",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "dimensionattributevalue",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "dimensionattributevaluegroup",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "displayvalue",
+                          "dataType": "string",
+                          "maxLength": 30,
+                          "cdm:traits": [
+                            {
+                              "traitReference": "is.constrained",
+                              "arguments": [
+                                {
+                                  "name": "maximumLength",
+                                  "value": 30
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "name": "ordinal",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "backingrecorddataareaid",
+                          "dataType": "string",
+                          "maxLength": 4,
+                          "cdm:traits": [
+                            {
+                              "traitReference": "is.constrained",
+                              "arguments": [
+                                {
+                                  "name": "maximumLength",
+                                  "value": 4
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "name": "modifieddatetime",
+                          "dataType": "dateTime",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "modifiedby",
+                          "dataType": "string",
+                          "maxLength": 20,
+                          "cdm:traits": [
+                            {
+                              "traitReference": "is.constrained",
+                              "arguments": [
+                                {
+                                  "name": "maximumLength",
+                                  "value": 20
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "name": "modifiedtransactionid",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "createddatetime",
+                          "dataType": "dateTime",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "createdby",
+                          "dataType": "string",
+                          "maxLength": 20,
+                          "cdm:traits": [
+                            {
+                              "traitReference": "is.constrained",
+                              "arguments": [
+                                {
+                                  "name": "maximumLength",
+                                  "value": 20
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "name": "createdtransactionid",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "dataareaid",
+                          "dataType": "string",
+                          "maxLength": 4,
+                          "cdm:traits": [
+                            {
+                              "traitReference": "is.constrained",
+                              "arguments": [
+                                {
+                                  "name": "maximumLength",
+                                  "value": 4
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "name": "recversion",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "partition",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "sysrowversion",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "recid",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "tableid",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "versionnumber",
+                          "dataType": "int64",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "createdon",
+                          "dataType": "dateTimeOffset",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "modifiedon",
+                          "dataType": "dateTime",
+                          "maxLength": -1
+                        },
+                        {
+                          "name": "IsDelete",
+                          "dataType": "boolean",
+                          "maxLength": -1
+                        }
+                      ],
+                      "partitions": []
                     }
                   ]
                 }"""
