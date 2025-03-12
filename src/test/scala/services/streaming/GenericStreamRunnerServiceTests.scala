@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import models.{ArcaneType, DataCell, DataRow, MergeKeyField}
+import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient}
@@ -17,6 +17,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
+import com.sneaksanddata.arcane.framework.services.consumers.SqlServerChangeTrackingMergeBatch
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -73,8 +74,22 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
+      hookManager
+        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
+        .times(streamRepeatCount)
+
+      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(ZIO.unit)
+        .anyTimes()
+      jdbcTableManager.createTargetTable
+        .andReturn(ZIO.unit)
+        .anyTimes()
+      jdbcTableManager.createBackFillTable
+        .andReturn(ZIO.unit)
+        .anyTimes()
     }
-    replay(catalogWriter, streamDataProvider, tableMock, hookManager)
+    replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager)
 
     val streamRunnerService = ZIO.service[StreamRunnerService].provide(
       // Real services
