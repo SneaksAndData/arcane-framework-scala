@@ -37,25 +37,10 @@ class EmptyIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVer
 /**
  * A hook manager that does nothing.
  */
-class EmptyHookManager extends HookManager:
+abstract class EmptyHookManager extends HookManager:
 
   /**
    * Enriches received staging batch with metadata and converts it to in-flight batch.
    * */
   override def onStagingTablesComplete(staged: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): StagingProcessor#OutgoingElement =
     new EmptyIndexedStagedBatches(staged, index)
-
-object EmptyHookManager:
-  /**
-   * The required environment for the EmptyHookManager.
-   */
-  type Environment = Any
-
-  /**
-   * Creates a new empty hook manager.
-   *
-   * @return A new empty hook manager.
-   */
-  def apply(): EmptyHookManager = new EmptyHookManager()
-
-  val layer: zio.ZLayer[Any, Nothing, EmptyHookManager] = zio.ZLayer.succeed(EmptyHookManager())

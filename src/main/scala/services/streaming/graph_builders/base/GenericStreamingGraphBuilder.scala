@@ -36,7 +36,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
     streamDataProvider.stream
       .via(fieldFilteringProcessor.process)
       .via(groupTransformer.process)
-      .via(stagingProcessor.process(hookManager.onStagingTablesComplete))
+      .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
       .via(mergeProcessor.process)
       .via(disposeBatchProcessor.process)
 
