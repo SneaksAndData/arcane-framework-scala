@@ -30,12 +30,18 @@ class MsSqlStreamingDataProvider(dataProvider: MssqlVersionedDataProvider[Long, 
     yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
-    for versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
+    for _ <- trySleep(previousVersion)
+      versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
       _ <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
       latestVersion = versionedBatch.getLatestVersion
       (queryResult, _) = versionedBatch
       _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
     yield Some(queryResult, latestVersion)
+
+  private def trySleep(previousVersion: Option[Long]): ZIO[Any, Nothing, Unit] =
+    previousVersion match
+      case Some(_) => ZIO.sleep(settings.changeCaptureInterval)
+      case None => ZIO.unit
 
 object MsSqlStreamingDataProvider:
 
