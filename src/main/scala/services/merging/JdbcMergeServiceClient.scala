@@ -149,8 +149,8 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  def cleanupStagingTables(stagingCatalog: String, tableNamePrefix: String): Task[Unit] =
-    val sql = s"SHOW TABLES FROM $stagingCatalog LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
+  def cleanupStagingTables(stagingCatalogName: String, stagingSchemaName: String, tableNamePrefix: String): Task[Unit] =
+    val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
           resultSet <- ZIO.attemptBlocking(statement.executeQuery())
