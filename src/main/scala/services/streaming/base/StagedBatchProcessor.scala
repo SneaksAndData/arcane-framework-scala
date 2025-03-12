@@ -53,20 +53,13 @@ trait OrphanFilesExpirationRequestConvertable:
 /**
  * A trait that represents a batch processor.
  */
-trait StagedBatchProcessor:
+trait StagedBatchProcessor extends BatchProcessor:
 
-  type BatchType = IndexedStagedBatches
+  override type BatchType = IndexedStagedBatches
     & SnapshotExpirationRequestConvertable
     & OrphanFilesExpirationRequestConvertable
     & OptimizationRequestConvertable
-
-  /**
-   * Processes the incoming data.
-   *
-   * @return ZPipeline (stream source for the stream graph).
-   */
-  def process: ZPipeline[Any, Throwable, BatchType, BatchType]
-
+  
   /**
    * Represents a maintenance operation.
    * @tparam T type of the maintenance settings

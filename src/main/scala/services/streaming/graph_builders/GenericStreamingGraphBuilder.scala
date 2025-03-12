@@ -5,7 +5,7 @@ import models.{DataRow, given_MetadataEnrichedRowStreamElement_DataRow}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{HookManager, MetadataEnrichedRowStreamElement, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.{BackfillMergeBatchProcessor, DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillMergeBatchProcessor, DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -49,7 +49,7 @@ object GenericStreamingGraphBuilder:
     & GenericGroupingTransformer
     & FieldFilteringTransformer
     & StagingProcessor
-    & BackfillMergeBatchProcessor
+    & MergeBatchProcessor
     & DisposeBatchProcessor
     & StreamLifetimeService
     & HookManager
@@ -70,10 +70,10 @@ object GenericStreamingGraphBuilder:
             fieldFilteringProcessor: FieldFilteringTransformer,
             groupTransformer: GenericGroupingTransformer,
             stagingProcessor: StagingProcessor,
-            mergeProcessor: BackfillMergeBatchProcessor,
+            mergeProcessor: MergeBatchProcessor,
             disposeBatchProcessor: DisposeBatchProcessor,
-            hookManager: HookManager): GenericBackfillGraphBuilder =
-    new GenericBackfillGraphBuilder(streamDataProvider,
+            hookManager: HookManager): GenericStreamingGraphBuilder =
+    new GenericStreamingGraphBuilder(streamDataProvider,
       fieldFilteringProcessor,
       groupTransformer,
       stagingProcessor,
@@ -91,10 +91,10 @@ object GenericStreamingGraphBuilder:
         fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
         groupTransformer <- ZIO.service[GenericGroupingTransformer]
         stagingProcessor <- ZIO.service[StagingProcessor]
-        mergeProcessor <- ZIO.service[BackfillMergeBatchProcessor]
+        mergeProcessor <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
         hookManager <- ZIO.service[HookManager]
-      yield GenericBackfillGraphBuilder(streamDataProvider,
+      yield GenericStreamingGraphBuilder(streamDataProvider,
         fieldFilteringProcessor,
         groupTransformer,
         stagingProcessor,

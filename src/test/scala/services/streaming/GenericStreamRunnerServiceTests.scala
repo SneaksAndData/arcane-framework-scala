@@ -11,7 +11,7 @@ import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.{DisposeBatchProcessor, BackfillMergeBatchProcessor}
+import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillMergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
@@ -96,7 +96,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       GenericStreamRunnerService.layer,
       GenericStreamingGraphBuilder.layer,
       GenericGroupingTransformer.layer,
-      DisposeBatchProcessor.layer,
+      BackfillDisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
       BackfillMergeBatchProcessor.layer,
       StagingProcessor.layer,

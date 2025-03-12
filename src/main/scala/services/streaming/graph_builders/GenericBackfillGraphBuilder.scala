@@ -5,7 +5,7 @@ import models.{DataRow, given_MetadataEnrichedRowStreamElement_DataRow}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillStreamingDataProvider, BackfillStreamingGraphBuilder, HookManager, MetadataEnrichedRowStreamElement, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.{DisposeBatchProcessor, BackfillMergeBatchProcessor}
+import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillMergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -17,13 +17,13 @@ import zio.{Tag, ZIO, ZLayer}
  */
 class GenericBackfillGraphBuilder(streamDataProvider: BackfillStreamingDataProvider,
                                   mergeBatchProcessor: BackfillMergeBatchProcessor,
-                                  disposeBatchProcessor: DisposeBatchProcessor)
+                                  disposeBatchProcessor: BackfillDisposeBatchProcessor)
   extends BackfillStreamingGraphBuilder:
 
   /**
    * @inheritdoc
    */
-  override type ProcessedBatch = DisposeBatchProcessor#BatchType
+  override type ProcessedBatch = BackfillDisposeBatchProcessor#BatchType
 
   /**
    * @inheritdoc
@@ -39,13 +39,9 @@ object GenericBackfillGraphBuilder:
    * The environment required for the GenericBackfillGraphBuilder.
    */
   type Environment = StreamDataProvider
-    & GenericGroupingTransformer
-    & FieldFilteringTransformer
-    & StagingProcessor
+    & BackfillStreamingDataProvider 
     & BackfillMergeBatchProcessor
-    & DisposeBatchProcessor
-    & StreamLifetimeService
-    & HookManager
+    & BackfillDisposeBatchProcessor
 
 
   /**
@@ -59,39 +55,21 @@ object GenericBackfillGraphBuilder:
    * @param hookManager The hook manager.
    * @return The GenericBackfillGraphBuilder instance.
    */
-  def apply(streamDataProvider: StreamDataProvider,
-            fieldFilteringProcessor: FieldFilteringTransformer,
-            groupTransformer: GenericGroupingTransformer,
-            stagingProcessor: StagingProcessor,
-            mergeProcessor: BackfillMergeBatchProcessor,
-            disposeBatchProcessor: DisposeBatchProcessor,
-            hookManager: HookManager): GenericBackfillGraphBuilder =
-    new GenericBackfillGraphBuilder(streamDataProvider,
-      fieldFilteringProcessor,
-      groupTransformer,
-      stagingProcessor,
-      mergeProcessor,
-      disposeBatchProcessor,
-      hookManager)
-
+  def apply(streamDataProvider: BackfillStreamingDataProvider,
+            mergeBatchProcessor: BackfillMergeBatchProcessor,
+            disposeBatchProcessor: BackfillDisposeBatchProcessor): GenericBackfillGraphBuilder =
+    new GenericBackfillGraphBuilder(streamDataProvider, mergeBatchProcessor, disposeBatchProcessor) 
+    
   /**
    * The ZLayer for the GenericBackfillGraphBuilder.
    */
   val layer: ZLayer[Environment, Nothing, StreamingGraphBuilder] =
     ZLayer {
       for
-        streamDataProvider <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
-        groupTransformer <- ZIO.service[GenericGroupingTransformer]
-        stagingProcessor <- ZIO.service[StagingProcessor]
+        streamDataProvider <- ZIO.service[BackfillStreamingDataProvider]
         mergeProcessor <- ZIO.service[BackfillMergeBatchProcessor]
-        disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
-        hookManager <- ZIO.service[HookManager]
+        disposeBatchProcessor <- ZIO.service[BackfillDisposeBatchProcessor]
       yield GenericBackfillGraphBuilder(streamDataProvider,
-        fieldFilteringProcessor,
-        groupTransformer,
-        stagingProcessor,
         mergeProcessor,
-        disposeBatchProcessor,
-        hookManager)
+        disposeBatchProcessor)
     }
