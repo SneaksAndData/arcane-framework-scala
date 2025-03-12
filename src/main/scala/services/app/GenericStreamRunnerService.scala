@@ -2,10 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.app
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.StreamContext
 import models.settings.StagingDataSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.base.TableManager
-import services.streaming.base.StreamingGraphBuilder
+import services.streaming.base.{BackfillStreamingGraphBuilder, StreamingGraphBuilder}
 
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZLayer}
@@ -30,12 +31,13 @@ class GenericStreamRunnerService(builder: StreamingGraphBuilder,
     lifetimeService.start()
     for
       _ <- zlog("Starting the stream runner")
+
       _ <- tableManager.cleanupStagingTables(stagingDataSettings.stagingCatalogName,
         stagingDataSettings.stagingSchemaName,
         stagingDataSettings.stagingTablePrefix)
-      
       _ <- tableManager.createTargetTable
       _ <- tableManager.createBackFillTable
+
       _ <- builder.produce.via(streamLifetimeGuard).run(logResults)
       _ <- zlog("Stream completed")
     yield ()
@@ -62,6 +64,8 @@ object GenericStreamRunnerService:
     & StreamingGraphBuilder
     & StagingDataSettings
     & TableManager
+    & StreamContext
+    & BackfillStreamingGraphBuilder
 
   /**
    * Creates a new instance of the GenericStreamRunnerService class.
@@ -83,7 +87,9 @@ object GenericStreamRunnerService:
     ZLayer {
       for
         lifetimeService <- ZIO.service[StreamLifetimeService]
-        builder <- ZIO.service[StreamingGraphBuilder]
+        streamContext <- ZIO.service[StreamContext]
+        builder <- if streamContext.IsBackfilling then ZIO.service[BackfillStreamingGraphBuilder] else ZIO.service[StreamingGraphBuilder]
+        _ <- zlog(s"Using ${if streamContext.IsBackfilling then "Backfill" else "Versioned"}DataGraphBuilder")
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         tableManager <- ZIO.service[TableManager]
       yield GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, tableManager)

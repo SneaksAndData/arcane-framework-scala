@@ -5,32 +5,35 @@ import logging.ZIOLogAnnotations.*
 import models.settings.*
 import services.base.MergeServiceClient
 import services.merging.JdbcTableManager
-import services.streaming.base.StagedBatchProcessor
+import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable, StagedBatchProcessor}
 
+import com.sneaksanddata.arcane.framework.services.consumers.{MergeableBatch, StagedBackfillBatch}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.IndexedStagedBatches
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 /**
  * Processor that merges data into a target table.
  */
-class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
+class BackfillMergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
   extends StagedBatchProcessor:
 
+  override type BatchType = StagedBackfillBatch
+  
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
-    ZPipeline.mapZIO(batchesSet =>
-      for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => tableManager.migrateSchema(batch.schema, batch.targetTableName))
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
-          _ <- runMaintenanceTasks(batchesSet, targetTableSettings.maintenanceSettings, tableManager)
-      yield batchesSet
+    ZPipeline.mapZIO(batch =>
+      for _ <- zlog(s"Applying backfill batch to ${batch.targetTableName}")
+          _ <- tableManager.migrateSchema(batch.schema, batch.targetTableName)
+          _ <-  mergeServiceClient.applyBatch(batch)
+      yield  batch
     )
 
-object MergeBatchProcessor:
+object BackfillMergeBatchProcessor:
 
   /**
    * Factory method to create MergeProcessor
