@@ -35,23 +35,24 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
   
   type IncomingElement = DataRow|Any
 
-  override def process(toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
+  override def process(onStagingTablesComplete: OnStagingTablesComplete, onBatchStaged: OnBatchStaged): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements =>
         val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(row => row.schema)
         val others = elements.filterNot(e => e.isInstanceOf[DataRow])
-        val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema))
+        val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
         applyTasks.map(batches => (batches, others))
       )
       .zipWithIndex
-      .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
+      .map { case ((batches, others), index) => onStagingTablesComplete(batches, index, others) }
 
-  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch] =
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
     val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
     for
       table <- tableWriterEffect.tapErrorCause(cause => zlog(s"Error writing data to staging table: $cause")).retry(retryPolicy)
-      batch = table.toStagedBatch(icebergCatalogSettings.namespace,
+      batch = onBatchStaged(table,
+        icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
         targetTableSettings.targetTableFullName,

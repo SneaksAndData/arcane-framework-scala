@@ -6,7 +6,11 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 trait StagingDataSettings:
-  protected val stagingTablePrefix: String
+  val stagingTablePrefix: String
+  
+  val stagingCatalogName: String
+  
+  val stagingSchemaName: String
   
   def newStagingTableName: String =
     val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
