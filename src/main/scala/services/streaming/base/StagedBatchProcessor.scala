@@ -53,7 +53,7 @@ trait OrphanFilesExpirationRequestConvertable:
 /**
  * A trait that represents a batch processor.
  */
-trait StagedBatchProcessor extends BatchProcessor:
+trait StagedBatchProcessor extends StreamingBatchProcessor:
 
   /**
    * @inheritdoc
