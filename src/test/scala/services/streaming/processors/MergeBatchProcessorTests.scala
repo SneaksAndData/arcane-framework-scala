@@ -9,7 +9,7 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMerg
 import services.merging.JdbcTableManager
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
-import services.streaming.processors.batch_processors.MergeBatchProcessor
+import services.streaming.processors.batch_processors.BackfillMergeBatchProcessor
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 import com.sneaksanddata.arcane.framework.utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
@@ -56,7 +56,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(mergeServiceClient)
     replay(tableManager)
 
-    val mergeBatchProcessor = MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
+    val mergeBatchProcessor = BackfillMergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
@@ -82,7 +82,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(mergeServiceClient)
     replay(tableManager)
 
-    val mergeBatchProcessor = MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings)
+    val mergeBatchProcessor = BackfillMergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect

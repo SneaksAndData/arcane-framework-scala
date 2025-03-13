@@ -8,9 +8,6 @@ import zio.stream.ZPipeline
  */
 trait BatchProcessor:
 
-  /**
-   * The type of the batch.
-   */
   type BatchType
 
   /**
