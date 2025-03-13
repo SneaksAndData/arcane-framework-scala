@@ -1,11 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders.base
 
-import models.{DataRow, given_MetadataEnrichedRowStreamElement_DataRow}
 import services.app.base.StreamLifetimeService
-import services.streaming.base.{HookManager, MetadataEnrichedRowStreamElement, StreamDataProvider, StreamingGraphBuilder}
+import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
