@@ -2,18 +2,14 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors
 
 import models.ArcaneType.LongType
-import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import models.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import services.consumers.SynapseLinkMergeBatch
 import services.merging.JdbcTableManager
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
-import services.streaming.processors.batch_processors.MergeBatchProcessor
-import services.streaming.processors.transformers.IndexedStagedBatches
-
+import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
+import services.streaming.processors.utils.TestIndexedStagedBatches
 import com.sneaksanddata.arcane.framework.utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
-import utils.TestIndexedStagedBatches
+
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

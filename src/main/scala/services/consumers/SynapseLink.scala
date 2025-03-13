@@ -41,6 +41,7 @@ class SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSc
 
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
+  override val targetTableName: String = targetName
 
   override def reduceExpr: String = s"""SELECT * FROM $name""".stripMargin
 

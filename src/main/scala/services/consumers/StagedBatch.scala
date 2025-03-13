@@ -49,7 +49,7 @@ trait StagedInitBatch extends StagedBatch:
 /**
  * Common trait for StagedBatch that performs a backfill operation on the table.
  */
-trait StagedBackfillBatch extends StagedBatch
+trait StagedBackfillBatch extends StagedBatch with MergeableBatch
 
 /**
  * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
