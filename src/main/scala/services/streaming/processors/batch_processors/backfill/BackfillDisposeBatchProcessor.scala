@@ -4,7 +4,7 @@ package services.streaming.processors.batch_processors.backfill
 import logging.ZIOLogAnnotations.*
 import services.base.DisposeServiceClient
 import services.consumers.StagedBackfillBatch
-import services.streaming.base.BatchProcessor
+import services.streaming.base.StreamingBatchProcessor
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
@@ -13,7 +13,7 @@ import zio.{ZIO, ZLayer}
  * Processor that merges data into a target table.
  */
 class BackfillDisposeBatchProcessor(disposeServiceClient: DisposeServiceClient)
-  extends BatchProcessor:
+  extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillBatch
 

@@ -15,7 +15,7 @@ import zio.{ZIO, ZLayer}
  * Processor that merges data into a target table.
  */
 class BackfillMergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
-  extends BatchProcessor:
+  extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillBatch
 
