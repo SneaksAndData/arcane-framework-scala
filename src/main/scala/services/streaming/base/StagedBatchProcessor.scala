@@ -55,11 +55,14 @@ trait OrphanFilesExpirationRequestConvertable:
  */
 trait StagedBatchProcessor extends BatchProcessor:
 
+  /**
+   * @inheritdoc
+   */
   override type BatchType = IndexedStagedBatches
     & SnapshotExpirationRequestConvertable
     & OrphanFilesExpirationRequestConvertable
     & OptimizationRequestConvertable
-  
+
   /**
    * Represents a maintenance operation.
    * @tparam T type of the maintenance settings
