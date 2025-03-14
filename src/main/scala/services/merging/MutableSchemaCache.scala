@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.merging
 
-import services.base.{FrozenSchemaProvider, SchemaProvider}
+import services.base.{FrozenSchemaProvider, SchemaCache, SchemaProvider}
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.FrozenSchemaProvider.freeze
@@ -14,7 +14,7 @@ import scala.collection.mutable
  * A class that represents a mutable schema provider manager.
  * NOTE: This class is not thread-safe.
  */
-class MutableSchemaCache:
+class MutableSchemaCache extends SchemaCache:
 
   private val schemaProviders = mutable.Map.empty[String, FrozenSchemaProvider[ArcaneSchema]]
 
