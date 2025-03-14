@@ -38,10 +38,24 @@ class MutableSchemaCache:
     yield ()
 
 
+/**
+ * Companion object for the MutableSchemaCache class.
+ */
 object MutableSchemaCache:
 
+  /**
+   * The required environment for the MutableSchemaCache.
+   */
   type Environment = Any
 
+  /**
+   * Creates a new mutable schema cache.
+   *
+   * @return A new mutable schema cache.
+   */
   def apply(): MutableSchemaCache = new MutableSchemaCache()
 
+  /**
+   * The ZLayer for the MutableSchemaCache.
+   */
   val layer: zio.ZLayer[Environment, Nothing, MutableSchemaCache] = ZLayer.succeed(MutableSchemaCache())
