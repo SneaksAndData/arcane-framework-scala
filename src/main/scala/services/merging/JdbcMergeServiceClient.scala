@@ -74,7 +74,8 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
                              streamContext: StreamContext,
                              schemaProvider: SchemaProvider[ArcaneSchema],
                              fieldsFilteringService: FieldsFilteringService,
-                             tablePropertiesSettings: TablePropertiesSettings)
+                             tablePropertiesSettings: TablePropertiesSettings,
+                             schemaProviderManager: SchemaCache)
   extends MergeServiceClient with JdbcTableManager with AutoCloseable with DisposeServiceClient:
 
   class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
@@ -141,7 +142,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    * @inheritdoc
    */
   def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit] =
-      for targetSchema <- getSchemaProvider(tableName).getSchema
+      for targetSchema <- getSchema(tableName)
           missingFields = targetSchema.getMissingFields(newSchema)
           _ <- addColumns(tableName, missingFields)
       yield ()
@@ -197,15 +198,20 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
       yield ()
     }
 
-  def getSchemaProvider(tableName: String): JdbcSchemaProvider = this.JdbcSchemaProvider(tableName, sqlConnection)
+  private def getSchema(tableName: String): Task[ArcaneSchema] =
+    schemaProviderManager.getSchemaProvider(tableName, name => new JdbcSchemaProvider(name, sqlConnection))
 
   private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
-    for _ <- ZIO.foreach(missingFields)(field => {
-      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
-        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
-    })
-    yield ()
+    missingFields match
+      case Nil => ZIO.unit
+      case _ => 
+          for _ <- ZIO.foreach(missingFields)(field => {
+            val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+            zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+              *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+          })
+          _ <- schemaProviderManager.refreshSchemaProvider(targetTableName, name => new JdbcSchemaProvider(name, sqlConnection))
+          yield ()
 
   /**
    * @inheritdoc
@@ -264,6 +270,7 @@ object JdbcMergeServiceClient:
     & TablePropertiesSettings
     & StreamContext
     & BackfillSettings
+    & SchemaCache
 
   /**
    * Factory method to create JdbcConsumer.
@@ -276,8 +283,9 @@ object JdbcMergeServiceClient:
             streamContext: StreamContext,
             schemaProvider: SchemaProvider[ArcaneSchema],
             fieldsFilteringService: FieldsFilteringService,
-            tablePropertiesSettings: TablePropertiesSettings): JdbcMergeServiceClient =
-    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+            tablePropertiesSettings: TablePropertiesSettings,
+           schemaProviderManager: SchemaCache): JdbcMergeServiceClient =
+    new JdbcMergeServiceClient(options, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings, schemaProviderManager)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -293,6 +301,7 @@ object JdbcMergeServiceClient:
           fieldsFilteringService <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
           streamContext <- ZIO.service[StreamContext]
-        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings)
+          schemaProviderManager <- ZIO.service[SchemaCache]
+        yield JdbcMergeServiceClient(connectionOptions, targetTableSettings, backfillTableSettings, streamContext, schemaProvider, fieldsFilteringService, tablePropertiesSettings, schemaProviderManager)
       }
     }
