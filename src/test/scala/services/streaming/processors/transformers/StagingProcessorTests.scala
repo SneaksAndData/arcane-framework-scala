@@ -42,7 +42,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     "source delete request",
   ))
 
-  it should "write data rows to single staging table" in  {
+  it should "write data rows to a single staging table" in  {
     // Arrange
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
