@@ -119,7 +119,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   }
 
   "SynapseLinkMergeBatch" should "generate a valid versioned batch" in {
-    val batch = SynapseLinkMergeBatch("test.staged_a", "batch_id", Seq(
+    val batch = SynapseLinkMergeBatch("test.staged_a", Seq(
       MergeKeyField,
       Field(
         name = "colA",
