@@ -19,12 +19,10 @@ type DataRow = List[DataCell]
  */
 case class DataCell(name: String, Type: ArcaneType, value: Any)
 
-class MergeKeyCell(value: String) extends DataCell(MergeKeyCell.name, StringType, value)
+class BatchIdCell(value: String) extends DataCell(BatchIdField.name, BatchIdField.fieldType, value)
 
-case object MergeKeyCell:
-  val name = "ARCANE_BATCH_ID"
-
-  def apply(value: String): MergeKeyCell = new MergeKeyCell(value)
+object BatchIdCell:
+  def apply(value: String): BatchIdCell = new BatchIdCell(value)
 
 /**
  * Companion object for [[DataCell]].

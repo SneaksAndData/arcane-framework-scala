@@ -4,7 +4,7 @@ package services.streaming.processors.transformers
 import logging.ZIOLogAnnotations.zlog
 import models.DataCell.schema
 import models.settings.{StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
-import models.{ArcaneSchema, DataCell, DataRow, MergeKeyCell}
+import models.{ArcaneSchema, BatchIdCell, BatchIdField, DataCell, DataRow}
 import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
@@ -47,7 +47,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
         val others = elements.filterNot(e => e.isInstanceOf[DataRow])
         val applyTasks = ZIO.foreach(groupedBySchema.keys) { schema =>
           val batchId = UUID.randomUUID().toString
-          writeDataRows(groupedBySchema(schema).map(r => r.addBatchId(batchId)), batchId, schema, onBatchStaged)
+          writeDataRows(groupedBySchema(schema).map(r => r.addBatchId(batchId)), batchId, schema.addBatchId(), onBatchStaged)
         }
         applyTasks.map(batches => (batches, others))
       )
@@ -78,8 +78,15 @@ object StagingProcessor:
    * @param row The row to add the batch id to.
    * @return The row with the batch id added.
    */
-  extension (row: DataRow)
-    def addBatchId(batchId: String): DataRow = row :+ MergeKeyCell(batchId)
+  extension (row: DataRow) def addBatchId(batchId: String): DataRow = row :+ BatchIdCell(batchId)
+    
+  /**
+   * Adds a batch id to the schema.
+   *
+   * @param schema The schema to add the batch id to.
+   * @return The schema with the batch id added.
+   */
+  extension (schema: ArcaneSchema) def addBatchId(): ArcaneSchema = schema :+ BatchIdField
 
   type Environment = StagingDataSettings
     & TablePropertiesSettings
