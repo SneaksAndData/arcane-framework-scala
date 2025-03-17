@@ -75,17 +75,20 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
       hookManager
-        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
+        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(SqlServerChangeTrackingMergeBatch("test", "batchId", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
         .times(streamRepeatCount)
 
-      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      jdbcTableManager.createStagingTable
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.createTargetTable
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.createBackFillTable
+        .andReturn(ZIO.unit)
+        .anyTimes()
+      jdbcTableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString())
         .andReturn(ZIO.unit)
         .anyTimes()
     }
