@@ -3,6 +3,8 @@ package models
 
 import services.streaming.base.MetadataEnrichedRowStreamElement
 
+import com.sneaksanddata.arcane.framework.models.ArcaneType.StringType
+
 /**
  * Represents a row of data.
  */
@@ -16,6 +18,13 @@ type DataRow = List[DataCell]
  * @param value The value of the row.
  */
 case class DataCell(name: String, Type: ArcaneType, value: Any)
+
+class MergeKeyCell(value: String) extends DataCell(MergeKeyCell.name, StringType, value)
+
+case object MergeKeyCell:
+  val name = "ARCANE_BATCH_ID"
+
+  def apply(value: String): MergeKeyCell = new MergeKeyCell(value)
 
 /**
  * Companion object for [[DataCell]].
