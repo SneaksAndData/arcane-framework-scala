@@ -44,7 +44,7 @@ class IcebergS3CatalogWriter(namespace: String,
     )
 
   private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
-    val sorted = row.sortBy(r => schema.aliasToId(r.name))
+    val sorted = row.sortBy(r => schema.findField(r.name).fieldId())
     val record = GenericRecord.create(schema)
     val rowMap = sorted.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
