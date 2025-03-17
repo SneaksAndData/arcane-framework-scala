@@ -88,6 +88,9 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       jdbcTableManager.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
+      jdbcTableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString())
+        .andReturn(ZIO.unit)
+        .anyTimes()
     }
     replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager)
 
