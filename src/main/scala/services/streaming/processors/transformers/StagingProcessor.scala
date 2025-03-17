@@ -4,7 +4,7 @@ package services.streaming.processors.transformers
 import logging.ZIOLogAnnotations.zlog
 import models.DataCell.schema
 import models.settings.{StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
-import models.{ArcaneSchema, DataCell, DataRow}
+import models.{ArcaneSchema, DataCell, DataRow, MergeKeyCell}
 import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
@@ -55,7 +55,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => onStagingTablesComplete(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], batchId: String, arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
-    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.getStagingTableName, arcaneSchema)
+    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.append(rows, stagingDataSettings.getStagingTableName, arcaneSchema)
 
     for
       _ <- tableManager.migrateSchema(arcaneSchema, stagingDataSettings.getStagingTableName)
@@ -79,7 +79,7 @@ object StagingProcessor:
    * @return The row with the batch id added.
    */
   extension (row: DataRow)
-    def addBatchId(batchId: String): DataRow = row :+ DataCell("ARCANE_BATCH_ID", StringType, batchId)
+    def addBatchId(batchId: String): DataRow = row :+ MergeKeyCell(batchId)
 
   type Environment = StagingDataSettings
     & TablePropertiesSettings
