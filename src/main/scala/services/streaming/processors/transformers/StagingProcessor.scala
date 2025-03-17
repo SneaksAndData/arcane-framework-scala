@@ -55,11 +55,16 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => onStagingTablesComplete(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], batchId: String, arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
-    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.append(rows, stagingDataSettings.getStagingTableName, arcaneSchema)
 
     for
       _ <- tableManager.migrateSchema(arcaneSchema, stagingDataSettings.getStagingTableName)
-      table <- tableWriterEffect.tapErrorCause(cause => zlog("Error writing data to staging table: {cause}", cause)).retry(retryPolicy)
+      newSchema <- tableManager.getSchema(stagingDataSettings.getStagingTableName)
+      ordering = newSchema.map(_.name).zipWithIndex.toMap
+
+      table <- catalogWriter.append(rows.map(r => r.sortBy(c => ordering(c.name))), stagingDataSettings.getStagingTableName, arcaneSchema)
+        .tapErrorCause(cause => zlog("Error writing data to staging table: {cause}", cause))
+        .retry(retryPolicy)
+
       batch = onBatchStaged(table,
         batchId,
         icebergCatalogSettings.namespace,
@@ -79,7 +84,7 @@ object StagingProcessor:
    * @return The row with the batch id added.
    */
   extension (row: DataRow) def addBatchId(batchId: String): DataRow = row :+ BatchIdCell(batchId)
-    
+
   /**
    * Adds a batch id to the schema.
    *

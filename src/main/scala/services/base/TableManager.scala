@@ -119,3 +119,6 @@ trait TableManager:
    * @return The result of the archive table creation operation.
    */
   def createStagingTable: Task[Unit]
+  
+  
+  def getSchema(tableName: String): Task[ArcaneSchema]
