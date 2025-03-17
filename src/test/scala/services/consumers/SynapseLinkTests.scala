@@ -89,7 +89,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   }
   
   "SynapseLinkBackfillMergeBatch" should "generate a valid backfill merge batch" in {
-    val batch = SynapseLinkBackfillMergeBatch("test.staged_a", Seq(
+    val batch = SynapseLinkBackfillMergeBatch("test.staged_a", "batchId", Seq(
       MergeKeyField,
       Field(
         name = "colA",
@@ -119,7 +119,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   }
 
   "SynapseLinkMergeBatch" should "generate a valid versioned batch" in {
-    val batch = SynapseLinkMergeBatch("test.staged_a", Seq(
+    val batch = SynapseLinkMergeBatch("test.staged_a", "table_id", Seq(
       MergeKeyField,
       Field(
         name = "colA",

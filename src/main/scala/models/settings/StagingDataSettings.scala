@@ -5,14 +5,28 @@ import java.time.{ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
+/**
+ * Represents the settings for staging data.
+ */
 trait StagingDataSettings:
+
+  /**
+   * The prefix for the staging table.
+   */
   val stagingTablePrefix: String
-  
+
+  /**
+   * The name of the staging catalog.
+   */
   val stagingCatalogName: String
-  
+
+  /**
+   * The name of the staging schema.
+   */
   val stagingSchemaName: String
-  
-  def newStagingTableName: String =
-    val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
-    val id = UUID.randomUUID().toString
-    s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$id".replace('-', '_')
+
+
+  /**
+   * The name of the staging table. For now, it's just a prefix.
+   */
+  def getStagingTableName: String = stagingTablePrefix

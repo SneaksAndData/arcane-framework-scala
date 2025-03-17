@@ -19,13 +19,14 @@ class MsSqlHookManager extends EmptyHookManager:
    * Converts the batch to a format that can be consumed by the next processor.
    * */
   def onBatchStaged(table: Table,
+                    batchId: String,
                     namespace: String,
                     warehouse: String,
                     batchSchema: ArcaneSchema,
                     targetName: String,
                     tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch =
     val batchName = table.name().split('.').last
-    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
+    SqlServerChangeTrackingMergeBatch(batchName, batchId, batchSchema, targetName, tablePropertiesSettings)
 
 
 object MsSqlHookManager:

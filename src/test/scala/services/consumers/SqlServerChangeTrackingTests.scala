@@ -71,7 +71,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
   }
 
   "SqlServerChangeTrackingMergeBatch" should "generate a valid versioned batch" in {
-    val batch = SqlServerChangeTrackingMergeBatch("test.staged_a", Seq(
+    val batch = SqlServerChangeTrackingMergeBatch("test.staged_a", "batchId", Seq(
       MergeKeyField,
         Field(
           name = "colA",
