@@ -174,9 +174,9 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
 
 
     val mergeServiceClient = getSystemUnderTest(Some(schemaProviderFactory))
-    for newSchema <- mergeServiceClient.getSchema("table_a")
-        newSchema <- mergeServiceClient.getSchema("table_a")
-        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+
+    // The schema provider should be called twice, once for the original schema and once for the updated schema
+    for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a") // First and second calls here
         result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
         result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
         result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
