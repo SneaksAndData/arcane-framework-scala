@@ -46,8 +46,8 @@ class IcebergS3CatalogWriter(namespace: String,
   private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
     val sorted = row.sortBy(r => schema.findField(r.name).fieldId())
     val record = GenericRecord.create(schema)
-    val rowMap = sorted.map { cell => cell.name -> cell.value }.toMap
-    record.copy(rowMap.asJava)
+    sorted.foreach(cell => record.setField(cell.name, cell.value))
+    record
 
   private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = ZIO.attemptBlocking{
       val appendTran = tbl.newTransaction()
