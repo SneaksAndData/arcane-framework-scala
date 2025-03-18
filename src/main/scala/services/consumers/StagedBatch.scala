@@ -24,6 +24,7 @@ trait StagedBatch:
    * Name of the table in the linked Catalog that holds batch data
    */
   val name: String
+
   /**
    * Schema for the table that holds batch data
    */
@@ -41,9 +42,11 @@ trait StagedBatch:
 
   /**
    * Query that should be used to dispose of this batch data.
+   *
    * @return SQL query text
    */
-  def disposeExpr: String = s"DROP TABLE $name"
+  def disposeExpr(stagingTableName: String): String = s"TRUNCATE TABLE $stagingTableName"
+
 
 /**
  * StagedBatch initializes the table.

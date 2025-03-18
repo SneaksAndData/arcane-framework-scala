@@ -115,7 +115,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    * @inheritdoc
    */
   override def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
-    executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
+    executeBatchQuery(batch.disposeExpr(stagingDataSettings.getStagingTableName), batch.name, "Disposing", _ => new BatchDisposeResult)
 
   /**
    * @inheritdoc

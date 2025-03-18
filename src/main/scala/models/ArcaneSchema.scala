@@ -55,6 +55,14 @@ case object DatePartitionField extends ArcaneSchemaField:
   val name: String = "DATE_PARTITION_KEY"
   val fieldType: ArcaneType = StringType
 
+  
+/**
+ * DatePartitionField represents a field used for date partitioning
+ */
+case object BatchIdField extends ArcaneSchemaField:
+  val name: String = "ARCANE_BATCH_ID"
+  val fieldType: ArcaneType = StringType
+
 /**
  * ArcaneSchema is a type alias for a sequence of fields or structs.
  */
