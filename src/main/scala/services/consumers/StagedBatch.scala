@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.consumers
 
 import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteReplaceQuery, StreamingBatchQuery}
-import models.ArcaneSchema
+import models.{ArcaneSchema, BatchIdField}
 
 trait MergeableBatch:
 
@@ -24,6 +24,12 @@ trait StagedBatch:
    * Name of the table in the linked Catalog that holds batch data
    */
   val name: String
+
+  /**
+   * The unique identifier for the batch
+   */
+  val batchId: String
+  
   /**
    * Schema for the table that holds batch data
    */
@@ -41,9 +47,11 @@ trait StagedBatch:
 
   /**
    * Query that should be used to dispose of this batch data.
+   *
    * @return SQL query text
    */
-  def disposeExpr: String = s"DROP TABLE $name"
+  def disposeExpr(stagingTableName: String): String = s"DELETE FROM TABLE $stagingTableName WHERE ${BatchIdField.name} = '$batchId''"
+
 
 /**
  * StagedBatch initializes the table.
