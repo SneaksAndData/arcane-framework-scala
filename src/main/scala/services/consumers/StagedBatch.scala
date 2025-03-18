@@ -26,11 +26,6 @@ trait StagedBatch:
   val name: String
 
   /**
-   * The unique identifier for the batch
-   */
-  val batchId: String
-  
-  /**
    * Schema for the table that holds batch data
    */
   val schema: ArcaneSchema
@@ -50,7 +45,7 @@ trait StagedBatch:
    *
    * @return SQL query text
    */
-  def disposeExpr(stagingTableName: String): String = s"DELETE FROM TABLE $stagingTableName WHERE ${BatchIdField.name} = '$batchId''"
+  def disposeExpr(stagingTableName: String): String = s"DELETE FROM TABLE $stagingTableName WHERE true"
 
 
 /**
