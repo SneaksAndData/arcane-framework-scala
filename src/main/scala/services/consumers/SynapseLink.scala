@@ -50,7 +50,7 @@ object  SynapseLinkBackfillOverwriteBatch:
   def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillOverwriteBatch =
     new SynapseLinkBackfillOverwriteBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings)
 
-class SynapseLinkMergeBatch(batchName: String, val batchId: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch:
+class SynapseLinkMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String) extends StagedVersionedBatch with MergeableBatch:
   override val name: String = batchName
   override val schema: ArcaneSchema = batchSchema
   override val targetTableName: String = targetName
@@ -65,10 +65,10 @@ class SynapseLinkMergeBatch(batchName: String, val batchId: String, batchSchema:
     SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
 object SynapseLinkMergeBatch:
-  def apply(batchName: String, batchId: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkMergeBatch =
-    new SynapseLinkMergeBatch(batchName, batchId, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkMergeBatch =
+    new SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
 
-class SynapseLinkBackfillMergeBatch(batchName: String, val batchId: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
+class SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String,  tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
   extends StagedBackfillMergeBatch with MergeableBatch:
 
   override val name: String = batchName
@@ -80,6 +80,6 @@ class SynapseLinkBackfillMergeBatch(batchName: String, val batchId: String, batc
   override val batchQuery: MergeQuery = SynapseLinkMergeQuery(targetName = targetName, sourceQuery = reduceExpr, partitionFields = tablePropertiesSettings.partitionFields, mergeKey = mergeKey, columns = schema.map(f => f.name))
 
 object SynapseLinkBackfillMergeBatch:
-  def apply(batchName: String, batchId: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillMergeBatch =
-    new SynapseLinkBackfillMergeBatch(batchName: String, batchId: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SynapseLinkBackfillMergeBatch =
+    new SynapseLinkBackfillMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
 

@@ -11,11 +11,6 @@ trait MergeableBatch:
    */
   val targetTableName: String
 
-  /**
-   * The unique identifier for the batch
-   */
-  val batchId: String
-
 trait StagedBatch:
 
   type Query <: StreamingBatchQuery

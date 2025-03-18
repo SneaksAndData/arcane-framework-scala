@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import services.consumers.SynapseLinkMergeBatch
-import utils.{TestBackfillTableSettings, TestStagingDataSettings, TestTablePropertiesSettings, TestTargetTableSettings}
+import utils.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
@@ -78,7 +78,6 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   private def getSystemUnderTest(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(options,
       TestTargetTableSettings,
       TestBackfillTableSettings,
-      TestStagingDataSettings,
       streamContext,
       schemaProviderMock,
       fieldsFilteringServiceMock,
@@ -87,7 +86,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
       schemaProviderFactory)
 
   it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", "table_id", schema, "test.table_a", TestTablePropertiesSettings)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
     val mergeServiceClient = getSystemUnderTest(None)
 
     for _ <- mergeServiceClient.applyBatch(batch)
@@ -101,7 +100,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
 
   it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
     val mergeServiceClient = getSystemUnderTest(None)
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", "batch_id", schema, "test.table_a", TestTablePropertiesSettings)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
 
     for _ <- mergeServiceClient.disposeBatch(batch)
         rs = connection.getMetaData.getTables(null, null, "staged_table_a", null)
