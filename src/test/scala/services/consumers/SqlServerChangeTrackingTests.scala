@@ -51,7 +51,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
   }
 
   "SqlServerChangeTrackingBackfillBatch" should "generate a valid backfill batch" in {
-    val batch = SqlServerChangeTrackingBackfillBatch("test.staged_a", Seq(
+    val batch = SqlServerChangeTrackingBackfillBatch("test.staged_a", "batch_id", Seq(
       MergeKeyField,
       Field(
         name = "colA",
