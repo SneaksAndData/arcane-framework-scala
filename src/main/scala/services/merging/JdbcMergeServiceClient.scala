@@ -200,7 +200,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
     val sql = s"TRUNCATE TABLE $tableName"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-          _ <- zlog("Deleting data form table: " + tableName)
+          _ <- zlog("Deleting data form table: %s", tableName)
           _ <- ZIO.attemptBlocking(statement.execute())
       yield ()
     }
