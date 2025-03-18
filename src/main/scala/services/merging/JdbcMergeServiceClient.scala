@@ -176,7 +176,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  def clearBackFillTable: Task[Unit] = clearTable(stagingDataSettings.getStagingTableName)
+  def clearBackFillTable: Task[Unit] = clearTable(backfillTableSettings.backfillTableFullName)
   
   /**
    * @inheritdoc
