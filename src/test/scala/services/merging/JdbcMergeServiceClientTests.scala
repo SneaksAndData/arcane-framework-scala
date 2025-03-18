@@ -151,7 +151,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   }
 
   it should "should be able to perform schema migrations" in withTargetTable("table_a") { connection =>
-    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+    val updatedSchema = MergeKeyField :: Field("ARCANE_BATCH_ID", StringType) :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
       Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
       Field("new_column", StringType) :: Nil
 
