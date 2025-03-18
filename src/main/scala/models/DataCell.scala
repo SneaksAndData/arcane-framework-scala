@@ -17,6 +17,11 @@ type DataRow = List[DataCell]
  */
 case class DataCell(name: String, Type: ArcaneType, value: Any)
 
+class BatchIdCell(value: String) extends DataCell(BatchIdField.name, BatchIdField.fieldType, value)
+
+object BatchIdCell:
+  def apply(value: String): BatchIdCell = new BatchIdCell(value)
+
 /**
  * Companion object for [[DataCell]].
  */

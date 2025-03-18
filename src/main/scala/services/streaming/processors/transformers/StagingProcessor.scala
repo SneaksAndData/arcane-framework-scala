@@ -4,7 +4,7 @@ package services.streaming.processors.transformers
 import logging.ZIOLogAnnotations.zlog
 import models.DataCell.schema
 import models.settings.{StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
-import models.{ArcaneSchema, DataCell, DataRow}
+import models.{ArcaneSchema, BatchIdCell, BatchIdField, DataCell, DataRow}
 import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
@@ -12,6 +12,7 @@ import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransf
 
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{LongType, StringType}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcTableManager
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.base.IStagingProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor.addBatchId
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -31,7 +32,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                        tableManager: JdbcTableManager)
 
-  extends RowGroupTransformer:
+  extends IStagingProcessor:
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
@@ -47,7 +48,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
         val others = elements.filterNot(e => e.isInstanceOf[DataRow])
         val applyTasks = ZIO.foreach(groupedBySchema.keys) { schema =>
           val batchId = UUID.randomUUID().toString
-          writeDataRows(groupedBySchema(schema).map(r => r.addBatchId(batchId)), batchId, schema, onBatchStaged)
+          writeDataRows(groupedBySchema(schema).map(r => r.addBatchId(batchId)), batchId, schema.addBatchId(), onBatchStaged)
         }
         applyTasks.map(batches => (batches, others))
       )
@@ -55,11 +56,15 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => onStagingTablesComplete(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], batchId: String, arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
-    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.getStagingTableName, arcaneSchema)
 
     for
       _ <- tableManager.migrateSchema(arcaneSchema, stagingDataSettings.getStagingTableName)
-      table <- tableWriterEffect.tapErrorCause(cause => zlog("Error writing data to staging table: {cause}", cause)).retry(retryPolicy)
+      newSchema <- tableManager.getSchema(stagingDataSettings.getStagingTableName)
+
+      table <- catalogWriter.append(rows, stagingDataSettings.getStagingTableName, newSchema)
+        .tapErrorCause(cause => zlog("Error writing data to staging table: {cause}", cause))
+        .retry(retryPolicy)
+
       batch = onBatchStaged(table,
         batchId,
         icebergCatalogSettings.namespace,
@@ -78,8 +83,15 @@ object StagingProcessor:
    * @param row The row to add the batch id to.
    * @return The row with the batch id added.
    */
-  extension (row: DataRow)
-    def addBatchId(batchId: String): DataRow = row :+ DataCell("ARCANE_BATCH_ID", StringType, batchId)
+  extension (row: DataRow) def addBatchId(batchId: String): DataRow = row :+ BatchIdCell(batchId)
+
+  /**
+   * Adds a batch id to the schema.
+   *
+   * @param schema The schema to add the batch id to.
+   * @return The schema with the batch id added.
+   */
+  extension (schema: ArcaneSchema) def addBatchId(): ArcaneSchema = schema :+ BatchIdField
 
   type Environment = StagingDataSettings
     & TablePropertiesSettings
@@ -96,7 +108,7 @@ object StagingProcessor:
             tableManager: JdbcTableManager): StagingProcessor =
     new StagingProcessor(stagingDataSettings, tablePropertiesSettings, targetTableSettings, icebergCatalogSettings, catalogWriter, tableManager)
 
-  val layer: ZLayer[Environment, Nothing, StagingProcessor] =
+  val layer: ZLayer[Environment, Nothing, IStagingProcessor] =
     ZLayer {
       for
         stagingDataSettings <- ZIO.service[StagingDataSettings]

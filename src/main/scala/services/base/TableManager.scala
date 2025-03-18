@@ -112,7 +112,7 @@ trait TableManager:
    * @return The result of the archive table creation operation.
    */
   def createBackFillTable: Task[Unit]
-  
+
   /**
    * Removes all data from the backfill table.
    *
@@ -133,3 +133,12 @@ trait TableManager:
    * @return The result of the archive table creation operation.
    */
   def clearStagingTable: Task[Unit]
+
+  /**
+   * Gets the schema of a table.
+   *
+   * @param tableName The name of the table.
+   * @return The schema of the table.
+   */
+  def getSchema(tableName: String): Task[ArcaneSchema]
+

@@ -4,8 +4,8 @@ package services.streaming.base
 import models.ArcaneSchema
 import models.settings.TablePropertiesSettings
 import services.consumers.{MergeableBatch, StagedVersionedBatch}
-import services.streaming.processors.transformers.StagingProcessor
 
+import services.streaming.graph_builders.base.IStagingProcessor
 import org.apache.iceberg.Table
 import zio.Chunk
 
@@ -18,7 +18,7 @@ trait HookManager:
   /**
    *  Enriches received staging batch with metadata and converts it to in-flight batch.
    **/
-  def onStagingTablesComplete(staged: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): StagingProcessor#OutgoingElement
+  def onStagingTablesComplete(staged: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): IStagingProcessor#OutgoingElement
 
   /**
    * Converts the batch to a format that can be consumed by the next processor.
