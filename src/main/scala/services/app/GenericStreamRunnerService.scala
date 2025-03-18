@@ -31,8 +31,13 @@ class GenericStreamRunnerService(builder: StreamingGraphBuilder,
     for
       _ <- zlog("Starting the stream runner")
       _ <- tableManager.createTargetTable
+      
       _ <- tableManager.createStagingTable
+      _ <- tableManager.clearStagingTable
+      
       _ <- tableManager.createBackFillTable
+      _ <- tableManager.clearBackFillTable
+      
       _ <- builder.produce.via(streamLifetimeGuard).run(logResults)
       _ <- zlog("Stream completed")
     yield ()

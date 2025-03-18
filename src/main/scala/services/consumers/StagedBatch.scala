@@ -63,12 +63,19 @@ trait StagedBackfillBatch extends StagedBatch
  * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
  */
 trait StagedBackfillOverwriteBatch extends StagedBackfillBatch:
+  val batchId: String
+
   override type Query = OverwriteQuery
+
+  override def disposeExpr(stagingTableName: String): String = s"TRUNCATE TABLE $batchId"
 
 /**
  * StagedBatch that performs a backfill operation on the table in MERGE mode.
  */
-trait StagedBackfillMergeBatch extends StagedBackfillBatch:
+trait StagedBackfillMergeBatch extends StagedBackfillBatch with MergeableBatch:
+
+  override def disposeExpr(stagingTableName: String): String = s"TRUNCATE TABLE $batchId"
+
   override type Query = MergeQuery
 
 /**
