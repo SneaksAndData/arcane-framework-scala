@@ -63,7 +63,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
 
       // The catalogWriter.write method is called ``streamRepeatCount`` times
       catalogWriter
-        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .append(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(streamRepeatCount)
 
@@ -83,7 +83,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.unit)
+        .andReturn(ZIO.succeed(testInput.head.schema))
         .anyTimes()
       jdbcTableManager.createTargetTable
         .andReturn(ZIO.unit)
