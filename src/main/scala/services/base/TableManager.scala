@@ -107,15 +107,29 @@ trait TableManager:
   def createTargetTable: Task[Unit]
 
   /**
-   * Creates the archive table.
+   * Creates the backfill table if it does not exist.
    *
    * @return The result of the archive table creation operation.
    */
   def createBackFillTable: Task[Unit]
+  
+  /**
+   * Removes all data from the backfill table.
+   *
+   * @return The result of the archive table creation operation.
+   */
+  def clearBackFillTable: Task[Unit]
 
   /**
-   * Creates the archive table.
+   * Creates the staging table if it does not exist.
    *
    * @return The result of the archive table creation operation.
    */
   def createStagingTable: Task[Unit]
+
+  /**
+   * Removes all data from the staging table.
+   *
+   * @return The result of the archive table creation operation.
+   */
+  def clearStagingTable: Task[Unit]
