@@ -120,5 +120,11 @@ trait TableManager:
    */
   def createStagingTable: Task[Unit]
   
-  
+
+  /**
+   * Gets the schema of a table.
+   *
+   * @param tableName The name of the table.
+   * @return The schema of the table.
+   */
   def getSchema(tableName: String): Task[ArcaneSchema]

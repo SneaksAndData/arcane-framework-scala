@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.consumers
 
 import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteReplaceQuery, StreamingBatchQuery}
-import models.{ArcaneSchema, BatchIdField}
+import models.ArcaneSchema
 
 trait MergeableBatch:
 

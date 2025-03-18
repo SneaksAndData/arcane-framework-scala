@@ -3,8 +3,6 @@ package models
 
 import services.streaming.base.MetadataEnrichedRowStreamElement
 
-import com.sneaksanddata.arcane.framework.models.ArcaneType.StringType
-
 /**
  * Represents a row of data.
  */
