@@ -61,7 +61,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       newSchema <- tableManager.getSchema(stagingDataSettings.getStagingTableName)
       ordering = newSchema.map(_.name).zipWithIndex.toMap
 
-      table <- catalogWriter.append(rows.map(r => r.sortBy(c => ordering(c.name.toUpperCase()))), stagingDataSettings.getStagingTableName, arcaneSchema)
+      table <- catalogWriter.append(rows.map(r => r.sortBy(c => ordering(c.name.toUpperCase()))), stagingDataSettings.getStagingTableName, newSchema)
         .tapErrorCause(cause => zlog("Error writing data to staging table: {cause}", cause))
         .retry(retryPolicy)
 
