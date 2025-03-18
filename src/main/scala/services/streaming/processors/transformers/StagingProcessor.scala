@@ -12,6 +12,7 @@ import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransf
 
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{LongType, StringType}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcTableManager
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.base.IStagingProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor.addBatchId
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -31,7 +32,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                        tableManager: JdbcTableManager)
 
-  extends RowGroupTransformer:
+  extends IStagingProcessor:
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
@@ -108,7 +109,7 @@ object StagingProcessor:
             tableManager: JdbcTableManager): StagingProcessor =
     new StagingProcessor(stagingDataSettings, tablePropertiesSettings, targetTableSettings, icebergCatalogSettings, catalogWriter, tableManager)
 
-  val layer: ZLayer[Environment, Nothing, StagingProcessor] =
+  val layer: ZLayer[Environment, Nothing, IStagingProcessor] =
     ZLayer {
       for
         stagingDataSettings <- ZIO.service[StagingDataSettings]
