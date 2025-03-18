@@ -62,6 +62,9 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.eq("staging_stream_id"))
         .andReturn(ZIO.unit)
         .times(2)
+      tableManager.getSchema("staging_stream_id")
+        .andReturn(ZIO.unit)
+        .anyTimes()
     }
     replay(tableMock)
     replay(catalogWriter)

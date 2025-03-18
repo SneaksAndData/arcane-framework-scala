@@ -82,6 +82,9 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       jdbcTableManager.createStagingTable
         .andReturn(ZIO.unit)
         .anyTimes()
+      jdbcTableManager.getSchema("staging_stream_id")
+        .andReturn(ZIO.unit)
+        .anyTimes()
       jdbcTableManager.createTargetTable
         .andReturn(ZIO.unit)
         .anyTimes()
