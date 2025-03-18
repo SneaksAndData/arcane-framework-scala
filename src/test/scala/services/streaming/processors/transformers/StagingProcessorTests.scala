@@ -55,17 +55,13 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .anyTimes()
 
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(2)
 
       tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.eq("staging_stream_id"))
         .andReturn(ZIO.unit)
         .times(2)
-
-      tableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput(0).toDataRow.schema))
-        .anyTimes()
     }
     replay(tableMock)
     replay(catalogWriter)
@@ -108,16 +104,12 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .anyTimes()
 
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
 
       tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString())
         .andReturn(ZIO.unit)
-        .anyTimes()
-
-      tableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput(0).toDataRow.schema))
         .anyTimes()
     }
     replay(tableMock)
@@ -165,12 +157,8 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .anyTimes()
 
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
-        .anyTimes()
-
-      tableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput(0).toDataRow.schema))
         .anyTimes()
     }
     replay(tableMock)

@@ -6,7 +6,7 @@ import services.app.base.StreamLifetimeService
 import services.streaming.base.{HookManager, MetadataEnrichedRowStreamElement, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
-import services.streaming.processors.transformers.FieldFilteringTransformer
+import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
@@ -18,7 +18,7 @@ import zio.{Tag, ZIO, ZLayer}
 class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
                                    fieldFilteringProcessor: FieldFilteringTransformer,
                                    groupTransformer: GenericGroupingTransformer,
-                                   stagingProcessor: IStagingProcessor,
+                                   stagingProcessor: StagingProcessor,
                                    mergeProcessor: MergeBatchProcessor,
                                    disposeBatchProcessor: DisposeBatchProcessor,
                                    hookManager: HookManager)
@@ -48,7 +48,7 @@ object GenericStreamingGraphBuilder:
   type Environment = StreamDataProvider
     & GenericGroupingTransformer
     & FieldFilteringTransformer
-    & IStagingProcessor
+    & StagingProcessor
     & MergeBatchProcessor
     & DisposeBatchProcessor
     & StreamLifetimeService
@@ -69,7 +69,7 @@ object GenericStreamingGraphBuilder:
   def apply(streamDataProvider: StreamDataProvider,
             fieldFilteringProcessor: FieldFilteringTransformer,
             groupTransformer: GenericGroupingTransformer,
-            stagingProcessor: IStagingProcessor,
+            stagingProcessor: StagingProcessor,
             mergeProcessor: MergeBatchProcessor,
             disposeBatchProcessor: DisposeBatchProcessor,
             hookManager: HookManager): GenericStreamingGraphBuilder =
@@ -90,7 +90,7 @@ object GenericStreamingGraphBuilder:
         streamDataProvider <- ZIO.service[StreamDataProvider]
         fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
         groupTransformer <- ZIO.service[GenericGroupingTransformer]
-        stagingProcessor <- ZIO.service[IStagingProcessor]
+        stagingProcessor <- ZIO.service[StagingProcessor]
         mergeProcessor <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
         hookManager <- ZIO.service[HookManager]

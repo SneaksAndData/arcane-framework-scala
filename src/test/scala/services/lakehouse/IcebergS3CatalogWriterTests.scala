@@ -29,7 +29,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
     override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
-  private val schema = Seq(MergeKeyField, Field(name = "colA".toUpperCase(), fieldType = IntType), Field(name = "colB".toUpperCase(), fieldType = StringType))
+  private val schema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
   private val icebergWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(settings)
 
   it should "create a table when provided schema and rows" in {
