@@ -10,7 +10,6 @@ import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRe
 import utils.*
 
 import com.sneaksanddata.arcane.framework.services.cdm.SynapseHookManager
-import com.sneaksanddata.arcane.framework.services.merging.JdbcTableManager
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
 import org.apache.iceberg.rest.RESTCatalog
@@ -42,11 +41,10 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     "source delete request",
   ))
 
-  it should "write data rows to a single staging table" in  {
+  it should "write data rows grouped by schema to staging tables" in  {
     // Arrange
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
-    val tableManager = mock[JdbcTableManager]
 
     expecting{
       tableMock
@@ -55,28 +53,18 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .anyTimes()
 
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(2)
-
-      tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.eq("staging_stream_id"))
-        .andReturn(ZIO.unit)
-        .times(2)
-
-      tableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput(0).toDataRow.schema))
-        .anyTimes()
     }
     replay(tableMock)
     replay(catalogWriter)
-    replay(tableManager)
 
     val stagingProcessor = StagingProcessor(TestStagingDataSettings,
       TestTablePropertiesSettings,
       TestTargetTableSettings,
       TestIcebergCatalogSettings,
-      catalogWriter,
-      tableManager)
+      catalogWriter)
 
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
       new TestIndexedStagedBatches(batches, index)
@@ -90,8 +78,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       verify (catalogWriter)
       val batch = result.get
-      // Assert that the staging processor emits two batches, each with a different schema and different batch id and index equal to 0
-      (batch.groupedBySchema.size, batch.groupedBySchema.map( b => b.batchId).toSet.size, batch.batchIndex) shouldBe (2, 2, 0)
+      (batch.groupedBySchema.size, batch.batchIndex) shouldBe(2, 0)
     }
   }
 
@@ -99,7 +86,6 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     // Arrange
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
-    val tableManager = mock[JdbcTableManager]
 
     expecting {
       tableMock
@@ -108,21 +94,13 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .anyTimes()
 
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
-        .anyTimes()
-
-      tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString())
-        .andReturn(ZIO.unit)
-        .anyTimes()
-
-      tableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput(0).toDataRow.schema))
         .anyTimes()
     }
     replay(tableMock)
     replay(catalogWriter)
-    replay(tableManager)
+
 
 
     class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
@@ -134,8 +112,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestTablePropertiesSettings,
       TestTargetTableSettings,
       TestIcebergCatalogSettings,
-      catalogWriter,
-      tableManager)
+      catalogWriter)
       
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
@@ -156,7 +133,6 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     // Arrange
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
-    val tableManager = mock[JdbcTableManager]
 
     expecting {
       tableMock
@@ -165,12 +141,8 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .anyTimes()
 
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
-        .anyTimes()
-
-      tableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput(0).toDataRow.schema))
         .anyTimes()
     }
     replay(tableMock)
@@ -186,8 +158,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestTablePropertiesSettings,
       TestTargetTableSettingsWithMaintenance,
       TestIcebergCatalogSettings,
-      catalogWriter,
-      tableManager)
+      catalogWriter)
 
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))

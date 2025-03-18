@@ -63,7 +63,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
 
       // The catalogWriter.write method is called ``streamRepeatCount`` times
       catalogWriter
-        .append(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(streamRepeatCount)
 
@@ -75,29 +75,17 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
       hookManager
-        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(SqlServerChangeTrackingMergeBatch("test", "batchId", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
+        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
         .times(streamRepeatCount)
 
-      jdbcTableManager.createStagingTable
+      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.clearStagingTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.getSchema("staging_stream_id")
-        .andReturn(ZIO.succeed(testInput.head.schema))
         .anyTimes()
       jdbcTableManager.createTargetTable
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.createBackFillTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.clearBackFillTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString())
         .andReturn(ZIO.unit)
         .anyTimes()
     }

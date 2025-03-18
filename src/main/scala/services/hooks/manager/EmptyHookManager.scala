@@ -5,8 +5,7 @@ import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, Snapsho
 import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{HookManager, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
-import services.streaming.graph_builders.base.IStagingProcessor
-import services.streaming.processors.transformers.IndexedStagedBatches
+import services.streaming.processors.transformers.{IndexedStagedBatches, StagingProcessor}
 
 import zio.Chunk
 
@@ -43,5 +42,5 @@ abstract class EmptyHookManager extends HookManager:
   /**
    * Enriches received staging batch with metadata and converts it to in-flight batch.
    * */
-  override def onStagingTablesComplete(staged: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): IStagingProcessor#OutgoingElement =
+  override def onStagingTablesComplete(staged: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): StagingProcessor#OutgoingElement =
     new EmptyIndexedStagedBatches(staged, index)

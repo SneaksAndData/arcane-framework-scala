@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import services.consumers.SynapseLinkMergeBatch
-import utils.{TestBackfillTableSettings, TestStagingDataSettings, TestTablePropertiesSettings, TestTargetTableSettings}
+import utils.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
@@ -49,7 +49,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
 
     val dropTableStatement = s"DROP TABLE IF EXISTS test.$tableName"
     statement.execute(dropTableStatement)
-    val createTableStatement = s"CREATE TABLE IF NOT EXISTS test.$tableName (ARCANE_MERGE_KEY VARCHAR, ARCANE_BATCH_ID VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
+    val createTableStatement = s"CREATE TABLE IF NOT EXISTS test.$tableName (ARCANE_MERGE_KEY VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
     statement.execute(createTableStatement)
     connection
 
@@ -58,7 +58,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val connection = driver.connect(connectionUri, new Properties())
     val updateStatement = connection.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"insert into test.$tableName (ARCANE_MERGE_KEY, ARCANE_BATCH_ID, versionnumber, IsDelete, colA, colB, Id) values ('$i', '$i', $i, false, '$i', '$i', '$i')"
+      val insertCmd = s"insert into test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
       updateStatement.execute(insertCmd)
 
   private def withTargetTable(tableName: String)(test: Connection => Task[Assertion]): Future[Assertion] =
@@ -78,7 +78,6 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   private def getSystemUnderTest(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(options,
       TestTargetTableSettings,
       TestBackfillTableSettings,
-      TestStagingDataSettings,
       streamContext,
       schemaProviderMock,
       fieldsFilteringServiceMock,
@@ -86,8 +85,8 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
       MutableSchemaCache(),
       schemaProviderFactory)
 
-  it should "be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", "table_id", schema, "test.table_a", TestTablePropertiesSettings)
+  it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
     val mergeServiceClient = getSystemUnderTest(None)
 
     for _ <- mergeServiceClient.applyBatch(batch)
@@ -99,16 +98,16 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     yield targetCount should be(10)
   }
 
-  it should "should be able to dispose a batch" in withTargetTable("staging_stream_id") { connection =>
+  it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
     val mergeServiceClient = getSystemUnderTest(None)
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", "batch_id", schema, "test.table_a", TestTablePropertiesSettings)
+    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
 
     for _ <- mergeServiceClient.disposeBatch(batch)
-        rs = connection.getMetaData.getTables(null, null, "staging_stream_id", null)
+        rs = connection.getMetaData.getTables(null, null, "staged_table_a", null)
         stagingTableExists = rs.next()
 
     // assert that the statement was actually executed
-    yield stagingTableExists should be(true)
+    yield stagingTableExists should be(false)
   }
 
   it should "should be able to run optimizeTable queries without errors" in withTargetTable("table_a") { connection =>
@@ -151,7 +150,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   }
 
   it should "should be able to perform schema migrations" in withTargetTable("table_a") { connection =>
-    val updatedSchema = MergeKeyField :: Field("ARCANE_BATCH_ID", StringType) :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
       Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
       Field("new_column", StringType) :: Nil
 

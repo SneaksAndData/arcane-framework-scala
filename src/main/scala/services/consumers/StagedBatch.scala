@@ -11,11 +11,6 @@ trait MergeableBatch:
    */
   val targetTableName: String
 
-  /**
-   * The unique identifier for the batch
-   */
-  val batchId: String
-
 trait StagedBatch:
 
   type Query <: StreamingBatchQuery
@@ -24,7 +19,6 @@ trait StagedBatch:
    * Name of the table in the linked Catalog that holds batch data
    */
   val name: String
-
   /**
    * Schema for the table that holds batch data
    */
@@ -42,11 +36,9 @@ trait StagedBatch:
 
   /**
    * Query that should be used to dispose of this batch data.
-   *
    * @return SQL query text
    */
-  def disposeExpr(stagingTableName: String): String = s"TRUNCATE TABLE $stagingTableName"
-
+  def disposeExpr: String = s"DROP TABLE $name"
 
 /**
  * StagedBatch initializes the table.
@@ -63,19 +55,12 @@ trait StagedBackfillBatch extends StagedBatch
  * StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
  */
 trait StagedBackfillOverwriteBatch extends StagedBackfillBatch:
-  val batchId: String
-
   override type Query = OverwriteQuery
-
-  override def disposeExpr(stagingTableName: String): String = s"TRUNCATE TABLE $batchId"
 
 /**
  * StagedBatch that performs a backfill operation on the table in MERGE mode.
  */
-trait StagedBackfillMergeBatch extends StagedBackfillBatch with MergeableBatch:
-
-  override def disposeExpr(stagingTableName: String): String = s"TRUNCATE TABLE $batchId"
-
+trait StagedBackfillMergeBatch extends StagedBackfillBatch:
   override type Query = MergeQuery
 
 /**

@@ -100,6 +100,17 @@ trait TableManager:
   def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit]
 
   /**
+   * Cleans up the staging tables in the specific catalog by table name prefix.
+   * This method is used to ensure that the staging tables are cleaned up after the streaming job restart.
+   *
+   * @param stagingCatalogName The catalog of the staging table.
+   * @param stagingSchemaName The catalog of the staging table.
+   * @param tableNamePrefix The prefix of the staging table name.
+   * @return The list of tables.
+   */
+  def cleanupStagingTables(stagingCatalogName: String, stagingSchemaName: String, tableNamePrefix: String): Task[Unit]
+
+  /**
    * Creates the target table.
    *
    * @return The result of the target table creation operation.
@@ -107,38 +118,8 @@ trait TableManager:
   def createTargetTable: Task[Unit]
 
   /**
-   * Creates the backfill table if it does not exist.
+   * Creates the archive table.
    *
    * @return The result of the archive table creation operation.
    */
   def createBackFillTable: Task[Unit]
-
-  /**
-   * Removes all data from the backfill table.
-   *
-   * @return The result of the archive table creation operation.
-   */
-  def clearBackFillTable: Task[Unit]
-
-  /**
-   * Creates the staging table if it does not exist.
-   *
-   * @return The result of the archive table creation operation.
-   */
-  def createStagingTable: Task[Unit]
-
-  /**
-   * Removes all data from the staging table.
-   *
-   * @return The result of the archive table creation operation.
-   */
-  def clearStagingTable: Task[Unit]
-
-  /**
-   * Gets the schema of a table.
-   *
-   * @param tableName The name of the table.
-   * @return The schema of the table.
-   */
-  def getSchema(tableName: String): Task[ArcaneSchema]
-

@@ -36,7 +36,7 @@ object SqlServerChangeTrackingBackfillQuery:
   def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
-class SqlServerChangeTrackingBackfillBatch(batchName: String, val batchId: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings)
+class SqlServerChangeTrackingBackfillBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings)
   extends StagedBackfillOverwriteBatch:
   
   override val name: String = batchName
@@ -53,10 +53,10 @@ object  SqlServerChangeTrackingBackfillBatch:
   /**
    *
    */
-  def apply(batchName: String, batchId: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
-    new SqlServerChangeTrackingBackfillBatch(batchName, batchId: String, batchSchema, targetName, archiveName, tablePropertiesSettings)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, archiveName: String, tablePropertiesSettings: TablePropertiesSettings): StagedBackfillOverwriteBatch =
+    new SqlServerChangeTrackingBackfillBatch(batchName, batchSchema, targetName, archiveName, tablePropertiesSettings)
 
-class SqlServerChangeTrackingMergeBatch(batchName: String, val batchId: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
+class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings, mergeKey: String)
   extends StagedVersionedBatch
   with MergeableBatch:
   
@@ -78,5 +78,5 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, val batchId: String, 
   def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
 object SqlServerChangeTrackingMergeBatch:
-  def apply(batchName: String, batchId: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SqlServerChangeTrackingMergeBatch =
-    new SqlServerChangeTrackingMergeBatch(batchName, batchId, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
+  def apply(batchName: String, batchSchema: ArcaneSchema, targetName: String, tablePropertiesSettings: TablePropertiesSettings): SqlServerChangeTrackingMergeBatch =
+    new SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)

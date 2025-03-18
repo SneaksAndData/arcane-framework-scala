@@ -6,6 +6,7 @@ import models.settings.TablePropertiesSettings
 import services.consumers.{MergeableBatch, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import services.hooks.manager.{EmptyHookManager, EmptyIndexedStagedBatches}
 import services.streaming.base.HookManager
+import services.streaming.processors.transformers.StagingProcessor
 
 import org.apache.iceberg.Table
 import zio.Chunk
@@ -18,14 +19,13 @@ class MsSqlHookManager extends EmptyHookManager:
    * Converts the batch to a format that can be consumed by the next processor.
    * */
   def onBatchStaged(table: Table,
-                    batchId: String,
                     namespace: String,
                     warehouse: String,
                     batchSchema: ArcaneSchema,
                     targetName: String,
                     tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch =
     val batchName = table.name().split('.').last
-    SqlServerChangeTrackingMergeBatch(batchName, batchId, batchSchema, targetName, tablePropertiesSettings)
+    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
 
 object MsSqlHookManager:
