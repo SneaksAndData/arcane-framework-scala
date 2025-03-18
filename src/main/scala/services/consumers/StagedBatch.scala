@@ -45,7 +45,7 @@ trait StagedBatch:
    *
    * @return SQL query text
    */
-  def disposeExpr(stagingTableName: String): String = s"DELETE FROM TABLE $stagingTableName WHERE true"
+  def disposeExpr(stagingTableName: String): String = s"DELETE FROM $stagingTableName WHERE true"
 
 
 /**
