@@ -167,17 +167,15 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    * @inheritdoc
    */
   def createBackFillTable: Task[Unit] =
-    for
-      _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)))
-      schema: ArcaneSchema <- schemaProvider.getSchema
-      created <- createTable(backfillTableSettings.backfillTableFullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
-    yield ()
+    if streamContext.IsBackfilling then
+      for
+        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)))
+        schema: ArcaneSchema <- schemaProvider.getSchema
+        created <- createTable(backfillTableSettings.backfillTableFullName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
+      yield ()
+    else
+      ZIO.unit
 
-  /**
-   * @inheritdoc
-   */
-  def clearBackFillTable: Task[Unit] = clearTable(backfillTableSettings.backfillTableFullName)
-  
   /**
    * @inheritdoc
    */
@@ -188,19 +186,14 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
       created <- createTable(stagingDataSettings.getStagingTableName, fieldsFilteringService.filter(schema), tablePropertiesSettings)
     yield ()
 
-  /**
-   * @inheritdoc
-   */
-  def clearStagingTable: Task[Unit] = clearTable(stagingDataSettings.getStagingTableName)
-
   private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
     ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
 
-  private def clearTable(tableName: String): Task[Unit] =
-    val sql = s"TRUNCATE TABLE $tableName"
+  private def dropTable(tableName: String): Task[Unit] =
+    val sql = s"DROP TABLE IF EXISTS $tableName"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-          _ <- zlog("Deleting data form table: %s", tableName)
+          _ <- zlog("Dropping table: " + tableName)
           _ <- ZIO.attemptBlocking(statement.execute())
       yield ()
     }

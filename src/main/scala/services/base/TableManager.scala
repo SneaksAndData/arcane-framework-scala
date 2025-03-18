@@ -107,32 +107,19 @@ trait TableManager:
   def createTargetTable: Task[Unit]
 
   /**
-   * Creates the backfill table if it does not exist.
+   * Creates the archive table.
    *
    * @return The result of the archive table creation operation.
    */
   def createBackFillTable: Task[Unit]
 
   /**
-   * Removes all data from the backfill table.
-   *
-   * @return The result of the archive table creation operation.
-   */
-  def clearBackFillTable: Task[Unit]
-
-  /**
-   * Creates the staging table if it does not exist.
+   * Creates the archive table.
    *
    * @return The result of the archive table creation operation.
    */
   def createStagingTable: Task[Unit]
-
-  /**
-   * Removes all data from the staging table.
-   *
-   * @return The result of the archive table creation operation.
-   */
-  def clearStagingTable: Task[Unit]
+  
 
   /**
    * Gets the schema of a table.
@@ -141,4 +128,3 @@ trait TableManager:
    * @return The schema of the table.
    */
   def getSchema(tableName: String): Task[ArcaneSchema]
-
