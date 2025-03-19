@@ -17,21 +17,12 @@ import java.io.IOException
 import java.time.Duration
 
 /**
- * The schema provider execution settings.
- */
-trait CdmSchemaProviderSettings:
-  
-  /**
-   * The retry settings.
-   */
-  val retrySettings: Option[RetrySettings]
-
-/**
  * A provider of a schema for a data produced by Microsoft Synapse Link.
  *
  * @param azureBlobStorageReader The reader for the Azure Blob Storage.
  * @param tableLocation          The location of the table.
  * @param tableName              The name of the table.
+ * 
  */
 class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String, retrySettings: Option[RetrySettings]) extends SchemaProvider[ArcaneSchema]:
 
