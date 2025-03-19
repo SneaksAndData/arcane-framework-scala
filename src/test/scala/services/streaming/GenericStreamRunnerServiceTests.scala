@@ -1,23 +1,23 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField}
+import models.*
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder}
 import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
-import com.sneaksanddata.arcane.framework.services.consumers.SqlServerChangeTrackingMergeBatch
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
