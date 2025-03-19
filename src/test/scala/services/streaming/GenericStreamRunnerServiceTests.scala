@@ -18,6 +18,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -122,7 +123,10 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(mergeServiceClient),
       ZLayer.succeed(jdbcTableManager),
       ZLayer.succeed(hookManager),
-      ZLayer.succeed(streamDataProvider)
+      ZLayer.succeed(streamDataProvider),
+      ZLayer.succeed(new StreamContext {
+        override def IsBackfilling: Boolean = false
+      })
     )
 
     // Act
