@@ -18,6 +18,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericBackfillGraphBuilder, GenericStreamingGraphBuilder}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -126,7 +127,10 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(mergeServiceClient),
       ZLayer.succeed(jdbcTableManager),
       ZLayer.succeed(hookManager),
-      ZLayer.succeed(streamDataProvider)
+      ZLayer.succeed(streamDataProvider),
+      ZLayer.succeed(new StreamContext {
+        override def IsBackfilling: Boolean = false
+      })
     )
 
     // Act
