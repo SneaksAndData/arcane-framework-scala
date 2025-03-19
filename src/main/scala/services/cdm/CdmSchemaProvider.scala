@@ -3,16 +3,28 @@ package services.cdm
 
 import models.ArcaneSchema
 import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
+
 import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
-
 import services.storage.base.BlobStorageReader
+
 import zio.stream.ZStream
-import zio.{Task, ZIO, ZLayer}
+import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.io.IOException
+import java.time.Duration
+
+/**
+ * The schema provider execution settings.
+ */
+trait CdmSchemaProviderSettings:
+  
+  /**
+   * The retry settings.
+   */
+  val retrySettings: Option[RetrySettings]
 
 /**
  * A provider of a schema for a data produced by Microsoft Synapse Link.
@@ -21,7 +33,14 @@ import java.io.IOException
  * @param tableLocation          The location of the table.
  * @param tableName              The name of the table.
  */
-class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String) extends SchemaProvider[ArcaneSchema]:
+class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String, retrySettings: Option[RetrySettings]) extends SchemaProvider[ArcaneSchema]:
+
+  private val defaultRetrySettings = new RetrySettings:
+    override val initialDelay: Duration = Duration.ofSeconds(1)
+    override val retryAttempts: Int = 10
+
+  private val retryPolicy = Schedule.exponential(retrySettings.getOrElse(defaultRetrySettings).initialDelay)
+    && Schedule.recurs(retrySettings.getOrElse(defaultRetrySettings).retryAttempts)
 
   /**
    * @inheritdoc
@@ -32,12 +51,14 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
    * @inheritdoc
    */
   private def getEntity: Task[SimpleCdmEntity] =
-    for modelPath <- ZIO.fromTry(AdlsStoragePath(tableLocation).map(_ + "model.json"))
+    val task = for modelPath <- ZIO.fromTry(AdlsStoragePath(tableLocation).map(_ + "model.json"))
         reader = ZIO.fromAutoCloseable(azureBlobStorageReader.streamBlobContent(modelPath)).refineToOrDie[IOException]
         stream = ZStream.fromReaderScoped(reader)
         json <- stream.runCollect.map(_.mkString)
-        model = SimpleCdmModel(json)
+        model <- ZIO.attempt(SimpleCdmModel(json))
     yield model.entities.find(_.name == tableName).getOrElse(throw new Exception(s"Table $tableName not found in model $tableLocation"))
+
+    task.retry(retryPolicy)
 
   /**
    * @inheritdoc
@@ -56,7 +77,7 @@ object CdmSchemaProvider:
   val layer: ZLayer[Environment, Nothing, CdmSchemaProvider] =
     ZLayer {
       for
-        context <- ZIO.service[CdmTableSettings]
-        settings <- ZIO.service[AzureBlobStorageReader]
-      yield CdmSchemaProvider(settings, context.rootPath, context.name)
+        tableSettings <- ZIO.service[CdmTableSettings]
+        reader <- ZIO.service[AzureBlobStorageReader]
+      yield CdmSchemaProvider(reader, tableSettings.rootPath, tableSettings.name, tableSettings.retrySettings)
     }
