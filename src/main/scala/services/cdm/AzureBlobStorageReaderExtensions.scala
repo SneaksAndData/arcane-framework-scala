@@ -96,7 +96,7 @@ object AzureBlobStorageReaderExtensions:
   extension (stream: BlobStream) def enrichWithSchema(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], storagePath: AdlsStoragePath, name: String): SchemaEnrichedBlobStream =
     stream.filterZIO(prefix => azureBlobStorageReader.blobExists(storagePath + prefix.name + "model.json"))
           .mapZIO(prefix => {
-              for schemaProvider <- CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name).freeze
+              for schemaProvider <- CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name, None).freeze
               yield SchemaEnrichedBlob(prefix, schemaProvider)
           })
 

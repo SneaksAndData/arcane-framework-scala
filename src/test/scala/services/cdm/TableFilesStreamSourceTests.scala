@@ -38,7 +38,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
         .atLeastOnce()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
+    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
     val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).lookBackStream.runCollect
 
     replay(reader)
@@ -123,7 +123,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
     }
     replay(reader)
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
+    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
 
     // Act
     val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).changeCaptureStream.take(2).runCollect
