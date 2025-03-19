@@ -59,7 +59,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn("database.namespace.name")
         .anyTimes()
 
-      catalogWriterBuilder.initialize().andReturn(catalogWriter)
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
 
       // The data provider mock provides an infinite stream of test input
       streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
@@ -69,7 +69,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(streamRepeatCount)
-      
+
       catalogWriter.close().anyTimes()
 
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times

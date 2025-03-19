@@ -53,12 +53,14 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .andReturn("database.namespace.name")
         .anyTimes()
 
-      catalogWriterBuilder.initialize().andReturn(catalogWriter)
-      
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
+
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(2)
+
+      catalogWriter.close().anyTimes()
     }
     replay(tableMock, catalogWriter, catalogWriterBuilder)
 
@@ -96,11 +98,13 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .andReturn("database.namespace.name")
         .anyTimes()
 
-      catalogWriterBuilder.initialize().andReturn(catalogWriter)
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
+
+      catalogWriter.close().anyTimes()
     }
     replay(tableMock, catalogWriter, catalogWriterBuilder)
 
@@ -143,13 +147,13 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .andReturn("database.namespace.name")
         .anyTimes()
 
-      catalogWriterBuilder.initialize().andReturn(catalogWriter)
-      
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
+
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
-      
+
       catalogWriter.close().anyTimes()
     }
     replay(tableMock)
