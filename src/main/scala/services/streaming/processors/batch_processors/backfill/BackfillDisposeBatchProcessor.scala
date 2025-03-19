@@ -24,7 +24,7 @@ class BackfillDisposeBatchProcessor(disposeServiceClient: DisposeServiceClient)
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batch =>
-      for _ <- zlog("Disposing batch with name: {batchName}", batch.name)
+      for _ <- zlog("Disposing batch (%s) with name: %s", batch.getClass.getName, batch.name)
           _ <- disposeServiceClient.disposeBatch(batch)
       yield batch
     )
