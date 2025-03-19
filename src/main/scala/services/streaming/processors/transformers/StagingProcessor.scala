@@ -52,6 +52,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
         catalogWriter <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(catalogWriterBuilder.initialize()))
           .tapErrorCause(cause => zlog("Failed to initialize catalog writer: %s", cause))
           .retry(retryPolicy)
+        
         table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
           .tapErrorCause(cause => zlog("Error writing data to staging table: %s", cause))
           .retry(retryPolicy)
