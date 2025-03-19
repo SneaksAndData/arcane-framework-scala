@@ -16,7 +16,9 @@ import org.scalatestplus.easymock.EasyMockSugar
 import org.scalatestplus.easymock.EasyMockSugar.{expecting, mock}
 import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.FrozenSchemaProvider.freeze
-import zio.{Runtime, Unsafe}
+import zio.{Runtime, Unsafe, ZIO}
+
+import java.io.{BufferedReader, StringReader}
 
 class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -33,7 +35,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
   it should "be able to read schema from storage container" in {
 
     val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
-    val provider = CdmSchemaProvider(storageReader, path, tableName)
+    val provider = CdmSchemaProvider(storageReader, path, tableName, None)
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(provider.getSchema)).map { result =>
       result.length should be >= 1
@@ -51,12 +53,74 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
       .times(5)
     }
     replay(storageReaderMock)
-    val provider = CdmSchemaProvider(storageReaderMock, path, tableName)
+    val provider = CdmSchemaProvider(storageReaderMock, path, tableName, None)
 
     val task = provider.getSchema *> provider.getSchema *> provider.getSchema *> provider.getSchema *> provider.getSchema
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task)).map { result =>
         noException should be thrownBy verify(storageReaderMock)
+    }
+  }
+
+  "CdmSchemaProvider" should "retry schema reads" in {
+    val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
+    val storageReaderMock = mock[BlobStorageReader[AdlsStoragePath]]
+    val modelBlobContentCorrect =
+      """
+        |{
+        |  "name": "cdm",
+        |  "description": "cdm",
+        |  "version": "1.0",
+        |  "entities":
+        |  [
+        |    {
+        |      "$type":"LocalEntity",
+        |      "annotations":[],
+        |      "name": "table",
+        |      "description": "table",
+        |      "attributes":
+        |      [
+        |        {"name":"Id","dataType":"guid","maxLength":-1}
+        |      ]
+        |    }
+        |  ]
+        |}
+        |""".stripMargin
+
+    val modelBlobContentBroken =
+        """
+          |{
+          |  "name": "cdm",
+          |  "description": "cdm",
+          |  "version": "1.0",
+          |  "entities":
+          |  [
+          |    {
+          |      "$type":"LocalEntity",
+          |      "annotations":[],
+          |      "name": "table",
+          |      "description": "table",
+          |      "attributes":
+          |      [
+          |        {"name":"Id","dataType":"guid","maxLength":-1}
+          |""".stripMargin
+
+    expecting {
+      storageReaderMock
+        .streamBlobContent(AdlsStoragePath("devstoreaccount1", "cdm-e2e", s"model.json"))
+        .andReturn(ZIO.succeed(new BufferedReader(new StringReader(modelBlobContentBroken))))
+        .andReturn(ZIO.succeed(new BufferedReader(new StringReader(modelBlobContentBroken))))
+        .andReturn(ZIO.succeed(new BufferedReader(new StringReader(modelBlobContentCorrect))))
+
+    }
+    replay(storageReaderMock)
+    val provider = CdmSchemaProvider(storageReaderMock, path, "table", None)
+
+    val task = provider.getSchema
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task)).map { result =>
+      verify(storageReaderMock)
+      noException should be thrownBy verify(storageReaderMock)
     }
   }
 
@@ -72,7 +136,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
     }
     replay(storageReaderMock)
 
-    val task = CdmSchemaProvider(storageReaderMock, path, tableName).freeze.map(provider =>
+    val task = CdmSchemaProvider(storageReaderMock, path, tableName, None).freeze.map(provider =>
       List.unfold(0, provider.getSchema, (i: Int) => if (i < 5) Some((i + 1, provider.getSchema)) else None)
     )
 

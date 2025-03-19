@@ -5,7 +5,7 @@ import models.settings.TableFormat.PARQUET
 import models.settings.*
 import models.*
 import services.consumers.{MergeableBatch, StagedVersionedBatch}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, ToInFlightBatch}
 import utils.*
 
@@ -43,6 +43,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
   it should "write data rows grouped by schema to staging tables" in  {
     // Arrange
+    val catalogWriterBuilder = mock[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
 
@@ -52,19 +53,22 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .andReturn("database.namespace.name")
         .anyTimes()
 
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
+
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(2)
+
+      catalogWriter.close().anyTimes()
     }
-    replay(tableMock)
-    replay(catalogWriter)
+    replay(tableMock, catalogWriter, catalogWriterBuilder)
 
     val stagingProcessor = StagingProcessor(TestStagingDataSettings,
       TestTablePropertiesSettings,
       TestTargetTableSettings,
       TestIcebergCatalogSettings,
-      catalogWriter)
+      catalogWriterBuilder)
 
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
       new TestIndexedStagedBatches(batches, index)
@@ -84,6 +88,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
   it should "allow accessing stream metadata" in {
     // Arrange
+    val catalogWriterBuilder = mock[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
 
@@ -93,14 +98,15 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .andReturn("database.namespace.name")
         .anyTimes()
 
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
-    }
-    replay(tableMock)
-    replay(catalogWriter)
 
+      catalogWriter.close().anyTimes()
+    }
+    replay(tableMock, catalogWriter, catalogWriterBuilder)
 
 
     class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
@@ -112,7 +118,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestTablePropertiesSettings,
       TestTargetTableSettings,
       TestIcebergCatalogSettings,
-      catalogWriter)
+      catalogWriterBuilder)
       
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
@@ -131,6 +137,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
   it should "not not produce output on empty input" in {
     // Arrange
+    val catalogWriterBuilder = mock[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
 
@@ -140,10 +147,14 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .andReturn("database.namespace.name")
         .anyTimes()
 
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
+
       catalogWriter
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
+
+      catalogWriter.close().anyTimes()
     }
     replay(tableMock)
     replay(catalogWriter)
@@ -158,7 +169,7 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
       TestTablePropertiesSettings,
       TestTargetTableSettingsWithMaintenance,
       TestIcebergCatalogSettings,
-      catalogWriter)
+      catalogWriterBuilder)
 
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))

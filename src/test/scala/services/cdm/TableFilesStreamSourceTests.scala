@@ -38,7 +38,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
         .atLeastOnce()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
+    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
     val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).lookBackStream.runCollect
 
     replay(reader)
@@ -52,10 +52,10 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
     // Arrange
     val reader = mock[BlobStorageReader[AdlsStoragePath]]
 
-    val rootBlob = StoredBlob(name = "2021-10-01T00.00.00Z", createdOn = None)
-    val tableBlob = StoredBlob(name = "2021-10-01T00.00.00Z/table/", createdOn = None)
-    val fileBlob = StoredBlob(name = "2021-10-01T00.00.00Z/table/1.csv", createdOn = None)
-    val modelBlobName = "2021-10-01T00.00.00Z/model.json"
+    val rootBlob = StoredBlob(name = "2021-09-01T00.00.00Z", createdOn = None)
+    val tableBlob = StoredBlob(name = "2021-09-01T00.00.00Z/table/", createdOn = None)
+    val fileBlob = StoredBlob(name = "2021-09-01T00.00.00Z/table/1.csv", createdOn = None)
+    val modelBlobName = "2021-09-01T00.00.00Z/model.json"
 
     val modelBlobContent =
       """
@@ -84,11 +84,17 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
 
       // The changelog file is read 4 times, once for the initial read, and twice for the change capture stream
       reader.streamBlobContent(AdlsStoragePath("storageAccount", "container", "Changelog/changelog.info"))
-        .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.00.00Z"))))
+        .andReturn(ZIO.attempt(new BufferedReader(new StringReader("2021-09-01T00.05.00Z"))))
         .atLeastOnce()
 
       // Iterate over timestamps, starting from the current time minus at least one hour.
       reader.streamPrefixes(AdlsStoragePath("storageAccount","container", "2021-08-31T23"))
+        // We mock the stream to return the same blob twice since the stream drops the last element
+        .andReturn(ZStream.fromIterable(Seq(rootBlob, rootBlob)))
+        .anyTimes()
+
+      // Iterate over timestamps, starting from the current time minus at least one hour.
+      reader.streamPrefixes(AdlsStoragePath("storageAccount","container", "2021-09-01T00"))
         // We mock the stream to return the same blob twice since the stream drops the last element
         .andReturn(ZStream.fromIterable(Seq(rootBlob, rootBlob)))
         .anyTimes()
@@ -107,7 +113,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
       // Since the stream is called twice, we must return the same content twice (once for each read)
       reader.streamBlobContent(AdlsStoragePath("storageAccount","container", modelBlobName))
         .andReturn(ZIO.succeed(new BufferedReader(new StringReader(modelBlobContent))))
-        .times(1, 3)
+        .times(2)
 
       // We must return true when checking if the blob exists since the stream checks if the model.json exists and
       // filters out the prefixes that do not have it
@@ -117,10 +123,10 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
     }
     replay(reader)
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/")
+    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
 
     // Act
-    val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).changeCaptureStream.take(3).runCollect
+    val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).changeCaptureStream.take(2).runCollect
 
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { _ =>
