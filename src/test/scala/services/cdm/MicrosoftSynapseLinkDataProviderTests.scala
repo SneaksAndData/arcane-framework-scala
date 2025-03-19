@@ -42,7 +42,7 @@ class MicrosoftSynapseLinkDataProviderTests extends AsyncFlatSpec with Matchers 
 
   it should "be able to run the data row stream" in {
     val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("dimensionattributelevelvalue", s"abfss://$container@$storageAccount.dfs.core.windows.net/")
+    val tableSettings = CdmTableSettings("dimensionattributelevelvalue", s"abfss://$container@$storageAccount.dfs.core.windows.net/", None)
 
     val reader = AzureBlobStorageReader(storageAccount, endpoint, credential)
     val streamSource = new TableFilesStreamSource(settings, reader, path, tableSettings)
