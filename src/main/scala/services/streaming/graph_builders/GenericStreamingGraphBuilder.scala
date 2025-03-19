@@ -1,10 +1,11 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.graph_builders.base
+package services.streaming.graph_builders
 
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillMergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -42,7 +43,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
 object GenericStreamingGraphBuilder:
 
   /**
-   * The environment required for the GenericStreamingGraphBuilder.
+   * The environment required for the GenericBackfillGraphBuilder.
    */
   type Environment = StreamDataProvider
     & GenericGroupingTransformer
@@ -55,7 +56,7 @@ object GenericStreamingGraphBuilder:
 
 
   /**
-   * Creates a new GenericStreamingGraphBuilder.
+   * Creates a new GenericBackfillGraphBuilder.
    * @param streamDataProvider The stream data provider.
    * @param fieldFilteringProcessor The field filtering processor.
    * @param groupTransformer The group transformer.
@@ -63,7 +64,7 @@ object GenericStreamingGraphBuilder:
    * @param mergeProcessor The merge processor.
    * @param disposeBatchProcessor The dispose batch processor.
    * @param hookManager The hook manager.
-   * @return The GenericStreamingGraphBuilder instance.
+   * @return The GenericBackfillGraphBuilder instance.
    */
   def apply(streamDataProvider: StreamDataProvider,
             fieldFilteringProcessor: FieldFilteringTransformer,
@@ -81,7 +82,7 @@ object GenericStreamingGraphBuilder:
       hookManager)
 
   /**
-   * The ZLayer for the GenericStreamingGraphBuilder.
+   * The ZLayer for the GenericBackfillGraphBuilder.
    */
   val layer: ZLayer[Environment, Nothing, StreamingGraphBuilder] =
     ZLayer {

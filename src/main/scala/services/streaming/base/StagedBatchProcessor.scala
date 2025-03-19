@@ -64,13 +64,6 @@ trait StagedBatchProcessor extends StreamingBatchProcessor:
     & OptimizationRequestConvertable
 
   /**
-   * Processes the incoming data.
-   *
-   * @return ZPipeline (stream source for the stream graph).
-   */
-  def process: ZPipeline[Any, Throwable, BatchType, BatchType]
-
-  /**
    * Represents a maintenance operation.
    * @tparam T type of the maintenance settings
    */
