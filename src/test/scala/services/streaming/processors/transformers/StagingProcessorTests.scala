@@ -149,6 +149,8 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .anyTimes()
+      
+      catalogWriter.close().anyTimes()
     }
     replay(tableMock)
     replay(catalogWriter)

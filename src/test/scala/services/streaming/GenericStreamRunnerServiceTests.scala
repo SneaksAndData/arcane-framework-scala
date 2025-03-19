@@ -69,6 +69,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(streamRepeatCount)
+      
+      catalogWriter.close().anyTimes()
 
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
       // It produces the empty set of staged batches, so the rest  of the pipeline can continue
