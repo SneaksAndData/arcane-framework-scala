@@ -89,7 +89,7 @@ object GenericStreamRunnerService:
         lifetimeService <- ZIO.service[StreamLifetimeService]
         streamContext <- ZIO.service[StreamContext]
         builder <- if streamContext.IsBackfilling then ZIO.service[BackfillStreamingGraphBuilder] else ZIO.service[StreamingGraphBuilder]
-        _ <- zlog(s"Using ${if streamContext.IsBackfilling then "Backfill" else "Versioned"}DataGraphBuilder")
+        _ <- zlog(s"Using graph builder implementation: %s", builder.getClass.getName)
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         tableManager <- ZIO.service[TableManager]
       yield GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, tableManager)

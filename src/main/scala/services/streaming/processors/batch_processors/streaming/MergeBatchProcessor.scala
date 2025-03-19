@@ -40,8 +40,8 @@ object MergeBatchProcessor:
    * @param targetTableSettings The target table settings.
    * @return The initialized MergeProcessor instance
    */
-  def apply(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings): BackfillMergeBatchProcessor =
-    new BackfillMergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings)
+  def apply(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings): MergeBatchProcessor =
+    new MergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings)
 
   /**
    * The required environment for the BackfillMergeBatchProcessor.
@@ -51,11 +51,11 @@ object MergeBatchProcessor:
   /**
    * The ZLayer that creates the MergeProcessor.
    */
-  val layer: ZLayer[Environment, Nothing, BackfillMergeBatchProcessor] =
+  val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
         jdbcConsumer <- ZIO.service[MergeServiceClient]
         parallelismSettings <- ZIO.service[JdbcTableManager]
         targetTableSettings <- ZIO.service[TargetTableSettings]
-      yield BackfillMergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
+      yield MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
     }

@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.*
 import models.settings.*
 import services.base.MergeServiceClient
 import services.merging.JdbcTableManager
-import services.streaming.base.{BatchProcessor, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable, StagedBatchProcessor}
+import services.streaming.base.{BatchProcessor, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable, StagedBatchProcessor, StreamingBatchProcessor}
 
 import com.sneaksanddata.arcane.framework.services.consumers.{MergeableBatch, StagedBackfillBatch}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.IndexedStagedBatches
@@ -16,7 +16,7 @@ import zio.{ZIO, ZLayer}
  * Processor that merges data into a target table.
  */
 class BackfillMergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
-  extends BatchProcessor:
+  extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillBatch
   

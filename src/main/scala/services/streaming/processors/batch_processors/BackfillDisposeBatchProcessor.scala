@@ -3,7 +3,7 @@ package services.streaming.processors.batch_processors
 
 import logging.ZIOLogAnnotations.*
 import services.base.DisposeServiceClient
-import services.streaming.base.{BatchProcessor, StagedBatchProcessor}
+import services.streaming.base.{BatchProcessor, StagedBatchProcessor, StreamingBatchProcessor}
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillBatch
 import zio.stream.ZPipeline
@@ -13,7 +13,7 @@ import zio.{ZIO, ZLayer}
  * Processor that merges data into a target table.
  */
 class BackfillDisposeBatchProcessor(disposeServiceClient: DisposeServiceClient)
-  extends BatchProcessor:
+  extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillBatch
   

@@ -34,8 +34,8 @@ object DisposeBatchProcessor:
    * @param DisposeServiceClient The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(DisposeServiceClient: DisposeServiceClient): BackfillDisposeBatchProcessor =
-    new BackfillDisposeBatchProcessor(DisposeServiceClient)
+  def apply(DisposeServiceClient: DisposeServiceClient): DisposeBatchProcessor =
+    new DisposeBatchProcessor(DisposeServiceClient)
 
   /**
    * The required environment for the BackfillMergeBatchProcessor.
@@ -45,9 +45,9 @@ object DisposeBatchProcessor:
   /**
    * The ZLayer that creates the MergeProcessor.
    */
-  val layer: ZLayer[Environment, Nothing, BackfillDisposeBatchProcessor] =
+  val layer: ZLayer[Environment, Nothing, DisposeBatchProcessor] =
     ZLayer {
       for
         disposeServiceClient <- ZIO.service[DisposeServiceClient]
-      yield BackfillDisposeBatchProcessor(disposeServiceClient)
+      yield DisposeBatchProcessor(disposeServiceClient)
     }
