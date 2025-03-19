@@ -1,23 +1,24 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming
 
-import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField}
+import models.*
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
-import services.lakehouse.base.CatalogWriter
+import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder}
 import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillMergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
-import com.sneaksanddata.arcane.framework.services.consumers.SqlServerChangeTrackingMergeBatch
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -48,6 +49,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     val streamDataProvider = mock[StreamDataProvider]
 
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
+    val catalogWriterBuilder = mock[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
 
     expecting {
@@ -58,6 +60,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn("database.namespace.name")
         .anyTimes()
 
+      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
+
       // The data provider mock provides an infinite stream of test input
       streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
 
@@ -66,6 +70,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(streamRepeatCount)
+
+      catalogWriter.close().anyTimes()
 
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
       // It produces the empty set of staged batches, so the rest  of the pipeline can continue
@@ -89,16 +95,16 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(ZIO.unit)
         .anyTimes()
     }
-    replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager)
+    replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager, catalogWriterBuilder)
 
     val streamRunnerService = ZIO.service[StreamRunnerService].provide(
       // Real services
       GenericStreamRunnerService.layer,
       GenericStreamingGraphBuilder.layer,
       GenericGroupingTransformer.layer,
-      BackfillDisposeBatchProcessor.layer,
+      DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
-      BackfillMergeBatchProcessor.layer,
+      MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
 
@@ -111,7 +117,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks
-      ZLayer.succeed(catalogWriter),
+      ZLayer.succeed(catalogWriterBuilder),
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount-1, identity)),
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
@@ -123,6 +129,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService.flatMap(_.run))).map { result =>
       // Assert
-      noException should be thrownBy verify(catalogWriter, streamDataProvider, tableMock, hookManager)
+      noException should be thrownBy verify(catalogWriter, streamDataProvider, tableMock, hookManager, catalogWriterBuilder)
     }
   }

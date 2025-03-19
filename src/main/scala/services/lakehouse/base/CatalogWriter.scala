@@ -54,7 +54,7 @@ trait CatalogWriterBuilder[CatalogImpl, TableImpl, SchemaImpl]:
    */
   def initialize(): CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]
   
-trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
+trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl] extends AutoCloseable:
   implicit val catalog: CatalogImpl
   implicit val catalogProperties: Map[String, String]
   implicit val catalogName: String

@@ -96,7 +96,7 @@ object AzureBlobStorageReaderExtensions:
   extension (stream: BlobStream) def enrichWithSchema(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], storagePath: AdlsStoragePath, name: String): SchemaEnrichedBlobStream =
     stream.filterZIO(prefix => azureBlobStorageReader.blobExists(storagePath + prefix.name + "model.json"))
           .mapZIO(prefix => {
-              for schemaProvider <- CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name).freeze
+              for schemaProvider <- CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name, None).freeze
               yield SchemaEnrichedBlob(prefix, schemaProvider)
           })
 
@@ -109,7 +109,7 @@ object AzureBlobStorageReaderExtensions:
    */
   extension (reader: BlobStorageReader[AdlsStoragePath]) def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime, endDate: OffsetDateTime): BlobStream =
     for _ <- zlogStream("Getting root prefixes stating from " + startFrom)
-        prefix <- ZStream.fromIterable(getListPrefixes(startFrom, endDate))
+        prefix <- ZStream.fromIterable(getPrefixesList(startFrom, endDate))
         blob <- reader.streamPrefixes(storagePath + prefix)
         zippedWithDate = (interpretAsDate(blob), blob)
         eligibleToProcess <- zippedWithDate match
@@ -128,9 +128,9 @@ object AzureBlobStorageReaderExtensions:
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
-  private def getListPrefixes(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
+  private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
     val defaultFromYears: Int = 1
-    val currentMoment = endDate
+    val currentMoment = endDate.plusHours(1)
     val startMoment = startDate
     Iterator.iterate(startMoment)(_.plusHours(1))
       .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)

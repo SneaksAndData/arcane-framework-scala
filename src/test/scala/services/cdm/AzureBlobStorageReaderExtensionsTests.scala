@@ -6,19 +6,25 @@ import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.services.storage.base.BlobStorageReader
+import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
+import org.easymock.EasyMock
+import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.Inspectors
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
+import org.scalatestplus.easymock.EasyMockSugar
+import zio.stream.ZStream
 import zio.{Runtime, Unsafe}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.math.Ordered.orderingToOrdered
 
-class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
+class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
   private val endpoint = "http://localhost:10001/devstoreaccount1"
@@ -94,6 +100,41 @@ class AzureBlobStorageReaderExtensionsTests extends AsyncFlatSpec with Matchers:
     }
   }
 
+  it should "be able to read dates through hour change" in {
+    val path = AdlsStoragePath(s"abfss://container@storageAccount.dfs.core.windows.net/").get
+
+    val storageReader = mock[BlobStorageReader[AdlsStoragePath]]
+    val pastHour = List(
+        StoredBlob(name = "2021-08-01T23.40.10Z", createdOn = None),
+        StoredBlob(name = "2021-08-01T23.45.09Z", createdOn = None),
+        StoredBlob(name = "2021-08-01T23.50.10Z", createdOn = None),
+        StoredBlob(name = "2021-08-01T23.55.09Z", createdOn = None),
+    )
+
+    val currentHour = List(
+        StoredBlob(name = "2021-08-02T00.00.11Z", createdOn = None),
+        StoredBlob(name = "2021-08-02T00.05.11Z", createdOn = None),
+        StoredBlob(name = "2021-08-02T00.10.11Z", createdOn = None),
+    )
+
+    expecting {
+      storageReader.streamPrefixes(AdlsStoragePath("storageAccount", "container", "2021-08-01T23")).andReturn(ZStream.fromIterable(pastHour))
+      storageReader.streamPrefixes(AdlsStoragePath("storageAccount", "container", "2021-08-02T00")).andReturn(ZStream.fromIterable(currentHour))
+    }
+    replay(storageReader)
+
+    val lastBlobDate = OffsetDateTime.parse(currentHour.last.name, formatter)
+
+    val folders = storageReader.getRootPrefixes(path, lastBlobDate.minus(Duration.ofMinutes(30)), lastBlobDate).runCollect
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(folders)).map { result =>
+      verify(storageReader)
+
+      // Verify that the result contains all blobs from the past hour and the current hour
+      // The first blob from the past hour is not emitted since it is older than the start date - changeCapturePeriod (30 minutes)
+      result should contain theSameElementsInOrderAs (pastHour.tail ++ currentHour)
+    }
+  }
 
   it should "be able read the schemas from the schema folder" in {
     val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get

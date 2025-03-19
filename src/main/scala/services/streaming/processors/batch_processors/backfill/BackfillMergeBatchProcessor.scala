@@ -1,11 +1,12 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.processors.batch_processors
+package services.streaming.processors.batch_processors.backfill
 
 import logging.ZIOLogAnnotations.*
 import models.settings.*
 import services.base.MergeServiceClient
+import services.consumers.StagedBackfillBatch
 import services.merging.JdbcTableManager
-import services.streaming.base.StagedBatchProcessor
+import services.streaming.base.*
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
@@ -13,8 +14,10 @@ import zio.{ZIO, ZLayer}
 /**
  * Processor that merges data into a target table.
  */
-class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
-  extends StagedBatchProcessor:
+class BackfillMergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
+  extends StreamingBatchProcessor:
+
+  override type BatchType = StagedBackfillBatch
 
   /**
    * Processes the incoming data.
@@ -22,15 +25,14 @@ class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: 
    * @return ZPipeline (stream source for the stream graph).
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
-    ZPipeline.mapZIO(batchesSet =>
-      for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => tableManager.migrateSchema(batch.schema, batch.targetTableName))
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
-          _ <- runMaintenanceTasks(batchesSet, targetTableSettings.maintenanceSettings, tableManager)
-      yield batchesSet
+    ZPipeline.mapZIO(batch =>
+      for _ <- zlog(s"Applying backfill batch (%s): %s to %s", batch.getClass.getName, batch.name, batch.targetTableName)
+          _ <- tableManager.migrateSchema(batch.schema, batch.targetTableName)
+          _ <-  mergeServiceClient.applyBatch(batch)
+      yield  batch
     )
 
-object MergeBatchProcessor:
+object BackfillMergeBatchProcessor:
 
   /**
    * Factory method to create MergeProcessor

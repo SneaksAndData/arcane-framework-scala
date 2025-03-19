@@ -4,10 +4,9 @@ package services.streaming.base
 import zio.stream.ZPipeline
 
 /**
- * A trait that represents a batch processor.
- * @tparam IncomingType The type of the incoming data.
+ * Represents a streaming stage that processes batches.
  */
-trait BatchProcessor:
+trait StreamingBatchProcessor:
 
   /**
    * The type of the batch.
@@ -19,5 +18,4 @@ trait BatchProcessor:
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process: ZPipeline[Any, Throwable, IncomingType, OutgoingType]
-}
+  def process: ZPipeline[Any, Throwable, BatchType, BatchType]

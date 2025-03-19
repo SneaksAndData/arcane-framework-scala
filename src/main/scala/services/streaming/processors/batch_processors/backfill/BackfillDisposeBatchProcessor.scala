@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.processors.batch_processors
+package services.streaming.processors.batch_processors.backfill
 
 import logging.ZIOLogAnnotations.*
 import services.base.DisposeServiceClient
-import services.streaming.base.StagedBatchProcessor
+import services.consumers.StagedBackfillBatch
+import services.streaming.base.StreamingBatchProcessor
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
@@ -11,8 +12,10 @@ import zio.{ZIO, ZLayer}
 /**
  * Processor that merges data into a target table.
  */
-class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient)
-  extends StagedBatchProcessor:
+class BackfillDisposeBatchProcessor(disposeServiceClient: DisposeServiceClient)
+  extends StreamingBatchProcessor:
+
+  override type BatchType = StagedBackfillBatch
 
   /**
    * Processes the incoming data.
@@ -20,13 +23,13 @@ class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient)
    * @return ZPipeline (stream source for the stream graph).
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
-    ZPipeline.mapZIO(batchesSet =>
-      for _ <- zlog(s"Disposing batch set with index ${batchesSet.batchIndex}")
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => disposeServiceClient.disposeBatch(batch))
-      yield batchesSet
+    ZPipeline.mapZIO(batch =>
+      for _ <- zlog("Disposing batch (%s) with name: %s", batch.getClass.getName, batch.name)
+          _ <- disposeServiceClient.disposeBatch(batch)
+      yield batch
     )
 
-object DisposeBatchProcessor:
+object BackfillDisposeBatchProcessor:
 
   /**
    * Factory method to create MergeProcessor

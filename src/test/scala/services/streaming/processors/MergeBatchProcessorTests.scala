@@ -2,18 +2,19 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors
 
 import models.ArcaneType.LongType
-import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import models.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import services.consumers.SynapseLinkMergeBatch
 import services.merging.JdbcTableManager
+import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
+import services.streaming.processors.utils.TestIndexedStagedBatches
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
 import services.streaming.processors.batch_processors.BackfillMergeBatchProcessor
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 import com.sneaksanddata.arcane.framework.utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
-import utils.TestIndexedStagedBatches
+
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -56,7 +57,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(mergeServiceClient)
     replay(tableManager)
 
-    val mergeBatchProcessor = BackfillMergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
+    val mergeBatchProcessor = MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
@@ -82,7 +83,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(mergeServiceClient)
     replay(tableManager)
 
-    val mergeBatchProcessor = BackfillMergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings)
+    val mergeBatchProcessor = MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
