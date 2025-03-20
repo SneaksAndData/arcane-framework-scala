@@ -25,11 +25,7 @@ import scala.util.{Failure, Success, Try}
  */
 given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
-
-
-
-
-
+  
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(namespace: String,
                               warehouse: String,
@@ -37,7 +33,7 @@ class IcebergS3CatalogWriter(namespace: String,
                               additionalProperties: Map[String, String],
                               s3CatalogFileIO: S3CatalogFileIO,
                               locationOverride: Option[String] = None,
-                        ) extends CatalogWriter[RESTCatalog, Table, Schema] :
+                        ) extends CatalogWriter[RESTCatalog, Table, Schema] with CatalogWriterBuilder[RESTCatalog, Table, Schema]:
 
   private def createTable(name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(namespace, name)
@@ -82,11 +78,6 @@ class IcebergS3CatalogWriter(namespace: String,
       }
     }
   
-  def initialize(): IcebergS3CatalogWriter =
-    catalog.initialize(catalogName, catalogProperties.asJava)
-    this
-
-
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     for table <- createTable(name, schema)
         updatedTable <- appendData(data, schema, false)(table)
@@ -106,6 +97,10 @@ class IcebergS3CatalogWriter(namespace: String,
 
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
+  def initialize(): IcebergS3CatalogWriter =
+    catalog.initialize(catalogName, catalogProperties.asJava)
+    this
+  
   override def delete(tableName: String): Task[Boolean] =
     val tableId = TableIdentifier.of(namespace, tableName)
     ZIO.attemptBlocking(catalog.dropTable(tableId))
@@ -119,6 +114,17 @@ class IcebergS3CatalogWriter(namespace: String,
   override def close(): Unit = catalog.close()
 
 object IcebergS3CatalogWriter:
+  /**
+   * The ZLayer that creates the LazyOutputDataProcessor.
+   */
+  val layer: ZLayer[IcebergCatalogSettings, Throwable, CatalogWriterBuilder[RESTCatalog, Table, Schema]] =
+    ZLayer {
+      for
+        settings <- ZIO.service[IcebergCatalogSettings]
+        catalogWriterBuilder = IcebergS3CatalogWriter(settings)
+        catalogWriter <- ZIO.attemptBlocking(catalogWriterBuilder.initialize())
+      yield catalogWriter
+    }
 
   /**
    * Factory method to create IcebergS3CatalogWriter
@@ -145,3 +151,17 @@ object IcebergS3CatalogWriter:
       locationOverride,
     )
 
+  /**
+   * Factory method to create IcebergS3CatalogWriter
+    * @param icebergSettings Iceberg settings
+   * @return The initialized IcebergS3CatalogWriter instance
+   */
+  def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
+      IcebergS3CatalogWriter(
+        icebergSettings.namespace,
+        icebergSettings.warehouse,
+        icebergSettings.catalogUri,
+        icebergSettings.additionalProperties,
+        icebergSettings.s3CatalogFileIO,
+        icebergSettings.stagingLocation,
+      )
