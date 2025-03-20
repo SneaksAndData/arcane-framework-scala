@@ -91,8 +91,10 @@ class IcebergS3CatalogWriter(namespace: String,
     HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
 
     (context, properties: java.util.Map[String, String]) => {
-      properties.putAll(catalogProperties.asJava)
-      CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, properties, null)
+      val merged = new java.util.HashMap[String, String]()
+      merged.putAll(properties)
+      merged.putAll(catalogProperties.asJava)
+      CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, merged, null)
     }
   )
 
