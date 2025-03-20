@@ -89,6 +89,7 @@ class IcebergS3CatalogWriter(namespace: String,
 
   private val sessionCatalog = new RESTSessionCatalog(config =>
     HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+
     (context, properties: java.util.Map[String, String]) => {
       properties.putAll(catalogProperties.asJava)
       CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, properties, null)
@@ -111,7 +112,8 @@ class IcebergS3CatalogWriter(namespace: String,
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
   def initialize(): IcebergS3CatalogWriter =
-    catalog.initialize(catalogName, catalogProperties.asJava)
+    sessionCatalog.initialize(catalogName, catalogProperties.asJava)
+//    catalog.initialize(catalogName, catalogProperties.asJava)
     this
   
   override def delete(tableName: String): Task[Boolean] =
