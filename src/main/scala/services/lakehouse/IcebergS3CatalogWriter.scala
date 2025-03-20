@@ -110,14 +110,12 @@ class IcebergS3CatalogWriter(namespace: String,
     for table <- ZIO.attemptBlocking(catalog.loadTable(tableId))
       updatedTable <- appendData(data, schema, false)(table)
     yield updatedTable
-    
-  override def close(): Unit = catalog.close()
 
 object IcebergS3CatalogWriter:
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
    */
-  val layer: ZLayer[IcebergCatalogSettings, Throwable, CatalogWriterBuilder[RESTCatalog, Table, Schema]] =
+  val layer: ZLayer[IcebergCatalogSettings, Throwable, IcebergS3CatalogWriter] =
     ZLayer {
       for
         settings <- ZIO.service[IcebergCatalogSettings]
