@@ -5,13 +5,13 @@ import models.{ArcaneSchema, DataRow}
 import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings, S3CatalogFileIO}
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
-import org.apache.iceberg.catalog.TableIdentifier
+import org.apache.iceberg.catalog.{Catalog, SessionCatalog, TableIdentifier}
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
+import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
+import org.apache.iceberg.{CatalogProperties, CatalogUtil, PartitionSpec, Schema, Table}
 import zio.{Task, ZIO, ZLayer}
 
 import java.util.UUID
@@ -37,11 +37,15 @@ class IcebergS3CatalogWriter(namespace: String,
 
   private def createTable(name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(namespace, name)
-    ZIO.attemptBlocking(
+//    val ta: Table = null
+//    copy(ta)
+
+    for table <- ZIO.attemptBlocking(
       locationOverride match
         case Some(newLocation) => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), newLocation + "/" + name, Map().asJava)
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     )
+    yield table
 
   private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -83,7 +87,13 @@ class IcebergS3CatalogWriter(namespace: String,
         updatedTable <- appendData(data, schema, false)(table)
      yield updatedTable
 
-  override implicit val catalog: RESTCatalog = new RESTCatalog()
+  private val sessionCatalog = new RESTSessionCatalog(config =>
+    HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+    (context, properties) => CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, catalogProperties.asJava, null)
+  )
+
+  private val catalog: Catalog  = sessionCatalog.asCatalog(SessionCatalog.SessionContext.createEmpty())
+
   override implicit val catalogProperties: Map[String, String] = Map(
     CatalogProperties.WAREHOUSE_LOCATION -> warehouse,
     CatalogProperties.URI -> catalogUri,
