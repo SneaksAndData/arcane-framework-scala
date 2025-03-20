@@ -5,17 +5,16 @@ import models.{ArcaneSchema, DataRow}
 import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings, S3CatalogFileIO}
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
-import org.apache.iceberg.catalog.TableIdentifier
+import org.apache.iceberg.catalog.{Catalog, SessionCatalog, TableIdentifier}
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
+import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
+import org.apache.iceberg.{CatalogProperties, CatalogUtil, PartitionSpec, Schema, Table}
 import zio.{Task, ZIO, ZLayer}
 
 import java.util.UUID
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -83,7 +82,19 @@ class IcebergS3CatalogWriter(namespace: String,
         updatedTable <- appendData(data, schema, false)(table)
      yield updatedTable
 
-  override implicit val catalog: RESTCatalog = new RESTCatalog()
+  private val sessionCatalog = new RESTSessionCatalog(config =>
+    HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+
+    (context, properties: java.util.Map[String, String]) => {
+      val merged = new java.util.HashMap[String, String]()
+      merged.putAll(properties)
+      merged.putAll(catalogProperties.asJava)
+      CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, merged, null)
+    }
+  )
+
+  private val catalog: Catalog  = sessionCatalog.asCatalog(SessionCatalog.SessionContext.createEmpty())
+
   override implicit val catalogProperties: Map[String, String] = Map(
     CatalogProperties.WAREHOUSE_LOCATION -> warehouse,
     CatalogProperties.URI -> catalogUri,
@@ -98,7 +109,7 @@ class IcebergS3CatalogWriter(namespace: String,
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
   def initialize(): IcebergS3CatalogWriter =
-    catalog.initialize(catalogName, catalogProperties.asJava)
+    sessionCatalog.initialize(catalogName, catalogProperties.asJava)
     this
   
   override def delete(tableName: String): Task[Boolean] =
