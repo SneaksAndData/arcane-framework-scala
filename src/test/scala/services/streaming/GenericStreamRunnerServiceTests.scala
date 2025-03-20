@@ -7,7 +7,7 @@ import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
-import services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder}
+import services.lakehouse.base.CatalogWriter
 import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
@@ -49,7 +49,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     val streamDataProvider = mock[StreamDataProvider]
 
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
-    val catalogWriterBuilder = mock[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]
 
     expecting {
@@ -60,8 +59,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn("database.namespace.name")
         .anyTimes()
 
-      catalogWriterBuilder.initialize().andReturn(catalogWriter).anyTimes()
-
       // The data provider mock provides an infinite stream of test input
       streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
 
@@ -70,8 +67,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.succeed(tableMock))
         .times(streamRepeatCount)
-
-      catalogWriter.close().anyTimes()
 
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
       // It produces the empty set of staged batches, so the rest  of the pipeline can continue
@@ -95,7 +90,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(ZIO.unit)
         .anyTimes()
     }
-    replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager, catalogWriterBuilder)
+    replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager)
 
     val streamRunnerService = ZIO.service[StreamRunnerService].provide(
       // Real services
@@ -117,7 +112,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks
-      ZLayer.succeed(catalogWriterBuilder),
+      ZLayer.succeed(catalogWriter),
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount-1, identity)),
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
@@ -132,6 +127,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService.flatMap(_.run))).map { result =>
       // Assert
-      noException should be thrownBy verify(catalogWriter, streamDataProvider, tableMock, hookManager, catalogWriterBuilder)
+      noException should be thrownBy verify(catalogWriter, streamDataProvider, tableMock, hookManager)
     }
   }
