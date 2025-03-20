@@ -15,7 +15,6 @@ import org.apache.iceberg.{CatalogProperties, CatalogUtil, PartitionSpec, Schema
 import zio.{Task, ZIO, ZLayer}
 
 import java.util.UUID
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -37,15 +36,11 @@ class IcebergS3CatalogWriter(namespace: String,
 
   private def createTable(name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(namespace, name)
-//    val ta: Table = null
-//    copy(ta)
-
-    for table <- ZIO.attemptBlocking(
+    ZIO.attemptBlocking(
       locationOverride match
         case Some(newLocation) => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), newLocation + "/" + name, Map().asJava)
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     )
-    yield table
 
   private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -115,7 +110,6 @@ class IcebergS3CatalogWriter(namespace: String,
 
   def initialize(): IcebergS3CatalogWriter =
     sessionCatalog.initialize(catalogName, catalogProperties.asJava)
-//    catalog.initialize(catalogName, catalogProperties.asJava)
     this
   
   override def delete(tableName: String): Task[Boolean] =
