@@ -83,12 +83,17 @@ class IcebergS3CatalogWriter(namespace: String,
      yield updatedTable
 
   private val sessionCatalog = new RESTSessionCatalog(config =>
-    HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+    HTTPClient.builder(config).uri(catalogUri).build(),
 
     (context, properties: java.util.Map[String, String]) => {
       val merged = new java.util.HashMap[String, String]()
       merged.putAll(properties)
-      merged.putAll(catalogProperties.asJava)
+      merged.putAll(Map(
+        S3FileIOProperties.ENDPOINT -> s3CatalogFileIO.endpoint,
+        S3FileIOProperties.PATH_STYLE_ACCESS -> s3CatalogFileIO.pathStyleEnabled,
+        S3FileIOProperties.ACCESS_KEY_ID -> s3CatalogFileIO.accessKeyId,
+        S3FileIOProperties.SECRET_ACCESS_KEY -> s3CatalogFileIO.secretAccessKey,
+      ).asJava)
       CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, merged, null)
     }
   )
