@@ -86,24 +86,8 @@ class IcebergS3CatalogWriter(namespace: String,
     for table <- createTable(name, schema)
         updatedTable <- appendData(data, schema, false)(table)
      yield updatedTable
-
-  private val sessionCatalog = new RESTSessionCatalog(config =>
-    HTTPClient.builder(config).uri(catalogUri).build(),
-
-    (context, properties: java.util.Map[String, String]) => {
-      val merged = new java.util.HashMap[String, String]()
-      merged.putAll(properties)
-      merged.putAll(Map(
-        S3FileIOProperties.ENDPOINT -> s3CatalogFileIO.endpoint,
-        S3FileIOProperties.PATH_STYLE_ACCESS -> s3CatalogFileIO.pathStyleEnabled,
-        S3FileIOProperties.ACCESS_KEY_ID -> s3CatalogFileIO.accessKeyId,
-        S3FileIOProperties.SECRET_ACCESS_KEY -> s3CatalogFileIO.secretAccessKey,
-      ).asJava)
-      CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, merged, null)
-    }
-  )
-
-  private val catalog: Catalog  = sessionCatalog.asCatalog(SessionCatalog.SessionContext.createEmpty())
+  
+  private val catalog  = RESTCatalog()
 
   override implicit val catalogProperties: Map[String, String] = Map(
     CatalogProperties.WAREHOUSE_LOCATION -> warehouse,
@@ -119,7 +103,7 @@ class IcebergS3CatalogWriter(namespace: String,
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
   def initialize(): IcebergS3CatalogWriter =
-    sessionCatalog.initialize(catalogName, catalogProperties.asJava)
+    catalog.initialize(catalogName, catalogProperties.asJava)
     this
   
   override def delete(tableName: String): Task[Boolean] =
