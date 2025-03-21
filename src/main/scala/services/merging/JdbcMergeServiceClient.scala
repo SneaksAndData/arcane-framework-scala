@@ -19,9 +19,10 @@ import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExp
 import services.lakehouse.SchemaConversions
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
 import utils.SqlUtils.readArcaneSchema
-import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
+import com.sneaksanddata.arcane.framework.models.settings.BackfillBehavior.Overwrite
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
@@ -181,7 +182,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
    * @inheritdoc
    */
   def createBackFillTable: Task[Unit] =
-    if streamContext.IsBackfilling then
+    if streamContext.IsBackfilling && backfillTableSettings.backfillBehavior == Overwrite then
       for
         _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)))
         schema: ArcaneSchema <- schemaProvider.getSchema
