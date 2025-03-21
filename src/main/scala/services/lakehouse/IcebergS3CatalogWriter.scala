@@ -48,6 +48,11 @@ class IcebergS3CatalogWriter(namespace: String,
     record.copy(rowMap.asJava)
 
   private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = ZIO.attemptBlocking{
+    
+      while(! catalog.tableExists(TableIdentifier.of(namespace, tbl.name()))) {
+        Thread.sleep(1000)
+      }
+    
       val appendTran = tbl.newTransaction()
       // create iceberg records
       val records = data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
