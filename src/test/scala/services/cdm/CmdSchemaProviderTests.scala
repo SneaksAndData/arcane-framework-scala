@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.cdm
 
-import services.base.FrozenSchemaProvider.freeze
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.excpetions.StreamFailException
 import org.easymock.EasyMock.{replay, verify}
 import org.easymock.{EasyMock, IAnswer}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -19,6 +19,7 @@ import com.sneaksanddata.arcane.framework.services.base.FrozenSchemaProvider.fre
 import zio.{Runtime, Unsafe, ZIO}
 
 import java.io.{BufferedReader, StringReader}
+import java.time.Duration
 
 class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -122,6 +123,34 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
       verify(storageReaderMock)
       noException should be thrownBy verify(storageReaderMock)
     }
+  }
+
+  "CdmSchemaProvider" should "not retry schema reads if schema json is empty" in {
+    val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
+    val storageReaderMock = mock[BlobStorageReader[AdlsStoragePath]]
+    val modelBlobContentBroken =
+      """
+        | {"name":"cdm","description":"cdm","version":"1.0"}
+        |""".stripMargin
+
+    expecting {
+      storageReaderMock
+        .streamBlobContent(AdlsStoragePath("devstoreaccount1", "cdm-e2e", s"model.json"))
+        .andReturn(ZIO.succeed(new BufferedReader(new StringReader(modelBlobContentBroken))))
+        .anyTimes()
+    }
+    replay(storageReaderMock)
+    val retrySettings = new RetrySettings:
+      override val initialDelay: Duration = Duration.ofMillis(1)
+      override val retryAttempts: Int = 3
+      override val maxDuration: Duration = Duration.ofSeconds(3)
+
+    val provider = CdmSchemaProvider(storageReaderMock, path, "table", Some(retrySettings))
+
+    val task = provider.getSchema
+
+    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+    recoverToSucceededIf[StreamFailException](future)
   }
 
   "FrozenSchemaProvider" should "NOT read the schema every time" in {
