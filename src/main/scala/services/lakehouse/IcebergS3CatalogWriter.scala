@@ -12,7 +12,8 @@ import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
 import org.apache.iceberg.{CatalogProperties, CatalogUtil, PartitionSpec, Schema, Table}
-import zio.{Task, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer, Schedule}
+import logging.ZIOLogAnnotations.*
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
@@ -42,12 +43,12 @@ class IcebergS3CatalogWriter(namespace: String,
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     )
 
-  private def rowToRecord(row: DataRow, schema: Schema)(implicit tbl: Table): GenericRecord =
+  private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = ZIO.attemptBlocking{
+  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = ZIO.attemptBlocking {
       val appendTran = tbl.newTransaction()
       // create iceberg records
       val records = data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
@@ -79,21 +80,14 @@ class IcebergS3CatalogWriter(namespace: String,
   
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     for table <- createTable(name, schema)
+        _ <- zlog("Created a staging table %s, waiting for it to be created", name)
+        _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeatUntil(_ => catalog.tableExists(TableIdentifier.of(namespace, name)))
+        _ <- zlog("Staging table %s created, appending data", name)
         updatedTable <- appendData(data, schema, false)(table)
+        _ <- zlog("Staging table %s ready for merge", name)
      yield updatedTable
 
-  private val sessionCatalog = new RESTSessionCatalog(config =>
-    HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
-
-    (context, properties: java.util.Map[String, String]) => {
-      val merged = new java.util.HashMap[String, String]()
-      merged.putAll(properties)
-      merged.putAll(catalogProperties.asJava)
-      CatalogUtil.loadFileIO(s3CatalogFileIO.implClass, merged, null)
-    }
-  )
-
-  private val catalog: Catalog  = sessionCatalog.asCatalog(SessionCatalog.SessionContext.createEmpty())
+  private val catalog  = RESTCatalog()
 
   override implicit val catalogProperties: Map[String, String] = Map(
     CatalogProperties.WAREHOUSE_LOCATION -> warehouse,
@@ -109,7 +103,7 @@ class IcebergS3CatalogWriter(namespace: String,
   override implicit val catalogName: String = java.util.UUID.randomUUID.toString
 
   def initialize(): IcebergS3CatalogWriter =
-    sessionCatalog.initialize(catalogName, catalogProperties.asJava)
+    catalog.initialize(catalogName, catalogProperties.asJava)
     this
   
   override def delete(tableName: String): Task[Boolean] =
