@@ -17,6 +17,11 @@ trait RetrySettings:
    * The number of retry attempts.
    */
   val retryAttempts: Int
+  
+  /**
+   * The maximum duration of the retry.
+   */
+  val maxDuration: Duration
 
 /**
  * Settings for a CdmTable object

@@ -10,6 +10,9 @@ import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 import services.storage.base.BlobStorageReader
 
+import com.sneaksanddata.arcane.framework.excpetions.StreamFailException
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
+import zio.DurationOps.*
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -29,8 +32,10 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
   private val defaultRetrySettings = new RetrySettings:
     override val initialDelay: Duration = Duration.ofSeconds(1)
     override val retryAttempts: Int = 10
+    override val maxDuration: Duration = Duration.ofSeconds(30)
 
-  private val retryPolicy = Schedule.exponential(retrySettings.getOrElse(defaultRetrySettings).initialDelay)
+  private val retryPolicy =
+    (Schedule.exponential(retrySettings.getOrElse(defaultRetrySettings).initialDelay).jittered(0.0, 1.0) || Schedule.spaced(retrySettings.getOrElse(defaultRetrySettings).maxDuration))
     && Schedule.recurs(retrySettings.getOrElse(defaultRetrySettings).retryAttempts)
 
   /**
@@ -49,7 +54,11 @@ class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePat
         model <- ZIO.attempt(SimpleCdmModel(json))
     yield model.entities.find(_.name == tableName).getOrElse(throw new Exception(s"Table $tableName not found in model $tableLocation"))
 
-    task.retry(retryPolicy)
+    task.tapErrorCause(cause => zlog(template="Error reading schema from %s", cause=cause, values=tableLocation))
+      .catchSome({
+        case e: upickle.core.AbortException => ZIO.die(new StreamFailException("Model file is empty, not retrying the stream", e))
+      })
+      .retry(retryPolicy)
 
   /**
    * @inheritdoc
