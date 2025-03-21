@@ -30,7 +30,7 @@ import java.time.Duration
 class CdmSchemaProvider(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], tableLocation: String, tableName: String, retrySettings: Option[RetrySettings]) extends SchemaProvider[ArcaneSchema]:
 
   private val defaultRetrySettings = new RetrySettings:
-    override val initialDelay: Duration = Duration.ofSeconds(10)
+    override val initialDelay: Duration = Duration.ofSeconds(1)
     override val retryAttempts: Int = 10
     override val maxDuration: Duration = Duration.ofSeconds(30)
 
