@@ -79,11 +79,9 @@ class IcebergS3CatalogWriter(namespace: String,
     }
   
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
-    val waitForTable = Schedule.recurWhile(_ => catalog.tableExists(TableIdentifier.of(namespace, name)))
-    
     for table <- createTable(name, schema)
         _ <- zlog("Created a staging table %s, waiting for it to be created", name)
-        _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeat(waitForTable)
+        _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeatUntil(_ => catalog.tableExists(TableIdentifier.of(namespace, name)))
         _ <- zlog("Staging table %s created, appending data", name)
         updatedTable <- appendData(data, schema, false)(table)
         _ <- zlog("Staging table %s ready for merge", name)
