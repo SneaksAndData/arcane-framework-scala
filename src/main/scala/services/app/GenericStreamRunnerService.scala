@@ -8,6 +8,7 @@ import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.base.TableManager
 import services.streaming.base.{BackfillStreamingGraphBuilder, StreamingGraphBuilder}
 
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZLayer}
 
@@ -66,6 +67,7 @@ object GenericStreamRunnerService:
     & TableManager
     & StreamContext
     & BackfillStreamingGraphBuilder
+    & GenericStreamingGraphBuilder
 
   /**
    * Creates a new instance of the GenericStreamRunnerService class.
@@ -88,7 +90,7 @@ object GenericStreamRunnerService:
       for
         lifetimeService <- ZIO.service[StreamLifetimeService]
         streamContext <- ZIO.service[StreamContext]
-        builder <- if streamContext.IsBackfilling then ZIO.service[BackfillStreamingGraphBuilder] else ZIO.service[StreamingGraphBuilder]
+        builder <- if streamContext.IsBackfilling then ZIO.service[BackfillStreamingGraphBuilder] else ZIO.service[GenericStreamingGraphBuilder]
         _ <- zlog(s"Using graph builder implementation: %s", builder.getClass.getName)
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         tableManager <- ZIO.service[TableManager]
