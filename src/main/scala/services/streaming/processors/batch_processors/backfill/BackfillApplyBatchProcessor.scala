@@ -15,7 +15,7 @@ import zio.{ZIO, ZLayer}
  * The streaming batch processor that processes the Backfill batches produced by the backfill data provider running in
  * the backfill mode with the backfill behavior set to overwrite.
  */
-class BackfillApplyBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
+class BackfillApplyBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager)
   extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillOverwriteBatch
@@ -43,13 +43,13 @@ object BackfillApplyBatchProcessor:
    * @param targetTableSettings The target table settings.
    * @return The initialized MergeProcessor instance
    */
-  def apply(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings): BackfillApplyBatchProcessor =
-    new BackfillApplyBatchProcessor(mergeServiceClient, tableManager, targetTableSettings)
+  def apply(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager): BackfillApplyBatchProcessor =
+    new BackfillApplyBatchProcessor(mergeServiceClient, tableManager)
 
   /**
    * The required environment for the BackfillMergeBatchProcessor.
    */
-  type Environment = MergeServiceClient & JdbcTableManager & TargetTableSettings
+  type Environment = MergeServiceClient & JdbcTableManager
 
   /**
    * The ZLayer that creates the MergeProcessor.
@@ -59,6 +59,5 @@ object BackfillApplyBatchProcessor:
       for
         jdbcConsumer <- ZIO.service[MergeServiceClient]
         parallelismSettings <- ZIO.service[JdbcTableManager]
-        targetTableSettings <- ZIO.service[TargetTableSettings]
-      yield BackfillApplyBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
+      yield BackfillApplyBatchProcessor(jdbcConsumer, parallelismSettings)
     }
