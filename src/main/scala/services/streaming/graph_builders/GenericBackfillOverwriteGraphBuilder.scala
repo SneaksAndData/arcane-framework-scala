@@ -5,7 +5,7 @@ import models.{DataRow, given_MetadataEnrichedRowStreamElement_DataRow}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillStreamingDataProvider, BackfillStreamingGraphBuilder, HookManager, MetadataEnrichedRowStreamElement, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillApplyBatchProcessor}
+import services.streaming.processors.batch_processors.BackfillApplyBatchProcessor
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -29,7 +29,7 @@ class GenericBackfillOverwriteGraphBuilder(streamDataProvider: BackfillStreaming
   /**
    * @inheritdoc
    */
-  override type ProcessedBatch = BackfillDisposeBatchProcessor#BatchType
+  override type ProcessedBatch = BackfillApplyBatchProcessor#BatchType
 
   /**
    * @inheritdoc

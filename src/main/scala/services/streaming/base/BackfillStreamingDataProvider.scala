@@ -3,7 +3,7 @@ package services.streaming.base
 
 import services.mssql.MsSqlConnection.BackfillBatch
 
-import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillBatch
+import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, StagedBackfillOverwriteBatch}
 import zio.Task
 
 /**
@@ -16,4 +16,4 @@ trait BackfillStreamingDataProvider:
    *
    * @return A task that represents the backfill data.
    */
-  def requestBackfill: Task[StagedBackfillBatch]
+  def requestBackfill: Task[StagedBackfillOverwriteBatch]
