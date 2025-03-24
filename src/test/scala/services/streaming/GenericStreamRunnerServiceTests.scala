@@ -12,14 +12,14 @@ import services.merging.JdbcTableManager
 import services.streaming.base.{BackfillDataProvider, BackfillStreamingDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
-import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillMergeBatchProcessor}
+import services.streaming.processors.batch_processors.{BackfillDisposeBatchProcessor, BackfillApplyBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericBackfillGraphBuilder, GenericStreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericBackfillOverwriteGraphBuilder, GenericStreamingGraphBuilder}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -104,9 +104,9 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      GenericBackfillGraphBuilder.layer,
+      GenericBackfillOverwriteGraphBuilder.layer,
       BackfillDisposeBatchProcessor.layer,
-      BackfillMergeBatchProcessor.layer,
+      BackfillApplyBatchProcessor.layer,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),

@@ -10,7 +10,7 @@ import services.streaming.processors.batch_processors.streaming.MergeBatchProces
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
-import services.streaming.processors.batch_processors.BackfillMergeBatchProcessor
+import services.streaming.processors.batch_processors.BackfillApplyBatchProcessor
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 import com.sneaksanddata.arcane.framework.utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
