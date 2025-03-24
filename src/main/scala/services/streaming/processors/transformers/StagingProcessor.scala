@@ -6,9 +6,10 @@ import models.DataCell.schema
 import models.settings.{StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
 import models.{ArcaneSchema, DataRow}
 import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
-import services.lakehouse.base.{CatalogWriterBuilder, IcebergCatalogSettings}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
-import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
+import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
+import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -24,7 +25,7 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
                        tablePropertiesSettings: TablePropertiesSettings,
                        targetTableSettings: TargetTableSettings,
                        icebergCatalogSettings: IcebergCatalogSettings,
-                       catalogWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema])
+                       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema])
 
   extends RowGroupTransformer:
 
@@ -47,23 +48,15 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .map { case ((batches, others), index) => onStagingTablesComplete(batches, index, others) }
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
-    ZIO.scoped {
-      for
-        catalogWriter <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(catalogWriterBuilder.initialize()))
-          .tapErrorCause(cause => zlog("Failed to initialize catalog writer: %s", cause))
-          .retry(retryPolicy)
-        
-        table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
-          .tapErrorCause(cause => zlog("Error writing data to staging table: %s", cause))
-          .retry(retryPolicy)
-        batch = onBatchStaged(table,
-          icebergCatalogSettings.namespace,
-          icebergCatalogSettings.warehouse,
-          arcaneSchema,
-          targetTableSettings.targetTableFullName,
-          tablePropertiesSettings)
-      yield batch
-    }
+    for
+      table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+      batch = onBatchStaged(table,
+        icebergCatalogSettings.namespace,
+        icebergCatalogSettings.warehouse,
+        arcaneSchema,
+        targetTableSettings.targetTableFullName,
+        tablePropertiesSettings)
+    yield batch
 
 
 object StagingProcessor:
@@ -80,7 +73,7 @@ object StagingProcessor:
             tablePropertiesSettings: TablePropertiesSettings,
             targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
-            catalogWriter: CatalogWriterBuilder[RESTCatalog, Table, Schema]): StagingProcessor =
+            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema]): StagingProcessor =
     new StagingProcessor(stagingDataSettings, tablePropertiesSettings, targetTableSettings, icebergCatalogSettings, catalogWriter)
 
 
@@ -88,7 +81,7 @@ object StagingProcessor:
     & TablePropertiesSettings
     & TargetTableSettings
     & IcebergCatalogSettings
-    & CatalogWriterBuilder[RESTCatalog, Table, Schema]
+    & CatalogWriter[RESTCatalog, Table, Schema]
 
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
@@ -98,6 +91,6 @@ object StagingProcessor:
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
-        catalogWriter <- ZIO.service[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
+        catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
       yield StagingProcessor(stagingDataSettings, tablePropertiesSettings, targetTableSettings, icebergCatalogSettings, catalogWriter)
     }

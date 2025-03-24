@@ -47,12 +47,7 @@ object S3CatalogFileIO extends S3CatalogFileIO:
   override val endpoint: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT", "")
   override val region: String = scala.util.Properties.envOrElse("ARCANE_FRAMEWORK__S3_CATALOG_REGION", "us-east-1")
 
-
-  
-trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl] extends AutoCloseable:
-  implicit val catalog: CatalogImpl
-  implicit val catalogProperties: Map[String, String]
-  implicit val catalogName: String
+trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
 
   /**
    * Creates a table published to the configured Catalog from the data provided.

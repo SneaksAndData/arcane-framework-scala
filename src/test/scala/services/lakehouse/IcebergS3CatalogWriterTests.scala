@@ -3,7 +3,7 @@ package services.lakehouse
 
 import models.ArcaneType.{IntType, StringType}
 import models.{DataCell, Field, MergeKeyField}
-import services.lakehouse.base.{CatalogWriterBuilder, IcebergCatalogSettings, S3CatalogFileIO}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
@@ -18,6 +18,7 @@ import services.lakehouse.SchemaConversions.*
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.{Runtime, Unsafe}
+import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter.toCatalogProperties
 
 class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
@@ -30,7 +31,9 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
   private val schema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
-  private val icebergWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema] = IcebergS3CatalogWriterBuilder(settings)
+  private val catalog = RESTCatalog()
+  catalog.initialize(UUID.randomUUID.toString, settings.toCatalogProperties.asJava)
+  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(settings, catalog)
 
   it should "create a table when provided schema and rows" in {
     val rows = Seq(
@@ -40,7 +43,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
       List(DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key4"), DataCell(name = "colA", Type = IntType, value = 3), DataCell(name = "colB", Type = StringType, value = "tyr"))
     )
 
-    val task = icebergWriterBuilder.initialize().write(
+    val task =  writer.write(
       data = rows,
       name = UUID.randomUUID.toString,
       schema = schema
@@ -50,7 +53,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   it should "create an empty table" in {
-    val task = icebergWriterBuilder.initialize().write(
+    val task =  writer.write(
       data = Seq(),
       name = UUID.randomUUID.toString,
       schema = schema
@@ -61,7 +64,6 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
 
   it should "delete table successfully after creating it" in {
     val tblName = UUID.randomUUID.toString
-    val writer = icebergWriterBuilder.initialize()
     val task = writer.write(
       data = Seq(List(
         DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key1"), DataCell(name = "colA", Type = IntType, value = 1), DataCell(name = "colB", Type = StringType, value = "abc"),
@@ -84,7 +86,6 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
       DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key2"), DataCell(name = "colA", Type = IntType, value = 2), DataCell(name = "colB", Type = StringType, value = "def"),
     ))
 
-    val writer = icebergWriterBuilder.initialize()
     val task = writer.write(
       data = initialData,
       name = tblName,
