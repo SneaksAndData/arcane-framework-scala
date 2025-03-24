@@ -27,7 +27,7 @@ class BackfillApplyBatchProcessor(mergeServiceClient: MergeServiceClient, tableM
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batch =>
-      for _ <- zlog(s"Applying backfill batch to ${batch.targetTableName}")
+      for _ <- zlog(s"Applying backfill batch with name %s to %s", batch.name, batch.targetTableName)
           _ <- tableManager.migrateSchema(batch.schema, batch.targetTableName)
           _ <- mergeServiceClient.applyBatch(batch)
       yield  batch
