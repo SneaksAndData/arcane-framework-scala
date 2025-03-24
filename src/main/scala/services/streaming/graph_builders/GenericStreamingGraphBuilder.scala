@@ -43,7 +43,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
 object GenericStreamingGraphBuilder:
 
   /**
-   * The environment required for the GenericBackfillGraphBuilder.
+   * The environment required for the GenericStreamingGraphBuilder.
    */
   type Environment = StreamDataProvider
     & GenericGroupingTransformer
@@ -56,7 +56,7 @@ object GenericStreamingGraphBuilder:
 
 
   /**
-   * Creates a new GenericBackfillGraphBuilder.
+   * Creates a new GenericStreamingGraphBuilder.
    * @param streamDataProvider The stream data provider.
    * @param fieldFilteringProcessor The field filtering processor.
    * @param groupTransformer The group transformer.
@@ -64,7 +64,7 @@ object GenericStreamingGraphBuilder:
    * @param mergeProcessor The merge processor.
    * @param disposeBatchProcessor The dispose batch processor.
    * @param hookManager The hook manager.
-   * @return The GenericBackfillGraphBuilder instance.
+   * @return The GenericStreamingGraphBuilder instance.
    */
   def apply(streamDataProvider: StreamDataProvider,
             fieldFilteringProcessor: FieldFilteringTransformer,
@@ -82,7 +82,7 @@ object GenericStreamingGraphBuilder:
       hookManager)
 
   /**
-   * The ZLayer for the GenericBackfillGraphBuilder.
+   * The ZLayer for the GenericStreamingGraphBuilder.
    */
   val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
     ZLayer {
