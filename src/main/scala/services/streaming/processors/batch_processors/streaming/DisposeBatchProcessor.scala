@@ -43,7 +43,7 @@ object DisposeBatchProcessor:
     new DisposeBatchProcessor(DisposeServiceClient, streamContext)
 
   /**
-   * The required environment for the BackfillMergeBatchProcessor.
+   * The required environment for the MergeBatchProcessor.
    */
   type Environment = DisposeServiceClient
     & StreamContext

@@ -44,7 +44,7 @@ object MergeBatchProcessor:
     new MergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings)
 
   /**
-   * The required environment for the BackfillMergeBatchProcessor.
+   * The required environment for the MergeBatchProcessor.
    */
   type Environment = MergeServiceClient & JdbcTableManager & TargetTableSettings
 
