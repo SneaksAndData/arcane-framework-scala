@@ -29,7 +29,7 @@ object IcebergCatalogCredential extends IcebergCatalogCredential:
 
   override val oauth2StaticToken: String = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_STATIC_TOKEN", "")
   override val oauth2TokenRefreshEnabled: Boolean = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_TOKEN_REFRESH_ENABLED", "false").toLowerCase == "true"
-  override val oauth2SessionTimeoutMs: Long = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SESSION_TIMEOUT_MILLIS", Duration.ofHours(1).toMillis.toString).toLong
+  override val oauth2SessionTimeoutMs: Long = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SESSION_TIMEOUT_MILLIS", Duration.ofMinutes(55).toMillis.toString).toLong
 
   final val oAuth2Properties: Map[String, String] =
     if oauth2StaticToken != "" then Map(
