@@ -12,7 +12,6 @@ import services.merging.JdbcTableManager
 import services.streaming.base.{BackfillDataProvider, BackfillStreamingDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
-import services.streaming.processors.batch_processors.BackfillApplyBatchProcessor
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
