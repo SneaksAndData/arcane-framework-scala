@@ -1,6 +1,6 @@
 MERGE INTO test.table_a t_o
 USING (SELECT * FROM test.staged_a) t_s
-ON t_o.ARCANE_MERGE_KEY = t_s.ARCANE_MERGE_KEY AND t_o.colA = t_s.colA AND t_o.colB = t_s.colB
+ON t_o.ARCANE_MERGE_KEY = t_s.ARCANE_MERGE_KEY AND (t_o.colA = t_s.colA OR t_s.colA IS NULL) AND (t_o.colB = t_s.colB OR t_s.colB IS NULL)
 WHEN MATCHED AND coalesce(t_s.IsDelete, false) = true THEN DELETE
 WHEN MATCHED AND coalesce(t_s.IsDelete, false) = false AND t_s.versionnumber > t_o.versionnumber THEN UPDATE SET
  colA = t_s.colA,
