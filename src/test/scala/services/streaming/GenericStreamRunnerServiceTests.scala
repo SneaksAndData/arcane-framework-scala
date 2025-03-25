@@ -105,8 +105,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      GenericBackfillOverwriteGraphBuilder.layer,
-      BackfillApplyBatchProcessor.layer,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),
@@ -124,7 +122,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(jdbcTableManager),
       ZLayer.succeed(hookManager),
       ZLayer.succeed(streamDataProvider),
-      ZLayer.succeed(backfillDataProvider),
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
       })
