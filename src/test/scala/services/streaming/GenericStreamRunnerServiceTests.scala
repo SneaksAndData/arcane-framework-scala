@@ -9,8 +9,7 @@ import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.CatalogWriter
 import services.merging.JdbcTableManager
-import services.streaming.base.{HookManager, StreamDataProvider}
-import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
+import services.streaming.base.{BackfillDataProvider, BackfillStreamingDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
@@ -19,6 +18,8 @@ import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -47,6 +48,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     val jdbcTableManager = mock[JdbcTableManager]
     val hookManager = mock[HookManager]
     val streamDataProvider = mock[StreamDataProvider]
+    val backfillDataProvider = mock[BackfillStreamingDataProvider]
 
     val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
     val tableMock = mock[Table]

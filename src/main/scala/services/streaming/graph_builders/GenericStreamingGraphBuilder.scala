@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.graph_builders.base
+package services.streaming.graph_builders
 
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
