@@ -7,6 +7,8 @@ import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks.forAll
+import org.scalatest.prop.Tables.Table
 
 import scala.io.Source
 import scala.util.Using
@@ -147,4 +149,41 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     }.get
 
     batch.batchQuery.query should equal(expected)
+  }
+
+  private val mergeKeyStatements = Table(
+    ("tablePropertiesSettings", "expectedResult"),
+    (Seq("bucket(ARCANE_MERGE_KEY, 32)"), "filter_out_single_arcane_merge_key_from_merge_match_synapse_link"),
+    (Seq("bucket(ARCANE_MERGE_KEY, 32)", "bucket(colA, 32)", "year(colB)"), "filter_out_arcane_merge_key_from_merge_match_synapse_link")
+  )
+
+  "SynapseLinkMergeBatch" should "filter out arcane merge key from merge match" in {
+    val batchSchema = Seq(
+      MergeKeyField,
+      Field(
+        name = "colA",
+        fieldType = StringType
+      ),
+      Field(
+        name = "colB",
+        fieldType = StringType
+      ),
+      Field(
+        name = "Id",
+        fieldType = StringType
+      ),
+      Field(
+        name = "versionnumber",
+        fieldType = LongType
+      )
+    )
+    forAll(mergeKeyStatements) { (partitionSpec, expectation) =>
+      val tablePropertiesSettings = CustomTablePropertiesSettings(partitionSpec)
+      val batch = SynapseLinkMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings)
+      val expected = Using(Source.fromURL(getClass.getResource(s"/$expectation.sql"))) {
+        _.getLines().mkString("\n")
+      }.get
+
+      batch.batchQuery.query should equal(expected)
+    }
   }

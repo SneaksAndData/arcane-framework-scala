@@ -27,7 +27,7 @@ object WhenNotMatchedInsert {
 object SqlServerChangeTrackingMergeQuery:
   def apply(targetName: String, sourceQuery: String, partitionFields: Seq[String], mergeKey: String, columns: Seq[String]): MergeQuery =
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map(), mergeKey, partitionFields)
+      ++ OnSegment(Map(), mergeKey, partitionFields.filterNot(c => c == mergeKey))
       ++ WhenMatchedDelete()
       ++ WhenMatchedUpdate(columns.filterNot(c => c == mergeKey))
       ++ WhenNotMatchedInsert(columns)
