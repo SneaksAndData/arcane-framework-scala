@@ -83,7 +83,7 @@ object GenericStreamingGraphBuilder:
   /**
    * The ZLayer for the GenericStreamingGraphBuilder.
    */
-  val layer: ZLayer[Environment, Nothing, StreamingGraphBuilder] =
+  val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
     ZLayer {
       for
         streamDataProvider <- ZIO.service[StreamDataProvider]

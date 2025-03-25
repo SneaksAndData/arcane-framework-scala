@@ -61,7 +61,7 @@ object GenericBackfillOverwriteGraphBuilder:
   /**
    * The ZLayer for the GenericBackfillGraphBuilder.
    */
-  val layer: ZLayer[Environment, Nothing, BackfillStreamingGraphBuilder] =
+  val layer: ZLayer[Environment, Nothing, GenericBackfillOverwriteGraphBuilder] =
     ZLayer {
       for
         streamDataProvider <- ZIO.service[BackfillStreamingOverwriteDataProvider]
