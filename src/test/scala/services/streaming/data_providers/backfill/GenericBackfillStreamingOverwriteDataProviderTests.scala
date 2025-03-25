@@ -11,7 +11,7 @@ import services.filters.FieldsFilteringService
 import services.lakehouse.base.CatalogWriter
 import services.merging.JdbcTableManager
 import services.streaming.base.{BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider, StreamingGraphBuilder}
-import services.streaming.graph_builders.base.GenericStreamingGraphBuilder
+import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
