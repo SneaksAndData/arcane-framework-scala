@@ -18,19 +18,27 @@ object GenericGraphBuilderFactory:
   /**
    * The environment required for the graph builder to be created.
    */
-  type Environment = GenericBackfillMergeGraphBuilder
-    & GenericBackfillOverwriteGraphBuilder
-    & GenericStreamingGraphBuilder
+  type Environment = GenericBackfillMergeGraphBuilder.Environment
+    & GenericBackfillOverwriteGraphBuilder.Environment
+    & GenericStreamingGraphBuilder.Environment
     & BackfillSettings
     & StreamContext
 
   /**
    * The ZLayer for the graph builder injection with runtime dependency resolution.
    */
-  val layer: ZLayer[Environment, Nothing, StreamingGraphBuilder] =
-      ZLayer.fromZIO(resolveGraphBuilder)
+  val composedLayer: ZLayer[Environment, Nothing, StreamingGraphBuilder] =
+    GenericStreamingGraphBuilder.layer
+      >+> GenericBackfillOverwriteGraphBuilder.layer
+      >+> GenericBackfillMergeGraphBuilder.layer
+      >>> ZLayer.fromZIO(resolveGraphBuilder)
 
-  private def resolveGraphBuilder: ZIO[Environment, Nothing, StreamingGraphBuilder] =
+  private type ResolverEnvironment = Environment
+    & GenericBackfillMergeGraphBuilder
+    & GenericBackfillOverwriteGraphBuilder
+    & GenericStreamingGraphBuilder
+
+  private def resolveGraphBuilder: ZIO[ResolverEnvironment, Nothing, StreamingGraphBuilder] =
     for backfillSettings <- ZIO.service[BackfillSettings]
         streamContext <- ZIO.service[StreamContext]
 

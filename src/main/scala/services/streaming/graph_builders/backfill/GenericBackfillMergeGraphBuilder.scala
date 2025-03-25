@@ -51,7 +51,7 @@ object GenericBackfillMergeGraphBuilder:
   /**
    * The ZLayer for the GenericBackfillGraphBuilder.
    */
-  val layer: ZLayer[Environment, Nothing, BackfillStreamingGraphBuilder] =
+  val layer: ZLayer[Environment, Nothing, GenericBackfillMergeGraphBuilder] =
     ZLayer {
       for streamDataProvider <- ZIO.service[BackfillStreamingMergeDataProvider]
       yield GenericBackfillMergeGraphBuilder(streamDataProvider)
