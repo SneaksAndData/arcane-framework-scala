@@ -5,11 +5,11 @@ import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteRe
 import models.ArcaneSchema
 
 trait MergeableBatch:
+
   /**
    * Name of the target table in the linked Catalog that holds batch data
    */
   val targetTableName: String
-  
 
 trait StagedBatch:
 
