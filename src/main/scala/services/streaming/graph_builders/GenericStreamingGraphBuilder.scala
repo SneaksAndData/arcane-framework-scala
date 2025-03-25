@@ -5,7 +5,6 @@ import services.app.base.StreamLifetimeService
 import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
-import services.streaming.processors.batch_processors.BackfillApplyBatchProcessor
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
