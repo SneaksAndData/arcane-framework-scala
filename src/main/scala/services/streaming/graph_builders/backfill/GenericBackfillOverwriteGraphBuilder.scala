@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders.backfill
 
-import services.streaming.base.{BackfillStreamingGraphBuilder, BackfillStreamingOverwriteDataProvider, StreamDataProvider}
-
+import services.streaming.base.{BackfillStreamingGraphBuilder, BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
+
 import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
@@ -30,8 +30,12 @@ class GenericBackfillOverwriteGraphBuilder(streamDataProvider: BackfillStreaming
   /**
    * @inheritdoc
    */
-  override def produce: ZStream[Any, Throwable, ProcessedBatch] =
-    ZStream.fromZIO(streamDataProvider.requestBackfill).via(applyBatchProcessor.process)
+  override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
+    ZStream.fromZIO(streamDataProvider.requestBackfill)
+      .collectWhile({
+        case b: BackfillApplyBatchProcessor#BatchType => b
+      })
+      .via(applyBatchProcessor.process)
 
 object GenericBackfillOverwriteGraphBuilder:
 

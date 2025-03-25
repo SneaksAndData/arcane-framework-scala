@@ -17,4 +17,4 @@ trait StreamingGraphBuilder:
   /**
    * Produces the stream of processed batches.
    */
-  def produce: ZStream[Any, Throwable, ProcessedBatch]
+  def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch]
