@@ -4,7 +4,7 @@ package services.cdm
 import extensions.ZStreamExtensions.dropLast
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.ArcaneSchema
-import services.base.SchemaProvider
+import services.base.{FrozenSchemaProvider, SchemaProvider}
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
@@ -16,8 +16,10 @@ import zio.{Task, ZIO}
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.util.Try
+import services.base.FrozenSchemaProvider.freeze
+import models.given_CanAdd_ArcaneSchema
 
-case class SchemaEnrichedBlob(blob: StoredBlob, schemaProvider: SchemaProvider[ArcaneSchema])
+case class SchemaEnrichedBlob(blob: StoredBlob, schemaProvider: FrozenSchemaProvider[ArcaneSchema])
 
 /**
  * Extension methods for AzureBlobStorageReader specific to Synapse Link append-only tables export format
@@ -80,7 +82,7 @@ object AzureBlobStorageReaderExtensions:
    * @param schemaProvider The schema provider
    * @return A stream of blobs enriched with schema information
    */
-  extension (stream: BlobStream) def addSchema(schemaProvider: SchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
+  extension (stream: BlobStream) def addSchema(schemaProvider: FrozenSchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
     stream.map(blob => SchemaEnrichedBlob(blob, schemaProvider))
 
   /**
@@ -92,10 +94,11 @@ object AzureBlobStorageReaderExtensions:
    * @return A stream of blobs enriched with schema information
    */
   extension (stream: BlobStream) def enrichWithSchema(azureBlobStorageReader: BlobStorageReader[AdlsStoragePath], storagePath: AdlsStoragePath, name: String): SchemaEnrichedBlobStream =
-    stream.filterZIO(prefix => azureBlobStorageReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
-      val schemaProvider = CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name)
-      SchemaEnrichedBlob(prefix, schemaProvider)
-    })
+    stream.filterZIO(prefix => azureBlobStorageReader.blobExists(storagePath + prefix.name + "model.json"))
+          .mapZIO(prefix => {
+              for schemaProvider <- CdmSchemaProvider(azureBlobStorageReader, (storagePath + prefix.name).toHdfsPath, name, None).freeze
+              yield SchemaEnrichedBlob(prefix, schemaProvider)
+          })
 
 
   /**
@@ -106,7 +109,7 @@ object AzureBlobStorageReaderExtensions:
    */
   extension (reader: BlobStorageReader[AdlsStoragePath]) def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime, endDate: OffsetDateTime): BlobStream =
     for _ <- zlogStream("Getting root prefixes stating from " + startFrom)
-        prefix <- ZStream.fromIterable(getListPrefixes(startFrom, endDate))
+        prefix <- ZStream.fromIterable(getPrefixesList(startFrom, endDate))
         blob <- reader.streamPrefixes(storagePath + prefix)
         zippedWithDate = (interpretAsDate(blob), blob)
         eligibleToProcess <- zippedWithDate match
@@ -125,9 +128,9 @@ object AzureBlobStorageReaderExtensions:
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
-  private def getListPrefixes(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
+  private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
     val defaultFromYears: Int = 1
-    val currentMoment = endDate
+    val currentMoment = endDate.plusHours(1)
     val startMoment = startDate
     Iterator.iterate(startMoment)(_.plusHours(1))
       .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)

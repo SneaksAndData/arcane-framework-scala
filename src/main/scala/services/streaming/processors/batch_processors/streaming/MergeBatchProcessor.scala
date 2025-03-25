@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.processors.batch_processors
+package services.streaming.processors.batch_processors.streaming
 
 import logging.ZIOLogAnnotations.*
 import models.settings.*

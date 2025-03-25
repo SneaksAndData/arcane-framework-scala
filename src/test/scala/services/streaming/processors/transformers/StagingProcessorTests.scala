@@ -9,6 +9,7 @@ import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3Catalog
 import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, ToInFlightBatch}
 import utils.*
 
+import com.sneaksanddata.arcane.framework.services.cdm.SynapseHookManager
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
 import org.apache.iceberg.rest.RESTCatalog
@@ -67,9 +68,11 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
 
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
       new TestIndexedStagedBatches(batches, index)
+      
+    val hookManager = SynapseHookManager()
 
     // Act
-    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
+    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
 
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
@@ -114,12 +117,59 @@ class StagingProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSug
     def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
       new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
+    val hookManager = SynapseHookManager()
+    
     // Act
-    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch)).run(ZSink.last)
+    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
 
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       val batch = result.get.asInstanceOf[IndexedStagedBatchesWithMetadata]
       batch.others shouldBe Chunk("metadata", "source delete request")
+    }
+  }
+
+  it should "not not produce output on empty input" in {
+    // Arrange
+    val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
+    val tableMock = mock[Table]
+
+    expecting {
+      tableMock
+        .name()
+        .andReturn("database.namespace.name")
+        .anyTimes()
+
+      catalogWriter
+        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
+        .andReturn(ZIO.succeed(tableMock))
+        .anyTimes()
+    }
+    replay(tableMock)
+    replay(catalogWriter)
+
+
+    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
+                                           override val batchIndex: Long,
+                                           val others: Chunk[String])
+      extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
+
+    val stagingProcessor = StagingProcessor(TestStagingDataSettings,
+      TestTablePropertiesSettings,
+      TestTargetTableSettingsWithMaintenance,
+      TestIcebergCatalogSettings,
+      catalogWriter)
+
+    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
+      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
+
+    val hookManager = SynapseHookManager()
+    
+    // Act
+    val stream = ZStream.succeed(Chunk[TestInput]()).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
+
+    // Assert
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
+      result shouldBe None
     }
   }

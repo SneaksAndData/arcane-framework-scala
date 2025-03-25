@@ -1,11 +1,19 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import zio.Task
 import zio.stream.ZStream
 
-import java.time.Duration
+/**
+ * Provides data from the data source for Arcane stream.
+ */
+trait StreamDataProvider:
 
-trait StreamDataProvider[StreamElementType: MetadataEnrichedRowStreamElement]:
-  
+  /**
+   * The type of the stream element.
+   */
+  type StreamElementType
+
+  /**
+   * Returns the stream of elements.
+   */
   def stream: ZStream[Any, Throwable, StreamElementType]

@@ -5,4 +5,6 @@ import models.settings.GroupingSettings
 
 import java.time.Duration
 
-class TestGroupingSettings(val groupingInterval: Duration, val rowsPerGroup: Int) extends GroupingSettings
+object TestGroupingSettings extends GroupingSettings:
+  override val groupingInterval: Duration = Duration.ofMillis(1)
+  override val rowsPerGroup: Int = 1

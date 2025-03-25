@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.base
+package services.mssql.base
 
 import zio.Task
 
@@ -10,7 +10,7 @@ import java.time.Duration
  * @tparam DataVersionType The type of the data version.
  * @tparam DataBatchType The type of the data batch.
  */
-trait VersionedDataProvider[DataVersionType, DataBatchType] {
+trait MssqlVersionedDataProvider[DataVersionType, DataBatchType] {
 
   /**
    * Requests the changes from the data source.

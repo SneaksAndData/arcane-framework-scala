@@ -53,9 +53,12 @@ trait OrphanFilesExpirationRequestConvertable:
 /**
  * A trait that represents a batch processor.
  */
-trait StagedBatchProcessor:
+trait StagedBatchProcessor extends StreamingBatchProcessor:
 
-  type BatchType = IndexedStagedBatches
+  /**
+   * @inheritdoc
+   */
+  override type BatchType = IndexedStagedBatches
     & SnapshotExpirationRequestConvertable
     & OrphanFilesExpirationRequestConvertable
     & OptimizationRequestConvertable

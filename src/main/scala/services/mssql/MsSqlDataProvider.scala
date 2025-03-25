@@ -3,7 +3,8 @@ package services.mssql
 
 import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
-import services.streaming.base.{BackfillDataProvider, HasVersion, VersionedDataProvider}
+import services.streaming.base.{BackfillDataProvider, HasVersion}
+import com.sneaksanddata.arcane.framework.services.mssql.base.MssqlVersionedDataProvider
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -36,7 +37,7 @@ given HasVersion[VersionedBatch] with
  * A data provider that reads the changes from the Microsoft SQL Server.
  * @param msSqlConnection The connection to the Microsoft SQL Server.
  */
-class MsSqlDataProvider(msSqlConnection: MsSqlConnection) extends VersionedDataProvider[Long, VersionedBatch]
+class MsSqlDataProvider(msSqlConnection: MsSqlConnection) extends MssqlVersionedDataProvider[Long, VersionedBatch]
   with BackfillDataProvider:
   
   implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()

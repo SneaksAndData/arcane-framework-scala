@@ -1,10 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import models.DataRow
-
+import models.{ArcaneSchema, DataRow}
 import services.consumers.{MergeableBatch, StagedBatch, StagedVersionedBatch}
 import services.streaming.processors.transformers.IndexedStagedBatches
+
+import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
+import org.apache.iceberg.Table
 import zio.Chunk
 import zio.stream.ZPipeline
 
@@ -28,11 +30,14 @@ trait RowGroupTransformer:
 
   type OutgoingElement <: IndexedStagedBatches
   
-  type ToInFlightBatch = (Iterable[StagedVersionedBatch & MergeableBatch], Long, Chunk[Any]) => OutgoingElement
+  type OnStagingTablesComplete = (Iterable[StagedVersionedBatch & MergeableBatch], Long, Chunk[Any]) => OutgoingElement
+  type OnBatchStaged = (Table, String, String, ArcaneSchema, String, TablePropertiesSettings) => StagedVersionedBatch & MergeableBatch
+  
+  type IncomingElement = DataRow|Any
   
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process[IncomingElement: MetadataEnrichedRowStreamElement](toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement]
+  def process(onStagingTablesComplete: OnStagingTablesComplete, onBatchStaged: OnBatchStaged): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement]

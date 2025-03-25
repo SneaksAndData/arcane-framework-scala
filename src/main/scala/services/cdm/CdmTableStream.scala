@@ -4,7 +4,7 @@ package services.cdm
 import logging.ZIOLogAnnotations.*
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.{ArcaneSchema, DataRow}
-import services.base.SchemaProvider
+import services.base.{FrozenSchemaProvider, SchemaProvider}
 import services.cdm.BufferedReaderExtensions.streamMultilineCsv
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
@@ -22,14 +22,16 @@ given MetadataEnrichedRowStreamElement[SynapseLinkStreamElement] with
   extension (a: SynapseLinkStreamElement) def toDataRow: DataRow = a.asInstanceOf[DataRow]
   extension (a: DataRow) def fromDataRow: SynapseLinkStreamElement = a
 
-case class MetadataEnrichedReader(javaStream: BufferedReader, filePath: AdlsStoragePath, schemaProvider: SchemaProvider[ArcaneSchema])
+case class MetadataEnrichedReader(javaStream: BufferedReader, filePath: AdlsStoragePath, schemaProvider: FrozenSchemaProvider[ArcaneSchema])
 
 case class SchemaEnrichedContent[TContent](content: TContent, schema: ArcaneSchema)
 
 class MicrosoftSynapseLinkDataProvider(fileNameStreamSource: TableFilesStreamSource, reader: BlobStorageReader[AdlsStoragePath], rootPath: AdlsStoragePath) //(name: String, storagePath: AdlsStoragePath, azureBlogStorageReader: AzureBlobStorageReader, reader: AzureBlobStorageReader, streamContext: StreamContext)
-  extends StreamDataProvider[SynapseLinkStreamElement]:
+  extends StreamDataProvider:
 
-  override def stream: ZStream[Any, Throwable, SynapseLinkStreamElement]  = fileNameStreamSource
+  override type StreamElementType = SynapseLinkStreamElement
+
+  override def stream: ZStream[Any, Throwable, StreamElementType]  = fileNameStreamSource
     .lookBackStream
     .concat(fileNameStreamSource.changeCaptureStream)
     .mapZIO(openContentReader)
@@ -44,7 +46,7 @@ class MicrosoftSynapseLinkDataProvider(fileNameStreamSource: TableFilesStreamSou
     ZStream.acquireReleaseWith(ZIO.attempt(mer.javaStream))(javaStream => ZIO.succeed(javaStream.close()))
       .flatMap(javaReader => javaReader.streamMultilineCsv)
       .map(_.replace("\n", ""))
-      .mapZIO(content => mer.schemaProvider.getSchema.map(schema => SchemaEnrichedContent(content, schema)))
+      .map(content => SchemaEnrichedContent(content, mer.schemaProvider.getSchema))
       .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
       .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${mer.filePath} with", e))
       .concat(ZStream.succeed(SourceCleanupRequest(mer.filePath)))

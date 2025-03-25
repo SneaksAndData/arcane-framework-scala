@@ -75,17 +75,19 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
 
-  private def getSystemUnderTest = new JdbcMergeServiceClient(options,
+  private def getSystemUnderTest(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(options,
       TestTargetTableSettings,
       TestBackfillTableSettings,
       streamContext,
       schemaProviderMock,
       fieldsFilteringServiceMock,
-      TestTablePropertiesSettings)
+      TestTablePropertiesSettings,
+      MutableSchemaCache(),
+      schemaProviderFactory)
 
   it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
     val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
-    val mergeServiceClient = getSystemUnderTest
+    val mergeServiceClient = getSystemUnderTest(None)
 
     for _ <- mergeServiceClient.applyBatch(batch)
         rs = connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}")
@@ -97,7 +99,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   }
 
   it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
-    val mergeServiceClient = getSystemUnderTest
+    val mergeServiceClient = getSystemUnderTest(None)
     val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
 
     for _ <- mergeServiceClient.disposeBatch(batch)
@@ -116,7 +118,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val request = JdbcOptimizationRequest(tableName, optimizeThreshold, fileSizeThreshold, batchIndex)
 
 
-    val mergeServiceClient = getSystemUnderTest
+    val mergeServiceClient = getSystemUnderTest(None)
     for result <- mergeServiceClient.optimizeTable(request)
     yield result.skipped should be(false)
   }
@@ -129,7 +131,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val batchIndex = 9
     val request = JdbcSnapshotExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
 
-    val mergeServiceClient = getSystemUnderTest
+    val mergeServiceClient = getSystemUnderTest(None)
     for result <- mergeServiceClient.expireSnapshots(request)
     yield result.skipped should be(false)
   }
@@ -142,7 +144,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val batchIndex = 9
     val request = JdbcOrphanFilesExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
 
-    val mergeServiceClient = getSystemUnderTest
+    val mergeServiceClient = getSystemUnderTest(None)
     for result <- mergeServiceClient.expireOrphanFiles(request)
     yield result.skipped should be(false)
   }
@@ -152,8 +154,32 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
       Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
       Field("new_column", StringType) :: Nil
 
-    val mergeServiceClient = getSystemUnderTest
+    val mergeServiceClient = getSystemUnderTest(None)
     for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-        newSchema <- mergeServiceClient.getSchemaProvider("table_a").getSchema
+        newSchema <- mergeServiceClient.getSchema("table_a")
     yield newSchema should contain theSameElementsAs updatedSchema
+  }
+
+  it should "should read schema once during schema migrations" in withTargetTable("table_a") { connection =>
+    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+      Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
+      Field("new_column", StringType) :: Nil
+
+    var callCount = 0
+
+
+    def schemaProviderFactory(name: String, connection: Connection) =
+      callCount = callCount + 1
+      new JdbcSchemaProvider(name, connection)
+
+
+    val mergeServiceClient = getSystemUnderTest(Some(schemaProviderFactory))
+
+    // The schema provider should be called twice, once for the original schema and once for the updated schema
+    for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a") // First and second calls here
+        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+        newSchema <- mergeServiceClient.getSchema("table_a")
+    yield callCount should be(2)
   }

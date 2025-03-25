@@ -15,12 +15,14 @@ import zio.{ZIO, ZLayer}
  */
 class FieldFilteringTransformer(fieldsFilteringService: FieldsFilteringService) extends RowProcessor:
 
+  type Element = DataRow|Any
+  
   /**
    * @inheritdoc
    */
-  override def process[Element: MetadataEnrichedRowStreamElement]: ZPipeline[Any, Throwable, Element, Element] = ZPipeline.map {
-    case row if row.isDataRow => fieldsFilteringService.filter[DataCell](row.toDataRow).asInstanceOf[DataRow].fromDataRow
-    case other if !other.isDataRow => other
+  override def process: ZPipeline[Any, Throwable, Element, Element] = ZPipeline.map {
+    case row: DataRow => fieldsFilteringService.filter(row).asInstanceOf[Element]
+    case other: Any => other
   }
 
 /**
