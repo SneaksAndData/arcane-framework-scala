@@ -32,7 +32,7 @@ object IcebergCatalogCredential extends IcebergCatalogCredential:
   override val oauth2SessionTimeoutMs: Long = sys.env.getOrElse("ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SESSION_TIMEOUT_MILLIS", Duration.ofMinutes(55).toMillis.toString).toLong
 
   final val oAuth2Properties: Map[String, String] =
-    if oauth2StaticToken != "" then Map(
+    val authProperties = if oauth2StaticToken != "" then Map(
       OAuth2Properties.TOKEN -> oauth2StaticToken,
       OAuth2Properties.OAUTH2_SERVER_URI -> oauth2Uri,
       OAuth2Properties.SCOPE -> oauth2Scope
@@ -40,7 +40,9 @@ object IcebergCatalogCredential extends IcebergCatalogCredential:
       OAuth2Properties.CREDENTIAL -> credential,
       OAuth2Properties.OAUTH2_SERVER_URI -> oauth2Uri,
       OAuth2Properties.SCOPE -> oauth2Scope
-    ) ++ Map(
+    )
+    
+    authProperties ++ Map(
       OAuth2Properties.TOKEN_REFRESH_ENABLED -> oauth2TokenRefreshEnabled.toString.toLowerCase,
       CatalogProperties.AUTH_SESSION_TIMEOUT_MS -> oauth2SessionTimeoutMs.toString,
     )
