@@ -19,7 +19,8 @@ import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericBackfillOverwriteGraphBuilder, GenericStreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
