@@ -12,11 +12,6 @@ import zio.stream.ZPipeline
 trait BatchProcessor[IncomingType, OutgoingType] {
 
   /**
-   * The type of the batch.
-   */
-  type BatchType
-
-  /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
