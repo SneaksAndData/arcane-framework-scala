@@ -16,5 +16,6 @@ trait StreamingGraphBuilder:
 
   /**
    * Produces the stream of processed batches.
+   * @param hookManager The hook manager.
    */
   def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch]

@@ -60,7 +60,6 @@ object GenericStreamingGraphBuilder:
    * @param stagingProcessor The staging processor.
    * @param mergeProcessor The merge processor.
    * @param disposeBatchProcessor The dispose batch processor.
-   * @param hookManager The hook manager.
    * @return The GenericStreamingGraphBuilder instance.
    */
   def apply(streamDataProvider: StreamDataProvider,
@@ -78,8 +77,33 @@ object GenericStreamingGraphBuilder:
 
   /**
    * The ZLayer for the GenericStreamingGraphBuilder.
+   * This layer is used to inject the GenericStreamingGraphBuilder into the DI container.
    */
   val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
+    ZLayer {
+      for
+        streamDataProvider <- ZIO.service[StreamDataProvider]
+        fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
+        groupTransformer <- ZIO.service[GenericGroupingTransformer]
+        stagingProcessor <- ZIO.service[StagingProcessor]
+        mergeProcessor <- ZIO.service[MergeBatchProcessor]
+        disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
+      yield GenericStreamingGraphBuilder(streamDataProvider,
+        fieldFilteringProcessor,
+        groupTransformer,
+        stagingProcessor,
+        mergeProcessor,
+        disposeBatchProcessor)
+    }
+
+  /**
+   * The ZLayer for the GenericStreamingGraphBuilder.
+   * This layer is used to inject the GenericStreamingGraphBuilder into the DI container as a BackfillSubStream
+   * interface implementation. The `layer` cannot be used for this purpose because it injects the
+   * GenericStreamingGraphBuilder as all the interfaces it implements, and the container cannot resolve the
+   * correct implementation since backfill builders also implement the same interfaces.
+   */
+  val backfillSubStreamLayer: ZLayer[Environment, Nothing, BackfillSubStream] =
     ZLayer {
       for
         streamDataProvider <- ZIO.service[StreamDataProvider]
