@@ -209,7 +209,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
 
   private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
     missingFields match
-      case Nil => ZIO.unit
+      case null => ZIO.unit
       case _ =>
           for _ <- ZIO.foreach(missingFields)(field => {
             val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))

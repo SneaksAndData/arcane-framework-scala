@@ -9,7 +9,7 @@ import services.streaming.processors.transformers.{IndexedStagedBatches, Staging
 
 import zio.Chunk
 
-class EmptyIndexedStagedBatches(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], override val batchIndex: Long)
+class EmptyIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], batchIndex: Long)
   extends IndexedStagedBatches(groupedBySchema, batchIndex)
     with SnapshotExpirationRequestConvertable
     with OrphanFilesExpirationRequestConvertable

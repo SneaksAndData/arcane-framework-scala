@@ -2,17 +2,17 @@ package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
 import models.{ArcaneSchema, DataRow}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
-import org.apache.iceberg.catalog.{Catalog, SessionCatalog, TableIdentifier}
+import org.apache.iceberg.catalog.TableIdentifier
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
-import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
-import org.apache.iceberg.{CatalogProperties, CatalogUtil, PartitionSpec, Schema, Table}
-import zio.{Schedule, Task, ZIO, ZLayer}
+import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
+import zio.{Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
 import java.util.UUID
@@ -28,12 +28,8 @@ given Conversion[ArcaneSchema, Schema] with
   
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(namespace: String,
-                              warehouse: String,
-                              catalogUri: String,
-                              additionalProperties: Map[String, String],
-                              s3CatalogFileIO: S3CatalogFileIO,
                               locationOverride: Option[String],
-                              catalog: Catalog
+                              catalog: RESTCatalog
                         ) extends CatalogWriter[RESTCatalog, Table, Schema]:
 
   private def createTable(name: String, schema: Schema): Task[Table] =
@@ -101,7 +97,7 @@ class IcebergS3CatalogWriter(namespace: String,
 object IcebergS3CatalogWriter:
 
   type Environment = IcebergCatalogSettings
-    & Catalog
+    & RESTCatalog
 
   /**
    * Factory method to create IcebergS3CatalogWriter
@@ -109,13 +105,9 @@ object IcebergS3CatalogWriter:
    * @param icebergSettings Iceberg settings
    * @return The initialized IcebergS3CatalogWriter instance
    */
-  def apply(icebergSettings: IcebergCatalogSettings, catalog: Catalog): IcebergS3CatalogWriter =
+  def apply(icebergSettings: IcebergCatalogSettings, catalog: RESTCatalog): IcebergS3CatalogWriter =
     new IcebergS3CatalogWriter(
       icebergSettings.namespace,
-      icebergSettings.warehouse,
-      icebergSettings.catalogUri,
-      icebergSettings.additionalProperties,
-      icebergSettings.s3CatalogFileIO,
       icebergSettings.stagingLocation,
       catalog,
     )
@@ -127,7 +119,7 @@ object IcebergS3CatalogWriter:
     ZLayer {
       for
         settings <- ZIO.service[IcebergCatalogSettings]
-        catalog <- ZIO.service[Catalog]
+        catalog <- ZIO.service[RESTCatalog]
       yield IcebergS3CatalogWriter(settings, catalog)
     }
 
@@ -135,7 +127,6 @@ object IcebergS3CatalogWriter:
     Map (
     CatalogProperties.WAREHOUSE_LOCATION -> s.warehouse,
     CatalogProperties.URI -> s.catalogUri,
-    CatalogProperties.CATALOG_IMPL -> "org.apache.iceberg.rest.RESTCatalog",
     CatalogProperties.FILE_IO_IMPL -> s.s3CatalogFileIO.implClass,
     S3FileIOProperties.ENDPOINT -> s.s3CatalogFileIO.endpoint,
     S3FileIOProperties.PATH_STYLE_ACCESS -> s.s3CatalogFileIO.pathStyleEnabled,
