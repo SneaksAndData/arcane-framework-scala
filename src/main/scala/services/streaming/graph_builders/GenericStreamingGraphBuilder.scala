@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders
 
 import services.app.base.StreamLifetimeService
-import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
+import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
@@ -20,7 +20,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
                                    stagingProcessor: StagingProcessor,
                                    mergeProcessor: MergeBatchProcessor,
                                    disposeBatchProcessor: DisposeBatchProcessor)
-  extends StreamingGraphBuilder:
+  extends StreamingGraphBuilder with BackfillSubStream:
 
   /**
    * @inheritdoc
@@ -80,6 +80,26 @@ object GenericStreamingGraphBuilder:
    * The ZLayer for the GenericStreamingGraphBuilder.
    */
   val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
+    ZLayer {
+      for
+        streamDataProvider <- ZIO.service[StreamDataProvider]
+        fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
+        groupTransformer <- ZIO.service[GenericGroupingTransformer]
+        stagingProcessor <- ZIO.service[StagingProcessor]
+        mergeProcessor <- ZIO.service[MergeBatchProcessor]
+        disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
+      yield GenericStreamingGraphBuilder(streamDataProvider,
+        fieldFilteringProcessor,
+        groupTransformer,
+        stagingProcessor,
+        mergeProcessor,
+        disposeBatchProcessor)
+    }
+
+  /**
+   * The ZLayer for the GenericStreamingGraphBuilder.
+   */
+  val backfillSubStreamLayer: ZLayer[Environment, Nothing, BackfillSubStream] =
     ZLayer {
       for
         streamDataProvider <- ZIO.service[StreamDataProvider]
