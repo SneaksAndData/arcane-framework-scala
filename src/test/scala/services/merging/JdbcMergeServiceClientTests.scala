@@ -160,7 +160,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     yield newSchema should contain theSameElementsAs updatedSchema
   }
 
-  it should "should read schema once during schema migrations" in withTargetTable("table_a") { connection =>
+  it should "read schema once during schema migrations" in withTargetTable("table_a") { connection =>
     val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
       Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
       Field("new_column", StringType) :: Nil
@@ -176,10 +176,10 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val mergeServiceClient = getSystemUnderTest(Some(schemaProviderFactory))
 
     // The schema provider should be called twice, once for the original schema and once for the updated schema
-    for result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a") // First and second calls here
-        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-        result <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-        newSchema <- mergeServiceClient.getSchema("table_a")
+    for _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a") // First and second calls here
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
+        _ <- mergeServiceClient.getSchema("table_a")
     yield callCount should be(2)
   }

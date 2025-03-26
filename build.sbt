@@ -44,7 +44,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio" % "2.1.16",
     libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.16",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
-    libraryDependencies += "software.amazon.awssdk" % "s3" % "2.25.27",
+    libraryDependencies += "software.amazon.awssdk" % "s3" % "2.29.52",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
 
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
@@ -56,15 +56,15 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
     libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.8.1",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
-    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.25.27",
+    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.29.52",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
-    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.29.9",
+    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.29.52",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/sts
-    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.29.9",
+    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.29.52",
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
     libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.1",
     // https://mvnrepository.com/artifact/io.trino/trino-jdbc
-    libraryDependencies += "io.trino" % "trino-jdbc" % "472",
+    libraryDependencies += "io.trino" % "trino-jdbc" % "474",
 
     // Azure dependencies
     // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
