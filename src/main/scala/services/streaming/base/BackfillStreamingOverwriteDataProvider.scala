@@ -9,7 +9,7 @@ import zio.Task
  * A trait that represents a backfill data provider.
  */
 trait BackfillStreamingOverwriteDataProvider:
-  
+
   type BatchType = StagedBackfillOverwriteBatch|Unit
 
   /**

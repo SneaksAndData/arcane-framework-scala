@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
-import services.mssql.base.MssqlVersionedDataProvider
+import services.mssql.base.{MssqlVersionedDataProvider, QueryResult}
 import services.streaming.base.StreamDataProvider
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
@@ -25,17 +25,17 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
    * @inheritdoc
    */
   override def stream: ZStream[Any, Throwable, DataRow] =
-    if streamContext.IsBackfilling then
-      for data <- ZStream.fromZIO(dataProvider.requestBackfill)
-          rowsList <- ZStream.acquireReleaseWith(ZIO.succeed(data))(b => ZIO.succeed(b.close()))
-          row <- ZStream.fromIterable(rowsList.read)
-      yield row
+    val stream = if streamContext.IsBackfilling then
+      ZStream.fromZIO(dataProvider.requestBackfill)
     else
-      for data <- ZStream.unfoldZIO(None)(v => continueStream(v))
-          aquired <- ZStream.acquireReleaseWith(ZIO.succeed(data))(b => ZIO.succeed(b.close()))
-          rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-          row <- ZStream.fromIterable(rowsList)
-      yield row
+      ZStream.unfoldZIO(None)(v => continueStream(v))
+    stream.flatMap(readDataBatch)
+
+  private def readDataBatch[T <: AutoCloseable & QueryResult[LazyList[DataRow]]](batch: T): ZStream[Any, Throwable, DataRow] =
+    for  data <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
+         rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
+         row <- ZStream.fromIterable(rowsList)
+    yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     for _ <- maybeSleep(previousVersion)

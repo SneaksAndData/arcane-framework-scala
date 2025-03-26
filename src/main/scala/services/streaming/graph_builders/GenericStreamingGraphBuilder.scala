@@ -95,23 +95,3 @@ object GenericStreamingGraphBuilder:
         mergeProcessor,
         disposeBatchProcessor)
     }
-
-  /**
-   * The ZLayer for the GenericStreamingGraphBuilder.
-   */
-  val backfillSubStreamLayer: ZLayer[Environment, Nothing, BackfillSubStream] =
-    ZLayer {
-      for
-        streamDataProvider <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
-        groupTransformer <- ZIO.service[GenericGroupingTransformer]
-        stagingProcessor <- ZIO.service[StagingProcessor]
-        mergeProcessor <- ZIO.service[MergeBatchProcessor]
-        disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
-      yield GenericStreamingGraphBuilder(streamDataProvider,
-        fieldFilteringProcessor,
-        groupTransformer,
-        stagingProcessor,
-        mergeProcessor,
-        disposeBatchProcessor)
-    }

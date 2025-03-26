@@ -16,13 +16,13 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 
 
 /**
- * Provides the backfill data stream for the streaming process. This data provider is used when backfill started with
- * the `Merge` behavior.
- * Important difference between this and the `GenericBackfillStreamingMergeDataProvider` is that this provider
- * overrides the table used by the basic streamGraphBuilder with the intermediate backfill table.
- *
- * Also, this DP can produce a backfill batch as a result of the backfill process or nothing if backfill was interrupted.
- *
+ * Provides the backfill data stream for the streaming process.
+ * It is utilized when the backfill process begins with the `overwrite` behavior.
+ * An important distinction between this and the GenericBackfillStreamingMergeDataProvider
+ * is that this provider overrides the table used by the basic streamGraphBuilder,
+ * replacing it with the intermediate backfill table.
+ * Additionally, this data provider can generate a backfill batch as a result of the
+ * backfill process, or it may produce nothing if the backfill was interrupted.
  * @param streamingGraphBuilder The streaming graph builder.
  * @param backfillTableSettings The backfill table settings.
  * @param lifetimeService The stream lifetime service.
