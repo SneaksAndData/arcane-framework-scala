@@ -7,6 +7,8 @@ import zio.Task
 
 /**
  * Creates backfill overwrite batches.
+ * The streaming plugins must implement this interface to ba able to produce backfill batches needed for the
+ * backfill overwrite process.
  */
 trait BackfillBatchFactory:
   
@@ -17,12 +19,3 @@ trait BackfillBatchFactory:
    * @return A task that represents the backfill batch.
    */
   def createBackfillBatch: Task[StagedBackfillOverwriteBatch]
-
-//  private def createBackfillBatch(tableName: String): Task[StagedBackfillOverwriteBatch] =
-//    for schema <- jdbcMergeServiceClient.getSchema(tableName)
-//      yield SynapseLinkBackfillOverwriteBatch(tableName,
-//        schema,
-//        sinkSettings.targetTableFullName,
-//        tablePropertiesSettings)
-//
-//
