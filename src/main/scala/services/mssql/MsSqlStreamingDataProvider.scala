@@ -8,14 +8,16 @@ import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.base.MssqlVersionedDataProvider
 import services.streaming.base.StreamDataProvider
 
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
 /**
  * Streaming data provider for Microsoft SQL Server.
  */
-class MsSqlStreamingDataProvider(dataProvider: MssqlVersionedDataProvider[Long, VersionedBatch],
-                                 settings: VersionedDataGraphBuilderSettings) extends StreamDataProvider:
+class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
+                                 settings: VersionedDataGraphBuilderSettings,
+                                 streamContext: StreamContext) extends StreamDataProvider:
 
   type StreamElementType = DataRow
 
@@ -23,11 +25,17 @@ class MsSqlStreamingDataProvider(dataProvider: MssqlVersionedDataProvider[Long, 
    * @inheritdoc
    */
   override def stream: ZStream[Any, Throwable, DataRow] =
-    for data <- ZStream.unfoldZIO(None)(v => continueStream(v))
-        aquired <- ZStream.acquireReleaseWith(ZIO.succeed(data))(b => ZIO.succeed(b.close()))
-        rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-        row <- ZStream.fromIterable(rowsList)
-    yield row
+    if streamContext.IsBackfilling then
+      for data <- ZStream.fromZIO(dataProvider.requestBackfill)
+          rowsList <- ZStream.acquireReleaseWith(ZIO.succeed(data))(b => ZIO.succeed(b.close()))
+          row <- ZStream.fromIterable(rowsList.read)
+      yield row
+    else
+      for data <- ZStream.unfoldZIO(None)(v => continueStream(v))
+          aquired <- ZStream.acquireReleaseWith(ZIO.succeed(data))(b => ZIO.succeed(b.close()))
+          rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
+          row <- ZStream.fromIterable(rowsList)
+      yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     for _ <- maybeSleep(previousVersion)
@@ -48,8 +56,9 @@ object MsSqlStreamingDataProvider:
   /**
    * The environment for the MsSqlStreamingDataProvider.
    */
-  type Environment = MssqlVersionedDataProvider[Long, VersionedBatch]
+  type Environment = MsSqlDataProvider
     & VersionedDataGraphBuilderSettings
+    & StreamContext
 
 
   /**
@@ -58,16 +67,18 @@ object MsSqlStreamingDataProvider:
    * @param settings    The settings for the data graph builder.
    * @return A new instance of the MsSqlStreamingDataProvider class.
    */
-  def apply(dataProvider: MssqlVersionedDataProvider[Long, VersionedBatch],
-            settings: VersionedDataGraphBuilderSettings): MsSqlStreamingDataProvider =
-    new MsSqlStreamingDataProvider(dataProvider, settings)
+  def apply(dataProvider: MsSqlDataProvider,
+            settings: VersionedDataGraphBuilderSettings,
+            streamContext: StreamContext): MsSqlStreamingDataProvider =
+    new MsSqlStreamingDataProvider(dataProvider, settings, streamContext)
 
   /**
    * The ZLayer that creates the MsSqlStreamingDataProvider.
    */
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
-      for dataProvider <- ZIO.service[MssqlVersionedDataProvider[Long, VersionedBatch]]
+      for dataProvider <- ZIO.service[MsSqlDataProvider]
           settings <- ZIO.service[VersionedDataGraphBuilderSettings]
-      yield MsSqlStreamingDataProvider(dataProvider, settings)
+          streamContext <- ZIO.service[StreamContext]
+      yield MsSqlStreamingDataProvider(dataProvider, settings, streamContext)
     }
