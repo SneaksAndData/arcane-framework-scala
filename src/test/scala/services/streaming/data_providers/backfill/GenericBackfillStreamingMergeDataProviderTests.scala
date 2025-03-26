@@ -35,7 +35,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     // Arrange
     val streamRepeatCount = 5
 
-    val streamingGraphBuilder = mock[StreamingGraphBuilder]
+    val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
 
     expecting {
       streamingGraphBuilder.produce(EasyMock.anyObject()).andReturn(ZStream.range(0, streamRepeatCount)).times(1)
@@ -58,7 +58,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     // Arrange
     val streamRepeatCount = 5
 
-    val streamingGraphBuilder = mock[StreamingGraphBuilder]
+    val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
 
     expecting {
       streamingGraphBuilder.produce(EasyMock.anyObject()).andReturn(ZStream.repeat(Chunk.empty)).times(1)

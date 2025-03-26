@@ -6,6 +6,7 @@ import models.settings.BackfillSettings
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillStreamingMergeDataProvider, HookManager, StreamingGraphBuilder}
 
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
@@ -19,7 +20,7 @@ import zio.{Task, ZIO, ZLayer}
  * @param hookManager The hook manager.
  *                    This manager is used to manage the hooks that are used in the streaming process.
  */
-class GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder: StreamingGraphBuilder,
+class GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder: GenericStreamingGraphBuilder,
                                                 lifetimeService: StreamLifetimeService,
                                                 hookManager: HookManager)
   extends BackfillStreamingMergeDataProvider:
@@ -45,7 +46,7 @@ object GenericBackfillStreamingMergeDataProvider:
   /**
    * The environment required for the GenericBackfillStreamingMergeDataProvider.
    */
-  type Environment = StreamingGraphBuilder
+  type Environment = GenericStreamingGraphBuilder
     & BackfillSettings
     & StreamLifetimeService
     & BackfillBatchFactory
@@ -58,7 +59,7 @@ object GenericBackfillStreamingMergeDataProvider:
    * @param hookManager The hook manager.
    * @return The GenericBackfillStreamingMergeDataProvider instance.
    */
-  def apply(streamingGraphBuilder: StreamingGraphBuilder,
+  def apply(streamingGraphBuilder: GenericStreamingGraphBuilder,
             lifetimeService: StreamLifetimeService,
             hookManager: HookManager): GenericBackfillStreamingMergeDataProvider =
     new GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, hookManager)
@@ -70,7 +71,7 @@ object GenericBackfillStreamingMergeDataProvider:
   val layer: ZLayer[Environment, Nothing, GenericBackfillStreamingMergeDataProvider] =
     ZLayer {
       for
-        streamingGraphBuilder <- ZIO.service[StreamingGraphBuilder]
+        streamingGraphBuilder <- ZIO.service[GenericStreamingGraphBuilder]
         lifetimeService <- ZIO.service[StreamLifetimeService]
         hookManager <- ZIO.service[HookManager]
       yield GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, hookManager)

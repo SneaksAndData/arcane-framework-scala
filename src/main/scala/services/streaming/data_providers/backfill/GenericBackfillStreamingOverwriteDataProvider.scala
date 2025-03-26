@@ -9,6 +9,7 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.streaming.base.{BackfillStreamingOverwriteDataProvider, HookManager, StreamingGraphBuilder}
 import services.streaming.processors.transformers.StagingProcessor
 
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
 import org.apache.iceberg.Table
 import zio.stream.ZPipeline
 import zio.{Chunk, Task, ZIO, ZLayer}
@@ -27,7 +28,7 @@ import zio.{Chunk, Task, ZIO, ZLayer}
  * @param lifetimeService The stream lifetime service.
  * @param baseHookManager The base hook manager.
  */
-class GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder: StreamingGraphBuilder,
+class GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder: GenericStreamingGraphBuilder,
                                                     backfillTableSettings: BackfillSettings,
                                                     lifetimeService: StreamLifetimeService,
                                                     baseHookManager: HookManager,
@@ -59,7 +60,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
   /**
    * The environment required for the GenericBackfillStreamingOverwriteDataProvider.
    */
-  type Environment = StreamingGraphBuilder
+  type Environment = GenericStreamingGraphBuilder
     & BackfillSettings
     & StreamLifetimeService
     & BackfillBatchFactory
@@ -73,7 +74,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
    * @param baseHookManager The base hook manager.
    * @return The GenericBackfillStreamingOverwriteDataProvider instance.
    */
-  def apply(streamingGraphBuilder: StreamingGraphBuilder,
+  def apply(streamingGraphBuilder: GenericStreamingGraphBuilder,
             backfillTableSettings: BackfillSettings,
             lifetimeService: StreamLifetimeService,
             baseHookManager: HookManager,
@@ -87,7 +88,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
   val layer: ZLayer[Environment, Nothing, BackfillStreamingOverwriteDataProvider] =
     ZLayer {
       for
-        streamingGraphBuilder <- ZIO.service[StreamingGraphBuilder]
+        streamingGraphBuilder <- ZIO.service[GenericStreamingGraphBuilder]
         backfillTableSettings <- ZIO.service[BackfillSettings]
         lifetimeService <- ZIO.service[StreamLifetimeService]
         backfillBatchFactory <- ZIO.service[BackfillBatchFactory]
