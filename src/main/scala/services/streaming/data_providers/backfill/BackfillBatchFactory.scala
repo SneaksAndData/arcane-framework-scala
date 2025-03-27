@@ -7,10 +7,10 @@ import zio.Task
 
 /**
  * Creates backfill overwrite batches.
- * The streaming plugins must implement this interface to ba able to produce backfill batches needed for the
+ * The streaming plugins must implement this interface to be able to produce backfill batches needed for the
  * backfill overwrite process.
  */
-trait BackfillBatchFactory:
+trait BackfillOverwriteBatchFactory:
   
   /**
    * Creates a backfill batch.

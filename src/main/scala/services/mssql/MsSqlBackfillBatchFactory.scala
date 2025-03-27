@@ -66,9 +66,9 @@ object MsSqlBackfillBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillBatchFactory] =
     ZLayer {
       for
-        streamDataProvider <- ZIO.service[JdbcMergeServiceClient]
-        fieldFilteringProcessor <- ZIO.service[BackfillSettings]
-        groupTransformer <- ZIO.service[TargetTableSettings]
-        stagingProcessor <- ZIO.service[TablePropertiesSettings]
-      yield MsSqlBackfillBatchFactory(streamDataProvider, fieldFilteringProcessor, groupTransformer, stagingProcessor)
+        mergeServiceClient <- ZIO.service[JdbcMergeServiceClient]
+        backfillSettings <- ZIO.service[BackfillSettings]
+        targetTableSettings <- ZIO.service[TargetTableSettings]
+        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+      yield MsSqlBackfillBatchFactory(tablePropertiesSettings, tablePropertiesSettings, tablePropertiesSettings, tablePropertiesSettings)
     }
