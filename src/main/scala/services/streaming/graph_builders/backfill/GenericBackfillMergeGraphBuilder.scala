@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders.backfill
 
+import services.streaming.base.{BackfillStreamingGraphBuilder, BackfillStreamingMergeDataProvider, BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
 import services.streaming.base.{BackfillStreamingGraphBuilder, BackfillStreamingMergeDataProvider, StreamDataProvider}
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 
@@ -28,7 +29,7 @@ class GenericBackfillMergeGraphBuilder(streamDataProvider: BackfillStreamingMerg
   /**
    * @inheritdoc
    */
-  override def produce: ZStream[Any, Throwable, ProcessedBatch] = ZStream.fromZIO(streamDataProvider.requestBackfill)
+  override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] = ZStream.fromZIO(streamDataProvider.requestBackfill)
 
 object GenericBackfillMergeGraphBuilder:
 

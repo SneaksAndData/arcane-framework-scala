@@ -9,7 +9,6 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMerg
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
-import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -60,14 +59,6 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
 
 object StagingProcessor:
-
-  extension (table: Table) def toStagedBatch(namespace: String,
-                                             warehouse: String,
-                                             batchSchema: ArcaneSchema,
-                                             targetName: String,
-                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch =
-    val batchName = table.name().split('.').last
-    SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
   def apply(stagingDataSettings: StagingDataSettings,
             tablePropertiesSettings: TablePropertiesSettings,

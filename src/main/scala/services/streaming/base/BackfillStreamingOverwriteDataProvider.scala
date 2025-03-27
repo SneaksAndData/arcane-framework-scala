@@ -10,9 +10,11 @@ import zio.Task
  */
 trait BackfillStreamingOverwriteDataProvider:
 
+  type BatchType = StagedBackfillOverwriteBatch|Unit
+
   /**
    * Provides the backfill data.
    *
    * @return A task that represents the backfill data.
    */
-  def requestBackfill: Task[StagedBackfillOverwriteBatch]
+  def requestBackfill: Task[BatchType]
