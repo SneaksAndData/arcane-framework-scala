@@ -51,7 +51,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
-      new BackfillBatchFactory{
+      new BackfillOverwriteBatchFactory{
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
           ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
       }
@@ -82,7 +82,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
-      new BackfillBatchFactory:
+      new BackfillOverwriteBatchFactory:
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
           ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
     )
@@ -180,7 +180,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       // Mocks
       ZLayer.succeed(catalogWriter),
       ZLayer.succeed(TestBackfillTableSettings),
-      ZLayer.succeed(new BackfillBatchFactory {
+      ZLayer.succeed(new BackfillOverwriteBatchFactory {
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
           ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
       }),

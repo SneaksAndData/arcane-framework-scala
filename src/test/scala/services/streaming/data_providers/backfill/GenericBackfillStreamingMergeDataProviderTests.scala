@@ -154,7 +154,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       // Mocks
       ZLayer.succeed(catalogWriter),
       ZLayer.succeed(TestBackfillTableSettings),
-      ZLayer.succeed(new BackfillBatchFactory {
+      ZLayer.succeed(new BackfillOverwriteBatchFactory {
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
           ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
       }),

@@ -32,7 +32,7 @@ class GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder: Backf
                                                     backfillTableSettings: BackfillSettings,
                                                     lifetimeService: StreamLifetimeService,
                                                     baseHookManager: HookManager,
-                                                    backfillBatchFactory: BackfillBatchFactory)
+                                                    backfillBatchFactory: BackfillOverwriteBatchFactory)
   extends BackfillStreamingOverwriteDataProvider:
 
   /**
@@ -63,7 +63,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
   type Environment = BackfillSubStream
     & BackfillSettings
     & StreamLifetimeService
-    & BackfillBatchFactory
+    & BackfillOverwriteBatchFactory
     & HookManager
 
   /**
@@ -78,7 +78,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
             backfillTableSettings: BackfillSettings,
             lifetimeService: StreamLifetimeService,
             baseHookManager: HookManager,
-            backfillBatchFactory: BackfillBatchFactory): GenericBackfillStreamingOverwriteDataProvider =
+            backfillBatchFactory: BackfillOverwriteBatchFactory): GenericBackfillStreamingOverwriteDataProvider =
     new GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder, backfillTableSettings, lifetimeService, baseHookManager, backfillBatchFactory)
 
 
@@ -91,7 +91,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
         streamingGraphBuilder <- ZIO.service[BackfillSubStream]
         backfillTableSettings <- ZIO.service[BackfillSettings]
         lifetimeService <- ZIO.service[StreamLifetimeService]
-        backfillBatchFactory <- ZIO.service[BackfillBatchFactory]
+        backfillBatchFactory <- ZIO.service[BackfillOverwriteBatchFactory]
         hookManager <- ZIO.service[HookManager]
       yield GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder,
         backfillTableSettings,

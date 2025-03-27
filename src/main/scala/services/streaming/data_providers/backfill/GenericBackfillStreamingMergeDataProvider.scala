@@ -49,7 +49,7 @@ object GenericBackfillStreamingMergeDataProvider:
   type Environment = BackfillSubStream
     & BackfillSettings
     & StreamLifetimeService
-    & BackfillBatchFactory
+    & BackfillOverwriteBatchFactory
     & HookManager
 
   /**
