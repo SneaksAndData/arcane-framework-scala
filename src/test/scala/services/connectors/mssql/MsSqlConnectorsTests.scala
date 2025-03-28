@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
-import models.ArcaneSchemaField
+import models.{ArcaneSchemaField, DataCell}
 import models.ArcaneType.{IntType, LongType, StringType}
 import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
@@ -11,7 +11,7 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
-import zio.{Runtime, Unsafe}
+import zio.{Runtime, Unsafe, ZIO}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
@@ -71,6 +71,17 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1})"
       updateStatement.execute(insertCmd)
 
+  def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+    for
+      statement <- ZIO.attempt(connection.prepareStatement("DELETE FROM dbo.MsSqlConnectorsTests WHERE x = ?"))
+      _ <- ZIO.foreachDiscard(primaryKeys) { number =>
+        ZIO.attempt {
+          statement.setInt(1, number)
+          statement.executeUpdate()
+        }
+      }
+    yield ()
+  }
 
   def removeDb(): Unit =
     val query = "DROP DATABASE arcane"
@@ -181,6 +192,21 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
 
+  "MsSqlConnection" should "handle deletes" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    for schema <- Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
+        result <- connection.getChanges(None, Duration.ofDays(1))
+        (columns, version) = result
+        _ <- Future(columns.close())
+        _ <- Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(deleteData(dbInfo.connection, Seq(2))))
+        result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
+        (columns2, _) = result2
+        changedData = columns2.read.toList
+    yield {
+      changedData(1)(2) should equal (DataCell("SYS_CHANGE_OPERATION", StringType, "D"))
+    }
+  }
+
   "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
@@ -191,3 +217,4 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       latestVersion should be >= 0L
     }
   }
+
