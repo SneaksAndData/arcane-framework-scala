@@ -100,7 +100,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         version = versionResult.read.getOrElse(Long.MaxValue)
         changesQuery <- this.getChangesQuery(version - 1)
         result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
-    yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+    yield MsSqlConnection.ensureHead((result, version))
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
