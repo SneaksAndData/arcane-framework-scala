@@ -30,7 +30,7 @@ class GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder: BackfillS
    */
   def requestBackfill: Task[Unit] =
     for
-      _ <- zlog(s"Starting backfill process")
+      _ <- zlog("Starting backfill process")
       _ <- streamingGraphBuilder.produce(hookManager).via(streamLifetimeGuard).runDrain
       _ <- zlog("Backfill process completed")
     yield ()
