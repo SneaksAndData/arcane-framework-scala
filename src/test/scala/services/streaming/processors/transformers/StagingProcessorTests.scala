@@ -51,159 +51,50 @@ object StagingProcessorTests extends ZIOSpecDefault:
   ))
   private val hookManager = SynapseHookManager()
   private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] = ZLayer.succeed(settings)
+  private val getProcessor = for {
+    catalogWriterService <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
+    stagingProcessor = StagingProcessor(TestStagingDataSettings,
+      TestTablePropertiesSettings,
+      TestTargetTableSettingsWithMaintenance,
+      TestIcebergCatalogSettings,
+      catalogWriterService)
+  } yield stagingProcessor
+
+  private def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): StagedBatchProcessor#BatchType =
+    new TestIndexedStagedBatches(batches, index)
+
+
+  class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
+                                         override val batchIndex: Long,
+                                         val others: Chunk[String])
+    extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
+
+  private def toInFlightBatchWithMetadata(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): StagedBatchProcessor#BatchType =
+    new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))    
 
 
   def spec = suite("StagingProcessor")(
+
+    test("run with empty batch and produce no output") {
+      for {
+        stagingProcessor <- getProcessor
+        result <- ZStream.succeed(Chunk[TestInput]()).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
+      } yield assertTrue(result.isEmpty)
+    },
+
     test("write data rows grouped by schema to staging tables") {
-      def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): StagedBatchProcessor#BatchType =
-        new TestIndexedStagedBatches(batches, index)
 
       for {
-              catalogWriterService <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
-              stagingProcessor = StagingProcessor(TestStagingDataSettings,
-                TestTablePropertiesSettings,
-                TestTargetTableSettingsWithMaintenance,
-                TestIcebergCatalogSettings,
-                catalogWriterService)
-              result <- ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
-         } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
+        stagingProcessor <- getProcessor
+        result <- ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
+      } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
+    },
+
+    test("allow accessing stream metadata") {
+      for {
+        stagingProcessor <- getProcessor
+        result <- ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatchWithMetadata, hookManager.onBatchStaged)).run(ZSink.last)
+      } yield assertTrue(result.exists(v => v.asInstanceOf[IndexedStagedBatchesWithMetadata].others == Chunk("metadata", "source delete request")))
     }
+
   ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.autoReloadable) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
-
-
-
-//  it should "write data rows grouped by schema to staging tables" in  {
-//    // Arrange
-//    val writer = IcebergS3CatalogWriter.autoReloadable
-//    val tableMock = mock[Table]
-//
-//    expecting {
-//      tableMock
-//        .name()
-//        .andReturn("database.namespace.name")
-//        .anyTimes()
-//
-//      catalogWriter
-//        .get
-//        .write(EasyMock.anyObject[Chunk[DataRow]],EasyMock.anyString(), EasyMock.anyObject())
-//        .andReturn(ZIO.succeed(tableMock))
-//        .times(2)
-//    }
-//    replay(tableMock)
-//    replay(catalogWriter)
-//
-//    val stagingProcessor = StagingProcessor(TestStagingDataSettings,
-//      TestTablePropertiesSettings,
-//      TestTargetTableSettings,
-//      TestIcebergCatalogSettings,
-//      catalogWriter)
-//
-//    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Any): stagingProcessor.OutgoingElement =
-//      new TestIndexedStagedBatches(batches, index)
-//
-//    val hookManager = SynapseHookManager()
-//
-//    // Act
-//    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
-//
-//    // Assert
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
-//      verify (catalogWriter)
-//      val batch = result.get
-//      (batch.groupedBySchema.size, batch.batchIndex) shouldBe(2, 0)
-//    }
-//  }
-
-//  it should "allow accessing stream metadata" in {
-//    // Arrange
-//    val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
-//    val tableMock = mock[Table]
-//
-//    expecting {
-//      tableMock
-//        .name()
-//        .andReturn("database.namespace.name")
-//        .anyTimes()
-//
-//      catalogWriter
-//        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
-//        .andReturn(ZIO.succeed(tableMock))
-//        .anyTimes()
-//    }
-//    replay(tableMock)
-//    replay(catalogWriter)
-//
-//
-//
-//    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
-//                                           override val batchIndex: Long,
-//                                           val others: Chunk[String])
-//      extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
-//
-//    val stagingProcessor = StagingProcessor(TestStagingDataSettings,
-//      TestTablePropertiesSettings,
-//      TestTargetTableSettings,
-//      TestIcebergCatalogSettings,
-//      catalogWriter)
-//
-//    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): stagingProcessor.OutgoingElement =
-//      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
-//
-//    val hookManager = SynapseHookManager()
-//
-//    // Act
-//    val stream = ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
-//
-//    // Assert
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
-//      val batch = result.get.asInstanceOf[IndexedStagedBatchesWithMetadata]
-//      batch.others shouldBe Chunk("metadata", "source delete request")
-//    }
-//  }
-//
-//  it should "not not produce output on empty input" in {
-//    // Arrange
-//    val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
-//    val tableMock = mock[Table]
-//
-//    expecting {
-//      tableMock
-//        .name()
-//        .andReturn("database.namespace.name")
-//        .anyTimes()
-//
-//      catalogWriter
-//        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
-//        .andReturn(ZIO.succeed(tableMock))
-//        .anyTimes()
-//    }
-//    replay(tableMock)
-//    replay(catalogWriter)
-//
-//
-//    class IndexedStagedBatchesWithMetadata(override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
-//                                           override val batchIndex: Long,
-//                                           val others: Chunk[String])
-//      extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
-//
-//    def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch], index: Long, others: Chunk[Any]): StagedBatchProcessor#BatchType =
-//      new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
-//
-//    val hookManager = SynapseHookManager()
-//
-//    // Act
-//    val stream = for {
-//      catalogWriterService <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
-//      stagingProcessor = StagingProcessor(TestStagingDataSettings,
-//        TestTablePropertiesSettings,
-//        TestTargetTableSettingsWithMaintenance,
-//        TestIcebergCatalogSettings,
-//        catalogWriterService)
-//      result <- ZStream.succeed(Chunk[TestInput]()).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
-//    } yield result
-//
-//    // Assert
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream.orDie)).map { result =>
-//      result shouldBe None
-//    }
-//  }
