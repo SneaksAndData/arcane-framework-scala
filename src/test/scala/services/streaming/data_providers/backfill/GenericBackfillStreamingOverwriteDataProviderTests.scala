@@ -103,7 +103,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     }
   }
 
-  it should "target intermediate table while running" in { // TODO
+  it should "target intermediate table while running" in {
     // Arrange
     val streamRepeatCount = 5
 
