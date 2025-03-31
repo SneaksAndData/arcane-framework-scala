@@ -52,7 +52,7 @@ object QueryProvider:
   extension (msSqlConnection: MsSqlConnection) def getChangesQuery(fromVersion: Long): Future[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .flatMap(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
+        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "ct")
         val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         Future.fromTry(QueryProvider.getChangesQuery(
