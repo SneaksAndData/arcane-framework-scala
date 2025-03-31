@@ -12,7 +12,7 @@ import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
-import zio.{Task, ZIO, ZLayer}
+import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
 import java.util.UUID
@@ -27,15 +27,33 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
   
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(namespace: String,
-                              locationOverride: Option[String],
-                              catalog: RESTCatalog
-                        ) extends CatalogWriter[RESTCatalog, Table, Schema]:
+class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema] with AutoCloseable:
+  private val catalogProperties: Map[String, String] =
+    Map(
+      CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,
+      CatalogProperties.URI -> icebergCatalogSettings.catalogUri,
+      CatalogProperties.FILE_IO_IMPL -> icebergCatalogSettings.s3CatalogFileIO.implClass,
+      S3FileIOProperties.ENDPOINT -> icebergCatalogSettings.s3CatalogFileIO.endpoint,
+      S3FileIOProperties.PATH_STYLE_ACCESS -> icebergCatalogSettings.s3CatalogFileIO.pathStyleEnabled,
+      S3FileIOProperties.ACCESS_KEY_ID -> icebergCatalogSettings.s3CatalogFileIO.accessKeyId,
+      S3FileIOProperties.SECRET_ACCESS_KEY -> icebergCatalogSettings.s3CatalogFileIO.secretAccessKey,
+    ) ++ icebergCatalogSettings.additionalProperties
+  
+  /**
+   * Rest Catalog object, initialized on service creation
+   */
+  private val catalog: RESTCatalog = {
+    val result = RESTCatalog()
+    result.initialize("main", catalogProperties.asJava)
+    result
+  }
+
+  override def close(): Unit = catalog.close()
 
   private def createTable(name: String, schema: Schema): Task[Table] =
-    val tableId = TableIdentifier.of(namespace, name)
+    val tableId = TableIdentifier.of(icebergCatalogSettings.namespace, name)
     ZIO.attemptBlocking(
-      locationOverride match
+      icebergCatalogSettings.stagingLocation match
         case Some(newLocation) => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), newLocation + "/" + name, Map().asJava)
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     )
@@ -78,18 +96,18 @@ class IcebergS3CatalogWriter(namespace: String,
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     for table <- createTable(name, schema)
         _ <- zlog("Created a staging table %s, waiting for it to be created", name)
-        _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeatUntil(_ => catalog.tableExists(TableIdentifier.of(namespace, name)))
+        _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeatUntil(_ => catalog.tableExists(TableIdentifier.of(icebergCatalogSettings.namespace, name)))
         _ <- zlog("Staging table %s created, appending data", name)
         updatedTable <- appendData(data, schema, false)(table)
         _ <- zlog("Staging table %s ready for merge", name)
      yield updatedTable
 
   override def delete(tableName: String): Task[Boolean] =
-    val tableId = TableIdentifier.of(namespace, tableName)
+    val tableId = TableIdentifier.of(icebergCatalogSettings.namespace, tableName)
     ZIO.attemptBlocking(catalog.dropTable(tableId))
 
   def append(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
-    val tableId = TableIdentifier.of(namespace, name)
+    val tableId = TableIdentifier.of(icebergCatalogSettings.namespace, name)
     for table <- ZIO.attemptBlocking(catalog.loadTable(tableId))
       updatedTable <- appendData(data, schema, false)(table)
     yield updatedTable
@@ -97,7 +115,6 @@ class IcebergS3CatalogWriter(namespace: String,
 object IcebergS3CatalogWriter:
 
   type Environment = IcebergCatalogSettings
-    & RESTCatalog
 
   /**
    * Factory method to create IcebergS3CatalogWriter
@@ -105,12 +122,8 @@ object IcebergS3CatalogWriter:
    * @param icebergSettings Iceberg settings
    * @return The initialized IcebergS3CatalogWriter instance
    */
-  def apply(icebergSettings: IcebergCatalogSettings, catalog: RESTCatalog): IcebergS3CatalogWriter =
-    new IcebergS3CatalogWriter(
-      icebergSettings.namespace,
-      icebergSettings.stagingLocation,
-      catalog,
-    )
+  def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
+    new IcebergS3CatalogWriter(icebergSettings)
 
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
@@ -119,18 +132,11 @@ object IcebergS3CatalogWriter:
     ZLayer {
       for
         settings <- ZIO.service[IcebergCatalogSettings]
-        catalog <- ZIO.service[RESTCatalog]
-      yield IcebergS3CatalogWriter(settings, catalog)
+      yield IcebergS3CatalogWriter(settings)
     }
 
-  extension (s: IcebergCatalogSettings) def toCatalogProperties: Map[String, String] =
-    Map (
-    CatalogProperties.WAREHOUSE_LOCATION -> s.warehouse,
-    CatalogProperties.URI -> s.catalogUri,
-    CatalogProperties.FILE_IO_IMPL -> s.s3CatalogFileIO.implClass,
-    S3FileIOProperties.ENDPOINT -> s.s3CatalogFileIO.endpoint,
-    S3FileIOProperties.PATH_STYLE_ACCESS -> s.s3CatalogFileIO.pathStyleEnabled,
-    S3FileIOProperties.ACCESS_KEY_ID -> s.s3CatalogFileIO.accessKeyId,
-    S3FileIOProperties.SECRET_ACCESS_KEY -> s.s3CatalogFileIO.secretAccessKey,
-  ) ++ s.additionalProperties
-
+  /**
+   * Support automatic reloading of this service
+   */
+  val autoReloadable: ZLayer[Environment, Throwable, Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]] =
+    Reloadable.auto(layer, Schedule.fixed(zio.Duration.fromMillis(IcebergCatalogCredential.oauth2SessionTimeoutMs)))

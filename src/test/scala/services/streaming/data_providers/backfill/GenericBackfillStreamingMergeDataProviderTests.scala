@@ -6,7 +6,7 @@ import models.app.StreamContext
 import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
-import services.lakehouse.base.CatalogWriter
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
@@ -17,6 +17,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
+import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -30,6 +31,13 @@ import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
 class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
+  private val settings = new IcebergCatalogSettings:
+    override val namespace = "test"
+    override val warehouse = "polaris"
+    override val catalogUri = "http://localhost:8181/api/catalog"
+    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+    override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
+    override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
   it should "produce backfill batch if stream is completed" in {
     // Arrange
@@ -91,23 +99,9 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     val hookManager = mock[HookManager]
     val streamDataProvider = mock[StreamDataProvider]
 
-    val catalogWriter = mock[CatalogWriter[RESTCatalog, Table, Schema]]
-    val tableMock = mock[Table]
-
-
     expecting {
 
-      tableMock
-        .name()
-        .andReturn("database.namespace.name")
-        .anyTimes()
-
       streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
-
-      catalogWriter
-        .write(EasyMock.anyObject[Chunk[DataRow]], EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(ZIO.succeed(tableMock))
-        .times(streamRepeatCount)
 
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
@@ -130,7 +124,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
         .times(streamRepeatCount)
     }
-    replay(catalogWriter, streamDataProvider, tableMock, hookManager, jdbcTableManager, mergeServiceClient)
+    replay(streamDataProvider, hookManager, jdbcTableManager)
 
     val gb = ZIO.service[GenericBackfillStreamingMergeDataProvider].provide(
       // Real services
@@ -142,17 +136,17 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       StagingProcessor.layer,
       FieldsFilteringService.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
+      IcebergS3CatalogWriter.autoReloadable,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),
       ZLayer.succeed(TestStagingDataSettings),
       ZLayer.succeed(TablePropertiesSettings),
       ZLayer.succeed(TestTargetTableSettings),
-      ZLayer.succeed(TestIcebergCatalogSettings),
+      ZLayer.succeed(settings),
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks
-      ZLayer.succeed(catalogWriter),
       ZLayer.succeed(TestBackfillTableSettings),
       ZLayer.succeed(new BackfillOverwriteBatchFactory {
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
@@ -168,8 +162,6 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         override def IsBackfilling: Boolean = false
       })
     )
-
-    val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
 
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.flatMap(_.requestBackfill))).map { result =>
