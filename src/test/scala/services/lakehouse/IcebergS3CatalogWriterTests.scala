@@ -18,7 +18,6 @@ import services.lakehouse.SchemaConversions.*
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.{Runtime, Unsafe}
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter.toCatalogProperties
 
 class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
@@ -31,9 +30,7 @@ class IcebergS3CatalogWriterTests extends flatspec.AsyncFlatSpec with Matchers:
     override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
 
   private val schema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
-  private val catalog = RESTCatalog()
-  catalog.initialize(UUID.randomUUID.toString, settings.toCatalogProperties.asJava)
-  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(settings, catalog)
+  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(settings)
 
   it should "create a table when provided schema and rows" in {
     val rows = Seq(
