@@ -115,7 +115,6 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
 object IcebergS3CatalogWriter:
 
   type Environment = IcebergCatalogSettings
-    & RESTCatalog
 
   /**
    * Factory method to create IcebergS3CatalogWriter
@@ -139,5 +138,5 @@ object IcebergS3CatalogWriter:
   /**
    * Support automatic reloading of this service
    */
-  val autoReloadable: ZLayer[Environment, Throwable, Reloadable[IcebergS3CatalogWriter]] =
+  val autoReloadable: ZLayer[Environment, Throwable, Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]] =
     Reloadable.auto(layer, Schedule.fixed(zio.Duration.fromMillis(IcebergCatalogCredential.oauth2SessionTimeoutMs)))

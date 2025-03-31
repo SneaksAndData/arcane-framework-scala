@@ -13,7 +13,7 @@ import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransf
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
-import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
+import zio.{Chunk, Reloadable, Schedule, Task, ZIO, ZLayer}
 
 import java.time.Duration
 
@@ -24,11 +24,9 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
                        tablePropertiesSettings: TablePropertiesSettings,
                        targetTableSettings: TargetTableSettings,
                        icebergCatalogSettings: IcebergCatalogSettings,
-                       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema])
+                       catalogWriter: Reloadable[CatalogWriter[RESTCatalog, Table, Schema]])
 
   extends RowGroupTransformer:
-
-  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
   type OutgoingElement = StagedBatchProcessor#BatchType
   
@@ -48,7 +46,8 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
     for
-      table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+      writer <- catalogWriter.get
+      table <- writer.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
       batch = onBatchStaged(table,
         icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
@@ -64,7 +63,7 @@ object StagingProcessor:
             tablePropertiesSettings: TablePropertiesSettings,
             targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
-            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema]): StagingProcessor =
+            catalogWriter: Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]): StagingProcessor =
     new StagingProcessor(stagingDataSettings, tablePropertiesSettings, targetTableSettings, icebergCatalogSettings, catalogWriter)
 
 
@@ -72,7 +71,7 @@ object StagingProcessor:
     & TablePropertiesSettings
     & TargetTableSettings
     & IcebergCatalogSettings
-    & CatalogWriter[RESTCatalog, Table, Schema]
+    & Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]
 
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
@@ -82,6 +81,6 @@ object StagingProcessor:
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
-        catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        catalogWriter <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
       yield StagingProcessor(stagingDataSettings, tablePropertiesSettings, targetTableSettings, icebergCatalogSettings, catalogWriter)
     }

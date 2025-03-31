@@ -18,6 +18,7 @@ import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
+import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
 import org.apache.iceberg.rest.RESTCatalog
@@ -104,6 +105,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
+      IcebergS3CatalogWriter.autoReloadable,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),
@@ -114,7 +116,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks
-      ZLayer.succeed(catalogWriter),
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount-1, identity)),
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),

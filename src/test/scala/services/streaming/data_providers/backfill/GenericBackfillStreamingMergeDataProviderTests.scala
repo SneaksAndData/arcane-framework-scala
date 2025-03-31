@@ -17,6 +17,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
+import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -142,6 +143,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       StagingProcessor.layer,
       FieldsFilteringService.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
+      IcebergS3CatalogWriter.autoReloadable,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),
@@ -152,7 +154,6 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks
-      ZLayer.succeed(catalogWriter),
       ZLayer.succeed(TestBackfillTableSettings),
       ZLayer.succeed(new BackfillOverwriteBatchFactory {
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
