@@ -47,7 +47,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
   )
 
-  it should "gracefully handle stream shutdown" in { // TODO
+  it should "gracefully handle stream shutdown" in {
     // Arrange
     val streamRepeatCount = 5
 
