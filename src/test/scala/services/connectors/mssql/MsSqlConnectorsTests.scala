@@ -203,7 +203,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         (columns2, _) = result2
         changedData = columns2.read.toList
     yield {
-      changedData(1)(2) should equal (DataCell("SYS_CHANGE_OPERATION", StringType, "D"))
+      changedData(1) should contain allOf (
+        DataCell("SYS_CHANGE_OPERATION", StringType, "D"),
+
+        // NOTE: the value here is computed manually
+        DataCell("ARCANE_MERGE_KEY", StringType, "913da1f8df6f8fd47593840d533ba0458cc9873996bf310460abb495b34c232a")
+      )
     }
   }
 
