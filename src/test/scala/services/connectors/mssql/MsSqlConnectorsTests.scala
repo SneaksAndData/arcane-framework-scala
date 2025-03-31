@@ -4,7 +4,7 @@ package services.connectors.mssql
 import models.{ArcaneSchemaField, DataCell}
 import models.ArcaneType.{IntType, LongType, StringType}
 import services.connectors.mssql.util.TestConnectionInfo
-import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
+import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -25,8 +25,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
   
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
-  private implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
   
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")

@@ -1,20 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import utils.SqlUtils.toArcaneType
-import models.{ArcaneSchema, ArcaneType, Field, MergeKeyField}
-import services.base.{CanAdd, SchemaProvider}
+import models.{ArcaneSchema, ArcaneType, given_CanAdd_ArcaneSchema}
+import services.base.SchemaProvider
 import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.base.{CanPeekHead, QueryResult}
-import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
-
-import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
+import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
+import utils.SqlUtils.toArcaneType
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.{Task, ZIO, ZLayer}
 
-import java.sql.ResultSet
+import java.sql.{Connection, ResultSet, Statement}
 import java.time.Duration
 import java.time.format.DateTimeFormatter
 import java.util.Properties
@@ -80,9 +78,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    *
    * @return A future containing the result of the backfill.
    */
-  def backfill(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[BackfillBatch] =
+  def backfill: Future[BackfillBatch] =
     for query <- this.getBackfillQuery
-        result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
+        result <- executeQuery(query, connection, LazyQueryResult.apply)
     yield result
 
   /**
@@ -91,15 +89,13 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param lookBackInterval The look back interval for the query.
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)
-                (using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult],
-                 versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]]): Future[VersionedBatch] =
+  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
 
-    for versionResult <- versionQueryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
+    for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
         changesQuery <- this.getChangesQuery(version - 1)
-        result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
+        result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
     yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
@@ -182,6 +178,17 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     if !hasNext then
       return result
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
+
+  private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
+
+  private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Future[QueryResultType] =
+    Future {
+      val statement = connection.createStatement()
+      val resultSet = blocking {
+        statement.executeQuery(query)
+      }
+      resultFactory(statement, resultSet)
+    }
 
 object MsSqlConnection:
   /**
