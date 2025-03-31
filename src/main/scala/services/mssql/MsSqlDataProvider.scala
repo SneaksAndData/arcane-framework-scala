@@ -2,9 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
-import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
+import services.mssql.base.MssqlVersionedDataProvider
 import services.streaming.base.{BackfillDataProvider, HasVersion}
-import com.sneaksanddata.arcane.framework.services.mssql.base.MssqlVersionedDataProvider
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -40,9 +39,6 @@ given HasVersion[VersionedBatch] with
 class MsSqlDataProvider(msSqlConnection: MsSqlConnection) extends MssqlVersionedDataProvider[Long, VersionedBatch]
   with BackfillDataProvider:
   
-  implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
-  implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
-
   override def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     ZIO.fromFuture(_ => msSqlConnection.getChanges(previousVersion, lookBackInterval))
     

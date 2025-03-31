@@ -1,24 +1,21 @@
 package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
-import models.ArcaneSchemaField
-import models.ArcaneType.{IntType, LongType, StringType}
-import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
-import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlStreamingDataProvider, QueryProvider}
+import models.app.StreamContext
+import models.settings.VersionedDataGraphBuilderSettings
+import services.connectors.mssql.util.TestConnectionInfo
+import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlStreamingDataProvider}
+import utils.TestStreamLifetimeService
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.VersionedDataGraphBuilderSettings
-import com.sneaksanddata.arcane.framework.services.connectors.mssql.util.TestConnectionInfo
-import com.sneaksanddata.arcane.framework.utils.TestStreamLifetimeService
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
 import zio.{Runtime, Unsafe}
 
 import java.sql.Connection
+import java.time.Duration
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, LocalDateTime}
 import java.util.Properties
 import scala.List
 import scala.concurrent.Future
@@ -28,8 +25,6 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
   
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private implicit val dataQueryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult] = QueryRunner()
-  private implicit val versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]] = QueryRunner()
   
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
