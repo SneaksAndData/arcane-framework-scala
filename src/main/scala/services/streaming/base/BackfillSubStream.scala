@@ -7,7 +7,7 @@ import zio.stream.ZStream
  * Provides the complete data stream for the streaming process including all the stages and services
  * except the sink and lifetime service.
  */
-trait StreamingGraphBuilder:
+trait BackfillSubStream:
 
   /**
    * The type of the processed batch.

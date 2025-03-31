@@ -7,6 +7,7 @@ import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlStreamingDataProvider, QueryProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.VersionedDataGraphBuilderSettings
 import com.sneaksanddata.arcane.framework.services.connectors.mssql.util.TestConnectionInfo
 import com.sneaksanddata.arcane.framework.utils.TestStreamLifetimeService
@@ -38,6 +39,9 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
     override val changeCaptureInterval: Duration = Duration.ofMillis(1)
     override val changeCapturePeriod: Duration = Duration.ofHours(1)
   }
+
+  private val streamContext = new StreamContext:
+    override val IsBackfilling = false
 
   val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC"
 
@@ -102,7 +106,7 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
     val numberRowsToTake = 5
     val connection = MsSqlConnection(dbInfo.connectionOptions)
     val dataProvider = MsSqlDataProvider(connection)
-    val streamingDataProvider = MsSqlStreamingDataProvider(dataProvider, settings)
+    val streamingDataProvider = MsSqlStreamingDataProvider(dataProvider, settings, streamContext)
     val lifetimeService = TestStreamLifetimeService(numberRowsToTake)
 
     val stream = streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect
