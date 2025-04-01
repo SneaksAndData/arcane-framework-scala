@@ -102,7 +102,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
       .createWriterFunc(GenericParquetWriter.buildWriter)
       .overwrite()
       .withSpec(PartitionSpec.unpartitioned())
-      .build[GenericRecord]()))(dataWriter => ZIO.succeed(dataWriter.close())) { dataWriter => 
+      .build[GenericRecord]()))(dataWriter => ZIO.attempt(dataWriter.close()).orDie) { dataWriter =>
       ZIO.attemptBlockingIO{
         dataWriter.write(records)
         dataWriter
