@@ -67,7 +67,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
       case Some(info) => ZIO.succeed(info._2._1)
       case None => newCatalog
     }
-    agedCatalogs <- ZIO.attempt(catalogs.filter(c => Instant.now.getEpochSecond - c._2._2 > maxCatalogLifetime * 4))
+    agedCatalogs <- ZIO.attempt(catalogs.filter(c => Instant.now.getEpochSecond - c._2._2 > maxCatalogLifetime * 1.5))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(zlog("Found %s aged catalog instances, closing them", agedCatalogs.size.toString))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => c._2._1.close())))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => catalogs.remove(c._1))))
