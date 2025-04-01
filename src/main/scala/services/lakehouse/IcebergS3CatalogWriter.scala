@@ -46,7 +46,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     ) ++ icebergCatalogSettings.additionalProperties
 
 
-  private val maxlifetime = 1
+  private val maxCatalogLifetime = zio.Duration.fromMillis(IcebergCatalogCredential.oauth2SessionTimeoutMs / 2).toSeconds
   private val catalogs: TrieMap[String, (RESTCatalog, Long)] = TrieMap()
 
   private def newCatalog = for
@@ -63,12 +63,12 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
    * Rest Catalog object
    */
   private def getCatalog: ZIO[Any, Throwable, RESTCatalog] = for
-    catalogInfo <- ZIO.attempt(catalogs.find(c => Instant.now.getEpochSecond - c._2._2 < maxlifetime))
+    catalogInfo <- ZIO.attempt(catalogs.find(c => Instant.now.getEpochSecond - c._2._2 < maxCatalogLifetime))
     selected <- catalogInfo match {
       case Some(info) => ZIO.succeed(info._2._1)
       case None => newCatalog
     }
-    agedCatalogs <- ZIO.attempt(catalogs.filter(c => Instant.now.getEpochSecond - c._2._2 > maxlifetime * 4))
+    agedCatalogs <- ZIO.attempt(catalogs.filter(c => Instant.now.getEpochSecond - c._2._2 > maxCatalogLifetime * 4))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(zlog("Found %s aged catalog instances, closing them", agedCatalogs.size.toString))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => c._2._1.close())))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => catalogs.remove(c._1))))
