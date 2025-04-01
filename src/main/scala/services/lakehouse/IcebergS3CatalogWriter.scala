@@ -15,6 +15,7 @@ import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
 import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
+import zio.*
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
@@ -27,7 +28,7 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
   
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema] with AutoCloseable:
+class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema]:
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,
@@ -38,17 +39,27 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
       S3FileIOProperties.ACCESS_KEY_ID -> icebergCatalogSettings.s3CatalogFileIO.accessKeyId,
       S3FileIOProperties.SECRET_ACCESS_KEY -> icebergCatalogSettings.s3CatalogFileIO.secretAccessKey,
     ) ++ icebergCatalogSettings.additionalProperties
-  
-  /**
-   * Rest Catalog object, initialized on service creation
-   */
-  private val catalog: RESTCatalog = {
-    val result = RESTCatalog()
-    result.initialize("main", catalogProperties.asJava)
-    result
-  }
 
-  override def close(): Unit = catalog.close()
+
+  /**
+   * Rest Catalog object
+   */
+  private val catalog: RESTCatalog = RESTCatalog()
+
+  /**
+   * Catalog initialize, similar to database connection init.
+   */
+  def connect(): IcebergS3CatalogWriter = 
+    catalog.initialize("main", catalogProperties.asJava)
+    this
+
+  /**
+   * ZIO wrapper for the catalog close method
+   * @return
+   */
+  def close: UIO[Unit] = for {
+    _ <- ZIO.succeed(catalog.close())
+  } yield ()
 
   private def createTable(name: String, schema: Schema): Task[Table] =
     val tableId = TableIdentifier.of(icebergCatalogSettings.namespace, name)
@@ -129,14 +140,17 @@ object IcebergS3CatalogWriter:
    * The ZLayer that creates the LazyOutputDataProcessor.
    */
   val layer: ZLayer[Environment, Throwable, IcebergS3CatalogWriter] =
-    ZLayer {
-      for
-        settings <- ZIO.service[IcebergCatalogSettings]
-      yield IcebergS3CatalogWriter(settings)
+    ZLayer.scoped {
+      ZIO.acquireRelease {
+        for
+          settings <- ZIO.service[IcebergCatalogSettings]
+          writer = IcebergS3CatalogWriter(settings)
+        yield writer.connect()
+      } { _.close }
     }
 
   /**
-   * Support automatic reloading of this service
+   * Support automatic reloading of this service half way through session lifecycle
    */
   val autoReloadable: ZLayer[Environment, Throwable, Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]] =
-    Reloadable.auto(layer, Schedule.fixed(zio.Duration.fromMillis(IcebergCatalogCredential.oauth2SessionTimeoutMs)))
+    Reloadable.auto(layer, Schedule.fixed(zio.Duration.fromMillis(IcebergCatalogCredential.oauth2SessionTimeoutMs / 2)))
