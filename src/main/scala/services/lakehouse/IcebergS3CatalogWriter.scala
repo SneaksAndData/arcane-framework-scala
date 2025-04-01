@@ -16,7 +16,6 @@ import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
 import zio.*
-import zio.cache.Lookup
 
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
