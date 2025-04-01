@@ -71,8 +71,8 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     _ <- ZIO.when(agedCatalogs.nonEmpty)(zlog("Found %s aged catalog instances, closing them", agedCatalogs.size.toString))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => c._2._1.close())))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => catalogs.remove(c._1))))
-  yield selected   
-  
+  yield selected
+
   override def close(): Unit = catalogs.foreach(c => c._2._1.close())
 
   private def createTable(name: String, schema: Schema): Task[Table] = for
@@ -83,42 +83,35 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
         case Some(newLocation) => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), newLocation + "/" + name, Map().asJava)
         case None => catalog.createTable(tableId, schema, PartitionSpec.unpartitioned())
     )
-  yield tableRef  
-  
+  yield tableRef
+
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = ZIO.attemptBlocking {
-      val appendTran = tbl.newTransaction()
-      // create iceberg records
-      val records = data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
-        (builder, record) => builder.add(record)
-      }.build()
-      val file = tbl.io.newOutputFile(s"${tbl.location()}/${UUID.randomUUID.toString}")
-      val dataWriter = Parquet.writeData(file)
-          .schema(tbl.schema())
-          .createWriterFunc(GenericParquetWriter.buildWriter)
-          .overwrite()
-          .withSpec(PartitionSpec.unpartitioned())
-          .build[GenericRecord]()
-
-      Try(for (record <- records.asScala) { dataWriter.write(record) }) match {
-        case Success(_) =>
-          dataWriter.close()
-
-          // only use fast append for the case when table is empty
-          if isTargetEmpty then appendTran.newFastAppend().appendFile(dataWriter.toDataFile).commit()
-          else appendTran.newAppend().appendFile(dataWriter.toDataFile).commit()
-
-          appendTran.commitTransaction()
-          tbl
-        case Failure(ex) =>
-          dataWriter.close()
-          throw ex
+  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = for
+    _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
+    appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
+    records <- ZIO.attempt(data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
+      (builder, record) => builder.add(record)
+    }.build())
+    file <- ZIO.attempt(tbl.io.newOutputFile(s"${tbl.location()}/${UUID.randomUUID.toString}"))
+    writer <- ZIO.acquireReleaseWith(ZIO.attempt(Parquet.writeData(file)
+      .schema(tbl.schema())
+      .createWriterFunc(GenericParquetWriter.buildWriter)
+      .overwrite()
+      .withSpec(PartitionSpec.unpartitioned())
+      .build[GenericRecord]()))(dataWriter => ZIO.succeed(dataWriter.close())) { dataWriter => 
+      ZIO.attemptBlockingIO{
+        dataWriter.write(records)
+        dataWriter
       }
     }
+    _ <- zlog("Committing fast append into table %s", tbl.name())
+    _ <- if isTargetEmpty then ZIO.attemptBlocking(appendTran.newFastAppend().appendFile(writer.toDataFile).commit()) else ZIO.attemptBlocking(appendTran.newAppend().appendFile(writer.toDataFile).commit())
+    _ <- ZIO.attemptBlocking(appendTran.commitTransaction())
+  yield tbl
   
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     for table <- createTable(name, schema)
@@ -135,7 +128,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     catalog <- getCatalog
     result <- ZIO.attemptBlocking(catalog.dropTable(tableId))
   yield result
-    
+
 
   def append(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] = for
     tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
