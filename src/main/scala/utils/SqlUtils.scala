@@ -52,6 +52,7 @@ object SqlUtils:
     case java.sql.Types.NCHAR => Success(ArcaneType.StringType)
     case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
     case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.VARBINARY => Success(ArcaneType.ByteArrayType)
     case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
 
 
