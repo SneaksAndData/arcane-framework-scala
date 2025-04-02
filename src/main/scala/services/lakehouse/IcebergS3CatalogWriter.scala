@@ -73,10 +73,14 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
    * Rest Catalog object
    */
   private def getCatalog: ZIO[Any, Throwable, RESTSessionCatalog] = for
-    catalogInfo <- ZIO.attempt(catalogs.find(c => Instant.now.getEpochSecond - c._2._2 < maxCatalogLifetime))
+    catalogInfo <- ZIO.attempt(catalogs.find {
+      case (_, (_, duration)) => Instant.now.getEpochSecond - duration < maxCatalogLifetime
+    })
     selected <- catalogInfo match {
-      case Some(info) => ZIO.succeed(info._2._1)
-      case None => ZIO.attempt(catalogs.foreach(c => c._2._1.close())).map(_ => catalogs.clear()).flatMap(_ => newCatalog)
+      case Some((_, (catalog, _))) => ZIO.succeed(catalog)
+      case None => ZIO.attempt(catalogs.foreach {
+        case (_, (catalog, _)) => catalog.close()
+      }).map(_ => catalogs.clear()).flatMap(_ => newCatalog)
     }
   yield selected
 
@@ -85,8 +89,8 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     catalog <- getCatalog
     tableRef <- ZIO.attemptBlocking(
       icebergCatalogSettings.stagingLocation match
-        case Some(newLocation) => catalog.buildTable(SessionContext.createEmpty(), tableId, schema).withLocation(newLocation + "/" + name).withPartitionSpec(PartitionSpec.unpartitioned()).create()
-        case None => catalog.buildTable(SessionContext.createEmpty(), tableId, schema).withPartitionSpec(PartitionSpec.unpartitioned()).create()
+        case Some(newLocation) => catalog.buildTable(getSessionContext, tableId, schema).withLocation(newLocation + "/" + name).withPartitionSpec(PartitionSpec.unpartitioned()).create()
+        case None => catalog.buildTable(getSessionContext, tableId, schema).withPartitionSpec(PartitionSpec.unpartitioned()).create()
     )
   yield tableRef
 
