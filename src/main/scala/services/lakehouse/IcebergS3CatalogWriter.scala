@@ -121,7 +121,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
         catalog <- getCatalog
         _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeatUntil(_ => catalog.tableExists(TableIdentifier.of(icebergCatalogSettings.namespace, name)))
         _ <- zlog("Staging table %s created, appending data", name)
-        table <- ZIO.attempt(catalog.loadTable(TableIdentifier.of(icebergCatalogSettings.namespace, name)))
+        table <- ZIO.attemptBlocking(catalog.loadTable(TableIdentifier.of(icebergCatalogSettings.namespace, name)))
         updatedTable <- appendData(data, schema, false, table)
         _ <- zlog("Staging table %s ready for merge", name)
      yield updatedTable
