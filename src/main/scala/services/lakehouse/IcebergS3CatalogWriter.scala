@@ -10,7 +10,7 @@ import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
-import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.rest.{RESTCatalog, RESTSessionCatalog}
 import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
 import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
@@ -42,14 +42,16 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
       S3FileIOProperties.PATH_STYLE_ACCESS -> icebergCatalogSettings.s3CatalogFileIO.pathStyleEnabled,
       S3FileIOProperties.ACCESS_KEY_ID -> icebergCatalogSettings.s3CatalogFileIO.accessKeyId,
       S3FileIOProperties.SECRET_ACCESS_KEY -> icebergCatalogSettings.s3CatalogFileIO.secretAccessKey,
+      "rest-metrics-reporting-enabled" -> "false",
+      "view-endpoints-supported" -> "false",
     ) ++ icebergCatalogSettings.additionalProperties
 
 
-  private val maxCatalogLifetime = zio.Duration.fromMillis(IcebergCatalogCredential.oauth2SessionTimeoutMs / 2).toSeconds
+  private val maxCatalogLifetime = zio.Duration.fromSeconds(10 * 60).toSeconds // limit catalog instance lifetime to 10 minutes
   private val catalogs: TrieMap[String, (RESTCatalog, Long)] = TrieMap()
 
   private def newCatalog = for
-    result <- ZIO.succeed(RESTCatalog())
+    result <- ZIO.succeed(new RESTCatalog())
     name <- ZIO.succeed(java.util.UUID.randomUUID().toString)
     _ <- zlog("Creating new Iceberg REST Catalog instance with id %s", name)
     _ <- ZIO.attemptBlocking(result.initialize(name, catalogProperties.asJava))
@@ -90,7 +92,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean)(implicit tbl: Table): Task[Table] = for
+  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
     _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
     appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
     records <- ZIO.attempt(data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
@@ -114,12 +116,13 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
   yield tbl
   
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
-    for table <- createTable(name, schema)
+    for _ <- createTable(name, schema)
         _ <- zlog("Created a staging table %s, waiting for it to be created", name)
         catalog <- getCatalog
         _ <- ZIO.sleep(zio.Duration.fromSeconds(1)).repeatUntil(_ => catalog.tableExists(TableIdentifier.of(icebergCatalogSettings.namespace, name)))
         _ <- zlog("Staging table %s created, appending data", name)
-        updatedTable <- appendData(data, schema, false)(table)
+        table <- ZIO.attempt(catalog.loadTable(TableIdentifier.of(icebergCatalogSettings.namespace, name)))
+        updatedTable <- appendData(data, schema, false, table)
         _ <- zlog("Staging table %s ready for merge", name)
      yield updatedTable
 
@@ -134,7 +137,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
     catalog <- getCatalog
     table <- ZIO.attemptBlocking(catalog.loadTable(tableId))
-    updatedTable <- appendData(data, schema, false)(table)
+    updatedTable <- appendData(data, schema, false, table)
   yield updatedTable
 
 object IcebergS3CatalogWriter:
