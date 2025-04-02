@@ -147,7 +147,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     }
     columns.get
   }
-  
+
   private def renameColumn(originalName: String): String = "\\W+".r.replaceAllIn(originalName, "")
 
   @tailrec
@@ -184,14 +184,18 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
 
   private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Future[QueryResultType] =
-    Future {
+    val queryFuture = Future {
       val statement = connection.createStatement()
       val resultSet = blocking {
         statement.executeQuery(query)
       }
       resultFactory(statement, resultSet)
     }
-
+    
+    queryFuture.recover({
+      case e: Exception => throw new Exception(s"Failed to execute query: $query", e)
+    })
+    
 object MsSqlConnection:
   /**
    * Creates a new Microsoft SQL Server connection.
