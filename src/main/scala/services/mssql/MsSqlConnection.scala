@@ -147,6 +147,8 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     }
     columns.get
   }
+  
+  private def renameColumn(originalName: String): String = "\\W+".r.replaceAllIn(originalName, "")
 
   @tailrec
   private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
@@ -155,7 +157,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
       case x +: xs =>
         val (name, fieldType) = x
         toArcaneType(fieldType) match
-          case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
+          case Success(arcaneType) => toSchema(xs, schema.addField(renameColumn(name), arcaneType))
           case Failure(exception) => Failure[this.SchemaType](exception)
 
   private def executeColumnSummariesQuery(query: String): Future[List[ColumnSummary]] =
