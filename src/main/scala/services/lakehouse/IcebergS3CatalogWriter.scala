@@ -11,7 +11,7 @@ import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.{RESTCatalog, RESTSessionCatalog}
-import org.apache.iceberg.{CatalogProperties, PartitionSpec, Schema, Table}
+import org.apache.iceberg.{CatalogProperties, DataFiles, PartitionSpec, Schema, Table}
 import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
@@ -98,7 +98,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     records <- ZIO.attempt(data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
       (builder, record) => builder.add(record)
     }.build())
-    file <- ZIO.attempt(tbl.io.newOutputFile(s"${tbl.location()}/${UUID.randomUUID.toString}"))
+    file <- ZIO.attemptBlocking(tbl.io.newOutputFile(tbl.locationProvider().newDataLocation(UUID.randomUUID.toString)))
     writer <- ZIO.acquireReleaseWith(ZIO.attempt(Parquet.writeData(file)
       .schema(tbl.schema())
       .createWriterFunc(GenericParquetWriter.buildWriter)
