@@ -44,6 +44,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
       S3FileIOProperties.SECRET_ACCESS_KEY -> icebergCatalogSettings.s3CatalogFileIO.secretAccessKey,
       "rest-metrics-reporting-enabled" -> "false",
       "view-endpoints-supported" -> "false",
+      "header.X-Iceberg-Access-Delegation" -> "vended-credentials",
     ) ++ icebergCatalogSettings.additionalProperties
 
 
@@ -70,7 +71,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
       case None => newCatalog
     }
     agedCatalogs <- ZIO.attempt(catalogs.filter(c => Instant.now.getEpochSecond - c._2._2 > maxCatalogLifetime + 60))
-    _ <- ZIO.when(agedCatalogs.nonEmpty)(zlog("Found %s aged catalog instances, closing them", agedCatalogs.size.toString))
+    _ <- ZIO.when(agedCatalogs.nonEmpty)(zlog("Found %s aged catalog instances, closing them: %s", agedCatalogs.size.toString, agedCatalogs.keys.mkString(", ")))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => c._2._1.close())))
     _ <- ZIO.when(agedCatalogs.nonEmpty)(ZIO.attempt(agedCatalogs.foreach(c => catalogs.remove(c._1))))
   yield selected
