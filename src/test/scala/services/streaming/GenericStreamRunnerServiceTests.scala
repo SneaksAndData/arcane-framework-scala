@@ -96,7 +96,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      IcebergS3CatalogWriter.autoReloadable,
+      IcebergS3CatalogWriter.layer,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),
