@@ -255,7 +255,7 @@ object JdbcMergeServiceClient:
     case TypeID.LONG => "BIGINT"
     case TypeID.FLOAT => "REAL"
     case TypeID.DOUBLE => "DOUBLE"
-    case TypeID.DECIMAL => "DECIMAL(1, 2)"
+    case TypeID.DECIMAL => "DECIMAL(38, 18)"
     case TypeID.DATE => "DATE"
     case TypeID.TIME => "TIME(6)"
     case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
