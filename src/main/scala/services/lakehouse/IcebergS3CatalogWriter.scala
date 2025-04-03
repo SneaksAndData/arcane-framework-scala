@@ -15,10 +15,13 @@ import org.apache.iceberg.{CatalogProperties, CatalogUtil, DataFiles, PartitionS
 import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
+import com.sneaksanddata.arcane.framework.models.ArcaneType.ByteArrayType
+import com.sneaksanddata.arcane.framework.models.DataCell
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
 import zio.*
 
+import java.nio.ByteBuffer
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 import scala.collection.mutable
@@ -96,8 +99,11 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
-    val rowMap = row.map { cell => cell.name -> cell.value }.toMap
-    record.copy(rowMap.asJava)
+    val rowMap = row.map({
+      case DataCell(name, ByteArrayType, value) => name -> ByteBuffer.wrap(value.asInstanceOf[Array[Byte]])
+      case DataCell(name, _, value) => name -> value
+    })
+    record.copy(rowMap.toMap.asJava)
 
   private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
     _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
