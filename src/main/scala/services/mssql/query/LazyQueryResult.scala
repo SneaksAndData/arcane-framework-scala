@@ -50,8 +50,10 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, 
       val name = row.getMetaData.getColumnName(column)
       val value = row.getObject(column)
       val dataType = row.getMetaData.getColumnType(column)
+      
       val precision = row.getMetaData.getPrecision(column)
-      val scale = row.getMetaData.getPrecision(column)
+      val scale = row.getMetaData.getScale(column)
+      
       toArcaneType(dataType, precision, scale) match
         case Success(arcaneType) => toDataRow(row, column - 1, DataCell(name, arcaneType, value) :: acc)
         case Failure(exception) => Failure(exception)
