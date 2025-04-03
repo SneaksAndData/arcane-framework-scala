@@ -60,7 +60,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlog(template: String, values: String*): zio.UIO[Unit] = logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template))
+  def zlog(template: String, values: String*): zio.UIO[Unit] = logEnriched(ZIO.log(template.format(values*)), defaultsWithTemplate(template))
 
   /**
    * Log using default and additional custom annotations
@@ -71,7 +71,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlog(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] = logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template) ++ annotations)
+  def zlog(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] = logEnriched(ZIO.log(template.format(values*)), defaultsWithTemplate(template) ++ annotations)
 
   /**
    * Log error using default annotations
@@ -82,7 +82,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlog(template: String, cause: Cause[Any], values: String*): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template))
+  def zlog(template: String, cause: Cause[Any], values: String*): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(template.format(values*), cause), defaultsWithTemplate(template))
 
   /**
    * Log error using default and additional custom annotations
@@ -94,7 +94,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlog(template: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template) ++ annotations)
+  def zlog(template: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] = logEnriched(ZIO.logErrorCause(template.format(values*), cause), defaultsWithTemplate(template) ++ annotations)
 
   /**
    * Log via a ZStream log pipeline using default annotations
@@ -104,7 +104,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(template: String, values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template)))
+  def zlogStream(template: String, values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(template.format(values*)), defaultsWithTemplate(template)))
 
   /**
    * Log via a ZStream log pipeline using default and additional custom annotations
@@ -115,7 +115,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(template.format(values)), defaultsWithTemplate(template) ++ annotations))
+  def zlogStream(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.log(template.format(values*)), defaultsWithTemplate(template) ++ annotations))
 
   /**
    * Log error via a ZStream log pipeline using default annotations
@@ -126,7 +126,7 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(template: String, cause: Cause[Any], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template)))
+  def zlogStream(template: String, cause: Cause[Any], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(template.format(values*), cause), defaultsWithTemplate(template)))
 
   /**
    * Log error via a ZStream log pipeline using default and additional custom annotations
@@ -137,4 +137,4 @@ object ZIOLogAnnotations:
    * @return ZIO Workflow
    */
   @unused
-  def zlogStream(template: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(template.format(values), cause), defaultsWithTemplate(template) ++ annotations))
+  def zlogStream(template: String, cause: Cause[Any], annotations: Seq[(LogAnnotation[String], String)], values: String*): ZStream[Any, Nothing, Unit] = ZStream.fromZIO(logEnriched(ZIO.logErrorCause(template.format(values*), cause), defaultsWithTemplate(template) ++ annotations))

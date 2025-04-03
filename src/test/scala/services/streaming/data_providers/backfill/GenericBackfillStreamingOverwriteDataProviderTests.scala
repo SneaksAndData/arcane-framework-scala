@@ -160,7 +160,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       StagingProcessor.layer,
       FieldsFilteringService.layer,
       GenericBackfillStreamingOverwriteDataProvider.layer,
-      IcebergS3CatalogWriter.autoReloadable,
+      IcebergS3CatalogWriter.layer,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),

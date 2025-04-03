@@ -52,7 +52,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
   private val hookManager = SynapseHookManager()
   private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] = ZLayer.succeed(settings)
   private val getProcessor = for {
-    catalogWriterService <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
+    catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(TestStagingDataSettings,
       TestTablePropertiesSettings,
       TestTargetTableSettingsWithMaintenance,
@@ -97,4 +97,4 @@ object StagingProcessorTests extends ZIOSpecDefault:
       } yield assertTrue(result.exists(v => v.asInstanceOf[IndexedStagedBatchesWithMetadata].others == Chunk("metadata", "source delete request")))
     }
 
-  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.autoReloadable) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
+  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
