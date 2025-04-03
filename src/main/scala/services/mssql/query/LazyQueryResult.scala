@@ -5,6 +5,8 @@ import utils.SqlUtils.toArcaneType
 import models.{DataCell, DataRow}
 import services.mssql.base.{CanPeekHead, QueryResult, ResultSetOwner}
 
+import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.renameColumn
+
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -47,13 +49,13 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, 
   private def toDataRow(row: ResultSet, column: Int, acc: DataRow): Try[DataRow] =
     if column == 0 then Success(acc)
     else
-      val name = row.getMetaData.getColumnName(column)
+      val name = renameColumn(row.getMetaData.getColumnName(column))
       val value = row.getObject(column)
       val dataType = row.getMetaData.getColumnType(column)
-      
+
       val precision = row.getMetaData.getPrecision(column)
       val scale = row.getMetaData.getScale(column)
-      
+
       toArcaneType(dataType, precision, scale) match
         case Success(arcaneType) => toDataRow(row, column - 1, DataCell(name, arcaneType, value) :: acc)
         case Failure(exception) => Failure(exception)

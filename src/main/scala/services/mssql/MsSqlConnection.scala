@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
+import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch, renameColumn}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
@@ -148,8 +148,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     columns.get
   }
 
-  private def renameColumn(originalName: String): String = "\\W+".r.replaceAllIn(originalName, "")
-
   @tailrec
   private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
     sqlSchema match
@@ -214,6 +212,8 @@ object MsSqlConnection:
       }
     }
 
+  def renameColumn(originalName: String): String = "\\W+".r.replaceAllIn(originalName, "")
+
   /**
    * Represents a batch of data.
    */
@@ -238,5 +238,6 @@ object MsSqlConnection:
   private def ensureHead(result: VersionedBatch): VersionedBatch =
     val (queryResult, version) = result
     (queryResult.peekHead, version)
+
 
 
