@@ -75,7 +75,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 //      .repeat(Schedule.spaced(changeCaptureInterval))
 //
 //    firstStream.concat(repeatStream)
-  
+
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob)] =
     azureBlogStorageReader.streamBlobContent(storagePath + seb.blob.name)
       .map(javaReader => (javaReader, seb.schema, seb.blob))
@@ -97,6 +97,6 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    */
   def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityChangeData(startFrom)
     .mapZIO(getFileStream)
-    .flatMap { 
+    .flatMap {
       case (fileStream, fileSchema, blob) => getTableChanges(fileStream, fileSchema, blob.name).map(row => (row, blob.name.split("/").head))
     }
