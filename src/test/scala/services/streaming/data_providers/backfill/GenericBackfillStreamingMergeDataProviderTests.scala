@@ -136,7 +136,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       StagingProcessor.layer,
       FieldsFilteringService.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
-      IcebergS3CatalogWriter.autoReloadable,
+      IcebergS3CatalogWriter.layer,
 
       // Settings
       ZLayer.succeed(TestGroupingSettings),
