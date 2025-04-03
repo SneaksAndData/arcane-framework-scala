@@ -10,7 +10,7 @@ import services.storage.models.base.StoredBlob
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.base.BufferedReaderExtensions.*
 import models.{ArcaneSchema, DataRow}
-import services.synapse.SynapseEntitySchemaProvider
+import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import logging.ZIOLogAnnotations.zlogStream
 
@@ -19,9 +19,6 @@ import zio.stream.ZStream
 
 import java.io.{BufferedReader, IOException}
 import java.time.{OffsetDateTime, ZoneOffset}
-
-case class SchemaEnrichedBlob(blob: StoredBlob, schema: ArcaneSchema)
-case class SchemaEnrichedContent(content: String, schema: ArcaneSchema)
 
 final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, azureBlogStorageReader: AzureBlobStorageReader, reader: AzureBlobStorageReader):
 
@@ -83,7 +80,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     azureBlogStorageReader.streamBlobContent(storagePath + seb.blob.name)
       .map(javaReader => (javaReader, seb.schema, seb.blob))
       .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
-  
+
   private def getTableChanges(fileStream: BufferedReader, fileSchema: ArcaneSchema, fileName: String): ZStream[Any, IOException, DataRow] =
     ZStream.acquireReleaseWith(ZIO.attemptBlockingIO(fileStream))(stream => ZIO.succeed(stream.close()))
       .flatMap(javaReader => javaReader.streamMultilineCsv)
@@ -98,8 +95,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    * @param startFrom Start date to get changes from
    * @return
    */
-  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, ZStream[Any, IOException, DataRow]] = getEntityChangeData(startFrom)
+  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityChangeData(startFrom)
     .mapZIO(getFileStream)
-    .map { 
-      case (fileStream, fileSchema, blob) => getTableChanges(fileStream, fileSchema, blob.name)
+    .flatMap { 
+      case (fileStream, fileSchema, blob) => getTableChanges(fileStream, fileSchema, blob.name).map(row => (row, blob.name.split("/").head))
     }

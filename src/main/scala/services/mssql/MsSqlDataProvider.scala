@@ -3,7 +3,7 @@ package services.mssql
 
 import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.base.MssqlVersionedDataProvider
-import services.streaming.base.{BackfillDataProvider, HasVersion}
+import services.streaming.base.HasVersion
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -37,7 +37,7 @@ given HasVersion[VersionedBatch] with
  * @param msSqlConnection The connection to the Microsoft SQL Server.
  */
 class MsSqlDataProvider(msSqlConnection: MsSqlConnection) extends MssqlVersionedDataProvider[Long, VersionedBatch]
-  with BackfillDataProvider:
+  with MssqlBackfillDataProvider:
   
   override def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     ZIO.fromFuture(_ => msSqlConnection.getChanges(previousVersion, lookBackInterval))

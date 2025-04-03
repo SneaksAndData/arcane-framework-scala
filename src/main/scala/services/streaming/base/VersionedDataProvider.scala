@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 /**
@@ -10,7 +11,7 @@ import zio.{Task, ZIO}
  * @tparam DataBatchType   The type of the data batch.
  */
 trait VersionedDataProvider[DataVersionType, DataBatchType]:
-  def requestChanges(previousVersion: Option[DataVersionType], lookBackInterval: java.time.Duration): Task[DataBatchType]
+  def requestChanges(previousVersion: Option[DataVersionType]): ZStream[Any, Throwable, DataBatchType]
 
   /**
    * The first version of the data.
