@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 
-class SynapseLinkVersionedDataProvider(settings: VersionedDataGraphBuilderSettings) extends VersionedDataProvider[String, SynapseLinkVersionedBatch] with BackfillDataProvider:
+class SynapseLinkDataProvider(settings: VersionedDataGraphBuilderSettings) extends VersionedDataProvider[String, SynapseLinkVersionedBatch] with BackfillDataProvider:
   
   override def requestChanges(previousVersion: Option[String], lookBackInterval: Duration): Task[(Seq[DataRow], String)] = ???
 

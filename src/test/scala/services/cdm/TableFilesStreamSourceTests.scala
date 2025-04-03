@@ -6,6 +6,7 @@ import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
+import com.sneaksanddata.arcane.framework.services.synapse.SynapseLinkTableSettings
 import org.easymock.EasyMock.{anyString, replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -38,7 +39,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
         .atLeastOnce()
     }
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
+    val tableSettings = SynapseLinkTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
     val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).lookBackStream.runCollect
 
     replay(reader)
@@ -123,7 +124,7 @@ class TableFilesStreamSourceTests extends AsyncFlatSpec with Matchers with EasyM
     }
     replay(reader)
     val path = AdlsStoragePath("abfss://container@storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
+    val tableSettings = SynapseLinkTableSettings("table", "abfss://container@storageAccount.dfs.core.windows.net/", None)
 
     // Act
     val stream = new TableFilesStreamSource(settings, reader, path, tableSettings).changeCaptureStream.take(2).runCollect

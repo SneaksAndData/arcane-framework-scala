@@ -6,6 +6,7 @@ import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.AzureBlobStorageReader
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.services.synapse.SynapseLinkTableSettings
 import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -42,7 +43,7 @@ class MicrosoftSynapseLinkDataProviderTests extends AsyncFlatSpec with Matchers 
 
   it should "be able to run the data row stream" in {
     val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-    val tableSettings = CdmTableSettings("dimensionattributelevelvalue", s"abfss://$container@$storageAccount.dfs.core.windows.net/", None)
+    val tableSettings = SynapseLinkTableSettings("dimensionattributelevelvalue", s"abfss://$container@$storageAccount.dfs.core.windows.net/", None)
 
     val reader = AzureBlobStorageReader(storageAccount, endpoint, credential)
     val streamSource = new TableFilesStreamSource(settings, reader, path, tableSettings)

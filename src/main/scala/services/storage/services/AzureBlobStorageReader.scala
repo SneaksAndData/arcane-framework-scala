@@ -88,6 +88,12 @@ final class AzureBlobStorageReader(accountName: String,
   override def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
     ZIO.attemptBlocking(getBlobClient(blobPath).exists())
       .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: $result") *> ZIO.succeed(result))
+
+  override def readBlobContent(blobPath: AdlsStoragePath): Task[String] = for
+    client <- ZIO.attempt(getBlobClient(blobPath))
+    _ <- zlog("Reading file %s/%s from Azure Storage account %s", blobPath.container, blobPath.blobPrefix, blobPath.accountName)
+    result <- ZIO.attemptBlockingIO(client.downloadContent().toBytes.mkString)
+  yield result
     
 
 object AzureBlobStorageReader:

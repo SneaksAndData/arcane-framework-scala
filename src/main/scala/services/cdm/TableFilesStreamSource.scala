@@ -6,6 +6,7 @@ import services.cdm.AzureBlobStorageReaderExtensions.{SchemaEnrichedBlobStream, 
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 
+import com.sneaksanddata.arcane.framework.services.synapse.SynapseLinkTableSettings
 import zio.Schedule
 import zio.stream.ZStream
 
@@ -18,7 +19,7 @@ import java.time.Duration
 class TableFilesStreamSource(settings: VersionedDataGraphBuilderSettings,
                              reader: BlobStorageReader[AdlsStoragePath],
                              containerRoot: AdlsStoragePath,
-                             tableSettings: CdmTableSettings):
+                             tableSettings: SynapseLinkTableSettings):
 
   /**
    * Read a table snapshot starting from the last commit date - lookBackInterval

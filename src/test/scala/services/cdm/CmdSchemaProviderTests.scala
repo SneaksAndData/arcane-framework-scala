@@ -16,6 +16,7 @@ import org.scalatestplus.easymock.EasyMockSugar
 import org.scalatestplus.easymock.EasyMockSugar.{expecting, mock}
 import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.FrozenSchemaProvider.freeze
+import com.sneaksanddata.arcane.framework.services.synapse.SynapseEntitySchemaProvider
 import zio.{Runtime, Unsafe, ZIO}
 
 import java.io.{BufferedReader, StringReader}
@@ -36,7 +37,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
   it should "be able to read schema from storage container" in {
 
     val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
-    val provider = CdmSchemaProvider(storageReader, path, tableName, None)
+    val provider = SynapseEntitySchemaProvider(storageReader, path, tableName, None)
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(provider.getSchema)).map { result =>
       result.length should be >= 1
@@ -54,7 +55,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
       .times(5)
     }
     replay(storageReaderMock)
-    val provider = CdmSchemaProvider(storageReaderMock, path, tableName, None)
+    val provider = SynapseEntitySchemaProvider(storageReaderMock, path, tableName, None)
 
     val task = provider.getSchema *> provider.getSchema *> provider.getSchema *> provider.getSchema *> provider.getSchema
 
@@ -115,7 +116,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
 
     }
     replay(storageReaderMock)
-    val provider = CdmSchemaProvider(storageReaderMock, path, "table", None)
+    val provider = SynapseEntitySchemaProvider(storageReaderMock, path, "table", None)
 
     val task = provider.getSchema
 
@@ -145,7 +146,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
       override val retryAttempts: Int = 3
       override val maxDuration: Duration = Duration.ofSeconds(3)
 
-    val provider = CdmSchemaProvider(storageReaderMock, path, "table", Some(retrySettings))
+    val provider = SynapseEntitySchemaProvider(storageReaderMock, path, "table", Some(retrySettings))
 
     val task = provider.getSchema
 
@@ -165,7 +166,7 @@ class CmdSchemaProviderTests extends AsyncFlatSpec with Matchers with EasyMockSu
     }
     replay(storageReaderMock)
 
-    val task = CdmSchemaProvider(storageReaderMock, path, tableName, None).freeze.map(provider =>
+    val task = SynapseEntitySchemaProvider(storageReaderMock, path, tableName, None).freeze.map(provider =>
       List.unfold(0, provider.getSchema, (i: Int) => if (i < 5) Some((i + 1, provider.getSchema)) else None)
     )
 
