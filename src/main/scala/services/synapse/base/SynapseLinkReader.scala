@@ -3,27 +3,33 @@ package services.synapse.base
 
 import models.app.StreamContext
 import models.settings.TargetTableSettings
-
 import services.storage.models.azure.AdlsStoragePath
 import services.base.TableManager
 import services.storage.services.AzureBlobStorageReader
-import services.cdm.SchemaEnrichedBlob
 import services.storage.models.base.StoredBlob
-import services.synapse.SynapseAzureBlobReaderExtensions._
-import com.sneaksanddata.arcane.framework.services.synapse.SynapseEntitySchemaProvider
+import services.synapse.SynapseAzureBlobReaderExtensions.*
+import services.base.BufferedReaderExtensions.*
+import models.{ArcaneSchema, DataRow}
+import services.synapse.SynapseEntitySchemaProvider
+import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
+import logging.ZIOLogAnnotations.zlogStream
 
 import zio.ZIO
 import zio.stream.ZStream
 
+import java.io.{BufferedReader, IOException}
 import java.time.{OffsetDateTime, ZoneOffset}
 
-class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, azureBlogStorageReader: AzureBlobStorageReader, reader: AzureBlobStorageReader):
+case class SchemaEnrichedBlob(blob: StoredBlob, schema: ArcaneSchema)
+case class SchemaEnrichedContent(content: String, schema: ArcaneSchema)
+
+final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, azureBlogStorageReader: AzureBlobStorageReader, reader: AzureBlobStorageReader):
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream
       .filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix.name + "model.json"))
       .mapZIO { prefix =>
-        SynapseEntitySchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, entityName, None)
+        SynapseEntitySchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, entityName)
           .getSchema
           .map(schema => SchemaEnrichedBlob(prefix, schema))
       }
@@ -33,7 +39,7 @@ class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, azureB
    *
    * @return A stream of rows for this table
    */
-  def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate))
+  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate))
       // hierarchical listing:
       // first get entity folders under each date folder
       // select folder matching our entity
@@ -72,47 +78,28 @@ class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, azureB
 //      .repeat(Schedule.spaced(changeCaptureInterval))
 //
 //    firstStream.concat(repeatStream)
-
-//  def getStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, MetadataEnrichedReader] =
-//    azureBlogStorageReader.streamBlobContent(storagePath + seb.blob.name)
-//      .map(javaReader => MetadataEnrichedReader(javaReader, storagePath + seb.blob.name, seb.schemaProvider))
-//      .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
-
-  def tryGetContinuation(stream: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
-    if quotes % 2 == 0 then
-      ZIO.succeed(accum.toString())
-    else
-      for {
-        line <- ZIO.attemptBlocking(Option(stream.readLine()))
-        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(line.map(l => s"\n$l").getOrElse("")))
-      }
-      yield continuation
-
-  def getLine(stream: BufferedReader): ZIO[Any, Throwable, Option[String]] =
-    for {
-      dataLine <- ZIO.attemptBlocking(Option(stream.readLine()))
-      continuation <- tryGetContinuation(stream, dataLine.getOrElse("").count(_ == '"'), new StringBuilder())
-    }
-    yield {
-      dataLine match
-        case None => None
-        case Some(dataLine) if dataLine == "" => None
-        case Some(dataLine) => Some(s"$dataLine\n$continuation")
-    }
-
-  def getData(streamData: MetadataEnrichedReader): ZStream[Any, IOException, DataStreamElement] =
-    ZStream.acquireReleaseWith(ZIO.attempt(streamData.javaStream))(stream => ZIO.succeed(stream.close()))
-      .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
-      .takeWhile(_.isDefined)
-      .map(_.get)
+  
+  private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob)] =
+    azureBlogStorageReader.streamBlobContent(storagePath + seb.blob.name)
+      .map(javaReader => (javaReader, seb.schema, seb.blob))
+      .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
+  
+  private def getTableChanges(fileStream: BufferedReader, fileSchema: ArcaneSchema, fileName: String): ZStream[Any, IOException, DataRow] =
+    ZStream.acquireReleaseWith(ZIO.attemptBlockingIO(fileStream))(stream => ZIO.succeed(stream.close()))
+      .flatMap(javaReader => javaReader.streamMultilineCsv)
       .map(_.replace("\n", ""))
-      .mapZIO(content => streamData.schemaProvider.await.map(schema => SchemaEnrichedContent(content, schema)))
+      .map(content => SchemaEnrichedContent(content, fileSchema))
       .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
-      .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${streamData.filePath} with", e))
-      .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
-      .zipWithIndex
-      .flatMap({
-        case (e: SourceCleanupRequest, index: Long) => zlogStream(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
-        case (r: DataRow, _) => ZStream.succeed(r)
-      })
+      .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${fileName} with", e))
 
+
+  /**
+   * Reads changes happened since startFrom date
+   * @param startFrom Start date to get changes from
+   * @return
+   */
+  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, ZStream[Any, IOException, DataRow]] = getEntityChangeData(startFrom)
+    .mapZIO(getFileStream)
+    .map { 
+      case (fileStream, fileSchema, blob) => getTableChanges(fileStream, fileSchema, blob.name)
+    }

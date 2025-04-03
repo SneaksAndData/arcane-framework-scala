@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.cdm
+package services.base
 
 import zio.ZIO
 import zio.stream.ZStream
@@ -11,8 +11,7 @@ object BufferedReaderExtensions:
 
   /**
    * Reads a CSV file line by line, concatenating lines that are split by newlines within a quoted field.
-   * @param javaReader The BufferedReader to read from.
-   *                   The reader should be closed after the stream is consumed.
+   * The reader should be closed after the stream is consumed.
    * @return A ZStream effect that represents the next line of the CSV file.
    */
   extension (javaReader: BufferedReader) def streamMultilineCsv: ZStream[Any, Throwable, String] =
@@ -21,13 +20,12 @@ object BufferedReaderExtensions:
 
   /**
    * Reads a CSV file line by line, concatenating lines that are split by newlines within a quoted field.
-   * @param stream The BufferedReader to read from.
    * @return A ZIO effect that represents the next line of the CSV file.
    */
-  extension (stream: BufferedReader) def readMultilineCsvLine: ZIO[Any, Throwable, Option[String]] =
+  extension (reader: BufferedReader) def readMultilineCsvLine: ZIO[Any, Throwable, Option[String]] =
     for {
-      dataLine <- ZIO.attemptBlocking(Option(stream.readLine()))
-      continuation <- tryGetContinuation(stream, dataLine.getOrElse("").count(_ == '"'), new StringBuilder())
+      dataLine <- ZIO.attemptBlocking(Option(reader.readLine()))
+      continuation <- tryGetContinuation(reader, dataLine.getOrElse("").count(_ == '"'), new StringBuilder())
     }
     yield {
       dataLine match
@@ -36,12 +34,12 @@ object BufferedReaderExtensions:
         case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
 
-  private def tryGetContinuation(stream: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
+  private def tryGetContinuation(reader: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
     if quotes % 2 == 0 then
       ZIO.succeed(accum.toString())
     else
       for {
-        line <- ZIO.attemptBlocking(Option(stream.readLine()))
-        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(line.map(l => s"\n$l").getOrElse("")))
+        line <- ZIO.attemptBlocking(Option(reader.readLine()))
+        continuation <- tryGetContinuation(reader, quotes + line.getOrElse("").count(_ == '"'), accum.append(line.map(l => s"\n$l").getOrElse("")))
       }
       yield continuation

@@ -61,9 +61,9 @@ final class AzureBlobStorageReader(accountName: String,
    * @inheritdoc
    */
   override def streamBlobContent(blobPath: AdlsStoragePath): Task[BufferedReader] =
-    val client = getBlobClient(blobPath)
     for
       _ <- zlog("Downloading blob content from data file: " + blobPath.toHdfsPath)
+      client <- ZIO.succeed(getBlobClient(blobPath))
       stream <- ZIO.attemptBlocking {
         val stream = client.openInputStream()
         new BufferedReader(new InputStreamReader(stream))

@@ -13,9 +13,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 
-class SynapseLinkDataProvider(settings: VersionedDataGraphBuilderSettings) extends VersionedDataProvider[String, SynapseLinkVersionedBatch] with BackfillDataProvider:
+class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: VersionedDataGraphBuilderSettings) extends VersionedDataProvider[String, SynapseLinkVersionedBatch] with BackfillDataProvider:
   
-  override def requestChanges(previousVersion: Option[String], lookBackInterval: Duration): Task[(Seq[DataRow], String)] = ???
+  override def requestChanges(previousVersion: Option[String], lookBackInterval: Duration): Task[(Seq[DataRow], String)] = synapseReader.getChanges()
 
   override def requestBackfill: Task[BackfillBatch] = ???
 
