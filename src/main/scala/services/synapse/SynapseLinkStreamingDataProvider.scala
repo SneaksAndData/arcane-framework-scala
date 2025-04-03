@@ -6,13 +6,12 @@ import models.DataRow
 import models.app.StreamContext
 import models.settings.VersionedDataGraphBuilderSettings
 import services.synapse.base.SynapseLinkDataProvider
-
 import logging.ZIOLogAnnotations.*
-import zio.ZIO
+
+import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
 class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
-                                       settings: VersionedDataGraphBuilderSettings,
                                        streamContext: StreamContext) extends StreamDataProvider:
   override type StreamElementType = DataRow
 
@@ -23,3 +22,29 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
       version.flatMap(dataProvider.requestChanges).map(r => r._1),
       version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
     )).flatten
+
+object SynapseLinkStreamingDataProvider:
+
+  /**
+   * The environment for the MsSqlStreamingDataProvider.
+   */
+  type Environment = SynapseLinkDataProvider & StreamContext
+  
+  /**
+   * Creates a new instance of the MsSqlStreamingDataProvider class.
+   * @param dataProvider Underlying data provider.
+   * @return A new instance of the MsSqlStreamingDataProvider class.
+   */
+  def apply(dataProvider: SynapseLinkDataProvider,
+            streamContext: StreamContext): SynapseLinkStreamingDataProvider =
+    new SynapseLinkStreamingDataProvider(dataProvider, streamContext)
+
+  /**
+   * The ZLayer that creates the MsSqlStreamingDataProvider.
+   */
+  val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
+    ZLayer {
+      for dataProvider <- ZIO.service[SynapseLinkDataProvider]
+          streamContext <- ZIO.service[StreamContext]
+      yield SynapseLinkStreamingDataProvider(dataProvider, streamContext)
+    }
