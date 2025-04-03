@@ -46,7 +46,6 @@ type SqlSchema = Seq[(String, Int, Int, Int)]
  * @param partitionExpression The partition expression for the table.
  */
 case class ConnectionOptions(connectionUrl: String,
-                             databaseName: String,
                              schemaName: String,
                              tableName: String,
                              partitionExpression: Option[String])
@@ -58,7 +57,7 @@ case class ConnectionOptions(connectionUrl: String,
  */
 class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
   private val driver = new SQLServerDriver()
-  private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
+  private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -68,7 +67,8 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the column summaries for the table in the database.
    */
   def getColumnSummaries: Future[List[ColumnSummary]] =
-    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, connectionOptions.databaseName)
+    val databaseName = connection.getCatalog
+    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, databaseName)
     for query <- Future.fromTry(tryQuery)
         result <- executeColumnSummariesQuery(query)
     yield result
@@ -83,6 +83,8 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         result <- executeQuery(query, connection, LazyQueryResult.apply)
     yield result
 
+  lazy val catalog: String = connection.getCatalog
+  
   /**
    * Gets the changes in the database since the given version.
    * @param maybeLatestVersion The version to start from.

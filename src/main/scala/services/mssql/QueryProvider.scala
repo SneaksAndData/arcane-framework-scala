@@ -36,6 +36,7 @@ object QueryProvider:
         val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         Future.fromTry(QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
+          msSqlConnection.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
@@ -57,6 +58,7 @@ object QueryProvider:
         val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         Future.fromTry(QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
+          msSqlConnection.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
@@ -76,6 +78,7 @@ object QueryProvider:
         val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         Future.fromTry(QueryProvider.getAllQuery(
           msSqlConnection.connectionOptions,
+          msSqlConnection.catalog,
           mergeExpression,
           columnExpression))
       })
@@ -152,6 +155,7 @@ object QueryProvider:
     (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
 
   private def getChangesQuery(connectionOptions: ConnectionOptions,
+                              databaseName: String,
                               mergeExpression: String,
                               columnStatement: String,
                               matchStatement: String,
@@ -162,7 +166,7 @@ object QueryProvider:
     }
 
     val query = Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
-      baseQuery.replace("{dbName}", connectionOptions.databaseName)
+      baseQuery.replace("{dbName}", databaseName)
         .replace("{schema}", connectionOptions.schemaName)
         .replace("{tableName}", connectionOptions.tableName)
         .replace("{ChangeTrackingColumnsStatement}", columnStatement)
@@ -177,6 +181,7 @@ object QueryProvider:
     query
 
   private def getAllQuery(connectionOptions: ConnectionOptions,
+                          databaseName: String,
                           mergeExpression: String,
                           columnExpression: String): Try[MsSqlQuery] =
 
@@ -187,7 +192,7 @@ object QueryProvider:
 
     val query = Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
       baseQuery
-        .replace("{dbName}", connectionOptions.databaseName)
+        .replace("{dbName}", databaseName)
         .replace("{schema}", connectionOptions.schemaName)
         .replace("{tableName}", connectionOptions.tableName)
         .replace("{ChangeTrackingColumnsStatement}", columnExpression)

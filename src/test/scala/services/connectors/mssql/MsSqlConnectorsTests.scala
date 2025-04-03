@@ -41,7 +41,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     util.TestConnectionInfo(
       ConnectionOptions(
         connectionUrl,
-        "arcane",
         "dbo",
         tableName,
         Some("format(getdate(), 'yyyyMM')")), con)
@@ -102,7 +101,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
       connector.connectionOptions.tableName,
-      connector.connectionOptions.databaseName)
+      connector.catalog)
     query.get should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
   }
 
