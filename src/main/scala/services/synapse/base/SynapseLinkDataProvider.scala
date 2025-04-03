@@ -4,10 +4,12 @@ package services.synapse.base
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import services.synapse.{SynapseLinkBatch, SynapseLinkVersionedBatch}
 import models.DataRow
-import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.{BackfillSettings, SynapseSourceSettings, VersionedDataGraphBuilderSettings}
 
+import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import zio.stream.ZStream
-import zio.{Task, ZIO}
+import zio.{Task, ZIO, ZLayer}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
@@ -30,3 +32,21 @@ class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: Versio
         dateBlobPattern.withZone(ZoneOffset.UTC)
       )
   )
+
+object SynapseLinkDataProvider:
+  type Environment = AzureBlobStorageReader
+   & SynapseSourceSettings
+   & VersionedDataGraphBuilderSettings
+   & BackfillSettings
+  
+  val layer: ZLayer[Environment, IllegalArgumentException, SynapseLinkDataProvider] = ZLayer {
+    for 
+      blobReader <- ZIO.service[AzureBlobStorageReader]
+      sourceSettings <- ZIO.service[SynapseSourceSettings]
+      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      backfillSettings <- ZIO.service[BackfillSettings]
+      adlsLocation <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid ADLSGen2 path provided"))(AdlsStoragePath(sourceSettings.baseLocation).toOption)
+      synapseReader <- ZIO.succeed(SynapseLinkReader(sourceSettings.entityName, adlsLocation, blobReader))
+    yield SynapseLinkDataProvider(synapseReader, versionedSettings, backfillSettings)
+  }
+  

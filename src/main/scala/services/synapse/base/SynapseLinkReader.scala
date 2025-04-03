@@ -20,11 +20,11 @@ import zio.stream.{ZPipeline, ZStream}
 import java.io.{BufferedReader, IOException}
 import java.time.{OffsetDateTime, ZoneOffset}
 
-final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, azureBlogStorageReader: AzureBlobStorageReader, reader: AzureBlobStorageReader):
+final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader):
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream
-      .filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix._1.name + "model.json"))
+      .filterZIO(prefix => reader.blobExists(storagePath + prefix._1.name + "model.json"))
       .mapZIO { prefix =>
         SynapseEntitySchemaProvider(reader, (storagePath + prefix._1.name).toHdfsPath, entityName)
           .getSchema
@@ -32,7 +32,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       }
 
   private def filterBlobs(endsWithString: String, blobStream: ZStream[Any, Throwable, SchemaEnrichedBlob]) = blobStream
-    .flatMap(seb => azureBlogStorageReader.streamPrefixes(storagePath + seb.blob.name).map(sb => SchemaEnrichedBlob(sb, seb.schema, seb.latestVersion)))
+    .flatMap(seb => reader.streamPrefixes(storagePath + seb.blob.name).map(sb => SchemaEnrichedBlob(sb, seb.schema, seb.latestVersion)))
     .filter(seb => seb.blob.name.endsWith(endsWithString))
 
   /**
@@ -48,12 +48,12 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
   private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = filterBlobs(
     ".csv", 
     filterBlobs(
-      s"/$entityName/", enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate))
+      s"/$entityName/", enrichWithSchema(reader.getRootPrefixes(storagePath, startDate))
     )
   )
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
-    azureBlogStorageReader.streamBlobContent(storagePath + seb.blob.name)
+    reader.streamBlobContent(storagePath + seb.blob.name)
       .map(javaReader => (javaReader, seb.schema, seb.blob, seb.latestVersion))
       .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
@@ -63,7 +63,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       .map(_.replace("\n", ""))
       .map(content => SchemaEnrichedContent(content, fileSchema, latestVersion))
       .mapZIO(sec => ZIO.attempt((implicitly[DataRow](sec.content, sec.schema), sec.latestVersion)))
-      .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${fileName} with", e))
+      .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName with", e))
 
 
   /**
