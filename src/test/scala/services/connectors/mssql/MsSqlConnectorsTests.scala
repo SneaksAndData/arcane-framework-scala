@@ -47,7 +47,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         Some("format(getdate(), 'yyyyMM')")), con)
 
   def createTable(tableName: String, con: Connection): Unit =
-    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX))"
+    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME)"
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
@@ -60,13 +60,13 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   def insertData(con: Connection): Unit =
     val statement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1}, null, CAST(123456 AS VARBINARY(MAX)))"
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56')"
       statement.execute(insertCmd)
     statement.close()
 
     val updateStatement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)))"
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56')"
       updateStatement.execute(insertCmd)
 
   def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {

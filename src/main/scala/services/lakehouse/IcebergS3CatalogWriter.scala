@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
-import models.{ArcaneSchema, DataRow}
+import models.{ArcaneSchema, ArcaneType, DataCell, DataRow}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
@@ -15,13 +15,14 @@ import org.apache.iceberg.{CatalogProperties, CatalogUtil, DataFiles, PartitionS
 import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
-import com.sneaksanddata.arcane.framework.models.ArcaneType.ByteArrayType
-import com.sneaksanddata.arcane.framework.models.DataCell
+import com.sneaksanddata.arcane.framework.models.ArcaneType.{ByteArrayType, TimestampType}
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
+import org.apache.iceberg.types.Types.TimestampType
 import zio.*
 
 import java.nio.ByteBuffer
+import java.sql.Timestamp
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 import scala.collection.mutable
@@ -100,7 +101,8 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
     val rowMap = row.map({
-      case DataCell(name, ByteArrayType, value) => name -> ByteBuffer.wrap(value.asInstanceOf[Array[Byte]])
+      case DataCell(name, ArcaneType.TimestampType, value) => name -> value.asInstanceOf[Timestamp].toLocalDateTime
+      case DataCell(name, ArcaneType.ByteArrayType, value) => name -> ByteBuffer.wrap(value.asInstanceOf[Array[Byte]])
       case DataCell(name, _, value) => name -> value
     })
     record.copy(rowMap.toMap.asJava)
