@@ -15,7 +15,9 @@ object SqlUtils:
    * @return The schema of the table.
    */
   extension (resultSet: ResultSet) def readArcaneSchema: Try[ArcaneSchema] =
-    val columns = resultSet.getColumns.map(c => (c._1.toUpperCase(), toArcaneType(c._2)))
+    val columns = resultSet.getColumns.map({ case (name, sqlType, precision, scale) =>
+      (name.toUpperCase(), toArcaneType(sqlType, precision, scale))
+    })
     val arcaneColumns = for c <- columns
       yield c match
         case (MergeKeyField.name, Success(_)) => Success(MergeKeyField)
@@ -34,7 +36,7 @@ object SqlUtils:
    * @param sqlType The SQL type.
    * @return The Arcane type.
    */
-  def toArcaneType(sqlType: Int): Try[ArcaneType] = sqlType match
+  def toArcaneType(sqlType: Int, precision: Int, scale: Int): Try[ArcaneType] = sqlType match
     case java.sql.Types.BIGINT => Success(ArcaneType.LongType)
     case java.sql.Types.BINARY => Success(ArcaneType.ByteArrayType)
     case java.sql.Types.BIT => Success(ArcaneType.BooleanType)
@@ -43,7 +45,7 @@ object SqlUtils:
     case java.sql.Types.DATE => Success(ArcaneType.DateType)
     case java.sql.Types.TIMESTAMP => Success(ArcaneType.TimestampType)
     case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
-    case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType)
+    case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType(precision, scale))
     case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
     case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
     case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
@@ -59,6 +61,9 @@ object SqlUtils:
   /**
    * Gets the columns of a result set.
    */
-  extension (resultSet: ResultSet) def getColumns: Seq[(String, Int)] =
+  extension (resultSet: ResultSet) def getColumns: Seq[(String, Int, Int, Int)] =
     for i <- 1 to resultSet.getMetaData.getColumnCount
-      yield (resultSet.getMetaData.getColumnName(i), resultSet.getMetaData.getColumnType(i))
+      yield (resultSet.getMetaData.getColumnName(i),
+             resultSet.getMetaData.getColumnType(i),
+             resultSet.getMetaData.getPrecision(i),
+        resultSet.getMetaData.getScale(i))

@@ -34,7 +34,7 @@ type MsSqlQuery = String
 /**
  * Represents the schema of a table in a Microsoft SQL Server database.
  */
-type SqlSchema = Seq[(String, Int)]
+type SqlSchema = Seq[(String, Int, Int, Int)]
 
 /**
  * Represents the connection options for a Microsoft SQL Server database.
@@ -143,7 +143,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         use(statement.executeQuery(query))
       }
       val metadata = resultSet.getMetaData
-      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i), metadata.getColumnType(i))
+      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i), metadata.getColumnType(i), metadata.getPrecision(i), metadata.getScale(i))
     }
     columns.get
   }
@@ -154,9 +154,8 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
     sqlSchema match
       case Nil => Success(schema)
-      case x +: xs =>
-        val (name, fieldType) = x
-        toArcaneType(fieldType) match
+      case (name, fieldType, precision, scale) +: xs =>
+        toArcaneType(fieldType, precision, scale) match
           case Success(arcaneType) => toSchema(xs, schema.addField(renameColumn(name), arcaneType))
           case Failure(exception) => Failure[this.SchemaType](exception)
 

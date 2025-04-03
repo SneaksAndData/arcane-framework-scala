@@ -23,7 +23,7 @@ object SchemaConversions:
     case DateType => Types.DateType.get()
     case TimestampType => Types.TimestampType.withoutZone()
     case DateTimeOffsetType => Types.TimestampType.withZone()
-    case BigDecimalType => Types.DecimalType.of(30, 6)
+    case BigDecimalType(precision, scale) => Types.DecimalType.of(precision, scale)
     case DoubleType => Types.DoubleType.get()
     case FloatType => Types.FloatType.get()
     case ShortType => Types.IntegerType.get()

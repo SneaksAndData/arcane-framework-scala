@@ -44,14 +44,16 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, 
     new LazyQueryResult(statement, resultSet, read.headOption.toList)
 
   @tailrec
-  private def toDataRow(row: ResultSet, columns: Int, acc: DataRow): Try[DataRow] =
-    if columns == 0 then Success(acc)
+  private def toDataRow(row: ResultSet, column: Int, acc: DataRow): Try[DataRow] =
+    if column == 0 then Success(acc)
     else
-      val name = row.getMetaData.getColumnName(columns)
-      val value = row.getObject(columns)
-      val dataType = row.getMetaData.getColumnType(columns)
-      toArcaneType(dataType) match
-        case Success(arcaneType) => toDataRow(row, columns - 1, DataCell(name, arcaneType, value) :: acc)
+      val name = row.getMetaData.getColumnName(column)
+      val value = row.getObject(column)
+      val dataType = row.getMetaData.getColumnType(column)
+      val precision = row.getMetaData.getPrecision(column)
+      val scale = row.getMetaData.getPrecision(column)
+      toArcaneType(dataType, precision, scale) match
+        case Success(arcaneType) => toDataRow(row, column - 1, DataCell(name, arcaneType, value) :: acc)
         case Failure(exception) => Failure(exception)
 
 /**
