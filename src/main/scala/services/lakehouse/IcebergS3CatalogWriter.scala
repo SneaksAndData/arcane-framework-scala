@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
 import models.{ArcaneSchema, ArcaneType, DataCell, DataRow}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, IcebergDataRowConverter}
 
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
 import org.apache.iceberg.catalog.TableIdentifier
@@ -15,14 +15,10 @@ import org.apache.iceberg.{CatalogProperties, CatalogUtil, DataFiles, PartitionS
 import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
 import logging.ZIOLogAnnotations.*
 
-import com.sneaksanddata.arcane.framework.models.ArcaneType.{ByteArrayType, TimestampType}
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
-import org.apache.iceberg.types.Types.TimestampType
 import zio.*
 
-import java.nio.ByteBuffer
-import java.sql.Timestamp
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
 import scala.collection.mutable
@@ -38,7 +34,9 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
   
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema]:
+class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings, icebergTypeConverter: IcebergDataRowConverter)
+  extends CatalogWriter[RESTCatalog, Table, Schema]:
+
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,
@@ -100,12 +98,8 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
-    val rowMap = row.map({
-      case DataCell(name, ArcaneType.TimestampType, value) => name -> value.asInstanceOf[Timestamp].toLocalDateTime
-      case DataCell(name, ArcaneType.ByteArrayType, value) => name -> ByteBuffer.wrap(value.asInstanceOf[Array[Byte]])
-      case DataCell(name, _, value) => name -> value
-    })
-    record.copy(rowMap.toMap.asJava)
+    val rowMap = icebergTypeConverter.convert(row)
+    record.copy(rowMap.asJava)
 
   private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
     _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
@@ -157,7 +151,11 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
 
 object IcebergS3CatalogWriter:
 
+  /**
+   * The environment required to create an instance of IcebergS3CatalogWriter.
+   */
   type Environment = IcebergCatalogSettings
+    & IcebergDataRowConverter
 
   /**
    * Factory method to create IcebergS3CatalogWriter
@@ -165,8 +163,8 @@ object IcebergS3CatalogWriter:
    * @param icebergSettings Iceberg settings
    * @return The initialized IcebergS3CatalogWriter instance
    */
-  def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
-    new IcebergS3CatalogWriter(icebergSettings)
+  def apply(icebergSettings: IcebergCatalogSettings, icebergDataRowConverter: IcebergDataRowConverter): IcebergS3CatalogWriter =
+    new IcebergS3CatalogWriter(icebergSettings, icebergDataRowConverter)
 
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
@@ -175,5 +173,6 @@ object IcebergS3CatalogWriter:
     ZLayer {
       for
         settings <- ZIO.service[IcebergCatalogSettings]
-      yield IcebergS3CatalogWriter(settings)
+        icebergDataRowConverter <- ZIO.service[IcebergDataRowConverter]
+      yield IcebergS3CatalogWriter(settings, icebergDataRowConverter)
     }

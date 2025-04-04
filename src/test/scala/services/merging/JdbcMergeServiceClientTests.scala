@@ -5,17 +5,18 @@ import services.consumers.SynapseLinkMergeBatch
 import utils.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, Field, MergeKeyField}
-import com.sneaksanddata.arcane.framework.models.ArcaneType.{BooleanType, LongType, StringType}
+import com.sneaksanddata.arcane.framework.models.ArcaneType.{BigDecimalType, BooleanType, LongType, StringType}
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import io.trino.jdbc.TrinoDriver
+import org.easymock.EasyMock.replay
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
-import zio.{Runtime, Task, Unsafe}
+import zio.{Runtime, Task, Unsafe, ZIO}
 
 import java.sql.Connection
 import java.util.Properties
@@ -183,3 +184,21 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
         _ <- mergeServiceClient.getSchema("table_a")
     yield callCount should be(2)
   }
+
+//  it should "create target table without errors" in withTargetTable("table_a") { connection =>
+//    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+//      Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
+//      Field("new_column", BigDecimalType(30, 6)) :: Nil
+//
+//    expecting {
+//      schemaProviderMock.getSchema.andReturn(ZIO.succeed(updatedSchema))
+//    }
+//    replay(schemaProviderMock)
+//    def schemaProviderFactory(name: String, connection: Connection) = new JdbcSchemaProvider(name, connection)
+//      
+//    val mergeServiceClient = getSystemUnderTest(Some(schemaProviderFactory))
+//
+//    // The schema provider should be called twice, once for the original schema and once for the updated schema
+//    for _ <- mergeServiceClient.createTargetTable
+//    yield succeed
+//  }
