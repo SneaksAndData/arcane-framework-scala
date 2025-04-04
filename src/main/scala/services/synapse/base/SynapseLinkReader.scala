@@ -9,17 +9,18 @@ import services.storage.services.AzureBlobStorageReader
 import services.storage.models.base.StoredBlob
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.base.BufferedReaderExtensions.*
-import models.{ArcaneSchema, DataRow}
+import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, given_CanAdd_ArcaneSchema}
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import logging.ZIOLogAnnotations.zlogStream
 
+import com.sneaksanddata.arcane.framework.models.ArcaneType.*
 import zio.{Task, ZIO, ZLayer}
 import zio.stream.{ZPipeline, ZStream}
 
 import java.io.{BufferedReader, IOException}
-import java.time.{OffsetDateTime, ZoneOffset}
-import models.given_CanAdd_ArcaneSchema
+import java.time.format.DateTimeFormatter
+import java.time.{LocalDateTime, OffsetDateTime, ZoneId, ZoneOffset}
 
 final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader) extends SchemaProvider[ArcaneSchema]:
 
@@ -85,7 +86,68 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .mapZIO(getFileStream)
     .flatMap {
       case (fileStream, fileSchema, blob, latestVersion) => getTableChanges(fileStream, fileSchema, blob.name, latestVersion)
+    }.map {
+      case (row, version) => (convertRow(row), version)
     }
+
+/**
+ * Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
+ * https://github.com/SneaksAndData/arcane-framework-scala/issues/125
+ */
+
+  private def convertRow(row: DataRow): DataRow = row.map(convertCell)
+
+  private def convertCell(cell: DataCell): DataCell =
+    cell.value match
+      case None => null
+      case Some(v) => cell.copy(name = cell.name, Type = cell.Type, value = valueAsJava(cell.name, cell.Type, v))
+
+  private def valueAsJava(fieldName: String, arcaneType: ArcaneType, value: Any): Any = arcaneType match
+    case LongType => value.toString.toLong
+    case ByteArrayType => value.toString.getBytes
+    case BooleanType => value.toString.toBoolean
+    case StringType => value.toString
+    case DateType => java.sql.Date.valueOf(value.toString)
+    case TimestampType => valueAsTimeStamp(fieldName, value)
+    case DateTimeOffsetType => valueAsOffsetDateTime(value)
+    case BigDecimalType => BigDecimal(value.toString)
+    case DoubleType => value.toString.toDouble
+    case IntType => value.toString.toInt
+    case FloatType => value.toString.toFloat
+    case ShortType => value.toString.toShort
+    case TimeType => java.sql.Time.valueOf(value.toString)
+
+  private def valueAsOffsetDateTime(value: Any): OffsetDateTime = value match
+    case timestampValue: String if timestampValue.endsWith("Z")
+    => OffsetDateTime.parse(timestampValue)
+    case timestampValue: String if timestampValue.contains("+00:00")
+    => OffsetDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"))
+    case timestampValue: String
+    => LocalDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")).atOffset(ZoneOffset.UTC)
+    case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
+
+  private def valueAsTimeStamp(columnName: String, value: Any): LocalDateTime = value match
+    case timestampValue: String =>
+      columnName match
+        case "SinkCreatedOn" | "SinkModifiedOn" =>
+          // format  from MS docs: M/d/yyyy H:mm:ss tt
+          // example from MS docs: 6/28/2021 4:34:35 PM
+          LocalDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a"))
+        case "CreatedOn" =>
+          // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss.sssssssXXX
+          // example from MS docs: 2018-05-25T16:21:09.0000000+00:00
+          LocalDateTime.ofInstant(OffsetDateTime.parse(timestampValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant,
+            ZoneId.systemDefault())
+        case _ =>
+          // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss'Z'
+          // example from MS docs: 2021-06-25T16:21:12Z
+          val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS");
+          if (timestampValue.endsWith("Z")) {
+            LocalDateTime.parse(timestampValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          } else {
+            LocalDateTime.parse(timestampValue, formatter)
+          }
+    case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")   
 
 object SynapseLinkReader:
   def apply(blobStorageReader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkReader =
