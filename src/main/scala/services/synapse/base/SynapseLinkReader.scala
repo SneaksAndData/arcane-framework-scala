@@ -27,7 +27,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    * Schema here comes from root-level model.json
    *  @return A future containing the schema for the data produced by Arcane.
    */
-  override def getSchema: Task[ArcaneSchema] = SynapseEntitySchemaProvider(reader, (storagePath + "model.json").toHdfsPath, entityName)
+  override def getSchema: Task[ArcaneSchema] = SynapseEntitySchemaProvider(reader, storagePath.toHdfsPath, entityName)
     .getSchema
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
