@@ -19,14 +19,8 @@ class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: Versio
 
   private val dateBlobPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
 
-  override def requestChanges(previousVersion: Option[String]): ZStream[Any, Throwable, SynapseLinkVersionedBatch] =
-    ZStream.fromZIO(for {
-      resultVersion <- ZIO.succeed(previousVersion).flatMap {
-        case Some(v) => ZIO.succeed(v)
-        case None => firstVersion
-      }
-    } yield resultVersion)
-      .flatMap(resolvedVersion => synapseReader.getChanges(OffsetDateTime.parse(resolvedVersion, dateBlobPattern)))
+  override def requestChanges(previousVersion: String): ZStream[Any, Throwable, SynapseLinkVersionedBatch] =
+    ZStream.succeed(previousVersion).flatMap(resolvedVersion => synapseReader.getChanges(OffsetDateTime.parse(resolvedVersion, dateBlobPattern)))
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
     case Some(backfillStartDate) => synapseReader.getChanges(backfillStartDate).map(_._1)

@@ -11,7 +11,7 @@ import zio.{Task, ZIO}
  * @tparam DataBatchType   The type of the data batch.
  */
 trait VersionedDataProvider[DataVersionType, DataBatchType]:
-  def requestChanges(previousVersion: Option[DataVersionType]): ZStream[Any, Throwable, DataBatchType]
+  def requestChanges(previousVersion: DataVersionType): ZStream[Any, Throwable, DataBatchType]
 
   /**
    * The first version of the data.
