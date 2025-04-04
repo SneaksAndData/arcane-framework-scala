@@ -18,7 +18,7 @@ enum ArcaneType:
   case DateType
   case TimestampType
   case DateTimeOffsetType
-  case BigDecimalType
+  case BigDecimalType(precision: Int, scale: Int)
   case DoubleType
   case IntType
   case FloatType

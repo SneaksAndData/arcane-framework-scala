@@ -29,7 +29,7 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.TimestampType
+import org.apache.iceberg.types.Types.{DecimalType, TimestampType}
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -255,7 +255,7 @@ object JdbcMergeServiceClient:
     case TypeID.LONG => "BIGINT"
     case TypeID.FLOAT => "REAL"
     case TypeID.DOUBLE => "DOUBLE"
-    case TypeID.DECIMAL => "DECIMAL(1, 2)"
+    case TypeID.DECIMAL => s"DECIMAL(${icebergType.asInstanceOf[DecimalType].precision}, ${icebergType.asInstanceOf[DecimalType].scale})"
     case TypeID.DATE => "DATE"
     case TypeID.TIME => "TIME(6)"
     case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
