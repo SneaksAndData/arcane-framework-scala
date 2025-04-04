@@ -6,8 +6,8 @@ import services.synapse.{SynapseLinkBatch, SynapseLinkVersionedBatch}
 import models.DataRow
 import models.settings.{BackfillSettings, SynapseSourceSettings, VersionedDataGraphBuilderSettings}
 
-import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
-import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
+import services.storage.models.azure.AdlsStoragePath
+import services.storage.services.AzureBlobStorageReader
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -19,7 +19,14 @@ class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: Versio
 
   private val dateBlobPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
 
-  override def requestChanges(previousVersion: Option[String]): ZStream[Any, Throwable, SynapseLinkVersionedBatch] = ZStream.fromZIO(firstVersion).flatMap(fv => synapseReader.getChanges(OffsetDateTime.parse(previousVersion.getOrElse(fv), dateBlobPattern)))
+  override def requestChanges(previousVersion: Option[String]): ZStream[Any, Throwable, SynapseLinkVersionedBatch] =
+    ZStream.fromZIO(for {
+      resultVersion <- ZIO.succeed(previousVersion).flatMap {
+        case Some(v) => ZIO.succeed(v)
+        case None => firstVersion
+      }
+    } yield resultVersion)
+      .flatMap(resolvedVersion => synapseReader.getChanges(OffsetDateTime.parse(resolvedVersion, dateBlobPattern)))
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
     case Some(backfillStartDate) => synapseReader.getChanges(backfillStartDate).map(_._1)
@@ -32,8 +39,6 @@ class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: Versio
         dateBlobPattern.withZone(ZoneOffset.UTC)
       )
   )
-  
-  def fallbackVersion: Task[String] = synapseReader.getLatestVersion
 
 object SynapseLinkDataProvider:
   type Environment = VersionedDataGraphBuilderSettings

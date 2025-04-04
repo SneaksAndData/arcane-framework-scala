@@ -32,12 +32,10 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
         ),
       version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
         .orElseIfEmpty(
-          ZStream.fromZIO(
-            for {
-              fallback <- dataProvider.fallbackVersion.map(v => Some(v))
-              _ <- zlog("No rows emitted from latest scan, falling back to %s timestamp for next iteration", fallback.get)
-            } yield fallback
-          )
+          version.flatMap { versionValue => 
+            zlogStream("No rows emitted from latest scan, staying at %s timestamp for next iteration", versionValue.getOrElse("None"))
+              .map(_ => versionValue)
+          }
         )
     )).flatten
 

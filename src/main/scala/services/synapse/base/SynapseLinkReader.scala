@@ -32,8 +32,6 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .getSchema
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
-  
-  def getLatestVersion: Task[String] = reader.getInProgressVersion(storagePath)
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream

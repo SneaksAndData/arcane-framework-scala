@@ -43,9 +43,6 @@ object SynapseAzureBlobReaderExtensions:
           }
   yield eligibleBlob
 
-  extension (reader: BlobStorageReader[AdlsStoragePath]) def getInProgressVersion(storagePath: AdlsStoragePath): Task[String] = 
-    reader.readBlobContent(storagePath + "Changelog/changelog.info")
-
 private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
   val currentMoment = endDate.plusHours(1)
   val startMoment = startDate
