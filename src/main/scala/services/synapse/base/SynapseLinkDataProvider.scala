@@ -34,19 +34,14 @@ class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: Versio
   )
 
 object SynapseLinkDataProvider:
-  type Environment = AzureBlobStorageReader
-   & SynapseSourceSettings
-   & VersionedDataGraphBuilderSettings
+  type Environment = VersionedDataGraphBuilderSettings
    & BackfillSettings
-  
-  val layer: ZLayer[Environment, IllegalArgumentException, SynapseLinkDataProvider] = ZLayer {
-    for 
-      blobReader <- ZIO.service[AzureBlobStorageReader]
-      sourceSettings <- ZIO.service[SynapseSourceSettings]
+   & SynapseLinkReader
+
+  val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
+    for
       versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
       backfillSettings <- ZIO.service[BackfillSettings]
-      adlsLocation <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid ADLSGen2 path provided"))(AdlsStoragePath(sourceSettings.baseLocation).toOption)
-      synapseReader <- ZIO.succeed(SynapseLinkReader(sourceSettings.entityName, adlsLocation, blobReader))
+      synapseReader <- ZIO.service[SynapseLinkReader]
     yield SynapseLinkDataProvider(synapseReader, versionedSettings, backfillSettings)
   }
-  

@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
 import models.app.StreamContext
-import models.settings.TargetTableSettings
+import models.settings.{SynapseSourceSettings, TargetTableSettings}
 import services.storage.models.azure.AdlsStoragePath
-import services.base.TableManager
+import services.base.{SchemaProvider, TableManager}
 import services.storage.services.AzureBlobStorageReader
 import services.storage.models.base.StoredBlob
 import services.synapse.SynapseAzureBlobReaderExtensions.*
@@ -14,13 +14,23 @@ import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntit
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import logging.ZIOLogAnnotations.zlogStream
 
-import zio.ZIO
+import zio.{Task, ZIO, ZLayer}
 import zio.stream.{ZPipeline, ZStream}
 
 import java.io.{BufferedReader, IOException}
 import java.time.{OffsetDateTime, ZoneOffset}
+import models.given_CanAdd_ArcaneSchema
 
-final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader):
+final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader) extends SchemaProvider[ArcaneSchema]:
+
+  /**
+   * Schema here comes from root-level model.json
+   *  @return A future containing the schema for the data produced by Arcane.
+   */
+  override def getSchema: Task[ArcaneSchema] = SynapseEntitySchemaProvider(reader, (storagePath + "model.json").toHdfsPath, entityName)
+    .getSchema
+
+  override def empty: ArcaneSchema = ArcaneSchema.empty()
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream
@@ -76,3 +86,15 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .flatMap {
       case (fileStream, fileSchema, blob, latestVersion) => getTableChanges(fileStream, fileSchema, blob.name, latestVersion)
     }
+
+object SynapseLinkReader:
+  def apply(blobStorageReader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkReader =
+    new SynapseLinkReader(name, location, blobStorageReader)
+
+  val layer: ZLayer[SynapseSourceSettings & AzureBlobStorageReader, IllegalArgumentException, SynapseLinkReader] = ZLayer {
+    for
+      blobReader <- ZIO.service[AzureBlobStorageReader]
+      sourceSettings <- ZIO.service[SynapseSourceSettings]
+      adlsLocation <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid ADLSGen2 path provided"))(AdlsStoragePath(sourceSettings.baseLocation).toOption)
+    yield SynapseLinkReader(blobReader, sourceSettings.entityName, adlsLocation)
+  }
