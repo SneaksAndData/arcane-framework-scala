@@ -23,9 +23,22 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
       version
         .flatMap(dataProvider.requestChanges).map(r => r._1)
         .orElseIfEmpty(
-          ZStream.fromZIO(ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))).flatMap(_ => ZStream.empty)
+          ZStream.fromZIO(
+            for {
+              _ <- zlog("No changes, next check in %s seconds", settings.changeCaptureInterval.toSeconds.toString)
+              _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+            } yield ()
+          ).flatMap(_ => ZStream.empty)
         ),
       version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
+        .orElseIfEmpty(
+          ZStream.fromZIO(
+            for {
+              fallback <- dataProvider.fallbackVersion.map(v => Some(v))
+              _ <- zlog("No rows emitted from latest scan, falling back to %s timestamp for next iteration", fallback.get)
+            } yield fallback
+          )
+        )
     )).flatten
 
 object SynapseLinkStreamingDataProvider:

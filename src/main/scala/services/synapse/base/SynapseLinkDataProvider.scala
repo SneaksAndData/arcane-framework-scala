@@ -32,6 +32,8 @@ class SynapseLinkDataProvider(synapseReader: SynapseLinkReader, settings: Versio
         dateBlobPattern.withZone(ZoneOffset.UTC)
       )
   )
+  
+  def fallbackVersion: Task[String] = synapseReader.getLatestVersion
 
 object SynapseLinkDataProvider:
   type Environment = VersionedDataGraphBuilderSettings

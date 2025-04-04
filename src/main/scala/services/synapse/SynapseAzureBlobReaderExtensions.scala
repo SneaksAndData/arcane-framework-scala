@@ -6,7 +6,7 @@ import services.storage.models.azure.AdlsStoragePath
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogStream
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import zio.ZIO
+import zio.{Task, ZIO}
 import zio.stream.ZStream
 
 import java.time.{Duration, OffsetDateTime}
@@ -42,6 +42,9 @@ object SynapseAzureBlobReaderExtensions:
             case (Some(date), blob) if (date.isAfter(startFrom) || date.isEqual(startFrom)) && (!date.isEqual(inProgressDateParsed)) => (blob, inProgressDate)
           }
   yield eligibleBlob
+
+  extension (reader: BlobStorageReader[AdlsStoragePath]) def getInProgressVersion(storagePath: AdlsStoragePath): Task[String] = 
+    reader.readBlobContent(storagePath + "Changelog/changelog.info")
 
 private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
   val currentMoment = endDate.plusHours(1)

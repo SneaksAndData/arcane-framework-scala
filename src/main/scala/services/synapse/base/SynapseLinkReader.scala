@@ -32,6 +32,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .getSchema
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
+  
+  def getLatestVersion: Task[String] = reader.getInProgressVersion(storagePath)
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream
@@ -147,7 +149,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
           } else {
             LocalDateTime.parse(timestampValue, formatter)
           }
-    case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")   
+    case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
 object SynapseLinkReader:
   def apply(blobStorageReader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkReader =
