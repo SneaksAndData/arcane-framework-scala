@@ -99,7 +99,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
   private def convertCell(cell: DataCell): DataCell =
     cell.value match
-      case None => null
+      case None => cell.copy(name = cell.name, Type = cell.Type, value = null)
       case Some(v) => cell.copy(name = cell.name, Type = cell.Type, value = valueAsJava(cell.name, cell.Type, v))
 
   private def valueAsJava(fieldName: String, arcaneType: ArcaneType, value: Any): Any = arcaneType match
