@@ -50,7 +50,6 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
     util.TestConnectionInfo(
       ConnectionOptions(
         connectionUrl,
-        "arcane",
         "dbo",
         tableName,
         Some("format(getdate(), 'yyyyMM')")), con)
