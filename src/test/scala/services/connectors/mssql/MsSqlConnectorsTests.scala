@@ -25,7 +25,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
   
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  
+
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
@@ -133,7 +133,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         )
     }
   }
-  
+
 
   "MsSqlConnection" should "be able to extract schema columns from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)

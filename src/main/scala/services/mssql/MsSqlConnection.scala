@@ -3,7 +3,7 @@ package services.mssql
 
 import models.{ArcaneSchema, ArcaneType, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
+import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch, renameColumn}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
@@ -59,7 +59,7 @@ case class ConnectionOptions(connectionUrl: String,
  */
 class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
   lazy val catalog: String = connection.getCatalog
-  
+
   private val driver = new SQLServerDriver()
   private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -93,7 +93,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(catalog, maybeLatestVersion, lookBackInterval)
+    val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
 
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
@@ -160,7 +160,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
       case Nil => Success(schema)
       case (name, fieldType, precision, scale) +: xs =>
         toArcaneType(fieldType, precision, scale) match
-          case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
+          case Success(arcaneType) => toSchema(xs, schema.addField(renameColumn(name), arcaneType))
           case Failure(exception) => Failure[this.SchemaType](exception)
 
   private def executeColumnSummariesQuery(query: String): Future[List[ColumnSummary]] =
@@ -214,6 +214,8 @@ object MsSqlConnection:
       }
     }
 
+  def renameColumn(originalName: String): String = "\\W+".r.replaceAllIn(originalName, "")
+
   /**
    * Represents a batch of data.
    */
@@ -238,5 +240,6 @@ object MsSqlConnection:
   private def ensureHead(result: VersionedBatch): VersionedBatch =
     val (queryResult, version) = result
     (queryResult.peekHead, version)
+
 
 
