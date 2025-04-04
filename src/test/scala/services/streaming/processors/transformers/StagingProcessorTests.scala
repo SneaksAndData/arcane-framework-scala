@@ -1,31 +1,21 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
-import models.settings.TableFormat.PARQUET
-import models.settings.*
 import models.*
+import services.cdm.SynapseHookManager
 import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
-import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, StagedBatchProcessor, ToInFlightBatch}
+import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter, IdentityIcebergDataRowConverter}
+import services.streaming.base.*
+import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
-import com.sneaksanddata.arcane.framework.services.cdm.SynapseHookManager
-import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
-import org.easymock.EasyMock
-import org.easymock.EasyMock.{createMock, expect, replay, verify}
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Reloadable, Runtime, Unsafe, ZIO, ZLayer}
 import zio.test.*
 import zio.test.TestAspect.timeout
-
-import scala.concurrent.Future
+import zio.{Chunk, ZIO, ZLayer}
 
 type TestInput = DataRow|String
 
@@ -97,4 +87,4 @@ object StagingProcessorTests extends ZIOSpecDefault:
       } yield assertTrue(result.exists(v => v.asInstanceOf[IndexedStagedBatchesWithMetadata].others == Chunk("metadata", "source delete request")))
     }
 
-  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
+  ).provide(IdentityIcebergDataRowConverter.layer, icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
