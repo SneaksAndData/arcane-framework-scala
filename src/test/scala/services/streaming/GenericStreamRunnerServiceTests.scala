@@ -2,14 +2,17 @@ package com.sneaksanddata.arcane.framework
 package services.streaming
 
 import models.*
+import models.app.StreamContext
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
+import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter, IdentityIcebergDataRowConverter}
 import services.merging.JdbcTableManager
-import services.streaming.base.{BackfillDataProvider, BackfillStreamingDataProvider, HookManager, StreamDataProvider}
+import services.streaming.base.{HookManager, StreamDataProvider}
+import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
@@ -17,12 +20,6 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -30,7 +27,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
-import zio.{Chunk, Runtime, Schedule, Unsafe, ZIO, ZLayer}
+import zio.{Runtime, Schedule, Unsafe, ZIO, ZLayer}
 
 class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -115,7 +112,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
-      })
+      }),
+      IdentityIcebergDataRowConverter.layer,
     )
 
     // Act

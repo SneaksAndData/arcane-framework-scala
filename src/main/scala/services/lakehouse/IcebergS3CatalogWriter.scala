@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.lakehouse
 
 import models.{ArcaneSchema, DataRow}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
+import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, IcebergDataRowConverter}
 
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
 import org.apache.iceberg.catalog.TableIdentifier
@@ -34,7 +34,9 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
   
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema]:
+class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings, icebergDataRowConverter: IcebergDataRowConverter)
+  extends CatalogWriter[RESTCatalog, Table, Schema]:
+  
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,
@@ -96,7 +98,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
-    val rowMap = row.map { cell => cell.name -> cell.value }.toMap
+    val rowMap = icebergDataRowConverter.convert(row)
     record.copy(rowMap.asJava)
 
   private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
@@ -149,7 +151,11 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
 
 object IcebergS3CatalogWriter:
 
+  /**
+   * The environment required for the IcebergS3CatalogWriter.
+   */
   type Environment = IcebergCatalogSettings
+    & IcebergDataRowConverter
 
   /**
    * Factory method to create IcebergS3CatalogWriter
@@ -157,8 +163,8 @@ object IcebergS3CatalogWriter:
    * @param icebergSettings Iceberg settings
    * @return The initialized IcebergS3CatalogWriter instance
    */
-  def apply(icebergSettings: IcebergCatalogSettings): IcebergS3CatalogWriter =
-    new IcebergS3CatalogWriter(icebergSettings)
+  def apply(icebergSettings: IcebergCatalogSettings, icebergDataRowConverter: IcebergDataRowConverter): IcebergS3CatalogWriter =
+    new IcebergS3CatalogWriter(icebergSettings, icebergDataRowConverter)
 
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
@@ -167,5 +173,6 @@ object IcebergS3CatalogWriter:
     ZLayer {
       for
         settings <- ZIO.service[IcebergCatalogSettings]
-      yield IcebergS3CatalogWriter(settings)
+        icebergDataRowConverter <- ZIO.service[IcebergDataRowConverter]
+      yield IcebergS3CatalogWriter(settings, icebergDataRowConverter)
     }
