@@ -26,10 +26,10 @@ class JdbcToIcebergTypeConverter extends IcebergDataRowConverter:
       case DataCell(name, ArcaneType.ByteArrayType, value) => name -> ByteBuffer.wrap(value.asInstanceOf[Array[Byte]])
       case DataCell(name, _, value) => name -> value
     }).toMap
-    
-    
+
+
 object JdbcToIcebergTypeConverter:
-  
+
   /**
    * The environment required to create an instance of JdbcToIcebergTypeConverter.
    */
