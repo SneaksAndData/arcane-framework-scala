@@ -92,7 +92,7 @@ final class AzureBlobStorageReader(accountName: String,
   override def readBlobContent(blobPath: AdlsStoragePath): Task[String] = for
     client <- ZIO.attempt(getBlobClient(blobPath))
     _ <- zlog("Reading file %s/%s from Azure Storage account %s", blobPath.container, blobPath.blobPrefix, blobPath.accountName)
-    result <- ZIO.attemptBlockingIO(client.downloadContent().toBytes.mkString)
+    result <- ZIO.attemptBlockingIO(client.downloadContent().toBytes.map(_.toChar).mkString)
   yield result
     
 
