@@ -33,6 +33,8 @@ type MsSqlQuery = String
 
 /**
  * Represents the schema of a table in a Microsoft SQL Server database.
+ * The schema is represented as a sequence of tuples, where each tuple contains
+ * the column name, type (java.sql.Types), precision, and scale.
  */
 type SqlSchema = Seq[(String, Int, Int, Int)]
 
@@ -84,7 +86,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     yield result
 
   lazy val catalog: String = connection.getCatalog
-  
+
   /**
    * Gets the changes in the database since the given version.
    * @param maybeLatestVersion The version to start from.
@@ -145,7 +147,10 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         use(statement.executeQuery(query))
       }
       val metadata = resultSet.getMetaData
-      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i), metadata.getColumnType(i), metadata.getPrecision(i), metadata.getScale(i))
+      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i),
+        metadata.getColumnType(i),
+        metadata.getPrecision(i),
+        metadata.getScale(i))
     }
     columns.get
   }

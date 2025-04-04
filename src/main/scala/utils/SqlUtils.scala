@@ -64,6 +64,6 @@ object SqlUtils:
   extension (resultSet: ResultSet) def getColumns: Seq[(String, Int, Int, Int)] =
     for i <- 1 to resultSet.getMetaData.getColumnCount
       yield (resultSet.getMetaData.getColumnName(i),
-             resultSet.getMetaData.getColumnType(i),
-             resultSet.getMetaData.getPrecision(i),
+        resultSet.getMetaData.getColumnType(i),
+        resultSet.getMetaData.getPrecision(i),
         resultSet.getMetaData.getScale(i))

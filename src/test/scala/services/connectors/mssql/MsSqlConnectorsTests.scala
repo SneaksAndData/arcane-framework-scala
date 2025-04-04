@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
 import models.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
-import models.ArcaneType.{BigDecimalType, ByteArrayType, IntType, LongType, StringType}
+import models.ArcaneType.{BigDecimalType, ByteArrayType, IntType, LongType, StringType, TimestampType}
 import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
@@ -136,29 +136,23 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         )
     }
   }
-  
-  "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
+
+
+  "MsSqlConnection" should "be able to extract schema columns from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    val exp = List(Field("x",IntType),
-      Field("SYS_CHANGE_VERSION",LongType),
-      Field("SYS_CHANGE_OPERATION",StringType),
-      Field("y",IntType),
+    val expected = List(Field("x", IntType),
+      Field("SYS_CHANGE_VERSION", LongType),
+      Field("SYS_CHANGE_OPERATION", StringType),
+      Field("y", IntType),
       Field("z", BigDecimalType(30, 6)),
       Field("a", ByteArrayType),
-      Field("ChangeTrackingVersion",LongType),
+      Field("b", TimestampType),
+      Field("ChangeTrackingVersion", LongType),
       MergeKeyField,
-      Field("DATE_PARTITION_KEY",StringType))
+      Field("DATE_PARTITION_KEY", StringType))
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
-      schema should be(exp)
-    }
-  }
-
-
-  "MsSqlConnection" should "be able to extract schema column types from the database" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
-      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.fieldType
-      fields should be(List(IntType, LongType, StringType, IntType, BigDecimalType(30, 6), ByteArrayType, LongType, StringType, StringType))
+      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column
+      fields should be(expected)
     }
   }
 
@@ -181,7 +175,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         result = backfill.read.toList
         head = result.head
     yield {
-      head should have length 9
+      head should have length 10
     }
   }
 
