@@ -21,21 +21,19 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
   else
     ZStream.unfold(ZStream.succeed(Option.empty[String]))(version => Some(
       version
-        .flatMap(dataProvider.requestChanges).map(r => r._1)
-        .orElseIfEmpty(
-          ZStream.fromZIO(
-            for {
-              _ <- zlog("No changes, next check in %s seconds", settings.changeCaptureInterval.toSeconds.toString)
-              _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
-            } yield ()
-          ).flatMap(_ => ZStream.empty)
-        ),
+        .flatMap(dataProvider.requestChanges).map(r => r._1),
+      
       version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
         .orElseIfEmpty(
-          version.flatMap { versionValue => 
-            zlogStream("No rows emitted from latest scan, staying at %s timestamp for next iteration", versionValue.getOrElse("None"))
-              .map(_ => versionValue)
-          }
+          version
+            .flatMap { versionValue => ZStream.fromZIO(
+              for
+                result <- ZIO.succeed(versionValue)
+                _ <- zlog("No changes, next check in %s seconds, staying at %s timestamp", settings.changeCaptureInterval.toSeconds.toString, versionValue.getOrElse("None"))
+                _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+              yield result
+             )
+            }
         )
     )).flatten
 
