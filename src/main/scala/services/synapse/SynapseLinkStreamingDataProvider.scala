@@ -19,23 +19,36 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
   else
-    ZStream.unfold(ZStream.succeed(Option.empty[String]))(version => Some(
-      version
-        .flatMap(dataProvider.requestChanges).map(r => r._1),
-      
-      version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
-        .orElseIfEmpty(
-          version
-            .flatMap { versionValue => ZStream.fromZIO(
-              for
-                result <- ZIO.succeed(versionValue)
-                _ <- zlog("No changes, next check in %s seconds, staying at %s timestamp", settings.changeCaptureInterval.toSeconds.toString, versionValue.getOrElse("None"))
-                _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
-              yield result
-             )
-            }
-        )
-    )).flatten
+   ZStream.paginate(dataProvider.requestChanges(Option.empty[String])) { rows =>
+     rows -> Some(
+       rows.take(1).flatMap(v => dataProvider.requestChanges(Some(v._2)))
+         .orElseIfEmpty(
+           ZStream.fromZIO(
+               for
+                 _ <- zlog("No changes, next check in %s seconds", settings.changeCaptureInterval.toSeconds.toString)
+                 _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+               yield ()
+           ).flatMap(_ => rows)
+         )
+     )
+    }.flatten.map(rw => rw._1)
+//    ZStream.unfold(ZStream.succeed(Option.empty[String]))(version => Some(
+//      version
+//        .flatMap(dataProvider.requestChanges).map(r => r._1),
+//
+//      version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
+//        .orElseIfEmpty(
+//          version
+//            .flatMap { versionValue => ZStream.fromZIO(
+//              for
+//                result <- ZIO.succeed(versionValue)
+//                _ <- zlog("No changes, next check in %s seconds, staying at %s timestamp", settings.changeCaptureInterval.toSeconds.toString, versionValue.getOrElse("None"))
+//                _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+//              yield result
+//             )
+//            }
+//        )
+//    )).flatten
 
 object SynapseLinkStreamingDataProvider:
 
