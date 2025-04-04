@@ -16,25 +16,35 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
                                        streamContext: StreamContext) extends StreamDataProvider:
   override type StreamElementType = DataRow
 
+  private def changesStream(startVersion: String) =
+    ZStream.unfold(ZStream.succeed(startVersion))(version =>
+      val changes = version.flatMap(dataProvider.requestChanges)
+      Some(
+        changes.map(r => r._1)
+          ->
+          changes.map(r => r._2)
+            .orElseIfEmpty(version.flatMap(oldVersion => ZStream.fromZIO(
+              for
+                _ <- zlog("No changes, next check in %s seconds, staying at %s timestamp", settings.changeCaptureInterval.toSeconds.toString, oldVersion)
+                _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+              yield oldVersion
+            )))
+      )).flatten
+
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
   else
-    ZStream.unfold(dataProvider.firstVersion)(version =>
-      val changes = ZStream.fromZIO(version).flatMap(dataProvider.requestChanges)
-      Some(
-        changes.map(r => r._1)
-        ->
-        changes
-          .runHead
-          .flatMap {
-            case Some(newVersion) => ZIO.succeed(newVersion._2)
-            case None => for
-              oldVersion <- version
-              _ <- zlog("No changes, next check in %s seconds, staying at %s timestamp", settings.changeCaptureInterval.toSeconds.toString, oldVersion)
-              _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
-            yield oldVersion
-          }
-    )).flatten
+    ZStream.fromZIO(dataProvider.firstVersion)
+      .flatMap(dataProvider.requestChanges)
+      .take(1)
+      .map(_._2)
+      .flatMap { version =>
+        ZStream
+          .fromZIO(dataProvider.firstVersion)
+          .flatMap(dataProvider.requestChanges)
+          .map(v => v._1)
+          .concat(changesStream(version))
+      }
 
 object SynapseLinkStreamingDataProvider:
 
