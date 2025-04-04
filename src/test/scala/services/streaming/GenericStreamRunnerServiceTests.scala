@@ -9,7 +9,7 @@ import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.merging.JdbcTableManager
-import services.streaming.base.{BackfillDataProvider, BackfillStreamingDataProvider, HookManager, StreamDataProvider}
+import services.streaming.base.{BackfillStreamingDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
@@ -19,6 +19,7 @@ import utils.*
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import com.sneaksanddata.arcane.framework.services.mssql.MssqlBackfillDataProvider
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
 import org.apache.iceberg.rest.RESTCatalog

@@ -6,6 +6,7 @@ import zio.Task
 import java.time.Duration
 
 /**
+ * TODO: DEPRECATED: REPLACE USAGES WITH VersionedDataProvider trait 
  * Provides a way to get the changes marked with version from a data source.
  * @tparam DataVersionType The type of the data version.
  * @tparam DataBatchType The type of the data batch.
