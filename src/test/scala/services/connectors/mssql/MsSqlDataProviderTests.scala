@@ -38,14 +38,11 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC"
+  val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
 
   def createDb(tableName: String): TestConnectionInfo =
     val dr = new SQLServerDriver()
     val con = dr.connect(connectionUrl, new Properties())
-    val query = "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'arcane') BEGIN CREATE DATABASE arcane; alter database Arcane set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON); END;"
-    val statement = con.createStatement()
-    statement.execute(query)
     createTable(tableName, con)
     util.TestConnectionInfo(
       ConnectionOptions(
