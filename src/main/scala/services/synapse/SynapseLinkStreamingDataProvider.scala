@@ -12,6 +12,7 @@ import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
 class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
+                                       settings: VersionedDataGraphBuilderSettings,
                                        streamContext: StreamContext) extends StreamDataProvider:
   override type StreamElementType = DataRow
 
@@ -19,7 +20,11 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
       dataProvider.requestBackfill
   else
     ZStream.unfold(ZStream.succeed(Option.empty[String]))(version => Some(
-      version.flatMap(dataProvider.requestChanges).map(r => r._1),
+      version
+        .flatMap(dataProvider.requestChanges).map(r => r._1)
+        .orElseIfEmpty(
+          ZStream.fromZIO(ZIO.sleep(zio.Duration.fromJava(settings.lookBackInterval))).flatMap(_ => ZStream.empty)
+        ),
       version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
     )).flatten
 
@@ -28,16 +33,17 @@ object SynapseLinkStreamingDataProvider:
   /**
    * The environment for the MsSqlStreamingDataProvider.
    */
-  type Environment = SynapseLinkDataProvider & StreamContext
-  
+  type Environment = SynapseLinkDataProvider & VersionedDataGraphBuilderSettings & StreamContext
+
   /**
    * Creates a new instance of the MsSqlStreamingDataProvider class.
    * @param dataProvider Underlying data provider.
    * @return A new instance of the MsSqlStreamingDataProvider class.
    */
   def apply(dataProvider: SynapseLinkDataProvider,
+            settings: VersionedDataGraphBuilderSettings,
             streamContext: StreamContext): SynapseLinkStreamingDataProvider =
-    new SynapseLinkStreamingDataProvider(dataProvider, streamContext)
+    new SynapseLinkStreamingDataProvider(dataProvider, settings, streamContext)
 
   /**
    * The ZLayer that creates the MsSqlStreamingDataProvider.
@@ -45,6 +51,7 @@ object SynapseLinkStreamingDataProvider:
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for dataProvider <- ZIO.service[SynapseLinkDataProvider]
+          settings <- ZIO.service[VersionedDataGraphBuilderSettings]
           streamContext <- ZIO.service[StreamContext]
-      yield SynapseLinkStreamingDataProvider(dataProvider, streamContext)
+      yield SynapseLinkStreamingDataProvider(dataProvider, settings, streamContext)
     }
