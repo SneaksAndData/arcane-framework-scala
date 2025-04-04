@@ -34,7 +34,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   def createDb(tableName: String): TestConnectionInfo =
     val dr = new SQLServerDriver()
     val con = dr.connect(connectionUrl, new Properties())
-    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME)"
+    val query = "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'arcane') BEGIN CREATE DATABASE arcane; alter database Arcane set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON); END;"
     val statement = con.createStatement()
     statement.execute(query)
     createTable(tableName, con)
