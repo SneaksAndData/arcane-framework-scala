@@ -93,7 +93,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(catalog, maybeLatestVersion, lookBackInterval)
+    val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
 
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)

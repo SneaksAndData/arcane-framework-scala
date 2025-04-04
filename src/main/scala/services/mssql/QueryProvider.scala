@@ -104,19 +104,17 @@ object QueryProvider:
   /**
    * Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
    *
-   * @param databaseName  The name of the database.
    * @param maybeVersion  The version to start from.
    * @param lookBackRange The look back range for the query.
    * @return The change tracking version query for the Microsoft SQL Server database.
    */
-  def getChangeTrackingVersionQuery(databaseName: String, maybeVersion: Option[Long], lookBackRange: Duration)
-                                   (using formatter: DateTimeFormatter): MsSqlQuery = {
+  def getChangeTrackingVersionQuery(maybeVersion: Option[Long], lookBackRange: Duration)(using formatter: DateTimeFormatter): MsSqlQuery = {
     maybeVersion match
       case None =>
         val lookBackTime = Instant.now().minusSeconds(lookBackRange.getSeconds)
         val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
-        s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
-      case Some(version) => s"SELECT MIN(commit_ts) FROM $databaseName.sys.dm_tran_commit_table WHERE commit_ts > $version"
+        s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
+      case Some(version) => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
   }
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
