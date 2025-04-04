@@ -48,7 +48,6 @@ type SqlSchema = Seq[(String, Int, Int, Int)]
  * @param partitionExpression The partition expression for the table.
  */
 case class ConnectionOptions(connectionUrl: String,
-                             databaseName: String,
                              schemaName: String,
                              tableName: String,
                              partitionExpression: Option[String])
@@ -59,8 +58,10 @@ case class ConnectionOptions(connectionUrl: String,
  * @param connectionOptions The connection options for the database.
  */
 class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
+  lazy val catalog: String = connection.getCatalog
+  
   private val driver = new SQLServerDriver()
-  private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
+  private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -70,7 +71,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the column summaries for the table in the database.
    */
   def getColumnSummaries: Future[List[ColumnSummary]] =
-    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, connectionOptions.databaseName)
+    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
     for query <- Future.fromTry(tryQuery)
         result <- executeColumnSummariesQuery(query)
     yield result
@@ -92,7 +93,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
+    val query = QueryProvider.getChangeTrackingVersionQuery(catalog, maybeLatestVersion, lookBackInterval)
 
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
