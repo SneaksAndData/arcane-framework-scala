@@ -23,7 +23,7 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
       version
         .flatMap(dataProvider.requestChanges).map(r => r._1)
         .orElseIfEmpty(
-          ZStream.fromZIO(ZIO.sleep(zio.Duration.fromJava(settings.lookBackInterval))).flatMap(_ => ZStream.empty)
+          ZStream.fromZIO(ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))).flatMap(_ => ZStream.empty)
         ),
       version.flatMap(dataProvider.requestChanges).take(1).map(v => Some(v._2))
     )).flatten
