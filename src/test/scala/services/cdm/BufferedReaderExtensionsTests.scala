@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.cdm
 
-import services.cdm.BufferedReaderExtensions.{streamMultilineCsv, readMultilineCsvLine}
+import com.sneaksanddata.arcane.framework.services.base.BufferedReaderExtensions.{streamMultilineCsv, readMultilineCsvLine}
 
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
