@@ -45,17 +45,6 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
       yield Some(dataProvider.requestChanges(previousVersion) -> ZIO.succeed(newVersion.getOrElse(previousVersion)))
     }.flatMap(v => v.map(_._1))
 
-//    ZStream.fromZIO(dataProvider.firstVersion)
-//      .flatMap(dataProvider.requestChanges)
-//      .take(1)
-//      .map(_._2)
-//      .flatMap { version =>
-//        ZStream
-//          .fromZIO(dataProvider.firstVersion)
-//          .flatMap(dataProvider.requestChanges)
-//          .map(v => v._1)
-//          .concat(changesStream(version))
-//      }
 
 object SynapseLinkStreamingDataProvider:
 
