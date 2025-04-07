@@ -29,7 +29,7 @@ object SqlSchema:
   @tailrec
   def toSchema[Schema: CanAdd](sqlSchema: SqlSchema, schema: Schema): Try[Schema] =
     sqlSchema match
-      case Nil => Success(schema)
+      case Seq() => Success(schema)
       case (name, fieldType, precision, scale) +: xs =>
         toArcaneType(fieldType, precision, scale) match
           case Success(arcaneType) => toSchema(xs, schema.addField("\\W+".r.replaceAllIn(name, ""), arcaneType))
