@@ -25,6 +25,13 @@ trait BlobStorageReader[PathType <: BlobPath]:
   def streamBlobContent(blobPath: AdlsStoragePath): Task[BufferedReader]
 
   /**
+   * Reads blob content as a string
+   * @param blobPath Path to blob
+   * @return
+   */
+  def readBlobContent(blobPath: AdlsStoragePath): Task[String]
+
+  /**
    * Streams the prefixes of the blobs at the given root prefix.
    * @param rootPrefix The root prefix.
    * @return The stream of the prefixes.
