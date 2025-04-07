@@ -869,4 +869,4 @@ def create_blobs():
 
 create_container()
 create_blobs()
-upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", datetime.utcnow().strftime("%Y-%m-%dT%H.%M.%SZ"))
+upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", FOLDERS[-2])
