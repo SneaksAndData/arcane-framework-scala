@@ -39,7 +39,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       // since model.json will not have schema definition for entities that were not part of the batch,
       // we need to filter out such prefixes BEFORE we read the schema
       .filterZIO(prefix => for
-          hasData <- reader.streamPrefixes(storagePath + prefix._1.name + entityName).runHead
+          hasData <- reader.streamPrefixes(storagePath + prefix._1.name + entityName + "/").runHead
         yield hasData.isDefined
       )
       .mapZIO { prefix =>
