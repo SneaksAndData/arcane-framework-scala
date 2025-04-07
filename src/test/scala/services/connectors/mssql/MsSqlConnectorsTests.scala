@@ -29,7 +29,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
-  val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
+  val connectionUrl = "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
 
   def createDb(tableName: String): TestConnectionInfo =
     val dr = new SQLServerDriver()
