@@ -47,18 +47,22 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
     yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
-    for _ <- maybeSleep(previousVersion)
-      versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
+    for versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
       _ <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
+      _ <- maybeSleep(versionedBatch)
       latestVersion = versionedBatch.getLatestVersion
       (queryResult, _) = versionedBatch
       _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
     yield Some(queryResult, latestVersion)
 
-  private def maybeSleep(previousVersion: Option[Long]): ZIO[Any, Nothing, Unit] =
-    previousVersion match
-      case Some(_) => ZIO.sleep(settings.changeCaptureInterval)
-      case None => ZIO.unit
+  private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
+    versionedBatch match
+      case (queryResult, _) =>
+        val headOption = queryResult.read.headOption
+        if headOption.isEmpty then
+          zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(settings.changeCaptureInterval)
+        else
+          zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
 
 object MsSqlStreamingDataProvider:
 
