@@ -38,7 +38,7 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
+  val connectionUrl = "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
 
   def createDb(tableName: String): TestConnectionInfo =
     val dr = new SQLServerDriver()

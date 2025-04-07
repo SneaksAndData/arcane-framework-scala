@@ -53,7 +53,6 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[StagingProcessor]),
           ZLayer.succeed(mock[FieldFilteringTransformer]),
           ZLayer.succeed(mock[StreamLifetimeService]),
-          ZLayer.succeed(mock[HookManager]),
           ZLayer.succeed(mock[GenericGroupingTransformer]),
           ZLayer.succeed(mock[MergeBatchProcessor]),
           ZLayer.succeed(mock[DisposeBatchProcessor]),
