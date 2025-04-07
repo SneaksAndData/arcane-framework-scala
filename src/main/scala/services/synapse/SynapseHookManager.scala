@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.cdm
+package services.synapse
 
 import models.ArcaneSchema
 import models.settings.TablePropertiesSettings

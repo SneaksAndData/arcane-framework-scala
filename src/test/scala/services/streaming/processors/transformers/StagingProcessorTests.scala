@@ -8,11 +8,10 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, StagedBatchProcessor, ToInFlightBatch}
 import utils.*
-
-import com.sneaksanddata.arcane.framework.services.cdm.SynapseHookManager
-import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
+import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.streaming.processors.utils.TestIndexedStagedBatches
+import services.synapse.SynapseHookManager
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -37,11 +36,11 @@ given MetadataEnrichedRowStreamElement[TestInput] with
 object StagingProcessorTests extends ZIOSpecDefault:
   private val settings = new IcebergCatalogSettings:
     override val namespace = "test"
-    override val warehouse = "polaris"
-    override val catalogUri = "http://localhost:8181/api/catalog"
+    override val warehouse = "demo"
+    override val catalogUri = "http://localhost:20001/catalog"
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
     override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
+    override val stagingLocation: Option[String] = None
 
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
