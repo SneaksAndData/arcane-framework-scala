@@ -56,8 +56,6 @@ services:
         mc admin info e2e
         mc mb e2e/tmp && mc mb e2e/lakehouse
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
-  # note there is no publicly available image for Polaris yet
-  # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
   lakekeeper:
     image: quay.io/lakekeeper/catalog:latest-main
     network_mode: host

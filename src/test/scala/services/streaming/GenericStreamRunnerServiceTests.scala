@@ -37,11 +37,11 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
   private val runtime = Runtime.default
   private val settings = new IcebergCatalogSettings:
     override val namespace = "test"
-    override val warehouse = "polaris"
-    override val catalogUri = "http://localhost:8181/api/catalog"
+    override val warehouse = "demo"
+    override val catalogUri = "http://localhost:20001/catalog"
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
     override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")  
+    override val stagingLocation: Option[String] = None  
 
   private val testInput = List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),

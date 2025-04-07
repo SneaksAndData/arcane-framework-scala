@@ -37,11 +37,11 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
   private val runtime = Runtime.default
   private val settings = new IcebergCatalogSettings:
     override val namespace = "test"
-    override val warehouse = "polaris"
-    override val catalogUri = "http://localhost:8181/api/catalog"
+    override val warehouse = "demo"
+    override val catalogUri = "http://localhost:20001/catalog"
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
     override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = Some("s3://tmp/polaris/test")
+    override val stagingLocation: Option[String] = None
 
   it should "produce backfill batch if stream is completed" in {
     // Arrange
