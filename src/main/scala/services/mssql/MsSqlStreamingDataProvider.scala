@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import logging.ZIOLogAnnotations.zlog
-import models.DataRow
+import models.{ArcaneType, DataCell, DataRow}
 import models.settings.VersionedDataGraphBuilderSettings
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
 import services.mssql.base.{MssqlVersionedDataProvider, QueryResult}
@@ -11,6 +11,10 @@ import services.streaming.base.StreamDataProvider
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
+
+import java.nio.ByteBuffer
+import java.sql.Timestamp
+import java.time.{LocalDateTime, ZoneOffset}
 
 /**
  * Streaming data provider for Microsoft SQL Server.
@@ -30,6 +34,11 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
     else
       ZStream.unfoldZIO(None)(v => continueStream(v))
     stream.flatMap(readDataBatch)
+      .map( row => row.map{
+        case DataCell(name, ArcaneType.TimestampType, value) => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
+        case DataCell(name, ArcaneType.ByteArrayType, value) => DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
+        case other => other
+      })
 
   private def readDataBatch[T <: AutoCloseable & QueryResult[LazyList[DataRow]]](batch: T): ZStream[Any, Throwable, DataRow] =
     for  data <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
