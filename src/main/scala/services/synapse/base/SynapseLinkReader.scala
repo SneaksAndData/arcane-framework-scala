@@ -38,7 +38,10 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       .filterZIO(prefix => reader.blobExists(storagePath + prefix._1.name + "model.json"))
       // since model.json will not have schema definition for entities that were not part of the batch,
       // we need to filter out such prefixes BEFORE we read the schema
-      .filterZIO(prefix => reader.blobExists(storagePath + prefix._1.name + entityName))
+      .filterZIO(prefix => for
+          hasData <- reader.streamPrefixes(storagePath + prefix._1.name + entityName).runHead
+        yield hasData.isDefined
+      )
       .mapZIO { prefix =>
         SynapseEntitySchemaProvider(reader, (storagePath + prefix._1.name).toHdfsPath, entityName)
           .getSchema
@@ -59,7 +62,12 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    *
    * @return A stream of rows for this table
    */
-  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = filterBlobs(".csv", enrichWithSchema(reader.getRootPrefixes(storagePath, startDate)))
+  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = filterBlobs(
+    ".csv",
+    filterBlobs(
+      s"/$entityName/", enrichWithSchema(reader.getRootPrefixes(storagePath, startDate))
+    )
+  )
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
     reader.streamBlobContent(storagePath + seb.blob.name)
