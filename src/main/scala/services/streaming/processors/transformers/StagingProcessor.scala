@@ -30,19 +30,16 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
   type OutgoingElement = StagedBatchProcessor#BatchType
   
-  type IncomingElement = DataRow|Any
-
   override def process(onStagingTablesComplete: OnStagingTablesComplete, onBatchStaged: OnBatchStaged): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements =>
-        val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(row => row.schema)
-        val others = elements.filterNot(e => e.isInstanceOf[DataRow])
+        val groupedBySchema = elements.groupBy(row => row.schema)
         val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
-        applyTasks.map(batches => (batches, others))
+        applyTasks.map(batches => batches)
       )
       .zipWithIndex
-      .map { case ((batches, others), index) => onStagingTablesComplete(batches, index, others) }
+      .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
     for

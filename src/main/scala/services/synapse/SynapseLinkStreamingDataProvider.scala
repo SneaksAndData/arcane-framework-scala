@@ -14,8 +14,7 @@ import zio.stream.{ZSink, ZStream}
 class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
                                        settings: VersionedDataGraphBuilderSettings,
                                        streamContext: StreamContext) extends StreamDataProvider:
-  override type StreamElementType = DataRow
-
+  
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
   else

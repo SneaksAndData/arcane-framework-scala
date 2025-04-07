@@ -11,7 +11,7 @@ trait StreamDataProvider:
   /**
    * The type of the stream element.
    */
-  type StreamElementType
+  type StreamElementType = RowProcessor#Element
 
   /**
    * Returns the stream of elements.

@@ -26,7 +26,7 @@ import zio.test.TestAspect.timeout
 
 import scala.concurrent.Future
 
-type TestInput = DataRow|String
+type TestInput = DataRow
 
 given MetadataEnrichedRowStreamElement[TestInput] with
   extension (element: TestInput) def isDataRow: Boolean = element.isInstanceOf[DataRow]
@@ -44,9 +44,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
 
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-    "metadata",
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-    "source delete request",
   ))
   private val hookManager = SynapseHookManager()
   private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] = ZLayer.succeed(settings)
