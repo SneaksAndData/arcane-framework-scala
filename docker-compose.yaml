@@ -1,24 +1,17 @@
 version: '3.3'
-networks:
-  mesh:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.1.0.0/16
-          gateway: 10.1.0.1
 
 services:
   mssql:
     container_name: sql-server
     image: mcr.microsoft.com/mssql/server:2022-latest
+    network_mode: host
     restart: always
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "tMIxN11yGZgMC"
-    ports:
-      - "1433:1433"
   setup_mssql:
     image: mcr.microsoft.com/mssql-tools
+    network_mode: host
     depends_on:
       - mssql
     restart: "no"
@@ -36,18 +29,13 @@ services:
     container_name: minio
     hostname: minio-e2e
     image: quay.io/minio/minio
+    network_mode: host
     restart: always
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.2
     command:
       - server
       - /data
       - "--console-address"
       - ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9001" ]
       interval: 30s
@@ -56,9 +44,7 @@ services:
   prepare_buckets:
     container_name: minio-setup
     image: quay.io/minio/minio
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.3
+    network_mode: host
     depends_on:
       minio:
         condition: service_healthy
@@ -66,7 +52,7 @@ services:
       - "/bin/sh"
       - "-c"
       - |
-        mc alias set e2e "http://10.1.0.2:9000" minioadmin minioadmin
+        mc alias set e2e "http://localhost:9000" minioadmin minioadmin
         mc admin info e2e
         mc mb e2e/tmp && mc mb e2e/lakehouse
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
@@ -75,20 +61,15 @@ services:
   polaris:
     container_name: polaris
     image: ghcr.io/sneaksanddata/apache-polaris:latest
+    network_mode: host
     restart: always
     depends_on:
       prepare_buckets:
         condition: service_completed_successfully
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.4
-    ports:
-      - "8181:8181"
-      - "8182:8182"
     environment:
       AWS_REGION: us-east-1
-      AWS_ENDPOINT_URL_S3: http://10.1.0.2:9000
-      AWS_ENDPOINT_URL_STS: http://10.1.0.2:9000
+      AWS_ENDPOINT_URL_S3: http://localhost:9000
+      AWS_ENDPOINT_URL_STS: http://localhost:9000
       # add aws keys as dropwizard config
       JAVA_OPTS: -Ddw.awsAccessKey=minioadmin -Ddw.awsSecretKey=minioadmin
 
@@ -99,9 +80,7 @@ services:
       retries: 5
   create-polaris-catalog:
     image: curlimages/curl
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.5
+    network_mode: host
     depends_on:
       polaris:
         condition: service_healthy
@@ -111,36 +90,26 @@ services:
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     restart: always
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.6
+    network_mode: host
     command:
       - azurite-blob
       - "--blobHost"
-      - "10.1.0.6"
+      - "localhost"
       - "--blobPort"
       - "10001"
-    ports:
-      - "10001:10001"
   create-cdm-container:
     image: python:3.11-slim-bookworm
+    network_mode: host
     depends_on:
       - azurite
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.7
     volumes:
       - ./populate-cdm-container.py:/populate-cdm-container.py
-    command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
+    command: [ "/bin/sh", "-c", "pip install azure-storage-blob==12.24.1 requests && python /populate-cdm-container.py" ]
   trino:
     depends_on:
       polaris:
         condition: service_healthy
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.9
-    ports:
-      - "8080:8080"
-    image: "trinodb/trino:455"
+    network_mode: host
+    image: "trinodb/trino:474"
     volumes:
       - ./unit-tests.properties:/etc/trino/catalog/iceberg.properties

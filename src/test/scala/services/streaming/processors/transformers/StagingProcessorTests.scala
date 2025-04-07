@@ -8,11 +8,10 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch}
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, StagedBatchProcessor, ToInFlightBatch}
 import utils.*
-
-import com.sneaksanddata.arcane.framework.services.cdm.SynapseHookManager
-import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.utils.TestIndexedStagedBatches
+import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.streaming.processors.utils.TestIndexedStagedBatches
+import services.synapse.SynapseHookManager
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock

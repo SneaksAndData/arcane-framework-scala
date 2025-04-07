@@ -23,7 +23,7 @@ PRINCIPAL_TOKEN="principal:root;realm:default-realm"
 
 # Use s3 filesystem by default
 curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/catalogs \
+  http://localhost:8181/api/management/v1/catalogs \
   -d '{
         "catalog": {
           "name": "polaris",
@@ -44,7 +44,7 @@ curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicat
       }'
 # create namespace
 curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/catalog/v1/polaris/namespaces \
+  http://localhost:8181/api/catalog/v1/polaris/namespaces \
   -d '{
         "namespace": [
           "test"
@@ -54,7 +54,7 @@ curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicat
 
 # create principal role
 curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/principal-roles \
+  http://localhost:8181/api/management/v1/principal-roles \
   -d '{
         "principalRole": {
           "name": "admin"
@@ -63,7 +63,7 @@ curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicat
 
 # create catalog role
 curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/catalogs/polaris/catalog-roles \
+  http://localhost:8181/api/management/v1/catalogs/polaris/catalog-roles \
   -d '{
         "catalogRole": {
           "name": "admin"
@@ -72,7 +72,7 @@ curl -i -X POST -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicat
 
 # assign principal role
 curl -i -X PUT -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/principals/root/principal-roles \
+  http://localhost:8181/api/management/v1/principals/root/principal-roles \
   -d '{
         "principalRole": {
           "name": "admin"
@@ -81,7 +81,7 @@ curl -i -X PUT -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicati
 
 # assign principal role to catalog role
 curl -i -X PUT -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/principal-roles/admin/catalog-roles/polaris \
+  http://localhost:8181/api/management/v1/principal-roles/admin/catalog-roles/polaris \
   -d '{
         "catalogRole": {
           "name": "admin"
@@ -90,7 +90,7 @@ curl -i -X PUT -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: applicati
 
 # add grant to catalog role
 curl -i -X PUT -H "Authorization: Bearer $PRINCIPAL_TOKEN" -H 'Accept: application/json' -H 'Content-Type: application/json' \
-  http://10.1.0.4:8181/api/management/v1/catalogs/polaris/catalog-roles/admin/grants \
+  http://localhost:8181/api/management/v1/catalogs/polaris/catalog-roles/admin/grants \
   -d '{
         "grant": {
           "type": "catalog",

@@ -1,4 +1,4 @@
-//package com.sneaksanddata.arcane.framework
+//package com.sneaksanddata.arcane.framework.tests
 //package services.cdm
 //
 //import services.cdm.AzureBlobStorageReaderExtensions.*
