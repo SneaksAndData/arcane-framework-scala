@@ -21,10 +21,10 @@ services:
       - "bash"
       - "-c"
       - |
-        while ! /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "SELECT 1"; do
+        while ! /opt/mssql-tools/bin/sqlcmd -S localhost,1433 -U sa -P tMIxN11yGZgMC -Q "SELECT 1"; do
           sleep 1
         done
-        /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/unit-tests.sql
+        /opt/mssql-tools/bin/sqlcmd -S localhost,1433 -U sa -P tMIxN11yGZgMC -i /app/unit-tests.sql
   minio:
     container_name: minio
     hostname: minio-e2e
