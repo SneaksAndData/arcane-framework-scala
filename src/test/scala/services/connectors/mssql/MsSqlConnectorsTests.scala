@@ -104,11 +104,13 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
-    QueryProvider.getSchemaQuery(connector) map { query =>
+    val task = QueryProvider.getSchemaQuery(connector) map { query =>
       query should (
         include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
         )
     }
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
@@ -127,11 +129,13 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
-    QueryProvider.getBackfillQuery(connector) map { query =>
+    val task = QueryProvider.getBackfillQuery(connector) map { query =>
       query should (
         include ("SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
         )
     }
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
   
 
@@ -156,46 +160,47 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
-    for schema <- future
-        backfill <- connection.backfill
-        result = backfill.read.toList
+    val task = for schema <- connection.getSchema
+        result <- connection.backfill.runCollect
     yield {
       result should have length 20
     }
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
-    for schema <- future
-        backfill <- connection.backfill
-        result = backfill.read.toList
+    val task = for schema <- connection.getSchema
+        result <- connection.backfill.runCollect
         head = result.head
     yield {
       head should have length 11
     }
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
-    for schema <- future
+    val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
         changedData = columns.read.toList
     yield {
       changedData should have length 20
     }
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "handle deletes" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    for schema <- Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
+    val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, version) = result
-        _ <- Future(columns.close())
-        _ <- Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(deleteData(dbInfo.connection, Seq(2))))
+        _ <- ZIO.attempt(columns.close())
+        _ <- deleteData(dbInfo.connection, Seq(2))
         result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
         (columns2, _) = result2
         changedData = columns2.read.toList
@@ -207,16 +212,20 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         DataCell("ARCANE_MERGE_KEY", StringType, "913da1f8df6f8fd47593840d533ba0458cc9873996bf310460abb495b34c232a")
       )
     }
+
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
-    val future = Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema))
-    for schema <- future
+    val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (_, latestVersion) = result
     yield {
       latestVersion should be >= 0L
     }
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 

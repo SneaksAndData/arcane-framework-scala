@@ -30,10 +30,10 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
    */
   override def stream: ZStream[Any, Throwable, DataRow] =
     val stream = if streamContext.IsBackfilling then
-      ZStream.fromZIO(dataProvider.requestBackfill)
+      dataProvider.requestBackfill
     else
-      ZStream.unfoldZIO(None)(v => continueStream(v))
-    stream.flatMap(readDataBatch)
+      ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
+    stream
       .map( row => row.map{
         case DataCell(name, ArcaneType.TimestampType, value) => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
         case DataCell(name, ArcaneType.ByteArrayType, value) => DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))

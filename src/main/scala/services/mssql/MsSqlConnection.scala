@@ -1,15 +1,17 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{ArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
+import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
 import services.mssql.base.{CanPeekHead, QueryResult}
+import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
@@ -18,7 +20,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
-import scala.util.{Failure, Success, Using}
+import scala.util.Using
 
 /**
  * Represents a summary of a column in a table.
@@ -63,10 +65,10 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    *
    * @return A future containing the column summaries for the table in the database.
    */
-  def getColumnSummaries: Future[List[ColumnSummary]] =
+  def getColumnSummaries: Task[List[ColumnSummary]] =
     val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
-    for query <- Future.fromTry(tryQuery)
-        result <- executeColumnSummariesQuery(query)
+    for query <- ZIO.fromTry(tryQuery)
+        result <- ZIO.fromFuture(implicit ec => executeColumnSummariesQuery(query))
     yield result
 
   /**
@@ -74,10 +76,19 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    *
    * @return A future containing the result of the backfill.
    */
-  def backfill: Future[BackfillBatch] =
-    for query <- this.getBackfillQuery
-        result <- executeQuery(query, connection, LazyQueryResult.apply)
-    yield result
+  def backfill: ZStream[Any, Throwable, DataRow] =
+    for query <- ZStream.fromZIO(this.getBackfillQuery)
+        resultSet <- ZStream.fromZIO(executeQueryZIO(query, connection))
+        stream <- ZStream.paginateZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
+          if hasNext then
+            for columns <- ZIO.attempt(rs.getMetaData.getColumnCount)
+                row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
+                state <- ZIO.succeed((rs, rs.next()))
+            yield (row, Some(state))
+          else
+            ZIO.succeed(List(), None)
+        }
+    yield stream
 
   /**
    * Gets the changes in the database since the given version.
@@ -85,7 +96,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @param lookBackInterval The look back interval for the query.
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
+  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
 
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
@@ -118,21 +129,20 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    *
    * @return A future containing the schema for the data produced by Arcane.
    */
-  override lazy val getSchema: Task[this.SchemaType] = ZIO.fromFuture( implicit ec => readSchemaFromSource)
+  override lazy val getSchema: Task[this.SchemaType] = readSchemaFromSource
 
   /**
    * Gets the schema for the data produced by Arcane.
    *
    * @return A future containing the schema for the data produced by Arcane.
    */
-  private def readSchemaFromSource: Future[this.SchemaType] =
+  private def readSchemaFromSource: Task[this.SchemaType] =
     for query <- this.getSchemaQuery
         sqlSchema <- getSqlSchema(query)
-    yield toSchema(sqlSchema, empty) match
-      case Success(schema) => schema
-      case Failure(exception) => throw exception
+        arcaneSchema <- ZIO.fromTry(toSchema(sqlSchema, empty))
+    yield arcaneSchema
 
-  private def getSqlSchema(query: String): Future[SqlSchema] = Future {
+  private def getSqlSchema(query: String): Task[SqlSchema] = ZIO.attempt {
     val columns = Using.Manager { use =>
       val statement = use(connection.createStatement())
       val resultSet = blocking {
@@ -170,13 +180,18 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
   private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
 
-  private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Future[QueryResultType] =
-    Future {
-      val statement = connection.createStatement()
-      val resultSet = blocking {
-        statement.executeQuery(query)
-      }
-      resultFactory(statement, resultSet)
+  private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Task[QueryResultType] =
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attempt(connection.createStatement()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attempt(statement.executeQuery(query)))
+      yield resultFactory(statement, resultSet)
+    }
+
+  private def executeQueryZIO(query: MsSqlQuery, connection: Connection): Task[ResultSet] =
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attempt(connection.createStatement()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attempt(statement.executeQuery(query)))
+      yield resultSet
     }
 
 object MsSqlConnection:

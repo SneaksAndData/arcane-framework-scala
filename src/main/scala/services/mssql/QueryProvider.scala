@@ -5,6 +5,7 @@ import models.MergeKeyField
 import models.DatePartitionField
 
 import org.slf4j.{Logger, LoggerFactory}
+import zio.{Task, ZIO}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
@@ -28,13 +29,13 @@ object QueryProvider:
    * @param msSqlConnection The connection to the database.
    * @return A future containing the schema query for the Microsoft SQL Server database.
    */
-  extension (msSqlConnection: MsSqlConnection) def getSchemaQuery: Future[MsSqlQuery] =
+  extension (msSqlConnection: MsSqlConnection) def getSchemaQuery: Task[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .flatMap(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
         val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        Future.fromTry(QueryProvider.getChangesQuery(
+        ZIO.fromTry(QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           msSqlConnection.catalog,
           mergeExpression,
@@ -50,13 +51,13 @@ object QueryProvider:
    * @param fromVersion     The version to start from.
    * @return A future containing the changes query for the Microsoft SQL Server database.
    */
-  extension (msSqlConnection: MsSqlConnection) def getChangesQuery(fromVersion: Long): Future[MsSqlQuery] =
+  extension (msSqlConnection: MsSqlConnection) def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .flatMap(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "ct")
         val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        Future.fromTry(QueryProvider.getChangesQuery(
+        ZIO.fromTry(QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           msSqlConnection.catalog,
           mergeExpression,
@@ -71,12 +72,12 @@ object QueryProvider:
    * @param msSqlConnection The connection to the database.
    * @return A future containing the changes query for the Microsoft SQL Server database.
    */
-  extension (msSqlConnection: MsSqlConnection) def getBackfillQuery: Future[MsSqlQuery] =
+  extension (msSqlConnection: MsSqlConnection) def getBackfillQuery: Task[MsSqlQuery] =
     msSqlConnection.getColumnSummaries
       .flatMap(columnSummaries => {
         val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
         val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
-        Future.fromTry(QueryProvider.getAllQuery(
+        ZIO.fromTry(QueryProvider.getAllQuery(
           msSqlConnection.connectionOptions,
           msSqlConnection.catalog,
           mergeExpression,
