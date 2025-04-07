@@ -37,8 +37,8 @@ object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
       // 12 hours ago, we should get all timestamp folders but the latest one as a result.
       OffsetDateTime.now().minus(Duration.ofHours(12)) -> 7,
 
-      // 4 hours ago, we should get 1 folder as a result since folder with same hours created later than our start time.
-      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(4)) -> 1,
+      // 3 hours ago, we should get 1 folder as a result since folder with same hours created later than our start time.
+      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(3)) -> 1,
 
       // 1 hour ago, we should not get anything as a result since folder with same hours created later than our start time.
       OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(1)) -> 0,
