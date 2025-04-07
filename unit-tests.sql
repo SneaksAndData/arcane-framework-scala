@@ -1,0 +1,5 @@
+IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'arcane')
+BEGIN
+        CREATE DATABASE arcane;
+        ALTER DATABASE arcane set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON);
+END;

@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
-import models.{ArcaneSchemaField, DataCell}
-import models.ArcaneType.{IntType, LongType, StringType}
+import models.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
+import models.ArcaneType.{BigDecimalType, ByteArrayType, IntType, LongType, StringType, TimestampType}
 import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
@@ -29,25 +29,21 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
-  val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC"
+  val connectionUrl = "jdbc:sqlserver://localhost;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
 
   def createDb(tableName: String): TestConnectionInfo =
     val dr = new SQLServerDriver()
     val con = dr.connect(connectionUrl, new Properties())
-    val query = "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'arcane') BEGIN CREATE DATABASE arcane; alter database Arcane set CHANGE_TRACKING = ON (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON); END;"
-    val statement = con.createStatement()
-    statement.execute(query)
     createTable(tableName, con)
     util.TestConnectionInfo(
       ConnectionOptions(
         connectionUrl,
-        "arcane",
         "dbo",
         tableName,
         Some("format(getdate(), 'yyyyMM')")), con)
 
   def createTable(tableName: String, con: Connection): Unit =
-    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int)"
+    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME)"
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
@@ -60,13 +56,13 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   def insertData(con: Connection): Unit =
     val statement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1})"
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56')"
       statement.execute(insertCmd)
     statement.close()
 
     val updateStatement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1})"
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56')"
       updateStatement.execute(insertCmd)
 
   def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
@@ -102,7 +98,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
       connector.connectionOptions.tableName,
-      connector.connectionOptions.databaseName)
+      connector.catalog)
     query.get should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
   }
 
@@ -118,14 +114,14 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query = QueryProvider.getChangeTrackingVersionQuery(dbInfo.connectionOptions.databaseName, None, Duration.ofHours(-1))
+    val query = QueryProvider.getChangeTrackingVersionQuery(connector.catalog, None, Duration.ofHours(-1))
     query should (include ("SELECT MIN(commit_ts)") and include (s"WHERE commit_time > '$formattedTime'"))
   }
   
   "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query = QueryProvider.getChangeTrackingVersionQuery(dbInfo.connectionOptions.databaseName, Some(1), Duration.ofHours(-1))
+    val query = QueryProvider.getChangeTrackingVersionQuery(connector.catalog, Some(1), Duration.ofHours(-1))
     query should (include ("SELECT MIN(commit_ts)") and (not include "commit_time") and include (s"WHERE commit_ts > 1"))
   }
 
@@ -138,20 +134,22 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     }
   }
   
-  "MsSqlConnection" should "be able to extract schema column names from the database" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
-      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.name
-      fields should be (List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "y", "ChangeTrackingVersion", "ARCANE_MERGE_KEY", "DATE_PARTITION_KEY"))
-    }
-  }
 
-
-  "MsSqlConnection" should "be able to extract schema column types from the database" in withDatabase { dbInfo =>
+  "MsSqlConnection" should "be able to extract schema columns from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val expected = List(Field("x", IntType),
+      Field("SYS_CHANGE_VERSION", LongType),
+      Field("SYS_CHANGE_OPERATION", StringType),
+      Field("y", IntType),
+      Field("z", BigDecimalType(30, 6)),
+      Field("a", ByteArrayType),
+      Field("b", TimestampType),
+      Field("ChangeTrackingVersion", LongType),
+      MergeKeyField,
+      Field("DATE_PARTITION_KEY", StringType))
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
-      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column.fieldType
-      fields should be(List(IntType, LongType, StringType, IntType, LongType, StringType, StringType))
+      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column
+      fields should be(expected)
     }
   }
 
@@ -174,7 +172,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         result = backfill.read.toList
         head = result.head
     yield {
-      head should have length 7
+      head should have length 10
     }
   }
 

@@ -17,6 +17,21 @@ services:
       SA_PASSWORD: "tMIxN11yGZgMC"
     ports:
       - "1433:1433"
+  setup_mssql:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - mssql
+    restart: "no"
+    volumes:
+      - ./:/app
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        while ! /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -Q "SELECT 1"; do
+          sleep 1
+        done
+        /opt/mssql-tools/bin/sqlcmd -S sql-server -U sa -P tMIxN11yGZgMC -i /app/unit-tests.sql
   minio:
     container_name: minio
     hostname: minio-e2e
