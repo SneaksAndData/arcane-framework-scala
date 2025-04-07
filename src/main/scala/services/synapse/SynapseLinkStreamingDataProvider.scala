@@ -34,17 +34,28 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
   else
-    ZStream.fromZIO(dataProvider.firstVersion)
-      .flatMap(dataProvider.requestChanges)
-      .take(1)
-      .map(_._2)
-      .flatMap { version =>
-        ZStream
-          .fromZIO(dataProvider.firstVersion)
-          .flatMap(dataProvider.requestChanges)
-          .map(v => v._1)
-          .concat(changesStream(version))
-      }
+    ZStream.unfoldZIO(dataProvider.firstVersion) { version => for
+        previousVersion <- version
+        newVersion <- dataProvider.requestChanges(previousVersion).map(_._2).runHead
+        _ <- ZIO.when(newVersion.isEmpty) { for
+          _ <- zlog("No changes, next check in %s seconds, staying at %s timestamp", settings.changeCaptureInterval.toSeconds.toString, previousVersion)
+          _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+         yield ()
+        }
+      yield Some(dataProvider.requestChanges(newVersion.getOrElse(previousVersion)) -> ZIO.succeed(newVersion.getOrElse(previousVersion)))
+    }.flatMap(v => v.map(_._1))
+
+//    ZStream.fromZIO(dataProvider.firstVersion)
+//      .flatMap(dataProvider.requestChanges)
+//      .take(1)
+//      .map(_._2)
+//      .flatMap { version =>
+//        ZStream
+//          .fromZIO(dataProvider.firstVersion)
+//          .flatMap(dataProvider.requestChanges)
+//          .map(v => v._1)
+//          .concat(changesStream(version))
+//      }
 
 object SynapseLinkStreamingDataProvider:
 
