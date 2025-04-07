@@ -33,8 +33,10 @@ type MsSqlQuery = String
 
 /**
  * Represents the schema of a table in a Microsoft SQL Server database.
+ * The schema is represented as a sequence of tuples, where each tuple contains
+ * the column name, type (java.sql.Types), precision, and scale.
  */
-type SqlSchema = Seq[(String, Int)]
+type SqlSchema = Seq[(String, Int, Int, Int)]
 
 /**
  * Represents the connection options for a Microsoft SQL Server database.
@@ -46,7 +48,6 @@ type SqlSchema = Seq[(String, Int)]
  * @param partitionExpression The partition expression for the table.
  */
 case class ConnectionOptions(connectionUrl: String,
-                             databaseName: String,
                              schemaName: String,
                              tableName: String,
                              partitionExpression: Option[String])
@@ -57,8 +58,10 @@ case class ConnectionOptions(connectionUrl: String,
  * @param connectionOptions The connection options for the database.
  */
 class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
+  lazy val catalog: String = connection.getCatalog
+  
   private val driver = new SQLServerDriver()
-  private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
+  private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -68,7 +71,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the column summaries for the table in the database.
    */
   def getColumnSummaries: Future[List[ColumnSummary]] =
-    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, connectionOptions.databaseName)
+    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
     for query <- Future.fromTry(tryQuery)
         result <- executeColumnSummariesQuery(query)
     yield result
@@ -90,7 +93,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
+    val query = QueryProvider.getChangeTrackingVersionQuery(catalog, maybeLatestVersion, lookBackInterval)
 
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
@@ -143,7 +146,10 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         use(statement.executeQuery(query))
       }
       val metadata = resultSet.getMetaData
-      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i), metadata.getColumnType(i))
+      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i),
+        metadata.getColumnType(i),
+        metadata.getPrecision(i),
+        metadata.getScale(i))
     }
     columns.get
   }
@@ -152,9 +158,8 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
     sqlSchema match
       case Nil => Success(schema)
-      case x +: xs =>
-        val (name, fieldType) = x
-        toArcaneType(fieldType) match
+      case (name, fieldType, precision, scale) +: xs =>
+        toArcaneType(fieldType, precision, scale) match
           case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
           case Failure(exception) => Failure[this.SchemaType](exception)
 
