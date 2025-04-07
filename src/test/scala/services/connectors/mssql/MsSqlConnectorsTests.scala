@@ -114,14 +114,14 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query = QueryProvider.getChangeTrackingVersionQuery(connector.catalog, None, Duration.ofHours(-1))
+    val query = QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1))
     query should (include ("SELECT MIN(commit_ts)") and include (s"WHERE commit_time > '$formattedTime'"))
   }
   
   "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query = QueryProvider.getChangeTrackingVersionQuery(connector.catalog, Some(1), Duration.ofHours(-1))
+    val query = QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1))
     query should (include ("SELECT MIN(commit_ts)") and (not include "commit_time") and include (s"WHERE commit_ts > 1"))
   }
 
