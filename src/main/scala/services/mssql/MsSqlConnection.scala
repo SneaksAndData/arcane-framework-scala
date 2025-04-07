@@ -78,7 +78,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    */
   def backfill: ZStream[Any, Throwable, DataRow] =
     for query <- ZStream.fromZIO(this.getBackfillQuery)
-        resultSet <- ZStream.fromZIO(executeQueryZIO(query, connection))
+        statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
+        resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => ZIO.succeed(rs.close()))
+
         stream <- ZStream.paginateZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
           if hasNext then
             for columns <- ZIO.attempt(rs.getMetaData.getColumnCount)
@@ -99,6 +101,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
 
+    // TODO: close statement and resultSet in executeQuery
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
         changesQuery <- this.getChangesQuery(version - 1)
@@ -181,18 +184,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
 
   private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Task[QueryResultType] =
-    ZIO.scoped {
-      for statement <- ZIO.fromAutoCloseable(ZIO.attempt(connection.createStatement()))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attempt(statement.executeQuery(query)))
-      yield resultFactory(statement, resultSet)
-    }
-
-  private def executeQueryZIO(query: MsSqlQuery, connection: Connection): Task[ResultSet] =
-    ZIO.scoped {
-      for statement <- ZIO.fromAutoCloseable(ZIO.attempt(connection.createStatement()))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attempt(statement.executeQuery(query)))
-      yield resultSet
-    }
+    for statement <- ZIO.attempt(connection.createStatement())
+        resultSet <- ZIO.attempt(statement.executeQuery(query))
+    yield resultFactory(statement, resultSet)
 
 object MsSqlConnection:
   /**
