@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.query
 
-import utils.SqlUtils.toArcaneType
 import models.{DataCell, DataRow}
 import services.mssql.base.{CanPeekHead, QueryResult, ResultSetOwner}
+import services.mssql.{SqlDataCell, SqlDataRow, given_Conversion_SqlDataRow_DataRow}
+import utils.SqlUtils.toArcaneType
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
@@ -34,6 +35,7 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, 
           case Failure(exception) => throw exception
         }
       })
+      .map(implicitly)
 
   /**
    * Peeks the head of the result of the SQL query mapped to an output type.
@@ -44,7 +46,7 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, 
     new LazyQueryResult(statement, resultSet, read.headOption.toList)
 
   @tailrec
-  private def toDataRow(row: ResultSet, column: Int, acc: DataRow): Try[DataRow] =
+  private def toDataRow(row: ResultSet, column: Int, acc: SqlDataRow): Try[SqlDataRow] =
     if column == 0 then Success(acc)
     else
       val name = row.getMetaData.getColumnName(column)
@@ -55,7 +57,7 @@ class LazyQueryResult(protected val statement: Statement, resultSet: ResultSet, 
       val scale = row.getMetaData.getScale(column)
 
       toArcaneType(dataType, precision, scale) match
-        case Success(arcaneType) => toDataRow(row, column - 1, DataCell(name, arcaneType, value) :: acc)
+        case Success(arcaneType) => toDataRow(row, column - 1, SqlDataCell(name, arcaneType, value) :: acc)
         case Failure(exception) => Failure(exception)
 
 /**

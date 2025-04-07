@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{ArcaneSchema, ArcaneType, given_CanAdd_ArcaneSchema}
+import models.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
 import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
+import services.mssql.SqlSchema.toSchema
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
-import utils.SqlUtils.toArcaneType
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.{Task, ZIO, ZLayer}
@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
-import scala.util.{Failure, Success, Try, Using}
+import scala.util.{Failure, Success, Using}
 
 /**
  * Represents a summary of a column in a table.
@@ -30,13 +30,6 @@ type ColumnSummary = (String, Boolean)
  * Represents a query to be executed on a Microsoft SQL Server database.
  */
 type MsSqlQuery = String
-
-/**
- * Represents the schema of a table in a Microsoft SQL Server database.
- * The schema is represented as a sequence of tuples, where each tuple contains
- * the column name, type (java.sql.Types), precision, and scale.
- */
-type SqlSchema = Seq[(String, Int, Int, Int)]
 
 /**
  * Represents the connection options for a Microsoft SQL Server database.
@@ -93,7 +86,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the changes in the database since the given version and the latest observed version.
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Future[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(catalog, maybeLatestVersion, lookBackInterval)
+    val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
 
     for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         version = versionResult.read.getOrElse(Long.MaxValue)
@@ -153,15 +146,6 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     }
     columns.get
   }
-
-  @tailrec
-  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
-    sqlSchema match
-      case Nil => Success(schema)
-      case (name, fieldType, precision, scale) +: xs =>
-        toArcaneType(fieldType, precision, scale) match
-          case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
-          case Failure(exception) => Failure[this.SchemaType](exception)
 
   private def executeColumnSummariesQuery(query: String): Future[List[ColumnSummary]] =
     Future {
