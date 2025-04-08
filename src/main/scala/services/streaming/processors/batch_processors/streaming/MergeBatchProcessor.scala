@@ -26,7 +26,9 @@ class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: 
       for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => tableManager.migrateSchema(batch.schema, batch.targetTableName))
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
-          _ <- runMaintenanceTasks(batchesSet, targetTableSettings.maintenanceSettings, tableManager)
+          _ <- tableManager.optimizeTable(batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)).orDieWith(e => Throwable(s"Failed to optimize while executing maintenance for batch ${batchesSet.batchIndex}", e))
+          _ <- tableManager.expireSnapshots(batchesSet.getSnapshotExpirationRequest(targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings)).orDieWith(e => Throwable(s"Failed expire snapshots while executing maintenance for batch ${batchesSet.batchIndex}", e))
+          _ <- tableManager.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings)).orDieWith(e => Throwable(s"Failed to remove orphan files while executing maintenance for batch ${batchesSet.batchIndex}", e))
       yield batchesSet
     )
 

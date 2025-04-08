@@ -69,18 +69,3 @@ trait StagedBatchProcessor extends StreamingBatchProcessor:
    * @return ZPipeline (stream source for the stream graph).
    */
   def process: ZPipeline[Any, Throwable, BatchType, BatchType]
-
-  /**
-   * Runs the maintenance tasks.
-   *
-   * @param batchesSet The batch set.
-   * @param maintenanceSettings The maintenance settings.
-   * @param tableManager The table manager.
-   * @return The result of the maintenance tasks.
-   */
-  protected def runMaintenanceTasks(batchesSet: BatchType, maintenanceSettings: TableMaintenanceSettings, tableManager: JdbcTableManager): Task[Unit] =
-    for
-      _ <- tableManager.optimizeTable(batchesSet.getOptimizationRequest(maintenanceSettings.targetOptimizeSettings)).orDieWith(e => Throwable(s"Failed to optimize while executing maintenance for batch ${batchesSet.batchIndex}", e))
-      _ <- tableManager.expireSnapshots(batchesSet.getSnapshotExpirationRequest(maintenanceSettings.targetSnapshotExpirationSettings)).orDieWith(e => Throwable(s"Failed expire snapshots while executing maintenance for batch ${batchesSet.batchIndex}", e))
-      _ <- tableManager.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(maintenanceSettings.targetOrphanFilesExpirationSettings)).orDieWith(e => Throwable(s"Failed to remove orphan files while executing maintenance for batch ${batchesSet.batchIndex}", e))
-    yield ()
