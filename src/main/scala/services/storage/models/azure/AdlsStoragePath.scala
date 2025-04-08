@@ -17,7 +17,12 @@ final case class AdlsStoragePath(accountName: String, container: String, blobPre
    * @return The new path.
    */
   @targetName("plus")
-  def +(part: String): AdlsStoragePath = copy(blobPrefix = if (blobPrefix.isEmpty) part else s"${blobPrefix.stripSuffix("/")}/$part")
+  def +(part: String): AdlsStoragePath = copy(blobPrefix = 
+    if part == "/" then
+      s"${blobPrefix.stripSuffix("/")}$part"
+    else
+      if (blobPrefix.isEmpty) part else s"${blobPrefix.stripSuffix("/")}/$part"
+  )
   
 object AdlsStoragePath:
   private val matchRegex: String = "^abfss:\\/\\/([^@]+)@([^\\.]+)\\.dfs\\.core\\.windows\\.net\\/(.*)$"

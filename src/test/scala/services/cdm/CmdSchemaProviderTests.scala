@@ -34,15 +34,6 @@
 //  private val credential = StorageSharedKeyCredential(storageAccount, accessKey)
 //  private val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
 //
-//  it should "be able to read schema from storage container" in {
-//
-//    val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
-//    val provider = SynapseEntitySchemaProvider(storageReader, path, tableName, None)
-//
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(provider.getSchema)).map { result =>
-//      result.length should be >= 1
-//    }
-//  }
 //
 //  "CdmSchemaProvider" should "read the schema every time" in {
 //    val path = s"abfss://$container@$storageAccount.dfs.core.windows.net/"
