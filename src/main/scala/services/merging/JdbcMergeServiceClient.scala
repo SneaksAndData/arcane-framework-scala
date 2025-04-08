@@ -221,11 +221,11 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   private type ResultMapper[Result] = Boolean => Result
 
   private def executeBatchQuery[Result](query: String, batchName: String, operation: String, resultMapper: ResultMapper[Result]): Task[Result] =
-    val statement = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
-    ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())){ statement =>
-      for
-        _ <- zlog(s"$operation batch $batchName")
-        applicationResult <- ZIO.attemptBlocking(statement.execute())
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
+          _ <- zlog(s"$operation batch $batchName")
+          applicationResult <- ZIO.attemptBlocking(statement.execute())
+          _ <- zlog(s"$operation batch $batchName completed")
       yield resultMapper(applicationResult)
     }
 
