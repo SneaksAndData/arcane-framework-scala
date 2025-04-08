@@ -222,9 +222,9 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
 
   private def executeBatchQuery[Result](query: String, batchName: String, operation: String, resultMapper: ResultMapper[Result]): Task[Result] =
     ZIO.scoped {
-      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
+      for statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
           _ <- zlog(s"$operation batch $batchName")
-          applicationResult <- ZIO.attemptBlocking(statement.execute())
+          applicationResult <- ZIO.attempt(statement.execute())
           _ <- zlog(s"$operation batch $batchName completed")
       yield resultMapper(applicationResult)
     }
