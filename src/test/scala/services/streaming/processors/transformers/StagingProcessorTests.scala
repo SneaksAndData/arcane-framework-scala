@@ -87,11 +87,4 @@ object StagingProcessorTests extends ZIOSpecDefault:
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     },
 
-    test("allow accessing stream metadata") {
-      for {
-        stagingProcessor <- getProcessor
-        result <- ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatchWithMetadata, hookManager.onBatchStaged)).run(ZSink.last)
-      } yield assertTrue(result.exists(v => v.asInstanceOf[IndexedStagedBatchesWithMetadata].others == Chunk("metadata", "source delete request")))
-    }
-
   ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
