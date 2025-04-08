@@ -72,7 +72,7 @@ trait TableManager:
    * @param batchOptimizationRequest The optimization request.
    * @return The result of the optimization operation.
    */
-  def optimizeTable(batchOptimizationRequest: TableOptimizationRequest): Task[BatchOptimizationResult]
+  def optimizeTable(batchOptimizationRequest: Option[TableOptimizationRequest]): Task[BatchOptimizationResult]
 
   /**
    * Expires snapshots.
@@ -80,7 +80,7 @@ trait TableManager:
    * @param snapshotExpirationRequest The snapshot expiration request.
    * @return The result of the snapshot expiration operation.
    */
-  def expireSnapshots(snapshotExpirationRequest: SnapshotExpirationRequest): Task[BatchOptimizationResult]
+  def expireSnapshots(snapshotExpirationRequest: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult]
 
   /**
    * Expires orphan files.
@@ -88,7 +88,7 @@ trait TableManager:
    * @param orphanFilesExpirationRequest The orphan files expiration request.
    * @return The result of the orphan files expiration operation.
    */
-  def expireOrphanFiles(orphanFilesExpirationRequest: OrphanFilesExpirationRequest): Task[BatchOptimizationResult]
+  def expireOrphanFiles(orphanFilesExpirationRequest: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult]
 
   /**
    * Migrates the schema of a table.

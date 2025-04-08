@@ -23,7 +23,7 @@ trait OptimizationRequestConvertable:
    * @param settings The optimization settings.
    * @return The optimization request.
    */
-  def getOptimizationRequest(settings: OptimizeSettings): JdbcOptimizationRequest
+  def getOptimizationRequest(settings: Option[OptimizeSettings]): Option[JdbcOptimizationRequest]
 
 /**
  * A trait that represents a batch that can be converted to a snapshot expiration request.
@@ -36,7 +36,7 @@ trait SnapshotExpirationRequestConvertable:
    * @param settings The snapshot expiration settings.
    * @return The snapshot expiration request.
    */
-  def getSnapshotExpirationRequest(settings: SnapshotExpirationSettings): JdbcSnapshotExpirationRequest
+  def getSnapshotExpirationRequest(settings: Option[SnapshotExpirationSettings]): Option[JdbcSnapshotExpirationRequest]
 
 /**
  * A trait that represents a batch that can be converted to an orphan files expiration request.
@@ -48,7 +48,7 @@ trait OrphanFilesExpirationRequestConvertable:
    * @param settings The orphan files expiration settings.
    * @return The orphan files expiration request.
    */
-  def getOrphanFileExpirationRequest(settings: OrphanFilesExpirationSettings): JdbcOrphanFilesExpirationRequest
+  def getOrphanFileExpirationRequest(settings: Option[OrphanFilesExpirationSettings]): Option[JdbcOrphanFilesExpirationRequest]
 
 /**
  * A trait that represents a batch processor.
@@ -71,19 +71,6 @@ trait StagedBatchProcessor extends StreamingBatchProcessor:
   def process: ZPipeline[Any, Throwable, BatchType, BatchType]
 
   /**
-   * Represents a maintenance operation.
-   * @tparam T type of the maintenance settings
-   */
-  private type MaintenanceOperation[T] = (BatchType, T) => Task[BatchOptimizationResult]
-
-  /**
-   * Represents a maintenance operation result. Can be either a BatchOptimizationResult if the table maintenance request
-   * was created or Unit if the maintenance settings were not provided and no operation was performed.
-   * @tparam T type of the maintenance settings
-   */
-  private type MaintenanceOperationResult = Task[BatchOptimizationResult|Unit]
-
-  /**
    * Runs the maintenance tasks.
    *
    * @param batchesSet The batch set.
@@ -93,16 +80,7 @@ trait StagedBatchProcessor extends StreamingBatchProcessor:
    */
   protected def runMaintenanceTasks(batchesSet: BatchType, maintenanceSettings: TableMaintenanceSettings, tableManager: JdbcTableManager): Task[Unit] =
     for
-      _ <- runMaintenance(batchesSet, maintenanceSettings.targetOptimizeSettings) {
-        (batchesSet, settings) => tableManager.optimizeTable(batchesSet.getOptimizationRequest(settings))
-      }
-      _ <- runMaintenance(batchesSet, maintenanceSettings.targetSnapshotExpirationSettings) {
-        (batchesSet, settings) => tableManager.expireSnapshots(batchesSet.getSnapshotExpirationRequest(settings))
-      }
-      _ <- runMaintenance(batchesSet, maintenanceSettings.targetOrphanFilesExpirationSettings) {
-        (batchesSet, settings) => tableManager.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(settings))
-      }
+      _ <- tableManager.optimizeTable(batchesSet.getOptimizationRequest(maintenanceSettings.targetOptimizeSettings)).orDieWith(e => Throwable(s"Failed to optimize while executing maintenance for batch ${batchesSet.batchIndex}", e))
+      _ <- tableManager.expireSnapshots(batchesSet.getSnapshotExpirationRequest(maintenanceSettings.targetSnapshotExpirationSettings)).orDieWith(e => Throwable(s"Failed expire snapshots while executing maintenance for batch ${batchesSet.batchIndex}", e))
+      _ <- tableManager.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(maintenanceSettings.targetOrphanFilesExpirationSettings)).orDieWith(e => Throwable(s"Failed to remove orphan files while executing maintenance for batch ${batchesSet.batchIndex}", e))
     yield ()
-
-  private def runMaintenance[T](batchSet: BatchType, settings: Option[T])(action: MaintenanceOperation[T]): MaintenanceOperationResult  =
-    settings.map(s => action(batchSet, s)).getOrElse(ZIO.unit)

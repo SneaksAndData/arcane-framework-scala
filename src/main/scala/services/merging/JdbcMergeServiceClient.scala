@@ -120,29 +120,23 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  override def optimizeTable(request: TableOptimizationRequest): Task[BatchOptimizationResult] =
-    if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Optimizing", _ => BatchOptimizationResult(false))
-    else
-      ZIO.succeed(BatchOptimizationResult(true))
+  override def optimizeTable(request: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] = request match
+    case Some(optimizeRequest) if optimizeRequest.isApplicable => executeBatchQuery(optimizeRequest.toSqlExpression, optimizeRequest.name, "Optimizing", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
-  override def expireSnapshots(request: SnapshotExpirationRequest): Task[BatchOptimizationResult] =
-    if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Running Snapshot Expiration task", _ => BatchOptimizationResult(false))
-    else
-      ZIO.succeed(BatchOptimizationResult(true))
+  override def expireSnapshots(request: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] = request match
+    case Some(expireSnapshotsRequest) if expireSnapshotsRequest.isApplicable => executeBatchQuery(expireSnapshotsRequest.toSqlExpression, expireSnapshotsRequest.name, "Expiring old snapshots", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
-  override def expireOrphanFiles(request: OrphanFilesExpirationRequest): Task[BatchOptimizationResult] =
-    if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult(false))
-    else
-      ZIO.succeed(BatchOptimizationResult(true))
+  override def expireOrphanFiles(request: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] = request match
+    case Some(expireOrphanFilesRequest) if expireOrphanFilesRequest.isApplicable => executeBatchQuery(expireOrphanFilesRequest.toSqlExpression, expireOrphanFilesRequest.name, "Removing orphan files", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
