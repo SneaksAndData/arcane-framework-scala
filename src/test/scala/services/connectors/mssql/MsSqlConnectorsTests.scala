@@ -163,7 +163,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.backfill.runCollect
     yield {
-      result should have length 21
+      result should have length 20
     }
     
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))

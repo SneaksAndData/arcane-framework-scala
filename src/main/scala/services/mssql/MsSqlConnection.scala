@@ -81,14 +81,14 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => ZIO.succeed(rs.close()))
 
-        stream <- ZStream.paginateZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
+        stream <- ZStream.unfoldZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
           if hasNext then
             for columns <- ZIO.attempt(rs.getMetaData.getColumnCount)
                 row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
                 state <- ZIO.succeed((rs, rs.next()))
-            yield (row, Some(state))
+            yield Some((row, state))
           else
-            ZIO.succeed(List(), None)
+            ZIO.succeed(None)
         }
     yield stream
 
