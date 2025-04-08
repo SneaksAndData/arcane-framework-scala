@@ -15,3 +15,4 @@ trait OptimizeSettings:
    * Optimize when the file size exceeds this threshold
    */
   val fileSizeThreshold: String
+  

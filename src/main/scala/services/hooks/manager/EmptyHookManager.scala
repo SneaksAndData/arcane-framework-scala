@@ -15,23 +15,27 @@ class EmptyIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch &
     with OrphanFilesExpirationRequestConvertable
     with OptimizationRequestConvertable:
 
-  override def getSnapshotExpirationRequest(settings: SnapshotExpirationSettings): JdbcSnapshotExpirationRequest =
+  override def getSnapshotExpirationRequest(settings: Option[SnapshotExpirationSettings]): Option[JdbcSnapshotExpirationRequest] = settings.map { snapshotExpirationSettings =>
     JdbcSnapshotExpirationRequest(groupedBySchema.head.targetTableName,
-      settings.batchThreshold,
-      settings.retentionThreshold,
+      snapshotExpirationSettings.batchThreshold,
+      snapshotExpirationSettings.retentionThreshold,
       batchIndex)
+  }
 
-  override def getOrphanFileExpirationRequest(settings: OrphanFilesExpirationSettings): JdbcOrphanFilesExpirationRequest =
+  override def getOrphanFileExpirationRequest(settings: Option[OrphanFilesExpirationSettings]): Option[JdbcOrphanFilesExpirationRequest] = settings.map { orphanFilesExpirationSettings =>
     JdbcOrphanFilesExpirationRequest(groupedBySchema.head.targetTableName,
-      settings.batchThreshold,
-      settings.retentionThreshold,
-      batchIndex)
+      orphanFilesExpirationSettings.batchThreshold,
+      orphanFilesExpirationSettings.retentionThreshold,
+      batchIndex) 
+  }
 
-  override def getOptimizationRequest(settings: OptimizeSettings): JdbcOptimizationRequest =
+  override def getOptimizationRequest(settings: Option[OptimizeSettings]): Option[JdbcOptimizationRequest] = settings.map { optimizerSettings =>
     JdbcOptimizationRequest(groupedBySchema.head.targetTableName,
-      settings.batchThreshold,
-      settings.fileSizeThreshold,
+      optimizerSettings.batchThreshold,
+      optimizerSettings.fileSizeThreshold,
       batchIndex)
+  }
+      
 
 
 /**

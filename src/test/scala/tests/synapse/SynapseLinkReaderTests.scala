@@ -29,7 +29,18 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
         allRows <- synapseLinkReader.getChanges(OffsetDateTime.now().minus(Duration.ofHours(12))).map(_ => 1).runSum
-        // expect 35 rows, since each file has 5 rows, total 8 files for this table and 1 file skipped as it is the latest one
-      yield assertTrue(allRows == 5 * (8 - 1))
+        // expect 30 rows, since each file has 5 rows
+        // total 7 files for this table (first folder doesn't have a CSV/schema for this table) 
+        // 1 file skipped as it is the latest one
+      yield assertTrue(allRows == 5 * (7 - 1))
+    },
+
+    test("reads schema from a storage container and parses it successfully") {
+      for
+        path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        schema <- synapseLinkReader.getSchema
+      // 25 fields plus ARCANE_MERGE_KEY  
+      yield assertTrue(schema.size == 26)
     }
   ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock

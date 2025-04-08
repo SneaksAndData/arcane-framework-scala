@@ -115,7 +115,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val optimizeThreshold = 10
     val fileSizeThreshold = "1MB"
     val batchIndex = 9
-    val request = JdbcOptimizationRequest(tableName, optimizeThreshold, fileSizeThreshold, batchIndex)
+    val request = Some(JdbcOptimizationRequest(tableName, optimizeThreshold, fileSizeThreshold, batchIndex))
 
 
     val mergeServiceClient = getSystemUnderTest(None)
@@ -129,7 +129,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val optimizeThreshold = 10
     val retentionThreshold = "8d"
     val batchIndex = 9
-    val request = JdbcSnapshotExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
+    val request = Some(JdbcSnapshotExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex))
 
     val mergeServiceClient = getSystemUnderTest(None)
     for result <- mergeServiceClient.expireSnapshots(request)
@@ -142,7 +142,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     val optimizeThreshold = 10
     val retentionThreshold = "8d"
     val batchIndex = 9
-    val request = JdbcOrphanFilesExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex)
+    val request = Some(JdbcOrphanFilesExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex))
 
     val mergeServiceClient = getSystemUnderTest(None)
     for result <- mergeServiceClient.expireOrphanFiles(request)
