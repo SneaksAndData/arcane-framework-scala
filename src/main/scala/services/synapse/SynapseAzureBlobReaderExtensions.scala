@@ -31,7 +31,7 @@ object SynapseAzureBlobReaderExtensions:
    * @return A stream of root prefixes and the latest change date associated with them
    */
   extension (reader: BlobStorageReader[AdlsStoragePath]) def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): ZStream[Any, Throwable, (StoredBlob, String)] = for 
-        _ <- zlogStream("Getting root prefixes stating from %s", startFrom.toString)
+        _ <- zlogStream("Getting root prefixes starting from %s", startFrom.toString)
         // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
         inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
         inProgressDateParsed <- ZStream.succeed(OffsetDateTime.parse(inProgressDate, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")))
