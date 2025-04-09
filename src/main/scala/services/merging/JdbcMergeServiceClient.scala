@@ -152,7 +152,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
     val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()).tapErrorCause(e => zlog("Error executing query", e)).orDie())
           tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
           _ <- ZIO.foreachDiscard(tableNames)(tableName => {
             zlog("Found lost staging table: " + tableName) *> dropTable(tableName)
