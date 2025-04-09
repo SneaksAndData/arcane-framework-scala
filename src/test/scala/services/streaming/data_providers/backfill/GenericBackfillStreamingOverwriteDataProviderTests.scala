@@ -9,7 +9,7 @@ import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.consumers.{MergeableBatch, SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
-import services.merging.JdbcTableManager
+import services.merging.{JdbcMergeServiceClient, JdbcTableManager}
 import services.streaming.base.{BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
@@ -113,7 +113,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     )
 
     val disposeServiceClient = mock[DisposeServiceClient]
-    val mergeServiceClient = mock[MergeServiceClient]
+    val mergeServiceClient = mock[JdbcMergeServiceClient]
     val jdbcTableManager = mock[JdbcTableManager]
     val hookManager = mock[HookManager]
     val streamDataProvider = mock[StreamDataProvider]
@@ -131,13 +131,13 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
-      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      mergeServiceClient.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
         .anyTimes()
-      jdbcTableManager.createTargetTable
+      mergeServiceClient.createTargetTable
         .andReturn(ZIO.unit)
         .anyTimes()
-      jdbcTableManager.createBackFillTable
+      mergeServiceClient.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
 
@@ -177,9 +177,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
       }),
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
-      ZLayer.succeed(disposeServiceClient),
+//      ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
+//      ZLayer.succeed(jdbcTableManager),
       ZLayer.succeed(hookManager),
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(new StreamContext {

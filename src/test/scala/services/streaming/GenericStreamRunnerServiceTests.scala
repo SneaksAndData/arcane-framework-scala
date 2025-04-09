@@ -8,7 +8,7 @@ import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
-import services.merging.JdbcTableManager
+import services.merging.{JdbcMergeServiceClient, JdbcTableManager}
 import services.streaming.base.{BackfillStreamingDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
@@ -53,7 +53,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     val streamRepeatCount = 5
 
     val disposeServiceClient = mock[DisposeServiceClient]
-    val mergeServiceClient = mock[MergeServiceClient]
+    val mergeServiceClient = mock[JdbcMergeServiceClient]
     val jdbcTableManager = mock[JdbcTableManager]
     val hookManager = mock[HookManager]
     val streamDataProvider = mock[StreamDataProvider]
@@ -75,13 +75,13 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
         .times(streamRepeatCount)
 
-      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      mergeServiceClient.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
         .anyTimes()
-      jdbcTableManager.createTargetTable
+      mergeServiceClient.createTargetTable
         .andReturn(ZIO.unit)
         .anyTimes()
-      jdbcTableManager.createBackFillTable
+      mergeServiceClient.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
     }
@@ -109,9 +109,9 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
 
       // Mocks
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount-1, identity)),
-      ZLayer.succeed(disposeServiceClient),
+//      ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
+//      ZLayer.succeed(jdbcTableManager),
       ZLayer.succeed(hookManager),
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(new StreamContext {
