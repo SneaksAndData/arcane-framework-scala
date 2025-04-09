@@ -15,15 +15,9 @@ import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import scala.collection.immutable
 
+import tests.shared.AzureStorageInfo._
+
 object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
-  private val endpoint = "http://localhost:10001/devstoreaccount1"
-  private val container = "cdm-e2e"
-  private val storageAccount = "devstoreaccount1"
-  private val accessKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
-
-  private val credential = StorageSharedKeyCredential(storageAccount, accessKey)
-  private val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
-
   /**
     * Test cases for getRootPrefixes method. These test cases relying on the following assumptions:
     * - The test date was created by the populate-cdm-container.py script no longer than 1 hour ago
@@ -35,7 +29,7 @@ object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
   private def rootPrefixesTests: immutable.Iterable[Spec[Any, Throwable]] =
     val testCases = Map(
       // 12 hours ago, we should get all timestamp folders but the latest one as a result.
-      OffsetDateTime.now().minus(Duration.ofHours(12)) -> 7,
+      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12)) -> 7,
 
       // 3 hours ago, we should get 1 folder as a result since folder with same hours created later than our start time.
       OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(3)) -> 1,

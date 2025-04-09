@@ -1435,9 +1435,11 @@ MODEL_JSON_WITHOUT_DIMENSION_ATTRIBUTE_VALUE = """{
                     }
                   ]
                 }"""
+MALFORMED_MODEL_JSON = """{"name": "cdm", "description": "cdm", "version": "1.0"}"""
 
 AZURITE_CONNECTION_STRING='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10001/devstoreaccount1'
 CONTAINER = "cdm-e2e"
+INCORRECT_SCHEMA_CONTAINER = "cdm-e2e-malformed-schema"
 # Get the current date and time
 now = datetime.utcnow()
 
@@ -1459,21 +1461,41 @@ def create_container():
    except Exception as e:
       print(e)
 
+def create_faulty_container():
+   blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
+   try:
+      blob_service_client.create_container(INCORRECT_SCHEMA_CONTAINER)
+   except Exception as e:
+      print(e)
+
 def create_blobs():
     for folder in FOLDERS:
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2020.csv", CONTENT)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2021.csv", CONTENT)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevel/2022.csv", CONTENT)
+
+        upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/dimensionattributelevel/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/dimensionattributelevel/2021.csv", CONTENT)
+        upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/dimensionattributelevel/2022.csv", CONTENT)
+
         if folder != FOLDERS[0]:
             upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
+            upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
         if folder == FOLDERS[0]:
             upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON_WITHOUT_DIMENSION_ATTRIBUTE_VALUE)
+        if folder == FOLDERS[1]:
+            upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/model.json", MALFORMED_MODEL_JSON)
+            upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON)
         else:
             upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON)
+            upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/model.json", MODEL_JSON)
 
     upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON)
+    upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, "model.json", MODEL_JSON)
 
 
 create_container()
+create_faulty_container()
 create_blobs()
 upload_blob_file(blob_service_client, CONTAINER, "Changelog/changelog.info", FOLDERS[-1])
+upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, "Changelog/changelog.info", FOLDERS[-1])
