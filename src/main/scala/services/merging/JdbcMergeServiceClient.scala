@@ -119,9 +119,8 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  override def optimizeTable(request: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] = request match
-    case Some(optimizeRequest) if optimizeRequest.isApplicable => executeBatchQuery(optimizeRequest.toSqlExpression, optimizeRequest.name, "Optimizing", _ => BatchOptimizationResult(false))
-    case _ => ZIO.succeed(BatchOptimizationResult(true))
+  override def optimizeTable(request: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] =
+    executeBatchQuery(request.get.toSqlExpression, request.get.name, "Optimizing", _ => BatchOptimizationResult(false))
 
   /**
    * @inheritdoc
