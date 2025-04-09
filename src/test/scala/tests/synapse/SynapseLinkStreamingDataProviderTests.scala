@@ -6,7 +6,7 @@ import zio.test.*
 import zio.test.TestAspect.timeout
 
 import java.time.{Duration, OffsetDateTime}
-import tests.synapse.SynapseLinkStorageInfo.*
+import tests.shared.AzureStorageInfo.*
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseLinkStreamingDataProvider

@@ -1,10 +1,11 @@
 package com.sneaksanddata.arcane.framework
-package tests.synapse
+package tests.shared
 
 import services.storage.services.AzureBlobStorageReader
+
 import com.azure.storage.common.StorageSharedKeyCredential
 
-object SynapseLinkStorageInfo:
+object AzureStorageInfo:
   val endpoint = "http://localhost:10001/devstoreaccount1"
   val container = "cdm-e2e"
   val malformedSchemaContainer = "cdm-e2e-malformed-schema"

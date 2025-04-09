@@ -9,7 +9,7 @@ import zio.test.*
 import zio.test.TestAspect.timeout
 
 import java.time.{Duration, OffsetDateTime}
-import tests.synapse.SynapseLinkStorageInfo._
+import tests.shared.AzureStorageInfo._
 
 object SynapseLinkReaderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"

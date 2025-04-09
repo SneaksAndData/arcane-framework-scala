@@ -15,7 +15,7 @@ import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import scala.collection.immutable
 
-import tests.synapse.SynapseLinkStorageInfo._
+import tests.shared.AzureStorageInfo._
 
 object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
   /**
