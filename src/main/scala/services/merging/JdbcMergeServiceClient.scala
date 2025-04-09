@@ -70,12 +70,11 @@ class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends S
    */
   override def getSchema: Task[ArcaneSchema] =
     val query = s"SELECT * FROM $tableName where true and false"
-    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
-    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
-      for
-        schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
-        tryFields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
-        fields <- ZIO.fromTry(tryFields)
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
+          tryFields <- ZIO.attemptBlocking(resultSet.readArcaneSchema)
+          fields <- ZIO.fromTry(tryFields)
       yield fields
     }
 
@@ -154,7 +153,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
     val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-          resultSet <- ZIO.attemptBlocking(statement.executeQuery())
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
           tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
           _ <- ZIO.foreachDiscard(tableNames)(tableName => {
             zlog("Found lost staging table: " + tableName) *> dropTable(tableName)
@@ -187,7 +186,12 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
 
 
   private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
-    ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties))))
+          _ <- zlog("Creating table: " + name)
+          _ <- ZIO.attemptBlocking(statement.execute())
+      yield ()
+    }
 
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
@@ -201,16 +205,19 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   def getSchema(tableName: String): Task[ArcaneSchema] =
     schemaProviderCache.getSchemaProvider(tableName, name => schemaProviderFactory(name, sqlConnection))
 
-  private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
-    missingFields match
+  private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] = missingFields match
       case Seq() => ZIO.unit
       case _ =>
           for _ <- ZIO.foreach(missingFields)(field => {
-            val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-            zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
-              *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
-          })
-          _ <- schemaProviderCache.refreshSchemaProvider(targetTableName, name => schemaProviderFactory(name, sqlConnection))
+              val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+              ZIO.scoped {
+                for _ <- zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+                    statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
+                    _ <- ZIO.attemptBlocking(statement.execute())
+                yield ()
+              }
+            })
+            _ <- schemaProviderCache.refreshSchemaProvider(targetTableName, name => schemaProviderFactory(name, sqlConnection))
           yield ()
 
   /**

@@ -100,13 +100,13 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
-
-    // TODO: close statement and resultSet in executeQuery
-    for versionResult <- executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
-        version = versionResult.read.getOrElse(Long.MaxValue)
-        changesQuery <- this.getChangesQuery(version - 1)
-        result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-    yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+    ZIO.scoped {
+      for versionResult <- ZIO.fromAutoCloseable(executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion)))
+          version = versionResult.read.getOrElse(Long.MaxValue)
+          changesQuery <- this.getChangesQuery(version - 1)
+          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
+      yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+    }
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
