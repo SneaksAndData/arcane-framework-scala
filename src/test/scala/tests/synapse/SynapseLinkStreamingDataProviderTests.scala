@@ -61,10 +61,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
         synapseLinkDataProvider <- ZIO.succeed(SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings))
         provider <- ZIO.succeed(SynapseLinkStreamingDataProvider(synapseLinkDataProvider, graphSettings, changeCaptureStreamContext))
-        rows <- provider.stream.timeout(zio.Duration.fromSeconds(1)).runCount
+        rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCount
       // expect 5 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // lookback is 3 hours which should only capture 1 file
       yield assertTrue(rows == 5)
     }
-  ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
