@@ -29,7 +29,7 @@ object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
   private def rootPrefixesTests: immutable.Iterable[Spec[Any, Throwable]] =
     val testCases = Map(
       // 12 hours ago, we should get all timestamp folders but the latest one as a result.
-      OffsetDateTime.now().minus(Duration.ofHours(12)) -> 7,
+      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12)) -> 7,
 
       // 3 hours ago, we should get 1 folder as a result since folder with same hours created later than our start time.
       OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(3)) -> 1,

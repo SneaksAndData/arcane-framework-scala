@@ -5,13 +5,12 @@ import zio.{Scope, ZIO}
 import zio.test.*
 import zio.test.TestAspect.timeout
 
-import java.time.{Duration, OffsetDateTime}
+import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import tests.shared.AzureStorageInfo.*
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-
 import models.app.StreamContext
 import models.settings.BackfillBehavior.Overwrite
 
@@ -24,7 +23,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   }
   private val backfillSettings = new BackfillSettings {
     override val backfillBehavior: BackfillBehavior = Overwrite
-    override val backfillStartDate: Option[OffsetDateTime] = Some(OffsetDateTime.now().minus(Duration.ofHours(12)))
+    override val backfillStartDate: Option[OffsetDateTime] = Some(OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12)))
     override val backfillTableFullName: String = "backfill_test"
   }
   private val backfillStreamContext = new StreamContext {
