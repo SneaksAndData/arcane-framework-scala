@@ -24,11 +24,12 @@ class MergeBatchProcessor(mergeServiceClient: JdbcMergeServiceClient, targetTabl
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
       for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.migrateSchema(batch.schema, batch.targetTableName))
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
       
           _ <- mergeServiceClient.optimizeTable(batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings))
-                  .orDieWith(e => Throwable(s"Failed to optimize while executing maintenance for batch ${batchesSet.batchIndex}", e))
+            .orDieWith(e => Throwable(s"Failed to optimize while executing maintenance for batch ${batchesSet.batchIndex}", e))
+
+          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.migrateSchema(batch.schema, batch.targetTableName))
+          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
       
           _ <- mergeServiceClient.expireSnapshots(batchesSet.getSnapshotExpirationRequest(targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings))
                   .orDieWith(e => Throwable(s"Failed expire snapshots while executing maintenance for batch ${batchesSet.batchIndex}", e))
