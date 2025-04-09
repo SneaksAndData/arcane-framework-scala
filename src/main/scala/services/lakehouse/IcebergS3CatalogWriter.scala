@@ -11,8 +11,7 @@ import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
-import org.apache.iceberg.{CatalogProperties, CatalogUtil, DataFiles, PartitionSpec, Schema, Table}
-import zio.{Reloadable, Schedule, Task, ZIO, ZLayer}
+import org.apache.iceberg.{CatalogProperties, DataFile, PartitionSpec, Schema, Table}
 import logging.ZIOLogAnnotations.*
 
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
@@ -21,10 +20,8 @@ import zio.*
 
 import java.time.{Instant, OffsetDateTime}
 import java.util.UUID
-import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
-import scala.util.{Failure, Success, Try}
 import scala.collection.concurrent.TrieMap
 
 /**
@@ -35,6 +32,7 @@ given Conversion[ArcaneSchema, Schema] with
   
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema]:
+  private val maxRowsPerFile = 10000
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,
@@ -99,11 +97,9 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
     val rowMap = row.map { cell => cell.name -> cell.value }.toMap
     record.copy(rowMap.asJava)
 
-  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
-    _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
-    appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
-    records <- ZIO.attempt(data.map(r => rowToRecord(r, schema)).foldLeft(ImmutableList.builder[GenericRecord]) {
-      (builder, record) => builder.add(record)
+  private def chunkToFile(chunk: Iterable[DataRow], schema: Schema, tbl: Table): Task[DataFile] = for
+    records <- ZIO.attempt(chunk.foldLeft(ImmutableList.builder[GenericRecord]) {
+      (builder, record) => builder.add(rowToRecord(record, schema))
     }.build())
     file <- ZIO.attemptBlocking(tbl.io.newOutputFile(tbl.locationProvider().newDataLocation(UUID.randomUUID.toString)))
     writer <- ZIO.acquireReleaseWith(ZIO.attempt(Parquet.writeData(file)
@@ -117,9 +113,23 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
         dataWriter
       }
     }
-    _ <- zlog("Committing fast append into table %s", tbl.name())
-    _ <- if isTargetEmpty then ZIO.attemptBlocking(appendTran.newFastAppend().appendFile(writer.toDataFile).commit()) else ZIO.attemptBlocking(appendTran.newAppend().appendFile(writer.toDataFile).commit())
+  yield writer.toDataFile
+
+  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
+    _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
+    chunks <- ZIO.succeed(data.sliding(maxRowsPerFile))
+    _ <- zlog("Generated %s chunks for table %s", chunks.size.toString, tbl.name())
+    appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
+    files <- ZIO.collectAllPar(chunks.map(chunk => chunkToFile(chunk, schema, tbl)).toArray)
+    _ <- zlog("Created %s files to append for table %s", files.length.toString, tbl.name())
+    appendFilesOp <- if isTargetEmpty then ZIO.attempt(appendTran.newFastAppend()) else ZIO.attempt(appendTran.newAppend())
+    _ <- zlog("Committing data files into table %s", tbl.name())
+    filesToCommit <- ZIO.foldLeft(files)(appendFilesOp) {
+      case (agg, dataFile) => ZIO.attempt(agg.appendFile(dataFile))
+    }
+    _ <- ZIO.attemptBlocking(filesToCommit.commit())
     _ <- ZIO.attemptBlocking(appendTran.commitTransaction())
+    _ <- zlog("Fast append transaction successfully applied to table %s", tbl.name())
   yield tbl
   
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
