@@ -66,9 +66,8 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * @return A future containing the column summaries for the table in the database.
    */
   def getColumnSummaries: Task[List[ColumnSummary]] =
-    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
-    for query <- ZIO.fromTry(tryQuery)
-        result <- ZIO.fromFuture(implicit ec => executeColumnSummariesQuery(query))
+    for query <- QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
+        result <- executeColumnSummariesQuery(query)
     yield result
 
   /**
@@ -85,7 +84,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
           if hasNext then
             for columns <- ZIO.attempt(rs.getMetaData.getColumnCount)
                 row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
-                state <- ZIO.succeed((rs, rs.next()))
+                state <- ZIO.attempt((rs, rs.next()))
             yield Some((row, state))
           else
             ZIO.succeed(None)
@@ -145,31 +144,26 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
         arcaneSchema <- ZIO.fromTry(toSchema(sqlSchema, empty))
     yield arcaneSchema
 
-  private def getSqlSchema(query: String): Task[SqlSchema] = ZIO.attempt {
-    val columns = Using.Manager { use =>
-      val statement = use(connection.createStatement())
-      val resultSet = blocking {
-        use(statement.executeQuery(query))
-      }
-      val metadata = resultSet.getMetaData
-      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i),
-        metadata.getColumnType(i),
-        metadata.getPrecision(i),
-        metadata.getScale(i))
+  private def getSqlSchema(query: String): Task[SqlSchema] =
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
+          metadata = resultSet.getMetaData
+          columns <- ZIO.attemptBlocking {
+            for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i),
+              metadata.getColumnType(i),
+              metadata.getPrecision(i),
+              metadata.getScale(i))
+          }
+      yield columns
     }
-    columns.get
-  }
+    
 
-  private def executeColumnSummariesQuery(query: String): Future[List[ColumnSummary]] =
-    Future {
-      val result = Using.Manager { use =>
-        val statement = use(connection.createStatement())
-        val resultSet = use(statement.executeQuery(query))
-        blocking {
-          readColumns(resultSet, List.empty)
-        }
-      }
-      result.get
+  private def executeColumnSummariesQuery(query: String): Task[List[ColumnSummary]] =
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
+      yield readColumns(resultSet, List.empty)
     }
     
 
@@ -184,9 +178,11 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
 
   private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Task[QueryResultType] =
-    for statement <- ZIO.attempt(connection.createStatement())
-        resultSet <- ZIO.attempt(statement.executeQuery(query))
-    yield resultFactory(statement, resultSet)
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
+      yield resultFactory(statement, resultSet)
+    }
 
 object MsSqlConnection:
   /**
@@ -202,7 +198,7 @@ object MsSqlConnection:
    */
   val layer: ZLayer[ConnectionOptions, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
-      ZIO.fromAutoCloseable{
+      ZIO.fromAutoCloseable {
         for connectionOptions <- ZIO.service[ConnectionOptions] yield MsSqlConnection(connectionOptions)
       }
     }

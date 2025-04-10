@@ -37,7 +37,7 @@ class GenericStreamRunnerService(builder: StreamingGraphBuilder,
       
       _ <- tableManager.createTargetTable
       _ <- tableManager.createBackFillTable
-      _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults)
+      _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults).catchAllCause(e => zlog("Backfill process failed", e))
       _ <- zlog("Stream completed")
     yield ()
 

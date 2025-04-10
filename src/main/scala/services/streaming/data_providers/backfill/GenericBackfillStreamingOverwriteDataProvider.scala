@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.data_providers.backfill
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.ArcaneSchema
 import models.settings.{BackfillSettings, TablePropertiesSettings}
 import services.app.base.StreamLifetimeService
@@ -41,8 +41,13 @@ class GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder: Backf
   def requestBackfill: Task[BatchType] =
     for
       _ <- zlog(s"Starting backfill process")
-      _ <- streamingGraphBuilder.produce(BackfillHookManager(baseHookManager, backfillTableSettings)).via(streamLifetimeGuard).runDrain
+      _ <- streamingGraphBuilder
+        .produce(BackfillHookManager(baseHookManager, backfillTableSettings))
+        .via(streamLifetimeGuard)
+        .runDrain
+        .catchAllCause(e => zlog("Backfill process failed", e))
       _ <- zlog("Backfill process completed")
+      
       backfillBatch <- if lifetimeService.cancelled then
         ZIO.unit
       else

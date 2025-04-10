@@ -19,10 +19,6 @@ object QueryProvider:
    */
   private val UPSERT_MERGE_KEY = MergeKeyField.name
 
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
-  
-  private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-
   /**
    * Gets the schema query for the Microsoft SQL Server database.
    *
@@ -30,19 +26,18 @@ object QueryProvider:
    * @return A future containing the schema query for the Microsoft SQL Server database.
    */
   extension (msSqlConnection: MsSqlConnection) def getSchemaQuery: Task[MsSqlQuery] =
-    msSqlConnection.getColumnSummaries
-      .flatMap(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        ZIO.fromTry(QueryProvider.getChangesQuery(
+    for columnSummaries <- msSqlConnection.getColumnSummaries
+        mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
+        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
+        query <- QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           msSqlConnection.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
-          Long.MaxValue))
-      })
+          Long.MaxValue)
+    yield query
 
   /**
    * Gets the changes query for the Microsoft SQL Server database.
@@ -52,19 +47,18 @@ object QueryProvider:
    * @return A future containing the changes query for the Microsoft SQL Server database.
    */
   extension (msSqlConnection: MsSqlConnection) def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
-    msSqlConnection.getColumnSummaries
-      .flatMap(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "ct")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        val matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        ZIO.fromTry(QueryProvider.getChangesQuery(
+    for columnSummaries <- msSqlConnection.getColumnSummaries
+        mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "ct")
+        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        matchStatement = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
+        query <- QueryProvider.getChangesQuery(
           msSqlConnection.connectionOptions,
           msSqlConnection.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
-          fromVersion))
-      })
+          fromVersion)
+    yield query
 
   /**
    * Gets the changes query for the Microsoft SQL Server database.
@@ -73,16 +67,11 @@ object QueryProvider:
    * @return A future containing the changes query for the Microsoft SQL Server database.
    */
   extension (msSqlConnection: MsSqlConnection) def getBackfillQuery: Task[MsSqlQuery] =
-    msSqlConnection.getColumnSummaries
-      .flatMap(columnSummaries => {
-        val mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        val columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
-        ZIO.fromTry(QueryProvider.getAllQuery(
-          msSqlConnection.connectionOptions,
-          msSqlConnection.catalog,
-          mergeExpression,
-          columnExpression))
-      })
+    for columnSummaries <- msSqlConnection.getColumnSummaries
+        mergeExpression = QueryProvider.getMergeExpression(columnSummaries, "tq")
+        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
+        query <- QueryProvider.getAllQuery(msSqlConnection.connectionOptions, msSqlConnection.catalog, mergeExpression, columnExpression)
+    yield query
 
   /**
    * Gets the column summaries query for the Microsoft SQL Server database.
@@ -92,14 +81,16 @@ object QueryProvider:
    * @param databaseName The name of the database.
    * @return The column summaries query for the Microsoft SQL Server database.
    */
-  def getColumnSummariesQuery(schemaName: String, tableName: String, databaseName: String): Try[MsSqlQuery] =
-    Using(Source.fromResource("get_column_summaries.sql")) { source =>
-      source
-        .getLines
-        .mkString("\n")
-        .replace("{dbName}", databaseName)
-        .replace("{schema}", schemaName)
-        .replace("{table}", tableName)
+  def getColumnSummariesQuery(schemaName: String, tableName: String, databaseName: String): Task[MsSqlQuery] =
+    ZIO.scoped {
+      for source <- ZIO.fromAutoCloseable(ZIO.attempt(Source.fromResource("get_column_summaries.sql")))
+          query = source
+            .getLines
+            .mkString("\n")
+            .replace("{dbName}", databaseName)
+            .replace("{schema}", schemaName)
+            .replace("{table}", tableName)
+      yield query
     }
 
   /**
@@ -159,47 +150,48 @@ object QueryProvider:
                               mergeExpression: String,
                               columnStatement: String,
                               matchStatement: String,
-                              changeTrackingId: Long): Try[MsSqlQuery] =
-    val querySource = connectionOptions.partitionExpression match {
-      case Some(_) => Source.fromResource("get_select_delta_query_date_partitioned.sql")
-      case None => Source.fromResource("get_select_delta_query.sql")
+                              changeTrackingId: Long): Task[MsSqlQuery] =
+    ZIO.scoped {
+      for querySource <- ZIO.fromAutoCloseable {
+            connectionOptions.partitionExpression match {
+              case Some(_) => ZIO.attempt(Source.fromResource("get_select_delta_query_date_partitioned.sql"))
+              case None => ZIO.attempt(Source.fromResource("get_select_delta_query.sql"))
+            }
+          }
+          baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
+          query = baseQuery.replace("{dbName}", databaseName)
+            .replace("{schema}", connectionOptions.schemaName)
+            .replace("{tableName}", connectionOptions.tableName)
+            .replace("{ChangeTrackingColumnsStatement}", columnStatement)
+            .replace("{ChangeTrackingMatchStatement}", matchStatement)
+            .replace("{MERGE_EXPRESSION}", mergeExpression)
+            .replace("{MERGE_KEY}", MergeKeyField.name)
+            .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
+            .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
+            .replace("{lastId}", changeTrackingId.toString)
+      yield query
     }
-
-    val query = Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
-      baseQuery.replace("{dbName}", databaseName)
-        .replace("{schema}", connectionOptions.schemaName)
-        .replace("{tableName}", connectionOptions.tableName)
-        .replace("{ChangeTrackingColumnsStatement}", columnStatement)
-        .replace("{ChangeTrackingMatchStatement}", matchStatement)
-        .replace("{MERGE_EXPRESSION}", mergeExpression)
-        .replace("{MERGE_KEY}", MergeKeyField.name)
-        .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-        .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
-        .replace("{lastId}", changeTrackingId.toString)
-    }
-    logger.debug(s"Query: $query")
-    query
 
   private def getAllQuery(connectionOptions: ConnectionOptions,
                           databaseName: String,
                           mergeExpression: String,
-                          columnExpression: String): Try[MsSqlQuery] =
-
-    val querySource = connectionOptions.partitionExpression match {
-      case Some(_) => Source.fromResource("get_select_all_query_date_partitioned.sql")
-      case None => Source.fromResource("get_select_all_query.sql")
+                          columnExpression: String): Task[MsSqlQuery] =
+    ZIO.scoped {
+      for querySource <- ZIO.fromAutoCloseable {
+            connectionOptions.partitionExpression match {
+              case Some(_) => ZIO.attempt(Source.fromResource("get_select_delta_query_date_partitioned.sql"))
+              case None => ZIO.attempt(Source.fromResource("get_select_delta_query.sql"))
+            }
+          }
+          baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
+          query = baseQuery
+            .replace("{dbName}", databaseName)
+            .replace("{schema}", connectionOptions.schemaName)
+            .replace("{tableName}", connectionOptions.tableName)
+            .replace("{ChangeTrackingColumnsStatement}", columnExpression)
+            .replace("{MERGE_EXPRESSION}", mergeExpression)
+            .replace("{MERGE_KEY}", MergeKeyField.name)
+            .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
+            .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
+      yield query
     }
-
-    val query = Using(querySource)(_.getLines.mkString("\n")) map { baseQuery =>
-      baseQuery
-        .replace("{dbName}", databaseName)
-        .replace("{schema}", connectionOptions.schemaName)
-        .replace("{tableName}", connectionOptions.tableName)
-        .replace("{ChangeTrackingColumnsStatement}", columnExpression)
-        .replace("{MERGE_EXPRESSION}", mergeExpression)
-        .replace("{MERGE_KEY}", MergeKeyField.name)
-        .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-        .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
-    }
-    logger.debug(s"Query: $query")
-    query
