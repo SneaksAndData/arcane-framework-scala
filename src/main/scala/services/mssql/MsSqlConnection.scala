@@ -178,11 +178,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
 
   private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Task[QueryResultType] =
-    ZIO.scoped {
-      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
-      yield resultFactory(statement, resultSet)
-    }
+    for statement <- ZIO.attemptBlocking(connection.createStatement())
+        resultSet <- ZIO.attemptBlocking(statement.executeQuery(query))
+    yield resultFactory(statement, resultSet)
 
 object MsSqlConnection:
   /**

@@ -96,10 +96,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions)
-    val query = QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
+    val task = for query <- QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
       connector.connectionOptions.tableName,
       connector.catalog)
-    query.get should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
+    yield query should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
+    
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
