@@ -12,7 +12,7 @@ import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
-import zio.{Task, UIO, ZIO, ZLayer}
+import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.Duration
@@ -22,6 +22,7 @@ import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
 import scala.util.Using
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.closeSafe
+import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.executeQuerySafe
 
 /**
  * Represents a summary of a column in a table.
@@ -64,7 +65,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   /**
    * Gets the column summaries for the table in the database.
    *
-   * @return A future containing the column summaries for the table in the database.
+   * @return An effect containing the column summaries for the table in the database.
    */
   def getColumnSummaries: Task[List[ColumnSummary]] =
     for query <- QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
@@ -74,22 +75,21 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   /**
    * Run a backfill query on the database.
    *
-   * @return A future containing the result of the backfill.
+   * @return An effect containing the result of the backfill.
    */
   def backfill: ZStream[Any, Throwable, DataRow] =
     for query <- ZStream.fromZIO(this.getBackfillQuery)
         statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-
         stream <- ZStream.unfoldZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
-          if hasNext then
-            for columns <- ZIO.attemptBlockingInterrupt(rs.getMetaData.getColumnCount)
-                row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
-                ns <- ZIO.attemptBlockingInterrupt(rs.next())
-                state <- ZIO.attemptBlockingInterrupt((rs, ns))
-            yield Some((row, state))
-          else
-            ZIO.succeed(None)
+          hasNext match
+            case false => ZIO.succeed(None)
+            case true =>
+              for columns <- ZIO.attemptBlockingInterrupt(rs.getMetaData.getColumnCount)
+                  row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
+                  ns <- ZIO.attemptBlockingInterrupt(rs.next())
+                  state <- ZIO.attemptBlockingInterrupt((rs, ns))
+              yield Some((row, state))
         }
     yield stream
 
@@ -97,7 +97,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
    * Gets the changes in the database since the given version.
    * @param maybeLatestVersion The version to start from.
    * @param lookBackInterval The look back interval for the query.
-   * @return A future containing the changes in the database since the given version and the latest observed version.
+   * @return An effect containing the changes in the database since the given version and the latest observed version.
    */
   def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
@@ -105,6 +105,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
       for versionResult <- ZIO.fromAutoCloseable(executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion)))
           version = versionResult.read.getOrElse(Long.MaxValue)
           changesQuery <- this.getChangesQuery(version - 1)
+
+          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+          // And the LazyQueryResult will close the statement/result set when it is closed.
           result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
       yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
     }
@@ -128,19 +131,11 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
   /**
    * Gets the schema for the data produced by Arcane.
-   * Implementation in the MsSqlConnection memorizes the schema since we need to run an SQL query to 
-   * get the schema.
+   * Implementation in the MsSqlConnection memorizes the schema since we need to run an SQL query to get the schema.
    *
-   * @return A future containing the schema for the data produced by Arcane.
+   * @return An effect containing the schema for the data produced by Arcane.
    */
-  override lazy val getSchema: Task[this.SchemaType] = readSchemaFromSource
-
-  /**
-   * Gets the schema for the data produced by Arcane.
-   *
-   * @return A future containing the schema for the data produced by Arcane.
-   */
-  private def readSchemaFromSource: Task[this.SchemaType] =
+  override lazy val getSchema: Task[this.SchemaType] =
     for query <- this.getSchemaQuery
         sqlSchema <- getSqlSchema(query)
         arcaneSchema <- ZIO.fromTry(toSchema(sqlSchema, empty))
@@ -149,7 +144,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private def getSqlSchema(query: String): Task[SqlSchema] =
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
+          resultSet <- statement.executeQuerySafe(query)
           metadata = resultSet.getMetaData
           columns <- ZIO.attemptBlocking {
             for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i),
@@ -219,6 +214,19 @@ object MsSqlConnection:
    * Represents a versioned batch of data.
    */
   type VersionedBatch = (DataBatch, Long)
+
+  /**
+   * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
+   * returned by the query if the result set is being closed without cancelling the statement first.
+   * see: https://github.com/microsoft/mssql-jdbc/issues/877 for details.
+   * ALL RESULT SETS CREATED FROM MS SQL CONNECTION MUST BE CLOSED THIS WAY
+   * @param resultSet The result set to close.
+   * @param statement The statement to close.
+   * @return Scoped effect that tracks the result set and closes it when the effect is completed.
+   */
+  extension (statement: Statement) def executeQuerySafe(query: String): ZIO[Scope, Throwable, ResultSet] =
+    for resultSet <- ZIO.acquireRelease(ZIO.attemptBlocking(statement.executeQuery(query))) (rs => rs.closeSafe(statement))
+    yield resultSet
 
   /**
    * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
