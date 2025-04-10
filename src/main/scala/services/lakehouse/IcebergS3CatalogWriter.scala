@@ -116,9 +116,8 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) ext
   yield writer.toDataFile
 
   private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
-    _ <- zlog("Preparing fast append of %s rows into table %s", data.size.toString, tbl.name())
-    chunks <- ZIO.succeed(data.sliding(maxRowsPerFile))
-    _ <- zlog("Generated %s chunks for table %s", chunks.size.toString, tbl.name())
+    _ <- zlog("Preparing fast append of %s rows into table %s, max rows per file %s", data.size.toString, tbl.name(), maxRowsPerFile.toString)
+    chunks <- ZIO.succeed(data.grouped(maxRowsPerFile))
     appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
     files <- ZIO.collectAllPar(chunks.map(chunk => chunkToFile(chunk, schema, tbl)).toArray)
     _ <- zlog("Created %s files to append for table %s", files.length.toString, tbl.name())
