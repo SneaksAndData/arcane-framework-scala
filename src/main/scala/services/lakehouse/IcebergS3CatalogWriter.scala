@@ -32,7 +32,9 @@ given Conversion[ArcaneSchema, Schema] with
   
 // https://www.tabular.io/blog/java-api-part-3/
 class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogWriter[RESTCatalog, Table, Schema]:
-  private val maxRowsPerFile = 10000
+  
+  private val maxRowsPerFile = icebergCatalogSettings.maxRowsPerFile.getOrElse(10000)
+  
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,

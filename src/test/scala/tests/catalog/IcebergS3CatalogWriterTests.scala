@@ -7,6 +7,7 @@ import services.lakehouse.SchemaConversions.*
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
 
 import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import tests.shared.IcebergCatalogInfo._
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.scalatest.*
@@ -22,16 +23,8 @@ import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
 object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
-  private val settings = new IcebergCatalogSettings:
-    override val namespace = "test"
-    override val warehouse = "demo"
-    override val catalogUri = "http://localhost:20001/catalog"
-    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
-    override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = None
-
   private val schema = Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
-  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(settings)
+  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(defaultSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("IcebergS3CatalogWriter") (
     test("creates a table when provided schema and rows") {

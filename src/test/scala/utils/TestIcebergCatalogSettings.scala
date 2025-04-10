@@ -28,3 +28,5 @@ object TestIcebergCatalogSettings extends IcebergCatalogSettings:
    * The lakehouse location of the catalog
    */
   override val stagingLocation: Option[String] = None
+
+  override val maxRowsPerFile: Option[Int] = None

@@ -17,10 +17,11 @@ import services.streaming.processors.batch_processors.streaming.{DisposeBatchPro
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
+import tests.shared.IcebergCatalogInfo._
 import utils.*
 
-import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import com.sneaksanddata.arcane.framework.utils.TestBackfillTableSettings
+import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import utils.TestBackfillTableSettings
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -35,13 +36,6 @@ import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
 class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
-  private val settings = new IcebergCatalogSettings:
-    override val namespace = "test"
-    override val warehouse = "demo"
-    override val catalogUri = "http://localhost:20001/catalog"
-    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
-    override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = None
 
   it should "produce backfill batch if stream is completed" in {
     // Arrange
@@ -167,7 +161,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(TestStagingDataSettings),
       ZLayer.succeed(TablePropertiesSettings),
       ZLayer.succeed(TestTargetTableSettings),
-      ZLayer.succeed(settings),
+      ZLayer.succeed(defaultSettings),
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks
