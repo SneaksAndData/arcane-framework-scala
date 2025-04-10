@@ -24,7 +24,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         // total 7 files for this table (first folder doesn't have a CSV/schema for this table) 
         // 1 file skipped as it is the latest one
         // plus 1 record starting from folder 1 that contains 1 delete
-      yield assertTrue(allRows == 5 * (7 - 1) + 1 * (7-1))
+      yield assertTrue(allRows == 5 * (7 - 1) + 1 * (7 - 1))
     },
 
     test("reads schema from a storage container and parses it successfully") {
