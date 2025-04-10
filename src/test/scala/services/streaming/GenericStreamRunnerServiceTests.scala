@@ -4,7 +4,7 @@ package services.streaming
 import models.*
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
-import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
@@ -84,9 +84,9 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       jdbcTableManager.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
-      jdbcTableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
-      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
-      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
+      jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
     replay(streamDataProvider, hookManager, jdbcTableManager)
 
