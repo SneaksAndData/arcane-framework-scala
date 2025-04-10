@@ -13,7 +13,7 @@ import zio.{ZIO, ZLayer}
 /**
  * Processor that merges data into a target table.
  */
-class MergeBatchProcessor(mergeServiceClient: JdbcMergeServiceClient, targetTableSettings: TargetTableSettings)
+class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings)
   extends StagedBatchProcessor:
 
   /**
@@ -24,12 +24,12 @@ class MergeBatchProcessor(mergeServiceClient: JdbcMergeServiceClient, targetTabl
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
       for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.migrateSchema(batch.schema, batch.targetTableName))
+          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => tableManager.migrateSchema(batch.schema, batch.targetTableName))
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
       
-          _ <- mergeServiceClient.optimizeTable(batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings))
-          _ <- mergeServiceClient.expireSnapshots(batchesSet.getSnapshotExpirationRequest(targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings))
-          _ <- mergeServiceClient.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings))
+          _ <- tableManager.optimizeTable(batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings))
+          _ <- tableManager.expireSnapshots(batchesSet.getSnapshotExpirationRequest(targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings))
+          _ <- tableManager.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings))
       yield batchesSet
     )
 
@@ -43,13 +43,15 @@ object MergeBatchProcessor:
    * @param targetTableSettings The target table settings.
    * @return The initialized MergeProcessor instance
    */
-  def apply(mergeServiceClient: JdbcMergeServiceClient, targetTableSettings: TargetTableSettings): MergeBatchProcessor =
-    new MergeBatchProcessor(mergeServiceClient, targetTableSettings)
+  def apply(mergeServiceClient: MergeServiceClient, tableManager: JdbcTableManager, targetTableSettings: TargetTableSettings): MergeBatchProcessor =
+    new MergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings)
 
   /**
    * The required environment for the MergeBatchProcessor.
    */
-  type Environment = JdbcMergeServiceClient & TargetTableSettings
+  type Environment = MergeServiceClient
+    & TargetTableSettings
+    & JdbcTableManager
 
   /**
    * The ZLayer that creates the MergeProcessor.
@@ -57,7 +59,8 @@ object MergeBatchProcessor:
   val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcMergeServiceClient]
+        jdbcConsumer <- ZIO.service[MergeServiceClient]
         targetTableSettings <- ZIO.service[TargetTableSettings]
-      yield MergeBatchProcessor(jdbcConsumer, targetTableSettings)
+        tableManager <- ZIO.service[JdbcTableManager]
+      yield MergeBatchProcessor(jdbcConsumer, tableManager, targetTableSettings)
     }

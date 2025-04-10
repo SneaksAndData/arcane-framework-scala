@@ -7,7 +7,7 @@ import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
-import services.merging.{JdbcMergeServiceClient, JdbcTableManager}
+import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
@@ -94,7 +94,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     )
 
     val disposeServiceClient = mock[DisposeServiceClient]
-    val mergeServiceClient = mock[JdbcMergeServiceClient]
+    val mergeServiceClient = mock[MergeServiceClient]
     val jdbcTableManager = mock[JdbcTableManager]
     val hookManager = mock[HookManager]
     val streamDataProvider = mock[StreamDataProvider]
@@ -108,13 +108,13 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
-      mergeServiceClient.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
         .anyTimes()
-      mergeServiceClient.createTargetTable
+      jdbcTableManager.createTargetTable
         .andReturn(ZIO.unit)
         .anyTimes()
-      mergeServiceClient.createBackFillTable
+      jdbcTableManager.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
 
@@ -153,9 +153,9 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
           ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
       }),
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
-//      ZLayer.succeed(disposeServiceClient),
+      ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
-//      ZLayer.succeed(jdbcTableManager),
+      ZLayer.succeed(jdbcTableManager),
       ZLayer.succeed(hookManager),
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(new StreamContext {
