@@ -5,7 +5,7 @@ import models.*
 import models.app.StreamContext
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
-import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.consumers.{MergeableBatch, SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
@@ -140,9 +140,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       jdbcTableManager.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
-      jdbcTableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
-      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
-      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
+      jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
 
       // Validates that batches produced by the hookManager.onBatchStaged method targeting backfill
       // intermediate table instead of target table

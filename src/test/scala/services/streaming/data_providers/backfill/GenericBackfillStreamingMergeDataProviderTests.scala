@@ -3,7 +3,7 @@ package services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
-import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
@@ -118,9 +118,9 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         .andReturn(ZIO.unit)
         .anyTimes()
       
-      jdbcTableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
-      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
-      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
+      jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
 
       // Validates that the merge service client is called ``streamRepeatCount`` times using the targetTableFullName
       hookManager
