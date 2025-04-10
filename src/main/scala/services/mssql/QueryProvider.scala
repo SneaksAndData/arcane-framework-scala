@@ -179,8 +179,8 @@ object QueryProvider:
     ZIO.scoped {
       for querySource <- ZIO.fromAutoCloseable {
             connectionOptions.partitionExpression match {
-              case Some(_) => ZIO.attempt(Source.fromResource("get_select_delta_query_date_partitioned.sql"))
-              case None => ZIO.attempt(Source.fromResource("get_select_delta_query.sql"))
+              case Some(_) => ZIO.attempt(Source.fromResource("get_select_all_query_date_partitioned.sql"))
+              case None => ZIO.attempt(Source.fromResource("get_select_all_query.sql"))
             }
           }
           baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
