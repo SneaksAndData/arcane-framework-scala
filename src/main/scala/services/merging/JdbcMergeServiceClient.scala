@@ -240,19 +240,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
           _ <- zlog(s"$operation batch $batchName")
-          applicationResult <- ZIO.attempt {
-            try {
-              val res = statement.execute()
-              System.out.println("query executed with result: " + res)
-              res
-            }
-            catch {
-              case e: Exception =>
-                System.out.println("Error executing query: " + query + ", " + e.getMessage)
-                zlog("Error executing query", Seq(getAnnotation("sql", query), getAnnotation("error", e.getMessage)))
-                throw e
-            }
-          }.tapErrorCause(e => zlog("Error executing query", e)).orDie()
+          applicationResult <- ZIO.attempt(statement.execute()).tapErrorCause(e => zlog("Error executing query", e)).orDie()
           _ <- zlog(s"$operation batch $batchName completed, $applicationResult")
       yield resultMapper(applicationResult)
     }
