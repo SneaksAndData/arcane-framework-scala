@@ -41,11 +41,7 @@ class GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder: Backf
   def requestBackfill: Task[BatchType] =
     for
       _ <- zlog(s"Starting backfill process")
-      _ <- streamingGraphBuilder
-        .produce(BackfillHookManager(baseHookManager, backfillTableSettings))
-        .via(streamLifetimeGuard)
-        .runDrain
-        .catchAllCause(e => zlog("Backfill process failed", e))
+      _ <- streamingGraphBuilder.produce(BackfillHookManager(baseHookManager, backfillTableSettings)).via(streamLifetimeGuard).runDrain
       _ <- zlog("Backfill process completed")
       
       backfillBatch <- if lifetimeService.cancelled then
