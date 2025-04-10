@@ -78,13 +78,17 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   def backfill: ZStream[Any, Throwable, DataRow] =
     for query <- ZStream.fromZIO(this.getBackfillQuery)
         statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
-        resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => ZIO.succeed(rs.close()))
+        resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query))){ rs =>
+          // we must cancel the statement to avoid blocking the connection, see: https://github.com/microsoft/mssql-jdbc/issues/877
+          ZIO.succeed(statement.cancel()) *> ZIO.succeed(rs.close())
+        }
 
         stream <- ZStream.unfoldZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
           if hasNext then
-            for columns <- ZIO.attempt(rs.getMetaData.getColumnCount)
+            for columns <- ZIO.attemptBlockingInterrupt(rs.getMetaData.getColumnCount)
                 row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
-                state <- ZIO.attempt((rs, rs.next()))
+                ns <- ZIO.attemptBlockingInterrupt(rs.next())
+                state <- ZIO.attemptBlockingInterrupt((rs, ns))
             yield Some((row, state))
           else
             ZIO.succeed(None)
