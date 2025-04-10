@@ -1,10 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
-import models.app.StreamContext
-import models.settings.{SynapseSourceSettings, TargetTableSettings}
+import models.settings.SynapseSourceSettings
 import services.storage.models.azure.AdlsStoragePath
-import services.base.{SchemaProvider, TableManager}
+import services.base.SchemaProvider
 import services.storage.services.AzureBlobStorageReader
 import services.storage.models.base.StoredBlob
 import services.synapse.SynapseAzureBlobReaderExtensions.*
@@ -12,11 +11,10 @@ import services.base.BufferedReaderExtensions.*
 import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, given_CanAdd_ArcaneSchema}
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
-import logging.ZIOLogAnnotations.zlogStream
 
-import com.sneaksanddata.arcane.framework.models.ArcaneType.*
+import models.ArcaneType.*
 import zio.{Task, ZIO, ZLayer}
-import zio.stream.{ZPipeline, ZStream}
+import zio.stream.ZStream
 
 import java.io.{BufferedReader, IOException}
 import java.time.format.DateTimeFormatter
@@ -53,7 +51,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .filter(seb => seb.blob.name.endsWith(endsWithString))
 
   /**
-   * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
+   * Select ALL CSV files that correspond to the entity changes
    *
    * Hierarchical listing:
    * First get entity folders under each date folder
@@ -68,6 +66,19 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       s"/$entityName/", enrichWithSchema(reader.getRootPrefixes(storagePath, startDate))
     )
   )
+
+  /**
+   * Filter out all files that do not contain deletes. CSV files that contain deletes will ALWAYS be named 1.csv, since they are
+   * stripped of all information except for row Id and IsDelete = true. Thus, Synapse falls back to 0001 year when partitioning deletes
+   * @return
+   */
+  private def getEntityDeletes(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => seb.blob.name.endsWith("/1.csv"))
+
+  /**
+   * Filter out all files that contain deletes, keeping inserts and updates.
+   * @return
+   */  
+  private def getEntityUpserts(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => !seb.blob.name.endsWith("/1.csv"))
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
     reader.streamBlobContent(storagePath + seb.blob.name)
@@ -84,11 +95,11 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
 
   /**
-   * Reads changes happened since startFrom date
+   * Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting deleted records.
    * @param startFrom Start date to get changes from
    * @return
    */
-  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityChangeData(startFrom)
+  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityUpserts(startFrom).concat(getEntityDeletes(startFrom))
     .mapZIO(getFileStream)
     .flatMap {
       case (fileStream, fileSchema, blob, latestVersion) => getTableChanges(fileStream, fileSchema, blob.name, latestVersion)
@@ -116,7 +127,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     case DateType => java.sql.Date.valueOf(value.toString)
     case TimestampType => valueAsTimeStamp(fieldName, value)
     case DateTimeOffsetType => valueAsOffsetDateTime(value)
-    case BigDecimalType => BigDecimal(value.toString)
+    case BigDecimalType(_, _) => BigDecimal(value.toString)
     case DoubleType => value.toString.toDouble
     case IntType => value.toString.toInt
     case FloatType => value.toString.toFloat
@@ -147,7 +158,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
         case _ =>
           // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss'Z'
           // example from MS docs: 2021-06-25T16:21:12Z
-          val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS");
+          val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
           if (timestampValue.endsWith("Z")) {
             LocalDateTime.parse(timestampValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           } else {
