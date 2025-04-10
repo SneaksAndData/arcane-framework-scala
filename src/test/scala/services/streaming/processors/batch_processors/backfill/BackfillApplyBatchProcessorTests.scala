@@ -42,6 +42,9 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(testInput.length)
       tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(testInput.length)
 
+      tableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
+      tableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
+      tableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
     }
     replay(mergeServiceClient, tableManager)
 

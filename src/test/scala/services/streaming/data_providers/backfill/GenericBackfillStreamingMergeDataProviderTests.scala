@@ -117,6 +117,10 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       jdbcTableManager.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
+      
+      jdbcTableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
+      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
+      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
 
       // Validates that the merge service client is called ``streamRepeatCount`` times using the targetTableFullName
       hookManager
