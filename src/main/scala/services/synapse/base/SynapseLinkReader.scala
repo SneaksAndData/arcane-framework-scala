@@ -51,7 +51,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .filter(seb => seb.blob.name.endsWith(endsWithString))
 
   /**
-   * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
+   * Select ALL CSV files that correspond to the entity changes
    *
    * Hierarchical listing:
    * First get entity folders under each date folder
@@ -67,7 +67,17 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     )
   )
 
+  /**
+   * Filter out all files that do not contain deletes. CSV files that contain deletes will ALWAYS be named 1.csv, since they are
+   * stripped of all information except for row Id and IsDelete = true. Thus, Synapse falls back to 0001 year when partitioning deletes
+   * @return
+   */
   private def getEntityDeletes(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => seb.blob.name.endsWith("/1.csv"))
+
+  /**
+   * Filter out all files that contain deletes, keeping inserts and updates.
+   * @return
+   */  
   private def getEntityUpserts(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => !seb.blob.name.endsWith("/1.csv"))
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
@@ -85,7 +95,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
 
   /**
-   * Reads changes happened since startFrom date
+   * Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting deleted records.
    * @param startFrom Start date to get changes from
    * @return
    */
