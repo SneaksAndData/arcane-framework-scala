@@ -119,21 +119,25 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  override def optimizeTable(request: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] =
-    executeBatchQuery(request.get.toSqlExpression, request.get.name, "Optimizing", _ => BatchOptimizationResult(false))
-
-  /**
-   * @inheritdoc
-   */
-  override def expireSnapshots(request: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] = request match
-    case Some(expireSnapshotsRequest) if expireSnapshotsRequest.isApplicable => executeBatchQuery(expireSnapshotsRequest.toSqlExpression, expireSnapshotsRequest.name, "Expiring old snapshots", _ => BatchOptimizationResult(false))
+  override def optimizeTable(maybeRequest: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] = maybeRequest match
+    case Some(request) if request.isApplicable
+      => executeBatchQuery(request.toSqlExpression, maybeRequest.get.name, "Optimizing", _ => BatchOptimizationResult(false))
     case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
-  override def expireOrphanFiles(request: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] = request match
-    case Some(expireOrphanFilesRequest) if expireOrphanFilesRequest.isApplicable => executeBatchQuery(expireOrphanFilesRequest.toSqlExpression, expireOrphanFilesRequest.name, "Removing orphan files", _ => BatchOptimizationResult(false))
+  override def expireSnapshots(maybeRequest: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] = maybeRequest match
+    case Some(request) if request.isApplicable
+      => executeBatchQuery(request.toSqlExpression, request.name, "Expiring old snapshots", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
+
+  /**
+   * @inheritdoc
+   */
+  override def expireOrphanFiles(maybeRequest: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] = maybeRequest match
+    case Some(request) if request.isApplicable
+      => executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult(false))
     case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
@@ -152,17 +156,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
     val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking{
-            try {
-              statement.executeQuery()
-            }
-            catch {
-              case e: Exception =>
-                System.out.println("Error executing query: " + sql + ", " + e.getMessage)
-                zlog("Error executing query", Seq(getAnnotation("sql", sql), getAnnotation("error", e.getMessage)))
-                throw e
-            }
-          }.tapErrorCause(e => zlog("Error executing query", e)).orDie())
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
           tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
           _ <- ZIO.foreachDiscard(tableNames)(tableName => {
             zlog("Found lost staging table: " + tableName) *> dropTable(tableName)

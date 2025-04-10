@@ -12,7 +12,7 @@ import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
-import zio.{Task, ZIO, ZLayer}
+import zio.{Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.Duration
@@ -21,6 +21,7 @@ import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
 import scala.util.Using
+import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.closeSafe
 
 /**
  * Represents a summary of a column in a table.
@@ -78,10 +79,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   def backfill: ZStream[Any, Throwable, DataRow] =
     for query <- ZStream.fromZIO(this.getBackfillQuery)
         statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
-        resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query))){ rs =>
-          // we must cancel the statement to avoid blocking the connection, see: https://github.com/microsoft/mssql-jdbc/issues/877
-          ZIO.succeed(statement.cancel()) *> ZIO.succeed(rs.close())
-        }
+        resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
 
         stream <- ZStream.unfoldZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
           if hasNext then
@@ -221,6 +219,20 @@ object MsSqlConnection:
    * Represents a versioned batch of data.
    */
   type VersionedBatch = (DataBatch, Long)
+
+  /**
+   * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
+   * returned by the query if the result set is being closed without cancelling the statement first.
+   * see: https://github.com/microsoft/mssql-jdbc/issues/877 for details.
+   * ALL RESULT SETS CREATED FROM MS SQL CONNECTION MUST BE CLOSED THIS WAY
+   * @param resultSet The result set to close.
+   * @param statement The statement to close.
+   * @return UIO[Unit] that completes when the result set is closed.
+   */
+  extension (resultSet: ResultSet) def closeSafe(statement: Statement): UIO[Unit] =
+    for _ <- ZIO.succeed(statement.cancel())
+        _ <- ZIO.succeed(resultSet.close())
+    yield ()
 
   /**
    * Ensures that the head of the result (if any) saved and cannot be lost

@@ -38,5 +38,4 @@ given ConditionallyApplicable[JdbcOptimizationRequest] with
   /**
    * @inheritdoc
    */
-  extension (request: JdbcOptimizationRequest) def isApplicable: Boolean = 
-    (request.batchIndex+1) % request.optimizeThreshold == 0
+  extension (request: JdbcOptimizationRequest) def isApplicable: Boolean = (request.batchIndex+1) % request.optimizeThreshold == 0
