@@ -20,20 +20,17 @@ object ZIOLogAnnotations:
   /**
    * Stream class. This value is provided by the Arcane Operator using the `STREAMCONTEXT__STREAM_KIND` environment variable
    * and matches the .kind field of the custom resource used to create the stream.
-   * @note This is used for logging and changes in this value must be reflected in the stream class in the dashboard.
    */
   private lazy val streamClass = sys.env.getOrElse("STREAMCONTEXT__STREAM_KIND", "undefined")
 
   /**
    * Stream identifier. This value is provided by the Arcane Operator using the `STREAMCONTEXT__STREAM_ID` environment variable
    * and matches the .metadata.name field of the custom resource used to create the stream.
-   * @note This is used for logging and changes in this value must be reflected in the stream name in the dashboard.
    */
   private lazy val streamId = sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined")
 
   /**
    * Version of the application. This value should be defined in the stream job template for the stream.
-   * @note This is used for logging and changes in this value must be reflected in the application version in the dashboard.
    */
   private lazy val streamVersion = sys.env.getOrElse("APPLICATION_VERSION", "0.0.0")
 
@@ -45,7 +42,7 @@ object ZIOLogAnnotations:
 
   /**
    * Application name
-   * @note This is used for logging and changes in this value must be reflected in the application name in the dashboard.
+   * @note This is used for logging and should contain the same value for all streams.
    */
   private lazy val applicationName = "Arcane.Stream"
 
