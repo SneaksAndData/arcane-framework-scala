@@ -7,6 +7,7 @@ import upickle.default.read
 import zio.stream.ZStream
 
 import scala.annotation.unused
+import extensions.StringExtensions.camelCaseToSnakeCase
 
 
 /**
@@ -43,15 +44,15 @@ object ZIOLogAnnotations:
   final def getAnnotation(name: String, value: String): (LogAnnotation[String], String) = (getStringAnnotation(name), value)
 
   private val defaults: Seq[(LogAnnotation[String], String)] = Seq(
-    (getStringAnnotation(name = "streamKind"), streamClass),
-    (getStringAnnotation(name = "streamId"), streamId),
-    (getStringAnnotation(name = "ApplicationVersion"), streamVersion)
+    (getStringAnnotation(name = "streamKind"), streamClass.camelCaseToSnakeCase),
+    (getStringAnnotation(name = "streamId"), streamId.camelCaseToSnakeCase),
+    (getStringAnnotation(name = "ApplicationVersion"), streamVersion.camelCaseToSnakeCase)
   ) ++ read[Map[String, String]](streamExtraProperties).map { (key, value) => (getStringAnnotation(key), value) }
 
   private def defaultsWithTemplate(template: String): Seq[(LogAnnotation[String], String)] =
     defaults ++ Seq((getStringAnnotation(name = "messageTemplate"), template))
 
-
+  
   /**
    * Log using default annotations
    *
