@@ -14,6 +14,7 @@ import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
+import scala.collection.parallel.CollectionConverters._
 
 import java.time.Duration
 
@@ -34,7 +35,9 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements =>
-        val groupedBySchema = elements.groupBy(row => row.schema)
+        val groupedBySchema = elements.par.groupBy(row => row.schema).map {
+          case (key, rows) => key -> Chunk.from(rows.seq)
+        }.seq
         val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
         applyTasks.map(batches => batches)
       )
