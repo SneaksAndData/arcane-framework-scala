@@ -52,7 +52,7 @@ object ZIOLogAnnotations:
   private def defaultsWithTemplate(template: String): Seq[(LogAnnotation[String], String)] =
     defaults ++ Seq((getStringAnnotation(name = "messageTemplate"), template))
 
-  
+
   /**
    * Log using default annotations
    *
