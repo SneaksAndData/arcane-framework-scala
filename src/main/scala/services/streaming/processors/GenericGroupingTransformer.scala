@@ -3,10 +3,11 @@ package services.streaming.processors
 
 import logging.ZIOLogAnnotations.*
 import models.settings.GroupingSettings
-import services.streaming.base.{GroupingTransformer, MetadataEnrichedRowStreamElement}
+import services.base.DeclaredMetrics
+import services.streaming.base.GroupingTransformer
 
+import zio.*
 import zio.stream.ZPipeline
-import zio.{Chunk, ZIO, ZLayer}
 
 import scala.concurrent.duration.Duration
 
@@ -23,7 +24,10 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends Gro
     .mapZIO(logBatchSize)
 
   private def logBatchSize(batch: Chunk[Element]) =
-    for _ <- zlog(s"Received batch with ${batch.size} rows from streaming source") yield batch
+    for 
+      size <- ZIO.succeed(batch.size.toLong) @@ DeclaredMetrics.rowsIncoming
+      _ <- zlog(s"Received batch with %s rows from streaming source", size.toString)
+    yield batch
     
 /**
  * The companion object for the LazyOutputDataProcessor class.

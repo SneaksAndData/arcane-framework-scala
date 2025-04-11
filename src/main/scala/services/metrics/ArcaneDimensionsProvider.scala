@@ -1,13 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.metrics
 
+import extensions.StringExtensions.camelCaseToSnakeCase
 import models.app.StreamContext
 import services.base.DimensionsProvider
-import services.metrics.ArcaneDimensionsProvider.camelCaseToSnakeCase
 
 import zio.{ZIO, ZLayer}
 
-import scala.annotation.tailrec
 import scala.collection.immutable.SortedMap
 
 /**
@@ -50,20 +49,3 @@ object ArcaneDimensionsProvider:
         context <- ZIO.service[StreamContext]
       yield ArcaneDimensionsProvider(context)
     }
-
-  /**
-   * Converts a camel case string to a snake case string.
-   *
-   * @return The converted string.
-   */
-  extension (s: String) def camelCaseToSnakeCase: String = toSnakeCase(s, 0, new StringBuilder())
-
-  @tailrec
-  private def toSnakeCase(s: String, from: Int, acc: StringBuilder): String =
-    if from == s.length then
-      acc.toString()
-    else
-      if Character.isUpperCase(s.charAt(from)) && acc.nonEmpty && !Character.isUpperCase(acc.charAt(acc.length-1)) then
-        acc.append("_")
-      acc.append(java.lang.Character.toLowerCase(s.charAt(from)))
-      toSnakeCase(s, from + 1, acc)
