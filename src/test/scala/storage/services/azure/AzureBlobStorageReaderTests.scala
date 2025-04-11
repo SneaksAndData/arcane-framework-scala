@@ -2,71 +2,50 @@ package com.sneaksanddata.arcane.framework
 package storage.services.azure
 
 import services.storage.models.azure.AdlsStoragePath
-import services.storage.services.AzureBlobStorageReader
 
-import com.azure.storage.common.StorageSharedKeyCredential
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.{should, shouldBe}
-import org.scalatest.prop.TableDrivenPropertyChecks.forAll
-import org.scalatest.prop.Tables.Table
-import zio.{Runtime, Unsafe}
+import zio.test.*
+import zio.{Scope, Unsafe, ZIO}
 
-import scala.util.Try
+import tests.shared.AzureStorageInfo.*
 
-class AzureBlobStorageReaderTests extends AsyncFlatSpec with Matchers:
-  private val runtime = Runtime.default
+import zio.test.TestAspect.timeout
 
-  private val endpoint = "http://localhost:10001/devstoreaccount1"
-  private val container = "cdm-e2e"
-  private val storageAccount = "devstoreaccount1"
-  private val accessKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
-
-  private val credential = StorageSharedKeyCredential(storageAccount, accessKey)
-  private val storageReader = AzureBlobStorageReader(storageAccount, endpoint, credential)
-
-  it should "be able to list files in a container" in {
-    val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/")
-    val stream = storageReader.streamPrefixes(path.get).runCollect
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
-      result.size should be >= 8
+object AzureBlobStorageReaderTests extends ZIOSpecDefault:
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("AzureBlobStorageReader")(
+    Map(
+      ("Changelog", false),
+      ("Changelog/", false),
+      ("Changelog/changelog.info", true),
+      ("model.json", true),
+      ("MissingFolder/", false),
+      ("MissingFolder", false)
+    ).map {
+      case (blobName, expectedResult) => test(s"correctly check if a blob $blobName exists in a container") {
+        for
+          path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blobName").get)
+          result <- storageReader.blobExists(path)
+        yield assertTrue(result == expectedResult)
+      }
+    }.toSeq ++ Seq(
+      test("lists files in a container") {
+        for
+          path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
+          prefixes <- storageReader.streamPrefixes(path).runCount
+        yield assertTrue(prefixes >= 8)
+      },
+    ) ++ Map(
+      ("Changelog/changelog.info", true),
+      ("MissingFolder/missing.txt", false),
+      ("MissingFolder", false)
+    ).map {
+      case (blobName, expectedResult) => test(s"stream blob $blobName content from a container") {
+        for
+          path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blobName").get)
+          content <- ZIO.acquireReleaseWith(storageReader.streamBlobContent(path))(reader => ZIO.succeed(reader.close())){ reader =>
+            ZIO.attemptBlocking(Some(reader.readLine()))
+          }.catchAllCause(_ => ZIO.succeed(Option.empty[String]))
+        yield assertTrue(content.isDefined == expectedResult)
+      }
     }
-  }
-
-  private val blobsToList = Table(
-    ("blob", "exptected_reuslt"),
-    ("Changelog", false),
-    ("Changelog/", false),
-    ("Changelog/changelog.info", true),
-    ("model.json", true),
-    ("MissingFolder/", false),
-    ("MissingFolder", false)
-  )
-
-  it should "be able to check if blob exist in container" in {
-    forAll(blobsToList) { (blob, expected) =>
-      val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blob")
-      val result = Unsafe.unsafe(implicit unsafe => runtime.unsafe.run(storageReader.blobExists(path.get)).getOrThrowFiberFailure())
-      result shouldBe expected
-    }
-  }
-
-  private val blobToRead = Table(
-    ("blob", "exptected_reuslt"),
-    ("Changelog/changelog.info", true),
-    ("MissingFolder/missing.txt", false),
-    ("MissingFolder", false)
-  )
-  it should "be able to read data from container" in {
-    forAll(blobsToList) { (blob, expected) =>
-      val path = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/$blob")
-      Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(storageReader.streamBlobContent(path.get))).transform(result => {
-        if (expected) {
-          Try(result.get.readLine() should not be null)
-        } else {
-          Try(result.isFailure shouldBe true)
-        }
-      })
-    }
-  }
+  ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock

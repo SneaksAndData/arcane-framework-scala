@@ -9,7 +9,6 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMerg
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
-import services.streaming.processors.transformers.StagingProcessor.toStagedBatch
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -29,26 +28,24 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
   extends RowGroupTransformer:
 
-  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
-
   type OutgoingElement = StagedBatchProcessor#BatchType
-
-  override def process[IncomingElement: MetadataEnrichedRowStreamElement](toInFlightBatch: ToInFlightBatch): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
+  
+  override def process(onStagingTablesComplete: OnStagingTablesComplete, onBatchStaged: OnBatchStaged): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
+      .filter(_.nonEmpty)
       .mapZIO(elements =>
-        val groupedBySchema = elements.withFilter(e => e.isDataRow).map(e => e.toDataRow).groupBy(row => row.schema)
-        val others = elements.filterNot(e => e.isDataRow)
-        val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema))
-        applyTasks.map(batches => (batches, others))
+        val groupedBySchema = elements.groupBy(row => row.schema)
+        val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
+        applyTasks.map(batches => batches)
       )
       .zipWithIndex
-      .map { case ((batches, others), index) => toInFlightBatch(batches, index, others) }
+      .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
 
-  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[StagedVersionedBatch & MergeableBatch] =
-    val tableWriterEffect = zlog("Attempting to write data to staging table") *> catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, onBatchStaged: OnBatchStaged): Task[StagedVersionedBatch & MergeableBatch] =
     for
-      table <- tableWriterEffect.tapErrorCause(cause => zlog(s"Error writing data to staging table: $cause")).retry(retryPolicy)
-      batch = table.toStagedBatch(icebergCatalogSettings.namespace,
+      table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+      batch = onBatchStaged(table,
+        icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
         targetTableSettings.targetTableFullName,
@@ -57,14 +54,6 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
 
 
 object StagingProcessor:
-
-  extension (table: Table) def toStagedBatch(namespace: String,
-                                             warehouse: String,
-                                             batchSchema: ArcaneSchema,
-                                             targetName: String,
-                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch & MergeableBatch =
-    val batchName = table.name().split('.').last
-    SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
   def apply(stagingDataSettings: StagingDataSettings,
             tablePropertiesSettings: TablePropertiesSettings,

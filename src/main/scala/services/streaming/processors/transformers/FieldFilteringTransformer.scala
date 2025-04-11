@@ -5,7 +5,7 @@ import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import models.{ArcaneSchema, DataCell, DataRow, given_NamedCell_DataCell}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
-import services.streaming.base.{BatchProcessor, MetadataEnrichedRowStreamElement, RowProcessor}
+import services.streaming.base.{GroupingTransformer, MetadataEnrichedRowStreamElement, RowProcessor}
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
@@ -15,12 +15,13 @@ import zio.{ZIO, ZLayer}
  */
 class FieldFilteringTransformer(fieldsFilteringService: FieldsFilteringService) extends RowProcessor:
 
+  
   /**
    * @inheritdoc
    */
-  override def process[Element: MetadataEnrichedRowStreamElement]: ZPipeline[Any, Throwable, Element, Element] = ZPipeline.map {
-    case row if row.isDataRow => fieldsFilteringService.filter[DataCell](row.toDataRow).asInstanceOf[DataRow].fromDataRow
-    case other if !other.isDataRow => other
+  override def process: ZPipeline[Any, Throwable, Element, Element] = ZPipeline.map {
+    case row: DataRow => fieldsFilteringService.filter(row)
+    case other: Any => other
   }
 
 /**

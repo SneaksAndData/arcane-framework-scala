@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models
 
+import services.streaming.base.MetadataEnrichedRowStreamElement
+
 /**
  * Represents a row of data.
  */
@@ -33,3 +35,8 @@ object DataCell:
 
 given NamedCell[DataCell] with
   extension (field: DataCell) def name: String = field.name
+  
+given MetadataEnrichedRowStreamElement[DataRow] with
+  extension (a: DataRow) def isDataRow: Boolean = a.isInstanceOf[DataRow]
+  extension (a: DataRow) def toDataRow: DataRow = a
+  extension (a: DataRow) def fromDataRow: DataRow  = a

@@ -11,13 +11,24 @@ import zio.{ZIO, ZLayer}
  */
 class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
 
+
   /**
    * Filters the fields of an ArcaneSchema.
    *
    * @param row The data to filter.
    * @return The filtered data/schema.
    */
-  def filter[T: NamedCell](row: Seq[T]): Seq[T] = fieldSelectionRule.rule match
+  def filter(row: DataRow): DataRow = fieldSelectionRule.rule match
+    case includeFields: FieldSelectionRule.IncludeFields => row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
+    case excludeFields: FieldSelectionRule.ExcludeFields => row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
+    case _ => row
+
+  /**
+   * Filters the fields of an ArcaneSchema.
+   * @param row The data to filter.
+   * @return The filtered data/schema.
+   */
+  def filter(row: ArcaneSchema): ArcaneSchema = fieldSelectionRule.rule match
     case includeFields: FieldSelectionRule.IncludeFields => row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
     case excludeFields: FieldSelectionRule.ExcludeFields => row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
     case _ => row

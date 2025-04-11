@@ -1,24 +1,28 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import utils.SqlUtils.toArcaneType
-import models.{ArcaneSchema, ArcaneType, Field, MergeKeyField}
-import services.base.{CanAdd, SchemaProvider}
-import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
+import models.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import services.base.SchemaProvider
+import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
+import services.mssql.SqlSchema.toSchema
 import services.mssql.base.{CanPeekHead, QueryResult}
-import services.mssql.query.{LazyQueryResult, QueryRunner, ScalarQueryResult}
+import services.mssql.query.LazyQueryResult.toDataRow
+import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import zio.{Task, ZIO, ZLayer}
+import zio.stream.ZStream
+import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
-import java.sql.ResultSet
+import java.sql.{Connection, ResultSet, Statement}
 import java.time.Duration
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.{Future, blocking}
-import scala.util.{Failure, Success, Try, Using}
+import scala.util.Using
+import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.closeSafe
+import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.executeQuerySafe
 
 /**
  * Represents a summary of a column in a table.
@@ -32,11 +36,6 @@ type ColumnSummary = (String, Boolean)
 type MsSqlQuery = String
 
 /**
- * Represents the schema of a table in a Microsoft SQL Server database.
- */
-type SqlSchema = Seq[(String, Int)]
-
-/**
  * Represents the connection options for a Microsoft SQL Server database.
  *
  * @param connectionUrl       The connection URL for the database.
@@ -46,18 +45,9 @@ type SqlSchema = Seq[(String, Int)]
  * @param partitionExpression The partition expression for the table.
  */
 case class ConnectionOptions(connectionUrl: String,
-                             databaseName: String,
                              schemaName: String,
                              tableName: String,
                              partitionExpression: Option[String])
-
-/**
- * Required typeclass implementation
- */
-given CanAdd[ArcaneSchema] with
-  extension (a: ArcaneSchema) def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = fieldName match
-    case MergeKeyField.name => a :+ MergeKeyField
-    case _ => a :+ Field(fieldName, fieldType)
 
 /**
  * Represents a connection to a Microsoft SQL Server database.
@@ -65,48 +55,62 @@ given CanAdd[ArcaneSchema] with
  * @param connectionOptions The connection options for the database.
  */
 class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
+  lazy val catalog: String = connection.getCatalog
+  
   private val driver = new SQLServerDriver()
-  private val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
+  private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   /**
    * Gets the column summaries for the table in the database.
    *
-   * @return A future containing the column summaries for the table in the database.
+   * @return An effect containing the column summaries for the table in the database.
    */
-  def getColumnSummaries: Future[List[ColumnSummary]] =
-    val tryQuery = QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, connectionOptions.databaseName)
-    for query <- Future.fromTry(tryQuery)
+  def getColumnSummaries: Task[List[ColumnSummary]] =
+    for query <- QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
         result <- executeColumnSummariesQuery(query)
     yield result
 
   /**
    * Run a backfill query on the database.
    *
-   * @return A future containing the result of the backfill.
+   * @return An stream containing the result of a backfill query.
    */
-  def backfill(using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult]): Future[BackfillBatch] =
-    for query <- this.getBackfillQuery
-        result <- queryRunner.executeQuery(query, connection, LazyQueryResult.apply)
-    yield result
+  def backfill: ZStream[Any, Throwable, DataRow] =
+    for query <- ZStream.fromZIO(this.getBackfillQuery)
+        statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
+        resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
+        stream <- ZStream.unfoldZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
+          hasNext match
+            case false => ZIO.succeed(None)
+            case true =>
+              for columns <- ZIO.attemptBlockingInterrupt(rs.getMetaData.getColumnCount)
+                  row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
+                  ns <- ZIO.attemptBlockingInterrupt(rs.next())
+                  state <- ZIO.attemptBlockingInterrupt((rs, ns))
+              yield Some((row, state))
+        }
+    yield stream
 
   /**
    * Gets the changes in the database since the given version.
    * @param maybeLatestVersion The version to start from.
    * @param lookBackInterval The look back interval for the query.
-   * @return A future containing the changes in the database since the given version and the latest observed version.
+   * @return An effect containing the changes in the database since the given version and the latest observed version.
    */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration)
-                (using queryRunner: QueryRunner[LazyQueryResult.OutputType, LazyQueryResult],
-                 versionQueryRunner: QueryRunner[Option[Long], ScalarQueryResult[Long]]): Future[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(connectionOptions.databaseName, maybeLatestVersion, lookBackInterval)
+  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
+    val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
+    ZIO.scoped {
+      for versionResult <- ZIO.fromAutoCloseable(executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion)))
+          version = versionResult.read.getOrElse(Long.MaxValue)
+          changesQuery <- this.getChangesQuery(version - 1)
 
-    for versionResult <- versionQueryRunner.executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
-        version = versionResult.read.getOrElse(Long.MaxValue)
-        changesQuery <- this.getChangesQuery(version - 1)
-        result <- queryRunner.executeQuery(changesQuery, connection, LazyQueryResult.apply)
-    yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+          // And the LazyQueryResult will close the statement/result set when it is closed.
+          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
+      yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+    }
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
@@ -127,57 +131,36 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
 
   /**
    * Gets the schema for the data produced by Arcane.
-   * Implementation in the MsSqlConnection memorizes the schema since we need to run an SQL query to 
-   * get the schema.
+   * Implementation in the MsSqlConnection memorizes the schema since we need to run an SQL query to get the schema.
    *
-   * @return A future containing the schema for the data produced by Arcane.
+   * @return An effect containing the schema for the data produced by Arcane.
    */
-  override lazy val getSchema: Task[this.SchemaType] = ZIO.fromFuture( implicit ec => readSchemaFromSource)
-
-  /**
-   * Gets the schema for the data produced by Arcane.
-   *
-   * @return A future containing the schema for the data produced by Arcane.
-   */
-  private def readSchemaFromSource: Future[this.SchemaType] =
+  override lazy val getSchema: Task[this.SchemaType] =
     for query <- this.getSchemaQuery
         sqlSchema <- getSqlSchema(query)
-    yield toSchema(sqlSchema, empty) match
-      case Success(schema) => schema
-      case Failure(exception) => throw exception
+        arcaneSchema <- ZIO.fromTry(toSchema(sqlSchema, empty))
+    yield arcaneSchema
 
-  private def getSqlSchema(query: String): Future[SqlSchema] = Future {
-    val columns = Using.Manager { use =>
-      val statement = use(connection.createStatement())
-      val resultSet = blocking {
-        use(statement.executeQuery(query))
-      }
-      val metadata = resultSet.getMetaData
-      for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i), metadata.getColumnType(i))
+  private def getSqlSchema(query: String): Task[SqlSchema] =
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+          resultSet <- statement.executeQuerySafe(query)
+          metadata = resultSet.getMetaData
+          columns <- ZIO.attemptBlocking {
+            for i <- 1 to metadata.getColumnCount yield (metadata.getColumnName(i),
+              metadata.getColumnType(i),
+              metadata.getPrecision(i),
+              metadata.getScale(i))
+          }
+      yield columns
     }
-    columns.get
-  }
+    
 
-  @tailrec
-  private def toSchema(sqlSchema: SqlSchema, schema: this.SchemaType): Try[this.SchemaType] =
-    sqlSchema match
-      case Nil => Success(schema)
-      case x +: xs =>
-        val (name, fieldType) = x
-        toArcaneType(fieldType) match
-          case Success(arcaneType) => toSchema(xs, schema.addField(name, arcaneType))
-          case Failure(exception) => Failure[this.SchemaType](exception)
-
-  private def executeColumnSummariesQuery(query: String): Future[List[ColumnSummary]] =
-    Future {
-      val result = Using.Manager { use =>
-        val statement = use(connection.createStatement())
-        val resultSet = use(statement.executeQuery(query))
-        blocking {
-          readColumns(resultSet, List.empty)
-        }
-      }
-      result.get
+  private def executeColumnSummariesQuery(query: String): Task[List[ColumnSummary]] =
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
+      yield readColumns(resultSet, List.empty)
     }
     
 
@@ -188,6 +171,13 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     if !hasNext then
       return result
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
+
+  private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
+
+  private def executeQuery[QueryResultType](query: MsSqlQuery, connection: Connection, resultFactory: ResultFactory[QueryResultType]): Task[QueryResultType] =
+    for statement <- ZIO.attemptBlocking(connection.createStatement())
+        resultSet <- ZIO.attemptBlocking(statement.executeQuery(query))
+    yield resultFactory(statement, resultSet)
 
 object MsSqlConnection:
   /**
@@ -203,7 +193,7 @@ object MsSqlConnection:
    */
   val layer: ZLayer[ConnectionOptions, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
-      ZIO.fromAutoCloseable{
+      ZIO.fromAutoCloseable {
         for connectionOptions <- ZIO.service[ConnectionOptions] yield MsSqlConnection(connectionOptions)
       }
     }
@@ -224,6 +214,33 @@ object MsSqlConnection:
    * Represents a versioned batch of data.
    */
   type VersionedBatch = (DataBatch, Long)
+
+  /**
+   * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
+   * returned by the query if the result set is being closed without cancelling the statement first.
+   * see: https://github.com/microsoft/mssql-jdbc/issues/877 for details.
+   * ALL RESULT SETS CREATED FROM MS SQL CONNECTION MUST BE CLOSED THIS WAY
+   * @param resultSet The result set to close.
+   * @param statement The statement to close.
+   * @return Scoped effect that tracks the result set and closes it when the effect is completed.
+   */
+  extension (statement: Statement) def executeQuerySafe(query: String): ZIO[Scope, Throwable, ResultSet] =
+    for resultSet <- ZIO.acquireRelease(ZIO.attemptBlocking(statement.executeQuery(query))) (rs => rs.closeSafe(statement))
+    yield resultSet
+
+  /**
+   * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
+   * returned by the query if the result set is being closed without cancelling the statement first.
+   * see: https://github.com/microsoft/mssql-jdbc/issues/877 for details.
+   * ALL RESULT SETS CREATED FROM MS SQL CONNECTION MUST BE CLOSED THIS WAY
+   * @param resultSet The result set to close.
+   * @param statement The statement to close.
+   * @return UIO[Unit] that completes when the result set is closed.
+   */
+  extension (resultSet: ResultSet) def closeSafe(statement: Statement): UIO[Unit] =
+    for _ <- ZIO.succeed(statement.cancel())
+        _ <- ZIO.succeed(resultSet.close())
+    yield ()
 
   /**
    * Ensures that the head of the result (if any) saved and cannot be lost

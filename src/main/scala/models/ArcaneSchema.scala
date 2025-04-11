@@ -3,6 +3,8 @@ package models
 
 import models.ArcaneType.StringType
 
+import com.sneaksanddata.arcane.framework.services.base.CanAdd
+
 import scala.language.implicitConversions
 
 /**
@@ -16,7 +18,7 @@ enum ArcaneType:
   case DateType
   case TimestampType
   case DateTimeOffsetType
-  case BigDecimalType
+  case BigDecimalType(precision: Int, scale: Int)
   case DoubleType
   case IntType
   case FloatType
@@ -107,3 +109,12 @@ object ArcaneSchema:
 
 given NamedCell[ArcaneSchemaField] with
   extension (field: ArcaneSchemaField) def name: String = field.name
+  
+/**
+ * Required typeclass implementation
+ */
+given CanAdd[ArcaneSchema] with
+  extension (a: ArcaneSchema) def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = fieldName match
+    case MergeKeyField.name => a :+ MergeKeyField
+    case _ => a :+ Field(fieldName, fieldType)
+
