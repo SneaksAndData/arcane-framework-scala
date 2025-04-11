@@ -46,6 +46,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.29.52",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
+    libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
     libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.8.1",
