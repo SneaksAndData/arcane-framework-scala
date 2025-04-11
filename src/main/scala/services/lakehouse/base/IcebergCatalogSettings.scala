@@ -31,7 +31,12 @@ trait IcebergCatalogSettings:
   val s3CatalogFileIO: S3CatalogFileIO
   
   /**
-   * The lakehouse location of the catalog
+   * Optional data location override for the table
    */
   val stagingLocation: Option[String]
+
+  /**
+   * Optional max rows per file. Default value is set by catalog writer
+   */
+  val maxRowsPerFile: Option[Int]
   
