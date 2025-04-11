@@ -17,11 +17,12 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import com.sneaksanddata.arcane.framework.services.mssql.MssqlBackfillDataProvider
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
+import models.app.StreamContext
+import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.mssql.MssqlBackfillDataProvider
+import services.streaming.graph_builders.GenericStreamingGraphBuilder
+import services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
+import tests.shared.IcebergCatalogInfo._
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -35,14 +36,6 @@ import zio.{Chunk, Runtime, Schedule, Unsafe, ZIO, ZLayer}
 
 class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
-  private val settings = new IcebergCatalogSettings:
-    override val namespace = "test"
-    override val warehouse = "demo"
-    override val catalogUri = "http://localhost:20001/catalog"
-    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
-    override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = None  
-
   private val testInput = List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
@@ -107,7 +100,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(TestStagingDataSettings),
       ZLayer.succeed(TablePropertiesSettings),
       ZLayer.succeed(TestTargetTableSettings),
-      ZLayer.succeed(settings),
+      ZLayer.succeed(defaultSettings),
       ZLayer.succeed(TestFieldSelectionRuleSettings),
 
       // Mocks

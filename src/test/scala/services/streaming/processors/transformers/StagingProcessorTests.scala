@@ -12,6 +12,7 @@ import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import services.synapse.SynapseHookManager
+
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -20,9 +21,10 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Reloadable, Runtime, Unsafe, ZIO, ZLayer}
+import zio.{Chunk, Reloadable, Runtime, Scope, Unsafe, ZIO, ZLayer}
 import zio.test.*
 import zio.test.TestAspect.timeout
+import tests.shared.IcebergCatalogInfo.*
 
 import scala.concurrent.Future
 
@@ -34,20 +36,12 @@ given MetadataEnrichedRowStreamElement[TestInput] with
   extension (element: DataRow) def fromDataRow: TestInput = element
 
 object StagingProcessorTests extends ZIOSpecDefault:
-  private val settings = new IcebergCatalogSettings:
-    override val namespace = "test"
-    override val warehouse = "demo"
-    override val catalogUri = "http://localhost:20001/catalog"
-    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
-    override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-    override val stagingLocation: Option[String] = None
-
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
   ))
   private val hookManager = SynapseHookManager()
-  private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] = ZLayer.succeed(settings)
+  private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] = ZLayer.succeed(defaultSettings)
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(TestStagingDataSettings,
@@ -70,7 +64,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
     new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))    
 
 
-  def spec = suite("StagingProcessor")(
+  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
 
     test("run with empty batch and produce no output") {
       for {
