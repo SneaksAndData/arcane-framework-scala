@@ -16,10 +16,38 @@ import extensions.StringExtensions.camelCaseToSnakeCase
  */
 @unused
 object ZIOLogAnnotations:
+
+  /**
+   * Stream class. This value is provided by the Arcane Operator using the `STREAMCONTEXT__STREAM_KIND` environment variable
+   * and matches the .kind field of the custom resource used to create the stream.
+   * @note This is used for logging and changes in this value must be reflected in the stream class in the dashboard.
+   */
   private lazy val streamClass = sys.env.getOrElse("STREAMCONTEXT__STREAM_KIND", "undefined")
+
+  /**
+   * Stream identifier. This value is provided by the Arcane Operator using the `STREAMCONTEXT__STREAM_ID` environment variable
+   * and matches the .metadata.name field of the custom resource used to create the stream.
+   * @note This is used for logging and changes in this value must be reflected in the stream name in the dashboard.
+   */
   private lazy val streamId = sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined")
+
+  /**
+   * Version of the application. This value should be defined in the stream job template for the stream.
+   * @note This is used for logging and changes in this value must be reflected in the application version in the dashboard.
+   */
   private lazy val streamVersion = sys.env.getOrElse("APPLICATION_VERSION", "0.0.0")
+
+  /**
+   * Extra properties to be added to the log
+   * @note This is a JSON string with key-value pairs. For example: {"key1": "value1", "key2": "value2"}
+   */
   private lazy val streamExtraProperties = sys.env.getOrElse("ARCANE__LOGGING_PROPERTIES", "{}")
+
+  /**
+   * Application name
+   * @note This is used for logging and changes in this value must be reflected in the application name in the dashboard.
+   */
+  private lazy val applicationName = "Arcane.Stream"
 
   private def logEnriched(initial: zio.UIO[Unit], extra: Seq[(LogAnnotation[String], String)]) = extra
     .map { (annotation, value) => annotation(value) }
@@ -46,7 +74,8 @@ object ZIOLogAnnotations:
   private val defaults: Seq[(LogAnnotation[String], String)] = Seq(
     (getStringAnnotation(name = "streamKind"), streamClass.camelCaseToSnakeCase),
     (getStringAnnotation(name = "streamId"), streamId.camelCaseToSnakeCase),
-    (getStringAnnotation(name = "ApplicationVersion"), streamVersion.camelCaseToSnakeCase)
+    (getStringAnnotation(name = "ApplicationVersion"), streamVersion),
+    (getStringAnnotation(name = "Application"), applicationName)
   ) ++ read[Map[String, String]](streamExtraProperties).map { (key, value) => (getStringAnnotation(key), value) }
 
   private def defaultsWithTemplate(template: String): Seq[(LogAnnotation[String], String)] =
