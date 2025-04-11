@@ -75,7 +75,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   /**
    * Run a backfill query on the database.
    *
-   * @return An effect containing the result of the backfill.
+   * @return An stream containing the result of a backfill query.
    */
   def backfill: ZStream[Any, Throwable, DataRow] =
     for query <- ZStream.fromZIO(this.getBackfillQuery)

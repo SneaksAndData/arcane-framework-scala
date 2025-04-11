@@ -23,7 +23,7 @@ class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: 
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
-      for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
+      for _ <- zlog("Applying batch set with index %s", batchesSet.batchIndex.toString)
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => tableManager.migrateSchema(batch.schema, batch.targetTableName))
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
       
