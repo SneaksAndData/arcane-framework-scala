@@ -4,7 +4,7 @@ package services.streaming.processors.batch_processors.streaming
 import logging.ZIOLogAnnotations.*
 import models.settings.*
 import services.base.MergeServiceClient
-import services.merging.JdbcTableManager
+import services.merging.{JdbcMergeServiceClient, JdbcTableManager}
 import services.streaming.base.StagedBatchProcessor
 
 import zio.stream.ZPipeline
@@ -23,10 +23,13 @@ class MergeBatchProcessor(mergeServiceClient: MergeServiceClient, tableManager: 
    */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
-      for _ <- zlog(s"Applying batch set with index ${batchesSet.batchIndex}")
+      for _ <- zlog("Applying batch set with index %s", batchesSet.batchIndex.toString)
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => tableManager.migrateSchema(batch.schema, batch.targetTableName))
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
-          _ <- runMaintenanceTasks(batchesSet, targetTableSettings.maintenanceSettings, tableManager)
+      
+          _ <- tableManager.optimizeTable(batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings))
+          _ <- tableManager.expireSnapshots(batchesSet.getSnapshotExpirationRequest(targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings))
+          _ <- tableManager.expireOrphanFiles(batchesSet.getOrphanFileExpirationRequest(targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings))
       yield batchesSet
     )
 
@@ -46,7 +49,9 @@ object MergeBatchProcessor:
   /**
    * The required environment for the MergeBatchProcessor.
    */
-  type Environment = MergeServiceClient & JdbcTableManager & TargetTableSettings
+  type Environment = MergeServiceClient
+    & TargetTableSettings
+    & JdbcTableManager
 
   /**
    * The ZLayer that creates the MergeProcessor.
@@ -55,7 +60,7 @@ object MergeBatchProcessor:
     ZLayer {
       for
         jdbcConsumer <- ZIO.service[MergeServiceClient]
-        parallelismSettings <- ZIO.service[JdbcTableManager]
         targetTableSettings <- ZIO.service[TargetTableSettings]
-      yield MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
+        tableManager <- ZIO.service[JdbcTableManager]
+      yield MergeBatchProcessor(jdbcConsumer, tableManager, targetTableSettings)
     }

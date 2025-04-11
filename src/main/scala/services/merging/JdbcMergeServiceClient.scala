@@ -70,12 +70,11 @@ class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends S
    */
   override def getSchema: Task[ArcaneSchema] =
     val query = s"SELECT * FROM $tableName where true and false"
-    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
-    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
-      for
-        schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
-        tryFields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
-        fields <- ZIO.fromTry(tryFields)
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
+          tryFields <- ZIO.attemptBlocking(resultSet.readArcaneSchema)
+          fields <- ZIO.fromTry(tryFields)
       yield fields
     }
 
@@ -120,29 +119,26 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   /**
    * @inheritdoc
    */
-  override def optimizeTable(request: TableOptimizationRequest): Task[BatchOptimizationResult] =
-    if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Optimizing", _ => BatchOptimizationResult(false))
-    else
-      ZIO.succeed(BatchOptimizationResult(true))
+  override def optimizeTable(maybeRequest: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] = maybeRequest match
+    case Some(request) if request.isApplicable
+      => executeBatchQuery(request.toSqlExpression, maybeRequest.get.name, "Optimizing", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
-  override def expireSnapshots(request: SnapshotExpirationRequest): Task[BatchOptimizationResult] =
-    if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Running Snapshot Expiration task", _ => BatchOptimizationResult(false))
-    else
-      ZIO.succeed(BatchOptimizationResult(true))
+  override def expireSnapshots(maybeRequest: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] = maybeRequest match
+    case Some(request) if request.isApplicable
+      => executeBatchQuery(request.toSqlExpression, request.name, "Expiring old snapshots", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
    */
-  override def expireOrphanFiles(request: OrphanFilesExpirationRequest): Task[BatchOptimizationResult] =
-    if request.isApplicable then
-      executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult(false))
-    else
-      ZIO.succeed(BatchOptimizationResult(true))
+  override def expireOrphanFiles(maybeRequest: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] = maybeRequest match
+    case Some(request) if request.isApplicable
+      => executeBatchQuery(request.toSqlExpression, request.name, "Removing orphan files", _ => BatchOptimizationResult(false))
+    case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /**
    * @inheritdoc
@@ -160,7 +156,7 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
     val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-          resultSet <- ZIO.attemptBlocking(statement.executeQuery())
+          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
           tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
           _ <- ZIO.foreachDiscard(tableNames)(tableName => {
             zlog("Found lost staging table: " + tableName) *> dropTable(tableName)
@@ -193,7 +189,12 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
 
 
   private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
-    ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)).execute())
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties))))
+          _ <- zlog("Creating table: " + name)
+          _ <- ZIO.attemptBlocking(statement.execute())
+      yield ()
+    }
 
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
@@ -207,16 +208,19 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   def getSchema(tableName: String): Task[ArcaneSchema] =
     schemaProviderCache.getSchemaProvider(tableName, name => schemaProviderFactory(name, sqlConnection))
 
-  private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
-    missingFields match
+  private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] = missingFields match
       case Seq() => ZIO.unit
       case _ =>
           for _ <- ZIO.foreach(missingFields)(field => {
-            val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-            zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
-              *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
-          })
-          _ <- schemaProviderCache.refreshSchemaProvider(targetTableName, name => schemaProviderFactory(name, sqlConnection))
+              val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+              ZIO.scoped {
+                for _ <- zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+                    statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
+                    _ <- ZIO.attemptBlocking(statement.execute())
+                yield ()
+              }
+            })
+            _ <- schemaProviderCache.refreshSchemaProvider(targetTableName, name => schemaProviderFactory(name, sqlConnection))
           yield ()
 
   /**
@@ -227,11 +231,10 @@ class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
   private type ResultMapper[Result] = Boolean => Result
 
   private def executeBatchQuery[Result](query: String, batchName: String, operation: String, resultMapper: ResultMapper[Result]): Task[Result] =
-    val statement = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
-    ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())){ statement =>
-      for
-        _ <- zlog(s"$operation batch $batchName")
-        applicationResult <- ZIO.attemptBlocking(statement.execute())
+    ZIO.scoped {
+      for statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
+          _ <- zlog(s"$operation batch $batchName")
+          applicationResult <- ZIO.attempt(statement.execute())
       yield resultMapper(applicationResult)
     }
 

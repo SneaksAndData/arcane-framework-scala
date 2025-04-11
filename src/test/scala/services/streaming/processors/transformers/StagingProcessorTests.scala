@@ -28,7 +28,7 @@ import tests.shared.IcebergCatalogInfo.*
 
 import scala.concurrent.Future
 
-type TestInput = DataRow|String
+type TestInput = DataRow
 
 given MetadataEnrichedRowStreamElement[TestInput] with
   extension (element: TestInput) def isDataRow: Boolean = element.isInstanceOf[DataRow]
@@ -38,9 +38,7 @@ given MetadataEnrichedRowStreamElement[TestInput] with
 object StagingProcessorTests extends ZIOSpecDefault:
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(List(
     List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-    "metadata",
     List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-    "source delete request",
   ))
   private val hookManager = SynapseHookManager()
   private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] = ZLayer.succeed(defaultSettings)
@@ -82,12 +80,5 @@ object StagingProcessorTests extends ZIOSpecDefault:
         result <- ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged)).run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     },
-
-    test("allow accessing stream metadata") {
-      for {
-        stagingProcessor <- getProcessor
-        result <- ZStream.succeed(testInput).via(stagingProcessor.process(toInFlightBatchWithMetadata, hookManager.onBatchStaged)).run(ZSink.last)
-      } yield assertTrue(result.exists(v => v.asInstanceOf[IndexedStagedBatchesWithMetadata].others == Chunk("metadata", "source delete request")))
-    }
 
   ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

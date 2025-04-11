@@ -5,6 +5,8 @@ import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
 import services.mssql.base.MssqlVersionedDataProvider
 import services.streaming.base.HasVersion
 
+import com.sneaksanddata.arcane.framework.models.DataRow
+import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 import java.time.Duration
@@ -40,9 +42,9 @@ class MsSqlDataProvider(msSqlConnection: MsSqlConnection) extends MssqlVersioned
   with MssqlBackfillDataProvider:
   
   override def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
-    ZIO.fromFuture(_ => msSqlConnection.getChanges(previousVersion, lookBackInterval))
+    msSqlConnection.getChanges(previousVersion, lookBackInterval)
     
-  override def requestBackfill: Task[BackfillBatch] = ZIO.fromFuture(_ => msSqlConnection.backfill)
+  override def requestBackfill:  ZStream[Any, Throwable, DataRow] = msSqlConnection.backfill
 
 /**
  * The companion object for the MsSqlDataProvider class.

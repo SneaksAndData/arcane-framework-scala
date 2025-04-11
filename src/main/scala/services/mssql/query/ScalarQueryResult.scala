@@ -21,7 +21,7 @@ type ResultConverter[Result] = ResultSet => Option[Result]
  * @param statement The statement used to execute the query.
  * @param resultSet The result set of the query.
  */
-class ScalarQueryResult[Result](val statement: Statement, resultSet: ResultSet, resultConverter: ResultConverter[Result])
+class ScalarQueryResult[Result](val statement: Statement, protected val resultSet: ResultSet, resultConverter: ResultConverter[Result])
   extends QueryResult[Option[Result]] with ResultSetOwner:
 
   /**

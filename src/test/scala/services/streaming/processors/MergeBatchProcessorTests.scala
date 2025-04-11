@@ -78,6 +78,9 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
       tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(40)
+      tableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      tableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      tableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
     replay(mergeServiceClient)
     replay(tableManager)
