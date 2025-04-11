@@ -34,13 +34,26 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
   override def process(onStagingTablesComplete: OnStagingTablesComplete, onBatchStaged: OnBatchStaged): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
+      .mapZIO(elements => for
+         _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)  
+       yield elements)
       .mapZIO(elements =>
-        val groupedBySchema = elements.par.groupBy(row => row.schema).map {
-          case (key, rows) => key -> Chunk.from(rows.seq)
-        }.seq
+        val groupedBySchema = elements
+          .par
+          .map(r => r.schema -> r)
+          .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
+            (agg, element) => (agg.toSeq ++ Map(element._1 -> Chunk(element._2))).groupMap(_._1)(_._2).map {
+              case (key, chunks) => key -> Chunk.from(chunks.flatten)
+            }, 
+            (a, b) => (a.toSeq ++ b).groupMap(_._1)(_._2).map { 
+              case (key, chunks) => key -> Chunk.from(chunks.flatten)
+            })
         val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
         applyTasks.map(batches => batches)
       )
+      .mapZIO(elements => for
+        _ <- zlog("Finished preparing a batch for staging")
+      yield elements)
       .zipWithIndex
       .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
 
