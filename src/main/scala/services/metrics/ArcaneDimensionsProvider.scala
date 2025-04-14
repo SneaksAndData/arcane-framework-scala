@@ -33,6 +33,11 @@ class ArcaneDimensionsProvider(streamContext: StreamContext) extends DimensionsP
  */
 object ArcaneDimensionsProvider:
   /**
+   * The environment type for the ArcaneDimensionsProvider.
+   */
+  type Environment = StreamContext
+  
+  /**
    * Creates a new instance of the ArcaneDimensionsProvider.
    *
    * @param streamContext The stream context.
@@ -43,7 +48,7 @@ object ArcaneDimensionsProvider:
   /**
    * The ZLayer that creates the ArcaneDimensionsProvider.
    */
-  val layer: ZLayer[StreamContext, Nothing, DimensionsProvider] =
+  val layer: ZLayer[Environment, Nothing, DimensionsProvider] =
     ZLayer {
       for
         context <- ZIO.service[StreamContext]
