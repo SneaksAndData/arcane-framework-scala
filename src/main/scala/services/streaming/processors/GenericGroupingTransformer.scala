@@ -14,7 +14,7 @@ import scala.concurrent.duration.Duration
 /**
  * @inheritdoc
  */
-class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends GroupingTransformer:
+class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics) extends GroupingTransformer:
 
   /**
    * @inheritdoc
@@ -25,7 +25,7 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends Gro
 
   private def logBatchSize(batch: Chunk[Element]) =
     for 
-      size <- ZIO.succeed(batch.size.toLong) @@ DeclaredMetrics.rowsIncoming
+      size <- ZIO.succeed(batch.size.toLong) @@ declaredMetrics.rowsIncoming
       _ <- zlog(s"Received batch with %s rows from streaming source", size.toString)
     yield batch
     
@@ -34,7 +34,13 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends Gro
  */
 object GenericGroupingTransformer:
   
-  type Environment = GroupingSettings 
+  type Environment = GroupingSettings
+    & DeclaredMetrics
+
+  def apply(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics): GenericGroupingTransformer =
+    require(groupingSettings.rowsPerGroup > 0, "Rows per group must be greater than 0")
+    require(!groupingSettings.groupingInterval.equals(Duration.Zero), "groupingInterval must be greater than 0")
+    new GenericGroupingTransformer(groupingSettings, declaredMetrics)
 
   /**
    * The ZLayer that creates the LazyOutputDataProcessor.
@@ -43,10 +49,6 @@ object GenericGroupingTransformer:
     ZLayer {
       for
         settings <- ZIO.service[GroupingSettings]
-      yield GenericGroupingTransformer(settings)
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield GenericGroupingTransformer(settings, declaredMetrics)
     }
-
-  def apply(groupingSettings: GroupingSettings): GenericGroupingTransformer =
-    require(groupingSettings.rowsPerGroup > 0, "Rows per group must be greater than 0")
-    require(!groupingSettings.groupingInterval.equals(Duration.Zero), "groupingInterval must be greater than 0")
-    new GenericGroupingTransformer(groupingSettings)
