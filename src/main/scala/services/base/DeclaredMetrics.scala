@@ -1,11 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import services.metrics.ArcaneDimensionsProvider
-
-import zio.{ZIO, ZLayer}
 import zio.metrics.Metric.Counter
 import zio.metrics.{Metric, MetricLabel}
+import zio.{ZIO, ZLayer}
 
 /**
  * A object that contains the declared metrics names.
@@ -32,7 +30,7 @@ object DeclaredMetrics:
   /**
    * The environment type for the DeclaredMetrics.
    */
-  type Environment = ArcaneDimensionsProvider
+  type Environment = DimensionsProvider
 
   /**
    * Creates a new instance of the DeclaredMetrics.
