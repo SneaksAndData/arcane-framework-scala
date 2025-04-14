@@ -9,11 +9,13 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMerg
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
+import utils.CollectionUtils._
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
+import scala.collection.parallel.CollectionConverters._
 
 import java.time.Duration
 
@@ -33,10 +35,18 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
   override def process(onStagingTablesComplete: OnStagingTablesComplete, onBatchStaged: OnBatchStaged): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
-      .mapZIO(elements =>
-        val groupedBySchema = elements.groupBy(row => row.schema)
-        val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
-        applyTasks.map(batches => batches)
+      .mapZIO(elements => for
+          _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)
+          groupedBySchema <- ZIO.succeed(elements.toArray
+            .par
+            .map(r => r.schema -> r)
+            .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
+              (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
+              mergeGroupedChunks
+            ))
+          _ <- zlog("Batch is ready for staging")
+          applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
+       yield applyTasks.map(batches => batches)
       )
       .zipWithIndex
       .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
