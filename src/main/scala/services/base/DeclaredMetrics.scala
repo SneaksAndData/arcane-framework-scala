@@ -3,7 +3,6 @@ package services.base
 
 import services.metrics.ArcaneDimensionsProvider
 
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import zio.{ZIO, ZLayer}
 import zio.metrics.Metric.Counter
 import zio.metrics.{Metric, MetricLabel}
@@ -11,7 +10,7 @@ import zio.metrics.{Metric, MetricLabel}
 /**
  * A object that contains the declared metrics names.
  */
-class DeclaredMetrics(dimensionsProvider: ArcaneDimensionsProvider):
+class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
 
   /**
    * The namespace for the metrics. Prefixes the metric name with the namespace. For now, it is not configurable.
@@ -41,7 +40,7 @@ object DeclaredMetrics:
    * @param dimensionsProvider The stream context.
    * @return The ArcaneDimensionsProvider instance.
    */
-  def apply(dimensionsProvider: ArcaneDimensionsProvider): DeclaredMetrics = new DeclaredMetrics(dimensionsProvider)
+  def apply(dimensionsProvider: DimensionsProvider): DeclaredMetrics = new DeclaredMetrics(dimensionsProvider)
   
   /**
    * The ZLayer that creates the DeclaredMetrics.
@@ -49,6 +48,6 @@ object DeclaredMetrics:
   val layer: ZLayer[Environment, Nothing, DeclaredMetrics] =
     ZLayer {
       for
-        dimensionsProvider <- ZIO.service[ArcaneDimensionsProvider]
+        dimensionsProvider <- ZIO.service[DimensionsProvider]
       yield DeclaredMetrics(dimensionsProvider)
     }
