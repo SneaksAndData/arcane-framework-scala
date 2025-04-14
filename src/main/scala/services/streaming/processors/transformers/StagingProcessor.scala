@@ -9,6 +9,7 @@ import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMerg
 import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
+import utils.CollectionUtils._
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -35,25 +36,18 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements => for
-         _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)  
-       yield elements)
-      .mapZIO(elements =>
-        val groupedBySchema = elements
-          .par
-          .map(r => r.schema -> r)
-          .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
-            (agg, element) => (agg.toSeq ++ Map(element._1 -> Chunk(element._2))).groupMap(_._1)(_._2).map {
-              case (key, chunks) => key -> Chunk.from(chunks.flatten)
-            }, 
-            (a, b) => (a.toSeq ++ b).groupMap(_._1)(_._2).map { 
-              case (key, chunks) => key -> Chunk.from(chunks.flatten)
-            })
-        val applyTasks = ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
-        applyTasks.map(batches => batches)
+          _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)
+          groupedBySchema <- ZIO.succeed(elements.toArray
+            .par
+            .map(r => r.schema -> r)
+            .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
+              (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
+              mergeGroupedChunks
+            ))
+          _ <- zlog("Batch is ready for staging")
+          applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
+       yield applyTasks.map(batches => batches)
       )
-      .mapZIO(elements => for
-        _ <- zlog("Finished preparing a batch for staging")
-      yield elements)
       .zipWithIndex
       .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
 
