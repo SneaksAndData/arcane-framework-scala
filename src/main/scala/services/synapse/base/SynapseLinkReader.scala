@@ -49,7 +49,9 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       .mapZIO {
         case (datePrefix, files) => SynapseEntitySchemaProvider(reader, (storagePath + datePrefix._1.name).toHdfsPath, entityName)
           .getSchema
-          .map(schema => files.map(csvBlob => SchemaEnrichedBlob(csvBlob, schema, datePrefix._2)))
+          // we need to emit deletions, which are in files named 1.csv, last
+          // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
+          .map(schema => files.sortBy(b => b.name)(Ordering.String.reverse).map(csvBlob => SchemaEnrichedBlob(csvBlob, schema, datePrefix._2)))
       }.flatMap(ZStream.fromIterable)
 
   /**
@@ -64,15 +66,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    */
   private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = for
     eligibleDate <- reader.getEligibleDates(storagePath, startDate)
-        /**
-         * Filter out all files that do not contain deletes. CSV files that contain deletes will ALWAYS be named 1.csv, since they are
-         * stripped of all information except for row Id and IsDelete = true. Thus, Synapse falls back to 0001 year when partitioning deletes
-         */
-    batchBlob <- enrichWithSchema(eligibleDate).filter(seb => !seb.blob.name.endsWith("/1.csv"))
-          /**
-           * Filter out all files that contain deletes, keeping inserts and updates.
-           */
-      .concat(enrichWithSchema(eligibleDate).filter(seb => seb.blob.name.endsWith("/1.csv"))) 
+    batchBlob <- enrichWithSchema(eligibleDate)
   yield batchBlob
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
