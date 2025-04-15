@@ -33,22 +33,25 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream
-      .filterZIO(prefix => reader.blobExists(storagePath + prefix._1.name + "model.json"))
+      // exclude folders that do not have model.json in them
+      .filterZIO(datePrefix => reader.blobExists(storagePath + datePrefix._1.name + "model.json"))
       // since model.json will not have schema definition for entities that were not part of the batch,
       // we need to filter out such prefixes BEFORE we read the schema
-      .filterZIO(prefix => for
-          hasData <- reader.streamPrefixes(storagePath + prefix._1.name + entityName + "/").runHead
-        yield hasData.isDefined
-      )
-      .mapZIO { prefix =>
-        SynapseEntitySchemaProvider(reader, (storagePath + prefix._1.name).toHdfsPath, entityName)
-          .getSchema
-          .map(schema => SchemaEnrichedBlob(prefix._1, schema, prefix._2))
+      // also read CSV files while at it
+      .mapZIO {
+        datePrefix => reader
+          .streamPrefixes(storagePath + datePrefix._1.name + entityName + "/")
+          .filter(sb => sb.name.endsWith(".csv"))
+          .runCollect // materialize CSV list to avoid double-querying storage
+          .map(chunks => datePrefix -> chunks)
       }
-
-  private def filterBlobs(endsWithString: String, blobStream: ZStream[Any, Throwable, SchemaEnrichedBlob]) = blobStream
-    .flatMap(seb => reader.streamPrefixes(storagePath + seb.blob.name).map(sb => SchemaEnrichedBlob(sb, seb.schema, seb.latestVersion)))
-    .filter(seb => seb.blob.name.endsWith(endsWithString))
+      // here we filter out empty locations (those we cannot read schema for as a result)
+      .filter(_._2.nonEmpty)
+      .mapZIO {
+        case (datePrefix, files) => SynapseEntitySchemaProvider(reader, (storagePath + datePrefix._1.name).toHdfsPath, entityName)
+          .getSchema
+          .map(schema => files.map(csvBlob => SchemaEnrichedBlob(csvBlob, schema, datePrefix._2)))
+      }.flatMap(ZStream.fromIterable)
 
   /**
    * Select ALL CSV files that correspond to the entity changes
@@ -60,11 +63,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    *
    * @return A stream of rows for this table
    */
-  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = filterBlobs(
-    ".csv",
-    filterBlobs(
-      s"/$entityName/", enrichWithSchema(reader.getRootPrefixes(storagePath, startDate))
-    )
+  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = enrichWithSchema(
+    ZStream.fromIterableZIO(reader.getEligibleDates(storagePath, startDate).runCollect)
   )
 
   /**
