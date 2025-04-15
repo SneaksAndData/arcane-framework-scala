@@ -4,8 +4,8 @@ package services.synapse
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogStream
-import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
+import logging.ZIOLogAnnotations.zlogStream
+import services.storage.models.base.StoredBlob
 import zio.{Task, ZIO}
 import zio.stream.ZStream
 
@@ -30,7 +30,7 @@ object SynapseAzureBlobReaderExtensions:
    * Read a list of the prefixes, taking optional start time. Lowest precision available is 1 hour
    * @return A stream of root prefixes and the latest change date associated with them
    */
-  extension (reader: BlobStorageReader[AdlsStoragePath]) def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): ZStream[Any, Throwable, (StoredBlob, String)] = for 
+  extension (reader: BlobStorageReader[AdlsStoragePath]) def getEligibleDates(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): ZStream[Any, Throwable, (StoredBlob, String)] = for 
         _ <- zlogStream("Getting root prefixes starting from %s", startFrom.toString)
         // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
         inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
