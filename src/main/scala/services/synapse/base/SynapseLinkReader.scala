@@ -31,8 +31,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
-  private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    stream
+  private def enrichWithSchema(eligibleDate: (StoredBlob, String)): ZStream[Any, Throwable, SchemaEnrichedBlob] = ZStream.succeed(eligibleDate)
       // exclude folders that do not have model.json in them
       .filterZIO(datePrefix => reader.blobExists(storagePath + datePrefix._1.name + "model.json"))
       // since model.json will not have schema definition for entities that were not part of the batch,
@@ -63,22 +62,18 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    *
    * @return A stream of rows for this table
    */
-  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = enrichWithSchema(
-    ZStream.fromIterableZIO(reader.getEligibleDates(storagePath, startDate).runCollect)
-  )
-
-  /**
-   * Filter out all files that do not contain deletes. CSV files that contain deletes will ALWAYS be named 1.csv, since they are
-   * stripped of all information except for row Id and IsDelete = true. Thus, Synapse falls back to 0001 year when partitioning deletes
-   * @return
-   */
-  private def getEntityDeletes(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => seb.blob.name.endsWith("/1.csv"))
-
-  /**
-   * Filter out all files that contain deletes, keeping inserts and updates.
-   * @return
-   */  
-  private def getEntityUpserts(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => !seb.blob.name.endsWith("/1.csv"))
+  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = for
+    eligibleDate <- reader.getEligibleDates(storagePath, startDate)
+        /**
+         * Filter out all files that do not contain deletes. CSV files that contain deletes will ALWAYS be named 1.csv, since they are
+         * stripped of all information except for row Id and IsDelete = true. Thus, Synapse falls back to 0001 year when partitioning deletes
+         */
+    batchBlob <- enrichWithSchema(eligibleDate).filter(seb => !seb.blob.name.endsWith("/1.csv"))
+          /**
+           * Filter out all files that contain deletes, keeping inserts and updates.
+           */
+      .concat(enrichWithSchema(eligibleDate).filter(seb => seb.blob.name.endsWith("/1.csv"))) 
+  yield batchBlob
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
     reader.streamBlobContent(storagePath + seb.blob.name)
@@ -99,7 +94,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    * @param startFrom Start date to get changes from
    * @return
    */
-  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityUpserts(startFrom).concat(getEntityDeletes(startFrom))
+  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityChangeData(startFrom)
     .mapZIO(getFileStream)
     .flatMap {
       case (fileStream, fileSchema, blob, latestVersion) => getTableChanges(fileStream, fileSchema, blob.name, latestVersion)
