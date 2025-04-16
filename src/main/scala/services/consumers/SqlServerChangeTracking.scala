@@ -67,7 +67,7 @@ class SqlServerChangeTrackingMergeBatch(batchName: String, batchSchema: ArcaneSc
 
   override def reduceExpr: String =
     s"""SELECT * FROM (
-       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+     |SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY SYS_CHANGE_VERSION DESC) FETCH FIRST 1 ROWS WITH TIES
      |)""".stripMargin
 
   override val batchQuery: MergeQuery =
