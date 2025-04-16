@@ -26,9 +26,11 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
           _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
          yield ()
         }
-      yield Some(dataProvider.requestChanges(previousVersion) -> ZIO.succeed(newVersion.getOrElse(previousVersion)))
-    }.flatMap(v => v.map(_._1))
-
+      yield Some((newVersion, previousVersion) -> ZIO.succeed(newVersion.getOrElse(previousVersion)))
+    }.flatMap {
+      case (Some(_), previousVersion) => dataProvider.requestChanges(previousVersion)
+      case (None, _) => ZStream.empty
+    }.map(_._1)
 
 object SynapseLinkStreamingDataProvider:
 

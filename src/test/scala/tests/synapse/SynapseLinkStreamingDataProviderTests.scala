@@ -19,7 +19,7 @@ import models.{DataRow, MergeKeyField}
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"
   private val graphSettings = new VersionedDataGraphBuilderSettings {
-    override val lookBackInterval: Duration = Duration.ofSeconds(10850)
+    override val lookBackInterval: Duration = Duration.ofHours(3)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
     override val changeCapturePeriod: Duration = Duration.ofHours(1)
   }
