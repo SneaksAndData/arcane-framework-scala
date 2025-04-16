@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.base
+package services.metrics
 
+import com.sneaksanddata.arcane.framework.services.base.DimensionsProvider
 import zio.metrics.Metric.Counter
 import zio.metrics.{Metric, MetricLabel}
 import zio.{ZIO, ZLayer}

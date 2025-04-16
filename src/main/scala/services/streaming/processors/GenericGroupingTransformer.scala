@@ -3,8 +3,8 @@ package services.streaming.processors
 
 import logging.ZIOLogAnnotations.*
 import models.settings.GroupingSettings
-import services.base.DeclaredMetrics
 import services.streaming.base.GroupingTransformer
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 
 import zio.*
 import zio.stream.ZPipeline
