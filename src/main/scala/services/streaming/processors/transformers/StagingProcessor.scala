@@ -37,13 +37,16 @@ class StagingProcessor(stagingDataSettings: StagingDataSettings,
       .filter(_.nonEmpty)
       .mapZIO(elements => for
           _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)
-          groupedBySchema <- ZIO.succeed(elements.toArray
-            .par
-            .map(r => r.schema -> r)
-            .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
-              (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
-              mergeGroupedChunks
-            ))
+          groupedBySchema <- if stagingDataSettings.isUnifiedSchema then
+            ZIO.succeed(Map(elements.head.schema -> elements))
+          else
+            ZIO.succeed(elements.toArray
+              .par
+              .map(r => r.schema -> r)
+              .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
+                (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
+                mergeGroupedChunks
+              ))
           _ <- zlog("Batch is ready for staging")
           applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema => writeDataRows(groupedBySchema(schema), schema, onBatchStaged))
        yield applyTasks.map(batches => batches)
