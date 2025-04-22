@@ -26,13 +26,15 @@ class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
           _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
          yield ()
         }
-      yield Some((newVersion, previousVersion) -> ZIO.succeed(newVersion.getOrElse(previousVersion)))
+      // if we keep staying at previousVersion when no changes have been emitted
+      // stream will list increasing number of date prefixes for a slow changing entity, thus accumulating iterative read cost in Azure
+      // thus, previousVersion is set to be at **most** lookbackVersion, in case there are no changes
+      yield Some((newVersion, previousVersion) -> ZIO.succeed(newVersion.getOrElse(previousVersion)).flatMap(v => dataProvider.firstVersion.map(fv => (v, fv))).map {
+        case (nextVersion, lookbackVersion) if lookbackVersion < nextVersion => nextVersion
+        case (_, lookbackVersion) => lookbackVersion
+      })
     }.flatMap {
-      case (Some(_), previousVersion) =>
-        ZStream.fromZIO(dataProvider.firstVersion).flatMap {
-          case lookbackVersion if lookbackVersion < previousVersion => dataProvider.requestChanges(previousVersion)
-          case lookbackVersion => dataProvider.requestChanges(lookbackVersion)
-        }
+      case (Some(_), previousVersion) => dataProvider.requestChanges(previousVersion)
       case (None, _) => ZStream.empty
     }.map(_._1)
 
