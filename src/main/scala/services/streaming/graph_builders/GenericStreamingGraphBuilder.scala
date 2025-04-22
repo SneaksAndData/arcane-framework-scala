@@ -32,9 +32,8 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
    */
   override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream
-      // TODO: test performance w/o field filters
-      //.via(fieldFilteringProcessor.process)
-      // TODO: field filters should be applied conditionally, if indeed this is not a no-op pipeline
+      .bufferUnbounded
+      .via(fieldFilteringProcessor.process)
       .via(groupTransformer.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
       .via(mergeProcessor.process)
