@@ -164,6 +164,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "QueryProvider" should "handle field selection rule" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z" , "cd"))
+      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
+        "SYS_CHANGE_OPERATION",
+        "ARCANE_MERGE_KEY",
+        "DATE_PARTITION_KEY",
+        "ChangeTrackingVersion"
+      )
     }
     val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val expected =
@@ -188,6 +194,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "QueryProvider" should "not allow PKs in filters" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
+      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
+        "SYS_CHANGE_OPERATION",
+        "ARCANE_MERGE_KEY",
+        "DATE_PARTITION_KEY",
+        "ChangeTrackingVersion"
+      )
     }
     val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val task = QueryProvider.getBackfillQuery(connector)
@@ -201,6 +213,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "QueryProvider" should "enforce PKs in include filters" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
+      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
+        "SYS_CHANGE_OPERATION",
+        "ARCANE_MERGE_KEY",
+        "DATE_PARTITION_KEY",
+        "ChangeTrackingVersion"
+      )
     }
     val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val task = QueryProvider.getBackfillQuery(connector)
@@ -256,6 +274,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "return correct number of columns on backfill with filter" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
+      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
+        "SYS_CHANGE_OPERATION",
+        "ARCANE_MERGE_KEY",
+        "DATE_PARTITION_KEY",
+        "ChangeTrackingVersion"
+      )
     }
     val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val expected = List("x",
@@ -292,6 +316,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   "MsSqlConnection" should "return correct number of columns on getChanges with filter" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
+      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
+        "SYS_CHANGE_OPERATION",
+        "ARCANE_MERGE_KEY",
+        "DATE_PARTITION_KEY",
+        "ChangeTrackingVersion"
+      )
     }
     val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
 

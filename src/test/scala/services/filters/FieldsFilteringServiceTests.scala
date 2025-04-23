@@ -24,9 +24,10 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       DataCell("versionnumber", LongType, 1L)
     )
     
-    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB"))
+    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB", "Id", "versionnumber"))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule = fieldSelectionRule
+      override val essentialFields: Set[String] = Set("Id", "versionnumber")
       
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows = fieldsFilteringService.filter(dataRows)
@@ -42,9 +43,10 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       DataCell("versionnumber", LongType, 1L)
     )
 
-    val fieldSelectionRule = FieldSelectionRule.IncludeFields(Set("colA", "colB"))
+    val fieldSelectionRule = FieldSelectionRule.IncludeFields(Set("colA", "colB", "Id", "versionnumber"))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule = fieldSelectionRule
+      override val essentialFields: Set[String] = Set("Id", "versionnumber")
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows = fieldsFilteringService.filter(dataRows)
@@ -60,9 +62,10 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       Field("versionnumber", LongType)
     )
 
-    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB"))
+    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB", "Id", "versionnumber"))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule = fieldSelectionRule
+      override val essentialFields: Set[String] = Set("Id", "versionnumber")
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows = fieldsFilteringService.filter(schema)
@@ -78,9 +81,10 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       Field("versionnumber", LongType)
     )
 
-    val fieldSelectionRule = FieldSelectionRule.IncludeFields(Set("colA", "colB"))
+    val fieldSelectionRule = FieldSelectionRule.IncludeFields(Set("colA", "colB", "Id", "versionnumber"))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule = fieldSelectionRule
+      override val essentialFields: Set[String] = Set("Id", "versionnumber")
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows = fieldsFilteringService.filter(schema)
