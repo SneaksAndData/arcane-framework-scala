@@ -234,8 +234,8 @@ object MsSqlConnection:
    * returned by the query if the result set is being closed without cancelling the statement first.
    * see: https://github.com/microsoft/mssql-jdbc/issues/877 for details.
    * ALL RESULT SETS CREATED FROM MS SQL CONNECTION MUST BE CLOSED THIS WAY
-   * resultSet The result set to close.
-   * statement The statement to close.
+   * @param resultSet The result set to close.
+   * @param statement The statement to close.
    * @return UIO[Unit] that completes when the result set is closed.
    */
   extension (resultSet: ResultSet) def closeSafe(statement: Statement): UIO[Unit] =

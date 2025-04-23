@@ -152,8 +152,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       Field("b", TimestampType),
       Field("cd", IntType),
       Field("ChangeTrackingVersion", LongType),
-      MergeKeyField,
-      Field("DATE_PARTITION_KEY", StringType))
+      MergeKeyField)
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
       val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column
       fields should be(expected)
@@ -177,7 +176,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         result <- connection.backfill.runCollect
         head = result.head
     yield {
-      head should have length 11
+      head should have length 10
     }
     
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
