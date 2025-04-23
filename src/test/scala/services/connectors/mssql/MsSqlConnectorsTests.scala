@@ -288,17 +288,56 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
-  "MsSqlConnection" should "return correct number of rows on getChanges with filter" in withDatabase { dbInfo =>
+  "MsSqlConnection" should "return correct number of columns on getChanges with filter" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
+      override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
     }
     val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+
+    val expected = List(
+      "x",
+      "SYS_CHANGE_VERSION",
+      "SYS_CHANGE_OPERATION",
+      "a",
+      "ChangeTrackingVersion",
+      "ARCANE_MERGE_KEY",
+      "DATE_PARTITION_KEY",
+    )
+
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
         changedData = columns.read.toList
     yield {
-      changedData should have length 20
+      changedData.head.map(c => c.name) should be(expected)
+    }
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+  }
+
+  "MsSqlConnection" should "return correct number of columns on getChanges" in withDatabase { dbInfo =>
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
+
+    val expected = List(
+      "x",
+      "SYS_CHANGE_VERSION",
+      "SYS_CHANGE_OPERATION",
+      "y",
+      "z",
+      "a",
+      "b",
+      "cd",
+      "ChangeTrackingVersion",
+      "ARCANE_MERGE_KEY",
+      "DATE_PARTITION_KEY",
+    )
+
+    val task = for schema <- connection.getSchema
+        result <- connection.getChanges(None, Duration.ofDays(1))
+        (columns, _) = result
+        changedData = columns.read.toList
+    yield {
+      changedData.head.map(c => c.name) should be(expected)
     }
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
