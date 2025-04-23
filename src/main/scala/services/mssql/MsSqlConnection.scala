@@ -11,6 +11,7 @@ import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogStream
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -81,15 +82,17 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     for query <- ZStream.fromZIO(this.getBackfillQuery)
         statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-        stream <- ZStream.unfoldZIO( (resultSet, resultSet.next()) ) { case (rs, hasNext) =>
-          hasNext match
-            case false => ZIO.succeed(None)
-            case true =>
-              for columns <- ZIO.attemptBlockingInterrupt(rs.getMetaData.getColumnCount)
-                  row <- ZIO.fromTry(toDataRow(rs, columns, List.empty))
-                  ns <- ZIO.attemptBlockingInterrupt(rs.next())
-                  state <- ZIO.attemptBlockingInterrupt((rs, ns))
-              yield Some((row, state))
+        _ <- zlogStream("Acquired result set with fetch size: %s", resultSet.getFetchSize.toString)
+        _ <- ZStream.succeed(resultSet.setFetchSize(1000))
+        _ <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
+        stream <- ZStream.unfoldZIO( resultSet.next() ) { hasNext =>
+          if hasNext then
+            for columns <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                row <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
+            yield Some((row, hasNextRow))
+          else
+            ZIO.succeed(None)
         }
     yield stream
 
