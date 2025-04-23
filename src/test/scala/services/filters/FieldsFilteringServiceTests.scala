@@ -24,7 +24,7 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       DataCell("versionnumber", LongType, 1L)
     )
     
-    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB", "Id", "versionnumber"))
+    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB"))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
@@ -62,7 +62,7 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       Field("versionnumber", LongType)
     )
 
-    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB", "Id", "versionnumber"))
+    val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB"))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
