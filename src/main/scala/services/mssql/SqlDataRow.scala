@@ -25,6 +25,12 @@ case class SqlDataCell(name: String, Type: ArcaneType, value: Any)
 object SqlDataCell:
   def apply(name: String, Type: ArcaneType, value: Any): SqlDataCell = new SqlDataCell(name, Type, value)
 
+  /**
+   * Normalizes the name of the cell by removing non-word characters.
+   *
+   * @param name The name of the cell.
+   * @return The normalized name.
+   */
   extension (name: String) def normalizeName: String = "\\W+".r.replaceAllIn(name, "")
 
 given Conversion[SqlDataRow, DataRow] with
