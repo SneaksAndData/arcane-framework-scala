@@ -5,11 +5,12 @@ import models.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.ArcaneType.{BigDecimalType, ByteArrayType, IntType, LongType, StringType, TimestampType}
 import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
-import services.mssql.{ColumnSummary, ColumnSummaryFieldsFilteringService, ConnectionOptions, MsSqlConnection, QueryProvider}
+import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import com.sneaksanddata.arcane.framework.models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
 import com.sneaksanddata.arcane.framework.models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
+import com.sneaksanddata.arcane.framework.services.filters.ColumnSummaryFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlServerFieldsFilteringService
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
