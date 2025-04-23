@@ -2,6 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.{ArcaneType, DataCell, DataRow}
+import com.sneaksanddata.arcane.framework.services.mssql.SqlDataCell.normalizeName
+
 
 /**
  * Represents a row of data received from the Microsoft SQL Server.
@@ -22,10 +24,18 @@ case class SqlDataCell(name: String, Type: ArcaneType, value: Any)
  */
 object SqlDataCell:
   def apply(name: String, Type: ArcaneType, value: Any): SqlDataCell = new SqlDataCell(name, Type, value)
-  
+
+  /**
+   * Normalizes the name of the cell by removing non-word characters.
+   *
+   * @param name The name of the cell.
+   * @return The normalized name.
+   */
+  extension (name: String) def normalizeName: String = "\\W+".r.replaceAllIn(name, "")
+
 given Conversion[SqlDataRow, DataRow] with
   override def apply(dataRow: SqlDataRow): DataRow =
     dataRow.map { cell =>
-      DataCell("\\W+".r.replaceAllIn(cell.name, ""), cell.Type, cell.value)
+      DataCell(cell.name.normalizeName, cell.Type, cell.value)
     }
 
