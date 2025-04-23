@@ -20,8 +20,7 @@ class FieldFilteringTransformer(fieldsFilteringService: FieldsFilteringService) 
    * @inheritdoc
    */
   override def process: ZPipeline[Any, Throwable, Element, Element] = ZPipeline.map {
-    case row: DataRow => fieldsFilteringService.filter(row)
-    case other: Any => other
+    fieldsFilteringService.filter(_: DataRow)
   }
 
 /**
