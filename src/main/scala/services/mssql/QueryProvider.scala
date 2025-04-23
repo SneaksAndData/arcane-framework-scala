@@ -22,7 +22,7 @@ object QueryProvider:
   /**
    * Gets the schema query for the Microsoft SQL Server database.
    *
-   * @param msSqlConnection The connection to the database.
+   * msSqlConnection The connection to the database.
    * @return A future containing the schema query for the Microsoft SQL Server database.
    */
   extension (msSqlConnection: MsSqlConnection) def getSchemaQuery: Task[MsSqlQuery] =
@@ -153,10 +153,7 @@ object QueryProvider:
                               changeTrackingId: Long): Task[MsSqlQuery] =
     ZIO.scoped {
       for querySource <- ZIO.fromAutoCloseable {
-            connectionOptions.partitionExpression match {
-              case Some(_) => ZIO.attempt(Source.fromResource("get_select_delta_query_date_partitioned.sql"))
-              case None => ZIO.attempt(Source.fromResource("get_select_delta_query.sql"))
-            }
+            ZIO.attempt(Source.fromResource("get_select_delta_query.sql"))
           }
           baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
           query = baseQuery.replace("{dbName}", databaseName)
@@ -166,8 +163,6 @@ object QueryProvider:
             .replace("{ChangeTrackingMatchStatement}", matchStatement)
             .replace("{MERGE_EXPRESSION}", mergeExpression)
             .replace("{MERGE_KEY}", MergeKeyField.name)
-            .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-            .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
             .replace("{lastId}", changeTrackingId.toString)
       yield query
     }
@@ -178,10 +173,7 @@ object QueryProvider:
                           columnExpression: String): Task[MsSqlQuery] =
     ZIO.scoped {
       for querySource <- ZIO.fromAutoCloseable {
-            connectionOptions.partitionExpression match {
-              case Some(_) => ZIO.attempt(Source.fromResource("get_select_all_query_date_partitioned.sql"))
-              case None => ZIO.attempt(Source.fromResource("get_select_all_query.sql"))
-            }
+            ZIO.attempt(Source.fromResource("get_select_all_query.sql"))
           }
           baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
           query = baseQuery
@@ -191,7 +183,5 @@ object QueryProvider:
             .replace("{ChangeTrackingColumnsStatement}", columnExpression)
             .replace("{MERGE_EXPRESSION}", mergeExpression)
             .replace("{MERGE_KEY}", MergeKeyField.name)
-            .replace("{DATE_PARTITION_EXPRESSION}", connectionOptions.partitionExpression.getOrElse(""))
-            .replace("{DATE_PARTITION_KEY}", DatePartitionField.name)
       yield query
     }

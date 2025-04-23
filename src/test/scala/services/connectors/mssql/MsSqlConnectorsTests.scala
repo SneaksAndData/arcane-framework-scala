@@ -35,7 +35,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
   val connectionUrl = "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
-  
+
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) => Success(fields)
 
   def createDb(tableName: String): TestConnectionInfo =
@@ -47,7 +47,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         connectionUrl,
         "dbo",
         tableName,
-        Some("format(getdate(), 'yyyyMM')")), con)
+        None), con)
 
   def createTable(tableName: String, con: Connection): Unit =
     val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int)"
@@ -115,7 +115,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = QueryProvider.getSchemaQuery(connector) map { query =>
       query should (
-        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
+        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY")
         )
     }
     
@@ -151,13 +151,12 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         |tq.[b],
         |tq.[c/d],
         |@currentVersion AS 'ChangeTrackingVersion',
-        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY],
-        |format(getdate(), 'yyyyMM') as [DATE_PARTITION_KEY]
+        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
         |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
     val task = QueryProvider.getBackfillQuery(connector) map { query =>
       query should be(expected)
     }
-    
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
@@ -167,7 +166,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
         "SYS_CHANGE_OPERATION",
         "ARCANE_MERGE_KEY",
-        "DATE_PARTITION_KEY",
         "ChangeTrackingVersion"
       )
     }
@@ -181,8 +179,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         |'I' as SYS_CHANGE_OPERATION,
         |tq.[y],
         |@currentVersion AS 'ChangeTrackingVersion',
-        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY],
-        |format(getdate(), 'yyyyMM') as [DATE_PARTITION_KEY]
+        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
         |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
     val task = QueryProvider.getBackfillQuery(connector) map { query =>
       query should be(expected)
@@ -190,14 +187,13 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
 
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
-  
+
   "QueryProvider" should "not allow PKs in filters" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
       override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
         "SYS_CHANGE_OPERATION",
         "ARCANE_MERGE_KEY",
-        "DATE_PARTITION_KEY",
         "ChangeTrackingVersion"
       )
     }
@@ -216,7 +212,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
         "SYS_CHANGE_OPERATION",
         "ARCANE_MERGE_KEY",
-        "DATE_PARTITION_KEY",
         "ChangeTrackingVersion"
       )
     }
@@ -240,8 +235,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       Field("b", TimestampType),
       Field("cd", IntType),
       Field("ChangeTrackingVersion", LongType),
-      MergeKeyField,
-      Field("DATE_PARTITION_KEY", StringType))
+      MergeKeyField)
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
       val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column
       fields should be(expected)
@@ -265,7 +259,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         result <- connection.backfill.runCollect
         head = result.head
     yield {
-      head should have length 11
+      head should have length 10
     }
     
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
@@ -277,7 +271,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
         "SYS_CHANGE_OPERATION",
         "ARCANE_MERGE_KEY",
-        "DATE_PARTITION_KEY",
         "ChangeTrackingVersion"
       )
     }
@@ -288,8 +281,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       "a",
       "b",
       "ChangeTrackingVersion",
-      "ARCANE_MERGE_KEY",
-      "DATE_PARTITION_KEY")
+      "ARCANE_MERGE_KEY")
     val task = for schema <- connection.getSchema
                    result <- connection.backfill.runCollect
     yield {
@@ -319,7 +311,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
         "SYS_CHANGE_OPERATION",
         "ARCANE_MERGE_KEY",
-        "DATE_PARTITION_KEY",
         "ChangeTrackingVersion"
       )
     }
@@ -332,7 +323,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       "a",
       "ChangeTrackingVersion",
       "ARCANE_MERGE_KEY",
-      "DATE_PARTITION_KEY",
     )
 
     val task = for schema <- connection.getSchema
@@ -360,7 +350,6 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       "cd",
       "ChangeTrackingVersion",
       "ARCANE_MERGE_KEY",
-      "DATE_PARTITION_KEY",
     )
 
     val task = for schema <- connection.getSchema
