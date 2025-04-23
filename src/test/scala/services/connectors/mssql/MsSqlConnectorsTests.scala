@@ -5,9 +5,12 @@ import models.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.ArcaneType.{BigDecimalType, ByteArrayType, IntType, LongType, StringType, TimestampType}
 import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
-import services.mssql.{ConnectionOptions, MsSqlConnection, QueryProvider}
+import services.mssql.{ColumnSummary, ColumnSummaryFieldsFilteringService, ConnectionOptions, MsSqlConnection, QueryProvider}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
+import com.sneaksanddata.arcane.framework.models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlServerFieldsFilteringService
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
@@ -20,6 +23,7 @@ import java.util.Properties
 import scala.List
 import scala.concurrent.Future
 import scala.language.postfixOps
+import scala.util.Success
 
 class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
@@ -30,6 +34,8 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
   val connectionUrl = "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
+  
+  private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) => Success(fields)
 
   def createDb(tableName: String): TestConnectionInfo =
     val dr = new SQLServerDriver()
@@ -95,7 +101,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     test(conn)
 
   "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = for query <- QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
       connector.connectionOptions.tableName,
       connector.catalog)
@@ -105,7 +111,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = QueryProvider.getSchemaQuery(connector) map { query =>
       query should (
         include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
@@ -116,33 +122,96 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
     val query = QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1))
     query should (include ("SELECT MIN(commit_ts)") and include (s"WHERE commit_time > '$formattedTime'"))
   }
   
   "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
     val query = QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1))
     query should (include ("SELECT MIN(commit_ts)") and (not include "commit_time") and include (s"WHERE commit_ts > 1"))
   }
 
   "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions)
+    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
+    val expected =
+      """declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
+        |
+        |SELECT
+        |tq.[x],
+        |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
+        |'I' as SYS_CHANGE_OPERATION,
+        |tq.[y],
+        |tq.[z],
+        |tq.[a],
+        |tq.[b],
+        |tq.[c/d],
+        |@currentVersion AS 'ChangeTrackingVersion',
+        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY],
+        |format(getdate(), 'yyyyMM') as [DATE_PARTITION_KEY]
+        |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
     val task = QueryProvider.getBackfillQuery(connector) map { query =>
-      query should (
-        include ("SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY") and include("format(getdate(), 'yyyyMM')")
-        )
+      query should be(expected)
     }
     
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
+
+  "QueryProvider" should "handle field selection rule" in withDatabase { dbInfo =>
+    val fieldSelectionRule = new FieldSelectionRuleSettings {
+      override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z" , "cd"))
+    }
+    val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val expected =
+      """declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
+        |
+        |SELECT
+        |tq.[x],
+        |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
+        |'I' as SYS_CHANGE_OPERATION,
+        |tq.[y],
+        |@currentVersion AS 'ChangeTrackingVersion',
+        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY],
+        |format(getdate(), 'yyyyMM') as [DATE_PARTITION_KEY]
+        |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
+    val task = QueryProvider.getBackfillQuery(connector) map { query =>
+      query should be(expected)
+    }
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+  }
   
+  "QueryProvider" should "not allow PKs in filters" in withDatabase { dbInfo =>
+    val fieldSelectionRule = new FieldSelectionRuleSettings {
+      override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
+    }
+    val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val task = QueryProvider.getBackfillQuery(connector)
+    recoverToExceptionIf[IllegalArgumentException] {
+      Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+    } map { exception =>
+      exception.getMessage should be("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule")
+    }
+  }
+
+  "QueryProvider" should "enforce PKs in include filters" in withDatabase { dbInfo =>
+    val fieldSelectionRule = new FieldSelectionRuleSettings {
+      override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
+    }
+    val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val task = QueryProvider.getBackfillQuery(connector)
+    recoverToExceptionIf[IllegalArgumentException] {
+      Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+    } map { exception =>
+      exception.getMessage should be("Fields ['x'] are primary keys, and must be included in the field selection rule")
+    }
+  }
 
   "MsSqlConnection" should "be able to extract schema columns from the database" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val expected = List(Field("x", IntType),
       Field("SYS_CHANGE_VERSION", LongType),
       Field("SYS_CHANGE_OPERATION", StringType),
@@ -161,7 +230,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = for schema <- connection.getSchema
         result <- connection.backfill.runCollect
     yield {
@@ -172,7 +241,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = for schema <- connection.getSchema
         result <- connection.backfill.runCollect
         head = result.head
@@ -183,8 +252,31 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
+  "MsSqlConnection" should "return correct number of columns on backfill with filter" in withDatabase { dbInfo =>
+    val fieldSelectionRule = new FieldSelectionRuleSettings {
+      override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
+    }
+    val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val expected = List("x",
+      "SYS_CHANGE_VERSION",
+      "SYS_CHANGE_OPERATION",
+      "a",
+      "b",
+      "ChangeTrackingVersion",
+      "ARCANE_MERGE_KEY",
+      "DATE_PARTITION_KEY")
+    val task = for schema <- connection.getSchema
+                   result <- connection.backfill.runCollect
+    yield {
+      result.head.map(c => c.name) should be(expected)
+    }
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+  }
+
+
   "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
@@ -196,8 +288,24 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
+  "MsSqlConnection" should "return correct number of rows on getChanges with filter" in withDatabase { dbInfo =>
+    val fieldSelectionRule = new FieldSelectionRuleSettings {
+      override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
+    }
+    val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val task = for schema <- connection.getSchema
+        result <- connection.getChanges(None, Duration.ofDays(1))
+        (columns, _ ) = result
+        changedData = columns.read.toList
+    yield {
+      changedData should have length 20
+    }
+
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
+  }
+
   "MsSqlConnection" should "handle deletes" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, version) = result
@@ -220,7 +328,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (_, latestVersion) = result

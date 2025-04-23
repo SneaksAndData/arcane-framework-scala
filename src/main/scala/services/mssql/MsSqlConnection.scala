@@ -6,7 +6,7 @@ import services.base.SchemaProvider
 import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
-import services.mssql.base.{CanPeekHead, QueryResult}
+import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
@@ -54,7 +54,7 @@ case class ConnectionOptions(connectionUrl: String,
  *
  * @param connectionOptions The connection options for the database.
  */
-class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
+class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringService: MsSqlServerFieldsFilteringService) extends AutoCloseable with SchemaProvider[ArcaneSchema]:
   lazy val catalog: String = connection.getCatalog
   
   private val driver = new SQLServerDriver()
@@ -159,8 +159,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   private def executeColumnSummariesQuery(query: String): Task[List[ColumnSummary]] =
     ZIO.scoped {
       for statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
-          resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(query)))
-      yield readColumns(resultSet, List.empty)
+          resultSet <- statement.executeQuerySafe(query)
+          result <- ZIO.fromTry(fieldsFilteringService.filter(readColumns(resultSet, List.empty)))
+      yield result
     }
     
 
@@ -180,21 +181,29 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
     yield resultFactory(statement, resultSet)
 
 object MsSqlConnection:
+
+  type Environment = ConnectionOptions
+    & MsSqlServerFieldsFilteringService
+
   /**
    * Creates a new Microsoft SQL Server connection.
    *
    * @param connectionOptions The connection options for the database.
+   * @param fieldsFilteringService The service that filters the fields in queries.
    * @return A new Microsoft SQL Server connection.
    */
-  def apply(connectionOptions: ConnectionOptions): MsSqlConnection = new MsSqlConnection(connectionOptions)
+  def apply(connectionOptions: ConnectionOptions, fieldsFilteringService: MsSqlServerFieldsFilteringService): MsSqlConnection =
+    new MsSqlConnection(connectionOptions, fieldsFilteringService)
 
   /**
    * The ZLayer that creates the MsSqlDataProvider.
    */
-  val layer: ZLayer[ConnectionOptions, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
+  val layer: ZLayer[Environment, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
-        for connectionOptions <- ZIO.service[ConnectionOptions] yield MsSqlConnection(connectionOptions)
+        for connectionOptions <- ZIO.service[ConnectionOptions]
+            fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
+        yield MsSqlConnection(connectionOptions, fieldsFilteringService)
       }
     }
 
