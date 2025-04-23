@@ -4,10 +4,11 @@ package services.connectors.mssql
 import models.app.StreamContext
 import models.settings.VersionedDataGraphBuilderSettings
 import services.connectors.mssql.util.TestConnectionInfo
-import services.mssql.{ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlStreamingDataProvider}
+import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, MsSqlDataProvider, MsSqlStreamingDataProvider}
 import utils.TestStreamLifetimeService
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlServerFieldsFilteringService
 import org.scalatest.*
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
@@ -17,9 +18,9 @@ import java.sql.Connection
 import java.time.Duration
 import java.time.format.DateTimeFormatter
 import java.util.Properties
-import scala.List
 import scala.concurrent.Future
 import scala.language.postfixOps
+import scala.util.Success
 
 class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
@@ -34,6 +35,8 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
     override val changeCaptureInterval: Duration = Duration.ofMillis(1)
     override val changeCapturePeriod: Duration = Duration.ofHours(1)
   }
+  
+  private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) => Success(fields)
 
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
@@ -95,7 +98,7 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
 
   it should "return correct number of rows while streaming" in withDatabase { dbInfo =>
     val numberRowsToTake = 5
-    val connection = MsSqlConnection(dbInfo.connectionOptions)
+    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val dataProvider = MsSqlDataProvider(connection)
     val streamingDataProvider = MsSqlStreamingDataProvider(dataProvider, settings, streamContext)
     val lifetimeService = TestStreamLifetimeService(numberRowsToTake)

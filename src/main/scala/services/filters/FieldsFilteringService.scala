@@ -11,6 +11,13 @@ import zio.{ZIO, ZLayer}
  */
 class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
 
+  require(fieldSelectionRule.rule match
+    case included: FieldSelectionRule.IncludeFields => fieldSelectionRule.essentialFields.subsetOf(included.fields)
+    case excluded: FieldSelectionRule.ExcludeFields => excluded.fields.intersect(fieldSelectionRule.essentialFields).isEmpty
+    case _ => true,
+
+    "The field selection rule must not exclude essential fields: " + fieldSelectionRule.essentialFields.mkString(", ")
+  )
 
   /**
    * Filters the fields of an ArcaneSchema.
