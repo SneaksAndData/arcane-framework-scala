@@ -40,7 +40,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         connectionUrl,
         "dbo",
         tableName,
-        Some("format(getdate(), 'yyyyMM')")), con)
+        None), con)
 
   def createTable(tableName: String, con: Connection): Unit =
     val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int)"

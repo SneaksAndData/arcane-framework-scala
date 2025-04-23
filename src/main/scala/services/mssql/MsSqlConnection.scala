@@ -40,15 +40,13 @@ type MsSqlQuery = String
  * Represents the connection options for a Microsoft SQL Server database.
  *
  * @param connectionUrl       The connection URL for the database.
- * @param databaseName        The name of the database.
  * @param schemaName          The name of the schema.
  * @param tableName           The name of the table.
- * @param partitionExpression The partition expression for the table.
  */
 case class ConnectionOptions(connectionUrl: String,
                              schemaName: String,
                              tableName: String,
-                             partitionExpression: Option[String])
+                             fetchSize: Option[Int])
 
 /**
  * Represents a connection to a Microsoft SQL Server database.
@@ -76,14 +74,14 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions) extends AutoClos
   /**
    * Run a backfill query on the database.
    *
-   * @return An stream containing the result of a backfill query.
+   * @return A stream containing the result of a backfill query.
    */
   def backfill: ZStream[Any, Throwable, DataRow] =
     for query <- ZStream.fromZIO(this.getBackfillQuery)
         statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-        _ <- zlogStream("Acquired result set with fetch size: %s", resultSet.getFetchSize.toString)
-        _ <- ZStream.succeed(resultSet.setFetchSize(1000))
+        _ <- zlogStream("Acquired result set with fetch size %s", resultSet.getFetchSize.toString)
+        _ <- ZStream.succeed(resultSet.setFetchSize(connectionOptions.fetchSize.getOrElse(1000)))
         _ <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
         stream <- ZStream.unfoldZIO( resultSet.next() ) { hasNext =>
           if hasNext then
@@ -236,8 +234,8 @@ object MsSqlConnection:
    * returned by the query if the result set is being closed without cancelling the statement first.
    * see: https://github.com/microsoft/mssql-jdbc/issues/877 for details.
    * ALL RESULT SETS CREATED FROM MS SQL CONNECTION MUST BE CLOSED THIS WAY
-   * @param resultSet The result set to close.
-   * @param statement The statement to close.
+   * resultSet The result set to close.
+   * statement The statement to close.
    * @return UIO[Unit] that completes when the result set is closed.
    */
   extension (resultSet: ResultSet) def closeSafe(statement: Statement): UIO[Unit] =
