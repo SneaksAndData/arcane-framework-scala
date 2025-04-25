@@ -57,7 +57,12 @@ object SqlUtils:
     case java.sql.Types.LONGNVARCHAR => Success(ArcaneType.StringType)
     case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
     case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
+
     case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
+    // The ISO synonym for real is float(24).
+    // See: https://learn.microsoft.com/en-us/sql/t-sql/data-types/float-and-real-transact-sql?view=sql-server-ver16
+    case java.sql.Types.REAL => Success(ArcaneType.FloatType)
+    
     case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
     case java.sql.Types.TIME => Success(ArcaneType.TimeType)
     case java.sql.Types.NCHAR => Success(ArcaneType.StringType)

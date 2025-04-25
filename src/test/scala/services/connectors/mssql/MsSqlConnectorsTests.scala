@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.connectors.mssql
 
 import models.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
-import models.ArcaneType.{BigDecimalType, ByteArrayType, IntType, LongType, StringType, TimestampType}
+import models.ArcaneType.{BigDecimalType, ByteArrayType, FloatType, IntType, LongType, StringType, TimestampType}
 import services.connectors.mssql.util.TestConnectionInfo
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}
@@ -50,7 +50,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         None), con)
 
   def createTable(tableName: String, con: Connection): Unit =
-    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int)"
+    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
@@ -63,13 +63,13 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
   def insertData(con: Connection): Unit =
     val statement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0)"
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
       statement.execute(insertCmd)
     statement.close()
 
     val updateStatement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0)"
+      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
       updateStatement.execute(insertCmd)
 
   def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
@@ -150,6 +150,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         |tq.[a],
         |tq.[b],
         |tq.[c/d],
+        |tq.[e],
         |@currentVersion AS 'ChangeTrackingVersion',
         |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
         |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
@@ -178,6 +179,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
         |'I' as SYS_CHANGE_OPERATION,
         |tq.[y],
+        |tq.[e],
         |@currentVersion AS 'ChangeTrackingVersion',
         |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
         |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
@@ -234,6 +236,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       Field("a", ByteArrayType),
       Field("b", TimestampType),
       Field("cd", IntType),
+      Field("e", FloatType),
       Field("ChangeTrackingVersion", LongType),
       MergeKeyField)
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
@@ -259,7 +262,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         result <- connection.backfill.runCollect
         head = result.head
     yield {
-      head should have length 10
+      head should have length 11
     }
     
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
@@ -348,6 +351,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
       "a",
       "b",
       "cd",
+      "e",
       "ChangeTrackingVersion",
       "ARCANE_MERGE_KEY",
     )
