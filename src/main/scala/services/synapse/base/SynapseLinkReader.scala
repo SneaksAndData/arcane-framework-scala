@@ -31,24 +31,28 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
-  private def enrichWithSchema(stream: ZStream[Any, Throwable, (StoredBlob, String)]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    stream
-      .filterZIO(prefix => reader.blobExists(storagePath + prefix._1.name + "model.json"))
+  private def enrichWithSchema(eligibleDate: (StoredBlob, String)): ZStream[Any, Throwable, SchemaEnrichedBlob] = ZStream.succeed(eligibleDate)
+      // exclude folders that do not have model.json in them
+      .filterZIO(datePrefix => reader.blobExists(storagePath + datePrefix._1.name + "model.json"))
       // since model.json will not have schema definition for entities that were not part of the batch,
       // we need to filter out such prefixes BEFORE we read the schema
-      .filterZIO(prefix => for
-          hasData <- reader.streamPrefixes(storagePath + prefix._1.name + entityName + "/").runHead
-        yield hasData.isDefined
-      )
-      .mapZIO { prefix =>
-        SynapseEntitySchemaProvider(reader, (storagePath + prefix._1.name).toHdfsPath, entityName)
-          .getSchema
-          .map(schema => SchemaEnrichedBlob(prefix._1, schema, prefix._2))
+      // also read CSV files while at it
+      .mapZIO {
+        datePrefix => reader
+          .streamPrefixes(storagePath + datePrefix._1.name + entityName + "/")
+          .filter(sb => sb.name.endsWith(".csv"))
+          .runCollect // materialize CSV list to avoid double-querying storage
+          .map(chunks => datePrefix -> chunks)
       }
-
-  private def filterBlobs(endsWithString: String, blobStream: ZStream[Any, Throwable, SchemaEnrichedBlob]) = blobStream
-    .flatMap(seb => reader.streamPrefixes(storagePath + seb.blob.name).map(sb => SchemaEnrichedBlob(sb, seb.schema, seb.latestVersion)))
-    .filter(seb => seb.blob.name.endsWith(endsWithString))
+      // here we filter out empty locations (those we cannot read schema for as a result)
+      .filter(_._2.nonEmpty)
+      .mapZIO {
+        case (datePrefix, files) => SynapseEntitySchemaProvider(reader, (storagePath + datePrefix._1.name).toHdfsPath, entityName)
+          .getSchema
+          // we need to emit deletions, which are in files named 1.csv, last
+          // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
+          .map(schema => files.sortBy(b => b.name)(Ordering.String.reverse).map(csvBlob => SchemaEnrichedBlob(csvBlob, schema, datePrefix._2)))
+      }.flatMap(ZStream.fromIterable)
 
   /**
    * Select ALL CSV files that correspond to the entity changes
@@ -60,25 +64,10 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    *
    * @return A stream of rows for this table
    */
-  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = filterBlobs(
-    ".csv",
-    filterBlobs(
-      s"/$entityName/", enrichWithSchema(reader.getRootPrefixes(storagePath, startDate))
-    )
-  )
-
-  /**
-   * Filter out all files that do not contain deletes. CSV files that contain deletes will ALWAYS be named 1.csv, since they are
-   * stripped of all information except for row Id and IsDelete = true. Thus, Synapse falls back to 0001 year when partitioning deletes
-   * @return
-   */
-  private def getEntityDeletes(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => seb.blob.name.endsWith("/1.csv"))
-
-  /**
-   * Filter out all files that contain deletes, keeping inserts and updates.
-   * @return
-   */  
-  private def getEntityUpserts(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = getEntityChangeData(startDate).filter(seb => !seb.blob.name.endsWith("/1.csv"))
+  private def getEntityChangeData(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] = for
+    eligibleDate <- reader.getEligibleDates(storagePath, startDate)
+    batchBlob <- enrichWithSchema(eligibleDate)
+  yield batchBlob
 
   private def getFileStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob, String)] =
     reader.streamBlobContent(storagePath + seb.blob.name)
@@ -99,7 +88,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    * @param startFrom Start date to get changes from
    * @return
    */
-  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityUpserts(startFrom).concat(getEntityDeletes(startFrom))
+  def getChanges(startFrom: OffsetDateTime): ZStream[Any, Throwable, (DataRow, String)] = getEntityChangeData(startFrom)
     .mapZIO(getFileStream)
     .flatMap {
       case (fileStream, fileSchema, blob, latestVersion) => getTableChanges(fileStream, fileSchema, blob.name, latestVersion)
