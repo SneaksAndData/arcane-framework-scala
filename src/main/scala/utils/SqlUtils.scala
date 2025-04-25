@@ -46,9 +46,23 @@ object SqlUtils:
     case java.sql.Types.TIMESTAMP => Success(ArcaneType.TimestampType)
     case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
     case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType(precision, scale))
+
+    // numeric is functionally identical to decimal
+    // see: https://learn.microsoft.com/en-us/sql/t-sql/data-types/decimal-and-numeric-transact-sql
+    case java.sql.Types.NUMERIC => Success(ArcaneType.BigDecimalType(precision, scale))
+
+    // The SQL Server text and ntext types map to the JDBC LONGVARCHAR and LONGNVARCHAR type, respectively.
+    // see: https://learn.microsoft.com/en-us/sql/connect/jdbc/understanding-data-type-differences?view=sql-server-ver16#character-types
+    case java.sql.Types.LONGVARCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.LONGNVARCHAR => Success(ArcaneType.StringType)
     case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
     case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
+
     case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
+    // The ISO synonym for real is float(24).
+    // See: https://learn.microsoft.com/en-us/sql/t-sql/data-types/float-and-real-transact-sql?view=sql-server-ver16
+    case java.sql.Types.REAL => Success(ArcaneType.FloatType)
+    
     case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
     case java.sql.Types.TIME => Success(ArcaneType.TimeType)
     case java.sql.Types.NCHAR => Success(ArcaneType.StringType)

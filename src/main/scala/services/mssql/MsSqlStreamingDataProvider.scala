@@ -35,8 +35,18 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
       ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
     stream
       .map( row => row.map{
-        case DataCell(name, ArcaneType.TimestampType, value) => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
-        case DataCell(name, ArcaneType.ByteArrayType, value) => DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
+        case DataCell(name, ArcaneType.TimestampType, value) if value != null
+          => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
+        
+        case DataCell(name, ArcaneType.TimestampType, value) if value == null
+          => DataCell(name, ArcaneType.TimestampType, null)
+        
+        case DataCell(name, ArcaneType.ByteArrayType, value) if value != null
+          => DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
+
+        case DataCell(name, ArcaneType.ByteArrayType, value) if value == null
+          => DataCell(name, ArcaneType.ByteArrayType, null)
+        
         case other => other
       })
 
