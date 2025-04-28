@@ -18,7 +18,7 @@ given HasVersion[VersionedBatch] with
   private val partial: PartialFunction[VersionedBatch, Option[Long]] =
     case (queryResult, version: Long) =>
       // If the database response is empty, we can't extract the version from it and return the old version.
-      queryResult.read.headOption match
+      queryResult.headOption match
         case None => Some(version)
         case Some(row) =>
           // If the database response is not empty, we can extract the version from any row of the response.
