@@ -21,6 +21,7 @@ import java.sql.Connection
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, LocalDateTime}
 import java.util.Properties
+import scala.List
 import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.util.Success
@@ -299,7 +300,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
-        changedData = columns.toList
+        changedData = columns.read.toList
     yield {
       changedData should have length 20
     }
@@ -330,7 +331,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
-        changedData = columns.toList
+        changedData = columns.read.toList
     yield {
       changedData.head.map(c => c.name) should be(expected)
     }
@@ -358,7 +359,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _) = result
-        changedData = columns.toList
+        changedData = columns.read.toList
     yield {
       changedData.head.map(c => c.name) should be(expected)
     }
@@ -371,10 +372,11 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, version) = result
+        _ <- ZIO.attempt(columns.close())
         _ <- deleteData(dbInfo.connection, Seq(2))
         result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
         (columns2, _) = result2
-        changedData = columns2.toList
+        changedData = columns2.read.toList
     yield {
       changedData(1) should contain allOf (
         DataCell("SYS_CHANGE_OPERATION", StringType, "D"),

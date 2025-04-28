@@ -9,7 +9,7 @@ import services.mssql.base.{MssqlVersionedDataProvider, QueryResult}
 import services.streaming.base.StreamDataProvider
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import zio.{Chunk, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
 import java.nio.ByteBuffer
@@ -32,8 +32,9 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
     val stream = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
     else
-      ZStream.unfoldZIO(None)(v => continueStream(v)).flattenChunks
-    stream.map( row => row.map{
+      ZStream.unfoldZIO(None)(v => continueStream(v))
+    stream
+      .map( row => row.map{
         case DataCell(name, ArcaneType.TimestampType, value) if value != null
           => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
         
@@ -55,7 +56,7 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
          row <- ZStream.fromIterable(rowsList)
     yield row
 
-  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(Chunk[DataRow], Option[Long])]] =
+  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(List[DataRow], Option[Long])]] =
     for versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
       _ <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
       _ <- maybeSleep(versionedBatch)
@@ -67,7 +68,7 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
   private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
     versionedBatch match
       case (queryResult, _) =>
-        val headOption = queryResult.headOption
+        val headOption = queryResult.read.headOption
         if headOption.isEmpty then
           zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(settings.changeCaptureInterval)
         else
