@@ -109,24 +109,9 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringS
 
           // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
           // And the LazyQueryResult will close the statement/result set when it is closed.
-//          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-
-          resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(changesQuery)))(rs => rs.closeSafe(statement))
-          changes <- readResultSet(resultSet)
-      yield (changes, maybeLatestVersion.getOrElse(0))
+          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
+      yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
     }
-    
-  private def readResultSet(resultSet: ResultSet): ZStream[Any, Throwable, DataRow] =
-    for row <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-        if hasNext then
-          for columns <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-              row <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty)).map(implicitly)
-              hasNextRow <- ZIO.attemptBlocking(resultSet.next())
-          yield Some((row, hasNextRow))
-        else
-          ZIO.succeed(None)
-      }
-    yield row
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
@@ -238,7 +223,7 @@ object MsSqlConnection:
   /**
    * Represents a versioned batch of data.
    */
-  type VersionedBatch = (List[DataRow], Long)
+  type VersionedBatch = (DataBatch, Long)
 
   /**
    * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
