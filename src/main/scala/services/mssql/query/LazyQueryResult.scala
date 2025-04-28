@@ -10,7 +10,8 @@ import com.sneaksanddata.arcane.framework.services.mssql.query.LazyQueryResult.t
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
+import scala.util.boundary.break
+import scala.util.{Failure, Success, Try, boundary}
 
 
 /**
@@ -66,19 +67,21 @@ object LazyQueryResult {
    */
   def apply(statement: Statement, resultSet: ResultSet): LazyQueryResult = new LazyQueryResult(statement, resultSet, List.empty)
 
-  @tailrec
   def toDataRow(row: ResultSet, column: Int, acc: SqlDataRow): Try[SqlDataRow] =
-    if column == 0 then Success(acc)
-    else
-      val name = row.getMetaData.getColumnName(column)
-      val value = row.getObject(column)
-      val dataType = row.getMetaData.getColumnType(column)
-
-      val precision = row.getMetaData.getPrecision(column)
-      val scale = row.getMetaData.getScale(column)
-
-      toArcaneType(dataType, precision, scale) match
-        case Success(arcaneType) => toDataRow(row, column - 1, SqlDataCell(name, arcaneType, value) :: acc)
-        case Failure(exception) => Failure(exception)
-
+    val columns = row.getMetaData.getColumnCount
+    val array = new Array[SqlDataCell](columns)
+    
+    boundary: 
+      for i <- 0 until columns do
+        val value = row.getObject(i + 1)
+        val name = row.getMetaData.getColumnName(column)
+        val dataType = row.getMetaData.getColumnType(column)
+        val precision = row.getMetaData.getPrecision(column)
+        val scale = row.getMetaData.getScale(column)
+        val tryArcaneType = toArcaneType(dataType, precision, scale)
+        tryArcaneType match
+          case Success(arcaneType) => array(i) = SqlDataCell(name, arcaneType, value)
+          case Failure(exception) => break(Failure(exception))
+    
+    Success(array)
 }

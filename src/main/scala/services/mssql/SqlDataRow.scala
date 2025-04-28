@@ -8,7 +8,7 @@ import com.sneaksanddata.arcane.framework.services.mssql.SqlDataCell.normalizeNa
 /**
  * Represents a row of data received from the Microsoft SQL Server.
  */
-type SqlDataRow = List[SqlDataCell]
+type SqlDataRow = Seq[SqlDataCell]
 
 /**
  * Represents a cell of data received from the Microsoft SQL Server.
@@ -35,7 +35,5 @@ object SqlDataCell:
 
 given Conversion[SqlDataRow, DataRow] with
   override def apply(dataRow: SqlDataRow): DataRow =
-    dataRow.map { cell =>
-      DataCell(cell.name.normalizeName, cell.Type, cell.value)
-    }
+    dataRow.map(cell => DataCell(cell.name.normalizeName, cell.Type, cell.value)).toList
 
