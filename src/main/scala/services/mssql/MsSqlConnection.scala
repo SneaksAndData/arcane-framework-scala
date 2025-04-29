@@ -111,13 +111,13 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringS
               for changesQuery <- this.getChangesQuery(version - 1)
                   statement <- ZIO.attempt(connection.createStatement())
                   resultSet <- ZIO.attempt(statement.executeQuery(changesQuery))
-              yield (readResultSet(resultSet), version)
+              yield (readResultSet(resultSet, statement), version)
       yield functionResult
     }
     
- // TODO: close result set
-  private def readResultSet(resultSet: ResultSet): ZStream[Any, Throwable, DataRow] =
-    for row <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
+  private def readResultSet(resultSet: ResultSet, statement: Statement): ZStream[Any, Throwable, DataRow] =
+      for rs <- ZStream.scoped(ZIO.acquireRelease(ZIO.attempt(resultSet))(rs => ZIO.succeed(rs.closeSafe(statement))))
+          row <- ZStream.unfoldZIO(rs.next()) { hasNext =>
         if hasNext then
           for columns <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
               row <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty)).map(implicitly)
@@ -126,7 +126,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringS
         else
           ZIO.succeed(None)
       }
-    yield row
+      yield row
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
     resultSet.getMetaData.getColumnType(1) match
