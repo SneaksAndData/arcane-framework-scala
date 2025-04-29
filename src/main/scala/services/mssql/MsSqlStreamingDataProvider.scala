@@ -29,10 +29,8 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
    * @inheritdoc
    */
   override def stream: ZStream[Any, Throwable, DataRow] =
-    val stream = if streamContext.IsBackfilling then
-      dataProvider.requestBackfill
-    else
-      ZStream.unfoldZIO(None)(v => continueStream(v)).flatten
+    val stream = if streamContext.IsBackfilling then dataProvider.requestBackfill else ZStream.unfoldZIO(None)(v => continueStream(v)).flatten
+      
     stream.map( row => row.map{
         case DataCell(name, ArcaneType.TimestampType, value) if value != null
           => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
@@ -49,19 +47,10 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
         case other => other
       })
 
-  private def readDataBatch[T <: AutoCloseable & QueryResult[LazyList[DataRow]]](batch: T): ZStream[Any, Throwable, DataRow] =
-    for  data <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
-         rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-         row <- ZStream.fromIterable(rowsList)
-    yield row
-
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(ZStream[Any, Throwable, DataRow], Option[Long])]] =
     for (versionedBatch, latestVersion) <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
       _ <- zlog(s"Received versioned batch with version: $latestVersion")
       _ <- maybeSleep(latestVersion, previousVersion.getOrElse(0L))
-//      latestVersion = versionedBatch.getLatestVersion
-//      (queryResult, _) = versionedBatch
-//      _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
     yield Some(versionedBatch, Some(latestVersion))
 
   private def maybeSleep(latestVersion: Long, previousVersion: Long): ZIO[Any, Nothing, Unit] =

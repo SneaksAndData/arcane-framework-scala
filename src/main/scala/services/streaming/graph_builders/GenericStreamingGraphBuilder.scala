@@ -32,7 +32,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
    */
   override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream
-      .bufferUnbounded
+      // .bufferUnbounded
       .via(fieldFilteringProcessor.process)
       .via(groupTransformer.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
