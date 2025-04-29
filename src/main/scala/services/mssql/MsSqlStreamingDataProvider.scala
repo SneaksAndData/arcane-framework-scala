@@ -32,7 +32,7 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
     val stream = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
     else
-      ZStream.unfoldZIO(None)(v => continueStream(v)).flattenChunks
+      ZStream.unfoldZIO(None)(v => continueStream(v)).flatten
     stream.map( row => row.map{
         case DataCell(name, ArcaneType.TimestampType, value) if value != null
           => DataCell(name, ArcaneType.TimestampType, LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC))
@@ -55,23 +55,20 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
          row <- ZStream.fromIterable(rowsList)
     yield row
 
-  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(Chunk[DataRow], Option[Long])]] =
-    for versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
-      _ <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
-      _ <- maybeSleep(versionedBatch)
-      latestVersion = versionedBatch.getLatestVersion
-      (queryResult, _) = versionedBatch
-      _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
-    yield Some(queryResult, latestVersion)
+  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(ZStream[Any, Throwable, DataRow], Option[Long])]] =
+    for (versionedBatch, latestVersion) <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
+      _ <- zlog(s"Received versioned batch with version: $latestVersion")
+      _ <- maybeSleep(latestVersion, previousVersion.getOrElse(0L))
+//      latestVersion = versionedBatch.getLatestVersion
+//      (queryResult, _) = versionedBatch
+//      _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
+    yield Some(versionedBatch, Some(latestVersion))
 
-  private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
-    versionedBatch match
-      case (queryResult, _) =>
-        val headOption = queryResult.headOption
-        if headOption.isEmpty then
-          zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(settings.changeCaptureInterval)
-        else
-          zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
+  private def maybeSleep(latestVersion: Long, previousVersion: Long): ZIO[Any, Nothing, Unit] =
+    if latestVersion == previousVersion then
+      zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(settings.changeCaptureInterval)
+    else
+      zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
 
 object MsSqlStreamingDataProvider:
 

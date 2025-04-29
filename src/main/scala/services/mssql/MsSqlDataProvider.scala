@@ -11,26 +11,26 @@ import zio.{Task, ZIO, ZLayer}
 
 import java.time.Duration
 import scala.util.{Failure, Try}
-
-given HasVersion[VersionedBatch] with
-  type VersionType = Option[Long]
-
-  private val partial: PartialFunction[VersionedBatch, Option[Long]] =
-    case (queryResult, version: Long) =>
-      // If the database response is empty, we can't extract the version from it and return the old version.
-      queryResult.headOption match
-        case None => Some(version)
-        case Some(row) =>
-          // If the database response is not empty, we can extract the version from any row of the response.
-          // Let's take the first row and try to extract the version from it.
-          val dataVersion = row.filter(_.name == "ChangeTrackingVersion") match
-            // For logging purposes will be used in the future.
-            case Nil => Failure(new UnsupportedOperationException("No ChangeTrackingVersion found in row."))
-            case version :: _ => Try(version.value.asInstanceOf[Long])
-          dataVersion.toOption
-
-  extension (result: VersionedBatch)
-    def getLatestVersion: this.VersionType = partial.applyOrElse(result, (_: VersionedBatch) => None)
+//
+//given HasVersion[VersionedBatch] with
+//  type VersionType = Option[Long]
+//
+//  private val partial: PartialFunction[VersionedBatch, Option[Long]] =
+//    case (queryResult, version: Long) =>
+//      // If the database response is empty, we can't extract the version from it and return the old version.
+//      queryResult.headOption match
+//        case None => Some(version)
+//        case Some(row) =>
+//          // If the database response is not empty, we can extract the version from any row of the response.
+//          // Let's take the first row and try to extract the version from it.
+//          val dataVersion = row.filter(_.name == "ChangeTrackingVersion") match
+//            // For logging purposes will be used in the future.
+//            case Nil => Failure(new UnsupportedOperationException("No ChangeTrackingVersion found in row."))
+//            case version :: _ => Try(version.value.asInstanceOf[Long])
+//          dataVersion.toOption
+//
+//  extension (result: VersionedBatch)
+//    def getLatestVersion: this.VersionType = partial.applyOrElse(result, (_: VersionedBatch) => None)
 
 
 

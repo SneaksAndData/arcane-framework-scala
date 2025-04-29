@@ -299,7 +299,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
-        changedData = columns.toList
+        changedData <- columns.runCollect
     yield {
       changedData should have length 20
     }
@@ -330,7 +330,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _ ) = result
-        changedData = columns.toList
+        changedData <- columns.runCollect
     yield {
       changedData.head.map(c => c.name) should be(expected)
     }
@@ -358,7 +358,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
     val task = for schema <- connection.getSchema
         result <- connection.getChanges(None, Duration.ofDays(1))
         (columns, _) = result
-        changedData = columns.toList
+        changedData <- columns.runCollect
     yield {
       changedData.head.map(c => c.name) should be(expected)
     }
@@ -374,7 +374,7 @@ class MsSqlConnectorsTests extends flatspec.AsyncFlatSpec with Matchers:
         _ <- deleteData(dbInfo.connection, Seq(2))
         result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
         (columns2, _) = result2
-        changedData = columns2.toList
+        changedData <- columns2.runCollect
     yield {
       changedData(1) should contain allOf (
         DataCell("SYS_CHANGE_OPERATION", StringType, "D"),

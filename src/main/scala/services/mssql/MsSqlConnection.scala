@@ -104,22 +104,18 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringS
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
     ZIO.scoped {
       for versionResult <- ZIO.fromAutoCloseable(executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion)))
-          version = versionResult.read.getOrElse(Long.MaxValue)
-          changesQuery <- this.getChangesQuery(version - 1)
-
-          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
-          // And the LazyQueryResult will close the statement/result set when it is closed.
-//          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-
-          stream = for
-                statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
-                resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(changesQuery)))(rs => rs.closeSafe(statement))
-                result <- readResultSet(resultSet)
-              yield result
-          changes <- stream.runCollect
-      yield (changes, maybeLatestVersion.getOrElse(0))
+          maybeDatabaseVersion = versionResult.read
+          functionResult <- maybeLatestVersion match
+            case None => ZIO.succeed( (ZStream.empty, maybeLatestVersion.getOrElse(0L)) )
+            case Some(version) =>
+              for changesQuery <- this.getChangesQuery(version - 1)
+                  statement <- ZIO.attempt(connection.createStatement())
+                  resultSet <- ZIO.attempt(statement.executeQuery(changesQuery))
+              yield (readResultSet(resultSet), version)
+      yield functionResult
     }
     
+ // TODO: close result set
   private def readResultSet(resultSet: ResultSet): ZStream[Any, Throwable, DataRow] =
     for row <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
         if hasNext then
@@ -242,7 +238,7 @@ object MsSqlConnection:
   /**
    * Represents a versioned batch of data.
    */
-  type VersionedBatch = (Chunk[DataRow], Long)
+  type VersionedBatch = (ZStream[Any, Throwable, DataRow], Long)
 
   /**
    * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
