@@ -7,8 +7,12 @@ import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
+import com.sneaksanddata.arcane.framework.models.DataCell
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBufferUnbounded
+
 
 /**
  * Provides the complete data stream for the streaming process including all the stages and services
@@ -19,7 +23,8 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
                                    groupTransformer: GenericGroupingTransformer,
                                    stagingProcessor: StagingProcessor,
                                    mergeProcessor: MergeBatchProcessor,
-                                   disposeBatchProcessor: DisposeBatchProcessor)
+                                   disposeBatchProcessor: DisposeBatchProcessor,
+                                   streamContext: StreamContext)
   extends StreamingGraphBuilder with BackfillSubStream:
 
   /**
@@ -32,7 +37,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
    */
   override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream
-      .bufferUnbounded
+      .trySetBufferUnbounded(streamContext)
       .via(fieldFilteringProcessor.process)
       .via(groupTransformer.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
@@ -40,6 +45,17 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
       .via(disposeBatchProcessor.process)
 
 object GenericStreamingGraphBuilder:
+
+  extension (stream: ZStream[Any, Throwable, List[DataCell]])
+    /**
+     * Converts the ZStream to a ZStream of DisposeBatchProcessor#BatchType.
+     * @return The ZStream of DisposeBatchProcessor#BatchType.
+     */
+    def trySetBufferUnbounded(streamContext: StreamContext): ZStream[Any, Throwable, List[DataCell]] =
+      if streamContext.IsBackfilling then
+        stream.bufferUnbounded
+      else
+        stream
 
   /**
    * The environment required for the GenericStreamingGraphBuilder.
@@ -51,6 +67,7 @@ object GenericStreamingGraphBuilder:
     & MergeBatchProcessor
     & DisposeBatchProcessor
     & StreamLifetimeService
+    & StreamContext
 
 
   /**
@@ -68,13 +85,15 @@ object GenericStreamingGraphBuilder:
             groupTransformer: GenericGroupingTransformer,
             stagingProcessor: StagingProcessor,
             mergeProcessor: MergeBatchProcessor,
-            disposeBatchProcessor: DisposeBatchProcessor): GenericStreamingGraphBuilder =
+            disposeBatchProcessor: DisposeBatchProcessor,
+            streamContext: StreamContext): GenericStreamingGraphBuilder =
     new GenericStreamingGraphBuilder(streamDataProvider,
       fieldFilteringProcessor,
       groupTransformer,
       stagingProcessor,
       mergeProcessor,
-      disposeBatchProcessor)
+      disposeBatchProcessor,
+      streamContext)
 
   /**
    * The ZLayer for the GenericStreamingGraphBuilder.
@@ -89,12 +108,14 @@ object GenericStreamingGraphBuilder:
         stagingProcessor <- ZIO.service[StagingProcessor]
         mergeProcessor <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
+        streamContext <- ZIO.service[StreamContext]
       yield GenericStreamingGraphBuilder(streamDataProvider,
         fieldFilteringProcessor,
         groupTransformer,
         stagingProcessor,
         mergeProcessor,
-        disposeBatchProcessor)
+        disposeBatchProcessor,
+        streamContext)
     }
 
   /**
@@ -113,10 +134,12 @@ object GenericStreamingGraphBuilder:
         stagingProcessor <- ZIO.service[StagingProcessor]
         mergeProcessor <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
+        streamContext <- ZIO.service[StreamContext]
       yield GenericStreamingGraphBuilder(streamDataProvider,
         fieldFilteringProcessor,
         groupTransformer,
         stagingProcessor,
         mergeProcessor,
-        disposeBatchProcessor)
+        disposeBatchProcessor,
+        streamContext)
     }
