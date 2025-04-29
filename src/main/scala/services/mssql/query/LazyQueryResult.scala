@@ -74,10 +74,10 @@ object LazyQueryResult {
     boundary: 
       for i <- 0 until columns do
         val value = row.getObject(i + 1)
-        val name = row.getMetaData.getColumnName(column)
-        val dataType = row.getMetaData.getColumnType(column)
-        val precision = row.getMetaData.getPrecision(column)
-        val scale = row.getMetaData.getScale(column)
+        val name = row.getMetaData.getColumnName(i + 1)
+        val dataType = row.getMetaData.getColumnType(i + 1)
+        val precision = row.getMetaData.getPrecision(i + 1)
+        val scale = row.getMetaData.getScale(i + 1)
         val tryArcaneType = toArcaneType(dataType, precision, scale)
         tryArcaneType match
           case Success(arcaneType) => array(i) = SqlDataCell(name, arcaneType, value)
