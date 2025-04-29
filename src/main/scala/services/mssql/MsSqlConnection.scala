@@ -13,7 +13,7 @@ import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogStream
 import zio.stream.ZStream
-import zio.{Scope, Task, UIO, ZIO, ZLayer}
+import zio.{Chunk, Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.Duration
@@ -111,8 +111,12 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringS
           // And the LazyQueryResult will close the statement/result set when it is closed.
 //          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
 
-          resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(changesQuery)))(rs => rs.closeSafe(statement))
-          changes <- readResultSet(resultSet)
+          stream = for
+                statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
+                resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(changesQuery)))(rs => rs.closeSafe(statement))
+                result <- readResultSet(resultSet)
+              yield result
+          changes <- stream.runCollect
       yield (changes, maybeLatestVersion.getOrElse(0))
     }
     
@@ -238,7 +242,7 @@ object MsSqlConnection:
   /**
    * Represents a versioned batch of data.
    */
-  type VersionedBatch = (List[DataRow], Long)
+  type VersionedBatch = (Chunk[DataRow], Long)
 
   /**
    * Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows
@@ -266,13 +270,3 @@ object MsSqlConnection:
     for _ <- ZIO.succeed(statement.cancel())
         _ <- ZIO.succeed(resultSet.close())
     yield ()
-
-  /**
-   * Ensures that the head of the result (if any) saved and cannot be lost
-   * This is required to let the head function work properly.
-   */
-  private def ensureHead(result: VersionedBatch): VersionedBatch =
-    val (queryResult, version) = result
-    (queryResult.peekHead, version)
-
-
