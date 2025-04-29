@@ -105,7 +105,7 @@ class MsSqlConnection(val connectionOptions: ConnectionOptions, fieldsFilteringS
     ZIO.scoped {
       for versionResult <- ZIO.fromAutoCloseable(executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion)))
           maybeDatabaseVersion = versionResult.read
-          functionResult <- maybeLatestVersion match
+          functionResult <- maybeDatabaseVersion match
             case None => ZIO.succeed( (ZStream.empty, maybeLatestVersion.getOrElse(0L)) )
             case Some(version) =>
               for changesQuery <- this.getChangesQuery(version - 1)
