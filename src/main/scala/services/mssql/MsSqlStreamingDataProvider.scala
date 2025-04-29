@@ -32,7 +32,7 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
     val stream = if streamContext.IsBackfilling then
       dataProvider.requestBackfill
     else
-      ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
+      ZStream.unfoldZIO(None)(v => continueStream(v))
     stream
       .map( row => row.map{
         case DataCell(name, ArcaneType.TimestampType, value) if value != null
@@ -56,7 +56,7 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
          row <- ZStream.fromIterable(rowsList)
     yield row
 
-  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
+  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(List[DataRow], Option[Long])]] =
     for versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
       _ <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
       _ <- maybeSleep(versionedBatch)
