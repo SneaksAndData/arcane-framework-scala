@@ -11,7 +11,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericG
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import com.sneaksanddata.arcane.framework.utils.CustomTestBackfillTableSettings
+import com.sneaksanddata.arcane.framework.utils.{CustomTestBackfillTableSettings, TestGroupingSettings}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
@@ -56,7 +56,8 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[GenericGroupingTransformer]),
           ZLayer.succeed(mock[MergeBatchProcessor]),
           ZLayer.succeed(mock[DisposeBatchProcessor]),
-          ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider])
+          ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
+          ZLayer.succeed(TestGroupingSettings)
         )
       
       val getResolvedClassName = service.map(_.getClass.getName.split('.').last)
