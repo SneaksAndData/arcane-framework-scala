@@ -2,13 +2,14 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders
 
 import models.DataCell
-import models.settings.GroupingSettings
+import models.settings.{BufferingStrategy, GroupingSettings, SourceBufferingSettings}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import logging.ZIOLogAnnotations.zlogStream
 
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
@@ -24,7 +25,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
                                    stagingProcessor: StagingProcessor,
                                    mergeProcessor: MergeBatchProcessor,
                                    disposeBatchProcessor: DisposeBatchProcessor,
-                                   groupingSettings: GroupingSettings)
+                                   sourceBufferingSettings: SourceBufferingSettings)
   extends StreamingGraphBuilder with BackfillSubStream:
 
   /**
@@ -37,7 +38,7 @@ class GenericStreamingGraphBuilder(streamDataProvider: StreamDataProvider,
    */
   override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream
-      .trySetBuffering(groupingSettings)
+      .trySetBuffering(sourceBufferingSettings)
       .via(fieldFilteringProcessor.process)
       .via(groupTransformer.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
@@ -51,9 +52,18 @@ object GenericStreamingGraphBuilder:
      * Configures the upstream to buffer the data in memory.
      * @return The ZStream of DisposeBatchProcessor#BatchType.
      */
-    def trySetBuffering(groupingSettings: GroupingSettings): ZStream[Any, Throwable, List[DataCell]] =
-      stream.buffer(groupingSettings.rowsPerGroup)
-
+    def trySetBuffering(settings: SourceBufferingSettings): ZStream[Any, Throwable, List[DataCell]] =
+      (settings.bufferingEnabled, settings.bufferingStrategy) match
+        case (true, BufferingStrategy.Unbounded)
+          => zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
+        
+        case (true, BufferingStrategy.Buffering)
+          => zlogStream("Running stream with bound source buffer with size %s", settings.maxBufferSize.toString)
+              *> stream.buffer(settings.maxBufferSize)
+        
+        case (false, _)
+          => zlogStream("Running stream with disabled source buffering") *> stream
+        
   /**
    * The environment required for the GenericStreamingGraphBuilder.
    */
@@ -64,7 +74,7 @@ object GenericStreamingGraphBuilder:
     & MergeBatchProcessor
     & DisposeBatchProcessor
     & StreamLifetimeService
-    & GroupingSettings
+    & SourceBufferingSettings
 
 
   /**
@@ -83,14 +93,14 @@ object GenericStreamingGraphBuilder:
             stagingProcessor: StagingProcessor,
             mergeProcessor: MergeBatchProcessor,
             disposeBatchProcessor: DisposeBatchProcessor,
-            groupingSettings: GroupingSettings): GenericStreamingGraphBuilder =
+            sourceBufferingSettings: SourceBufferingSettings): GenericStreamingGraphBuilder =
     new GenericStreamingGraphBuilder(streamDataProvider,
       fieldFilteringProcessor,
       groupTransformer,
       stagingProcessor,
       mergeProcessor,
       disposeBatchProcessor,
-      groupingSettings)
+      sourceBufferingSettings)
 
   /**
    * The ZLayer for the GenericStreamingGraphBuilder.
@@ -105,14 +115,14 @@ object GenericStreamingGraphBuilder:
         stagingProcessor <- ZIO.service[StagingProcessor]
         mergeProcessor <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
-        groupingSettings <- ZIO.service[GroupingSettings]
+        sourceBufferingSettings <- ZIO.service[SourceBufferingSettings]
       yield GenericStreamingGraphBuilder(streamDataProvider,
         fieldFilteringProcessor,
         groupTransformer,
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
-        groupingSettings)
+        sourceBufferingSettings)
     }
 
   /**
@@ -131,12 +141,12 @@ object GenericStreamingGraphBuilder:
         stagingProcessor <- ZIO.service[StagingProcessor]
         mergeProcessor <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
-        groupingSettings <- ZIO.service[GroupingSettings]
+        sourceBufferingSettings <- ZIO.service[SourceBufferingSettings]
       yield GenericStreamingGraphBuilder(streamDataProvider,
         fieldFilteringProcessor,
         groupTransformer,
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
-        groupingSettings)
+        sourceBufferingSettings)
     }

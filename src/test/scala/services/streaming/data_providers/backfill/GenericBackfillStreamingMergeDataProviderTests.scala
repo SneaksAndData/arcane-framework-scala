@@ -15,10 +15,11 @@ import services.streaming.processors.batch_processors.streaming.{DisposeBatchPro
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.IcebergCatalogInfo._
+import tests.shared.IcebergCatalogInfo.*
 import utils.*
-
 import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+
+import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -158,7 +159,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
-      })
+      }),
+      ZLayer.succeed(TestSourceBufferingSettings),
     )
 
     // Act
