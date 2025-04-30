@@ -14,7 +14,7 @@ enum BufferingStrategy:
    * Buffers the data in memory in bounded queue with a limited size. If the queue is full, the stream will block
    * the upstream until space is available.
    */
-  case Buffering
+  case Buffering(maxBufferSize: Int)
 
 /**
  * Provides settings for source buffering in the streaming process.
@@ -34,8 +34,3 @@ trait SourceBufferingSettings:
    * Indicates whether buffering is enabled.
    */
   val bufferingEnabled: Boolean
-
-  /**
-   * The maximum number of rows to buffer in memory.
-   */
-  val maxBufferSize: Int

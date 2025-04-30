@@ -18,6 +18,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.{Runtime, Unsafe, ZIO, ZLayer}
+import com.sneaksanddata.arcane.framework.utils.TestSourceBufferingSettings
 
 class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default

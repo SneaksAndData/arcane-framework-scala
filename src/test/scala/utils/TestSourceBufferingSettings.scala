@@ -6,4 +6,3 @@ import models.settings.{SourceBufferingSettings, BufferingStrategy}
 object TestSourceBufferingSettings extends SourceBufferingSettings:
   override val bufferingStrategy: BufferingStrategy = BufferingStrategy.Unbounded
   override val bufferingEnabled: Boolean = true
-  override val maxBufferSize: Int = 0

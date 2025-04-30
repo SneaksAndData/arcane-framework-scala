@@ -57,9 +57,8 @@ object GenericStreamingGraphBuilder:
         case (true, BufferingStrategy.Unbounded)
           => zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
         
-        case (true, BufferingStrategy.Buffering)
-          => zlogStream("Running stream with bound source buffer with size %s", settings.maxBufferSize.toString)
-              *> stream.buffer(settings.maxBufferSize)
+        case (true, BufferingStrategy.Buffering(size))
+          => zlogStream("Running stream with bound source buffer size %s", size.toString) *> stream.buffer(size)
         
         case (false, _)
           => zlogStream("Running stream with disabled source buffering") *> stream
