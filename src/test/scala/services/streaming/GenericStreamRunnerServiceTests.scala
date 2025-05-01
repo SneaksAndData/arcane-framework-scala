@@ -16,13 +16,14 @@ import services.streaming.processors.transformers.FieldFilteringTransformer.Envi
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
-
 import models.app.StreamContext
 import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import services.mssql.MssqlBackfillDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
-import tests.shared.IcebergCatalogInfo._
+import tests.shared.IcebergCatalogInfo.*
+
+import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -112,7 +113,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
-      })
+      }),
+      ZLayer.succeed(TestSourceBufferingSettings),
     )
 
     // Act
