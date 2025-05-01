@@ -23,6 +23,9 @@ import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
 import tests.shared.IcebergCatalogInfo.*
 
+import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
+import tests.shared.IcebergCatalogInfo.*
+
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -114,6 +117,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
       }),
+      ZLayer.succeed(TestSourceBufferingSettings),
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
     )

@@ -22,6 +22,8 @@ import utils.*
 import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import utils.TestBackfillTableSettings
 
+import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
+
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -185,6 +187,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       }),
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
+      ZLayer.succeed(TestSourceBufferingSettings)
     )
 
     // Act
