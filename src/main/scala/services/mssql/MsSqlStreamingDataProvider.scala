@@ -48,7 +48,7 @@ class MsSqlStreamingDataProvider(dataProvider: MsSqlDataProvider,
           => DataCell(name, ArcaneType.ByteArrayType, null)
 
         case DataCell(name, ArcaneType.ShortType, value)
-          => DataCell(name, ArcaneType.IntType, value)
+          => DataCell(name, ArcaneType.IntType, value.asInstanceOf[Short].toInt)
 
         case other => other
       })
