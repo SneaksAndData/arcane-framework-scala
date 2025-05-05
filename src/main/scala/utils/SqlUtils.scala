@@ -64,6 +64,7 @@ object SqlUtils:
     case java.sql.Types.REAL => Success(ArcaneType.FloatType)
     
     case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
+    case java.sql.Types.TINYINT => Success(ArcaneType.ShortType)
     case java.sql.Types.TIME => Success(ArcaneType.TimeType)
     case java.sql.Types.NCHAR => Success(ArcaneType.StringType)
     case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
