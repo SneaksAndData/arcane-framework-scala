@@ -33,7 +33,6 @@ class MsSqlDataProviderTests extends flatspec.AsyncFlatSpec with Matchers:
   private val settings = new VersionedDataGraphBuilderSettings {
     override val lookBackInterval: Duration = Duration.ofHours(1)
     override val changeCaptureInterval: Duration = Duration.ofMillis(1)
-    override val changeCapturePeriod: Duration = Duration.ofHours(1)
   }
   
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) => Success(fields)
