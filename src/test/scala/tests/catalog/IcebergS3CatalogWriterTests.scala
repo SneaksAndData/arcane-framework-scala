@@ -3,9 +3,9 @@ package tests.catalog
 
 import models.ArcaneType.{IntType, StringType}
 import models.{DataCell, Field, MergeKeyField}
-import services.lakehouse.IcebergS3CatalogWriter
-import services.lakehouse.SchemaConversions.*
-import services.lakehouse.base.CatalogWriter
+import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.SchemaConversions.*
+import services.iceberg.base.CatalogWriter
 import tests.shared.IcebergCatalogInfo.*
 
 import org.apache.iceberg.rest.RESTCatalog

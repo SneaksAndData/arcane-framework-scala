@@ -2,11 +2,10 @@ package com.sneaksanddata.arcane.framework
 package tests.services.consumers
 
 import models.ArcaneType.StringType
+import models.batches.{SqlServerChangeTrackingBackfillBatch, SqlServerChangeTrackingBackfillQuery, SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingMergeQuery}
 import models.{Field, MergeKeyField}
-import services.consumers.{SqlServerChangeTrackingBackfillBatch, SqlServerChangeTrackingBackfillQuery, SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingMergeQuery}
 import tests.shared.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
-import com.sneaksanddata.arcane.framework.models.batches.{SqlServerChangeTrackingBackfillBatch, SqlServerChangeTrackingBackfillQuery, SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingMergeQuery}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll

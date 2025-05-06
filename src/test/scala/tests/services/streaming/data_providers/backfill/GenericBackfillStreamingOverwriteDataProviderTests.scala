@@ -4,13 +4,10 @@ package tests.services.streaming.data_providers.backfill
 import models.*
 import models.app.StreamContext
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
-import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
-import services.lakehouse.IcebergS3CatalogWriter
-import services.lakehouse.base.IcebergCatalogSettings
+import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
-import services.streaming.base.{BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
-import services.streaming.data_providers.backfill.{BackfillOverwriteBatchFactory, GenericBackfillStreamingOverwriteDataProvider}
+import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
@@ -20,6 +17,8 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
+import com.sneaksanddata.arcane.framework.models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
