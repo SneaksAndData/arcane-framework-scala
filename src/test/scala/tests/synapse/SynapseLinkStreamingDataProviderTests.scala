@@ -21,7 +21,6 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val graphSettings = new VersionedDataGraphBuilderSettings {
     override val lookBackInterval: Duration = Duration.ofHours(3)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
-    override val changeCapturePeriod: Duration = Duration.ofHours(1)
   }
   private val backfillSettings = new BackfillSettings {
     override val backfillBehavior: BackfillBehavior = Overwrite
