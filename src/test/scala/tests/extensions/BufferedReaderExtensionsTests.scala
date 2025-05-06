@@ -3,14 +3,9 @@ package tests.extensions
 
 import com.sneaksanddata.arcane.framework.extensions.BufferedReaderExtensions.{readMultilineCsvLine, streamMultilineCsv}
 
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks.forAll
-import org.scalatest.prop.Tables.Table
-import zio.test.ZIOSpecDefault
-import zio.{Chunk, Runtime, Scope, Unsafe, ZIO}
-import zio.test.*
 import zio.test.TestAspect.timeout
+import zio.test.*
+import zio.{Chunk, Scope, Unsafe, ZIO}
 
 import java.io.{BufferedReader, StringReader}
 

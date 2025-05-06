@@ -3,23 +3,18 @@ package tests.catalog
 
 import models.ArcaneType.{IntType, StringType}
 import models.{DataCell, Field, MergeKeyField}
-import services.iceberg.SchemaConversions.*
-import services.iceberg.base.{CatalogWriter, S3CatalogFileIO}
+import services.lakehouse.IcebergS3CatalogWriter
+import services.lakehouse.SchemaConversions.*
+import services.lakehouse.base.CatalogWriter
+import tests.shared.IcebergCatalogInfo.*
 
-import services.iceberg.{IcebergCatalogCredential, IcebergS3CatalogWriter}
-import tests.shared.IcebergCatalogInfo._
-import com.sneaksanddata.arcane.framework.models.settings.IcebergCatalogSettings
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
-import org.scalatest.*
-import org.scalatest.matchers.must.Matchers
-import org.scalatest.matchers.should.Matchers.*
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Cause, Scope, ZIO}
+import zio.{Scope, ZIO}
 
 import java.util.UUID
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
