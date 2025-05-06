@@ -1,21 +1,17 @@
 package com.sneaksanddata.arcane.framework
 package tests.synapse
 
-import com.azure.storage.common.StorageSharedKeyCredential
-import services.storage.services.AzureBlobStorageReader
-import services.synapse.SynapseAzureBlobReaderExtensions.*
-
 import services.storage.models.azure.AdlsStoragePath
+import services.synapse.SynapseAzureBlobReaderExtensions.*
+import tests.shared.AzureStorageInfo.*
+
 import zio.stream.ZSink
-import zio.{Scope, ZIO}
 import zio.test.*
 import zio.test.TestAspect.timeout
+import zio.{Scope, ZIO}
 
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
-import java.time.format.DateTimeFormatter
 import scala.collection.immutable
-
-import tests.shared.AzureStorageInfo._
 
 object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
   /**

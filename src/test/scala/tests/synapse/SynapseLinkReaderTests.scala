@@ -3,13 +3,13 @@ package tests.synapse
 
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.base.SynapseLinkReader
+import tests.shared.AzureStorageInfo.*
 
-import zio.{Scope, ZIO, Cause}
 import zio.test.*
 import zio.test.TestAspect.timeout
+import zio.{Scope, ZIO}
 
 import java.time.{Duration, OffsetDateTime}
-import tests.shared.AzureStorageInfo._
 
 object SynapseLinkReaderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"
