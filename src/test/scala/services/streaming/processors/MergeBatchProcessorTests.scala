@@ -4,13 +4,13 @@ package services.streaming.processors
 import models.ArcaneType.LongType
 import models.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.consumers.SynapseLinkMergeBatch
 import services.merging.JdbcTableManager
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
 import services.streaming.processors.transformers.IndexedStagedBatches
+import com.sneaksanddata.arcane.framework.models.batches.SynapseLinkMergeBatch
 
 import com.sneaksanddata.arcane.framework.utils.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
 

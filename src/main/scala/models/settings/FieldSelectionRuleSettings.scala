@@ -2,9 +2,24 @@ package com.sneaksanddata.arcane.framework
 package models.settings
 
 
+/**
+ * Represents a field selection rule for a streaming batch.
+ * The field selection rule is used to determine which fields should be included in the result set of a query.
+ */
 enum FieldSelectionRule:
+  /**
+   * All fields should be included in the result set.
+   */
   case AllFields
+  
+  /**
+   * Only the specified fields should be excluded from the result set.
+   */
   case IncludeFields(fields: Set[String])
+  
+  /**
+   * All fields except the specified fields should be included in the result set.
+   */
   case ExcludeFields(fields: Set[String])
 
 /**

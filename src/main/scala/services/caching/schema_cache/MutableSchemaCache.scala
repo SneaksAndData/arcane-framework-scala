@@ -1,11 +1,10 @@
 package com.sneaksanddata.arcane.framework
-package services.merging
+package services.caching.schema_cache
 
-import services.base.{FrozenSchemaProvider, SchemaCache, SchemaProvider}
+import models.{ArcaneSchema, given_CanAdd_ArcaneSchema}
+import FrozenSchemaProvider.freeze
+import services.base.{SchemaCache, SchemaProvider}
 
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema
-import com.sneaksanddata.arcane.framework.services.base.FrozenSchemaProvider.freeze
-import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
 import zio.{Task, ZIO, ZLayer}
 
 import scala.collection.mutable

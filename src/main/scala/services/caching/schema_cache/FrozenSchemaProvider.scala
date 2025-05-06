@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.base
+package services.caching.schema_cache
+
+import services.base.{CanAdd, SchemaProvider}
 
 import zio.{IO, Promise}
 

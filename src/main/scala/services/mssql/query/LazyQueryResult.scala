@@ -3,10 +3,9 @@ package services.mssql.query
 
 import models.{DataCell, DataRow}
 import services.mssql.base.{CanPeekHead, QueryResult, ResultSetOwner}
+import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.{SqlDataCell, SqlDataRow, given_Conversion_SqlDataRow_DataRow}
 import utils.SqlUtils.toArcaneType
-
-import com.sneaksanddata.arcane.framework.services.mssql.query.LazyQueryResult.toDataRow
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec

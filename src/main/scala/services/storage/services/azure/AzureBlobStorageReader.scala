@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.storage.services
+package services.storage.services.azure
 
 import logging.ZIOLogAnnotations.zlog
 import services.storage.base.BlobStorageReader

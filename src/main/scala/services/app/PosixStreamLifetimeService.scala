@@ -8,7 +8,7 @@ import zio.ZLayer
 /**
  * A service that manages the lifetime of a stream on a POSIX-compliant system.
  */
-class PosixStreamLifetimeService extends StreamLifetimeService with InterruptionToken:
+private class PosixStreamLifetimeService extends StreamLifetimeService with InterruptionToken:
 
   @volatile
   private var isCancelled = false

@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.querygen
+package models.query
 
 /**
  * Marker trait, represents a query used to process a backfill streaming batch

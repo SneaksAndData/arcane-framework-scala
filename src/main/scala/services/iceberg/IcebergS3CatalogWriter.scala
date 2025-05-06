@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
-package services.lakehouse
+package services.iceberg
 
 import models.{ArcaneSchema, DataRow}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
+import services.iceberg.base.CatalogWriter
 
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
 import org.apache.iceberg.catalog.TableIdentifier
@@ -13,6 +13,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
 import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
 import org.apache.iceberg.{CatalogProperties, DataFile, PartitionSpec, Schema, Table}
 import logging.ZIOLogAnnotations.*
+import com.sneaksanddata.arcane.framework.models.settings.IcebergCatalogSettings
 
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties

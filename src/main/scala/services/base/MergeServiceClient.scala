@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.base
 
 import models.ArcaneSchema
-import services.consumers.StagedBatch
+import com.sneaksanddata.arcane.framework.models.batches.StagedBatch
 
 import zio.Task
 

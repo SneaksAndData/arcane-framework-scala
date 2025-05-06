@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.synapse
 
 
+import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
-import services.consumers.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.merging.JdbcMergeServiceClient
-import services.streaming.data_providers.backfill.BackfillOverwriteBatchFactory
+import services.streaming.base.BackfillOverwriteBatchFactory
 
 import zio.{Task, ZIO, ZLayer}
 

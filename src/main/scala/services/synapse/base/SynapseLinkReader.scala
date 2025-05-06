@@ -4,15 +4,15 @@ package services.synapse.base
 import models.settings.SynapseSourceSettings
 import services.storage.models.azure.AdlsStoragePath
 import services.base.SchemaProvider
-import services.storage.services.AzureBlobStorageReader
 import services.storage.models.base.StoredBlob
 import services.synapse.SynapseAzureBlobReaderExtensions.*
-import services.base.BufferedReaderExtensions.*
+import extensions.BufferedReaderExtensions.*
 import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, given_CanAdd_ArcaneSchema}
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 
 import models.ArcaneType.*
+import services.storage.services.azure.AzureBlobStorageReader
 import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
 

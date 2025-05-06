@@ -3,11 +3,12 @@ package tests.catalog
 
 import models.ArcaneType.{IntType, StringType}
 import models.{DataCell, Field, MergeKeyField}
-import services.lakehouse.SchemaConversions.*
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.iceberg.SchemaConversions.*
+import services.iceberg.base.{CatalogWriter, S3CatalogFileIO}
 
-import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.iceberg.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import tests.shared.IcebergCatalogInfo._
+import com.sneaksanddata.arcane.framework.models.settings.IcebergCatalogSettings
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.scalatest.*

@@ -3,8 +3,8 @@ package services.streaming.processors.batch_processors.backfill
 
 import models.ArcaneType.LongType
 import models.{ArcaneSchema, Field, MergeKeyField}
-import services.consumers.{SynapseLinkBackfillOverwriteBatch, SynapseLinkMergeBatch}
 import utils.TablePropertiesSettings
+import com.sneaksanddata.arcane.framework.models.batches.{SynapseLinkBackfillOverwriteBatch, SynapseLinkMergeBatch}
 
 import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.JdbcTableManager

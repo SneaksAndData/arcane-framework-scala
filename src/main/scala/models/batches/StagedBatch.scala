@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
-package services.consumers
+package models.batches
 
-import models.querygen.{InitializeQuery, MergeQuery, OverwriteQuery, OverwriteReplaceQuery, StreamingBatchQuery}
 import models.ArcaneSchema
+import models.query.*
 
 trait MergeableBatch:
 
@@ -11,6 +11,9 @@ trait MergeableBatch:
    */
   val targetTableName: String
 
+/**
+ * The trait that represents a staged batch of data.
+ */
 trait StagedBatch:
 
   type Query <: StreamingBatchQuery
@@ -39,12 +42,6 @@ trait StagedBatch:
    * @return SQL query text
    */
   def disposeExpr: String = s"DROP TABLE $name"
-
-/**
- * StagedBatch initializes the table.
- */
-trait StagedInitBatch extends StagedBatch:
-  override type Query = InitializeQuery
 
 /**
  * Common trait for StagedBatch that performs a backfill operation on the table.

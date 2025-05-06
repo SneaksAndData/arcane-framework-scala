@@ -2,15 +2,15 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import logging.ZIOLogAnnotations.zlog
-import models.{ArcaneType, DataCell, DataRow}
+import models.app.StreamContext
 import models.settings.VersionedDataGraphBuilderSettings
+import models.{ArcaneType, DataCell, DataRow}
 import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
-import services.mssql.base.{MssqlVersionedDataProvider, QueryResult}
+import services.mssql.base.QueryResult
 import services.streaming.base.StreamDataProvider
 
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
+import zio.{ZIO, ZLayer}
 
 import java.nio.ByteBuffer
 import java.sql.Timestamp

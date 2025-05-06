@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.backfill
 
 import logging.ZIOLogAnnotations.*
+import models.batches.StagedBackfillBatch
 import services.base.DisposeServiceClient
-import services.consumers.StagedBackfillBatch
 import services.streaming.base.StreamingBatchProcessor
 
 import zio.stream.ZPipeline

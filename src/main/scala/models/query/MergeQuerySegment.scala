@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.querygen
+package models.query
 
 sealed trait MergeQuerySegment:
   val segmentPrefix: String

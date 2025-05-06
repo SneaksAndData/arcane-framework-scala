@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.lakehouse
+package services.iceberg
 
 import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
 import models.ArcaneType.*

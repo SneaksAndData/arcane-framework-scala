@@ -1,13 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.query
 
-import models.{DataCell, DataRow}
 import services.mssql.base.{QueryResult, ResultSetOwner}
-import services.mssql.query.LazyQueryResult
 
 import java.sql.{ResultSet, Statement}
-import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
 
 /**
  * Callback function that converts a result set to a result.

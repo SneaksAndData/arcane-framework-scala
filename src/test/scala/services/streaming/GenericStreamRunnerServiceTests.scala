@@ -5,9 +5,8 @@ import models.*
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
-import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.iceberg.base.{CatalogWriter, S3CatalogFileIO}
 import services.merging.JdbcTableManager
 import services.streaming.base.{BackfillStreamingDataProvider, HookManager, StreamDataProvider}
 import services.streaming.processors.GenericGroupingTransformer
@@ -17,13 +16,14 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import utils.*
 import models.app.StreamContext
-import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.iceberg.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import services.mssql.MssqlBackfillDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphBuilder
 import tests.shared.IcebergCatalogInfo.*
+import com.sneaksanddata.arcane.framework.models.batches.SqlServerChangeTrackingMergeBatch
 
-import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, IcebergCatalogSettings, SourceBufferingSettings}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock

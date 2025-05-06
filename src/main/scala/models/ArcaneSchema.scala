@@ -2,8 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models
 
 import models.ArcaneType.StringType
-
-import com.sneaksanddata.arcane.framework.services.base.CanAdd
+import services.base.CanAdd
 
 import scala.language.implicitConversions
 

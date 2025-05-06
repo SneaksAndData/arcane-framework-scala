@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.lakehouse
+package services.iceberg
 
 import org.apache.iceberg.CatalogProperties
 import org.apache.iceberg.rest.auth.OAuth2Properties

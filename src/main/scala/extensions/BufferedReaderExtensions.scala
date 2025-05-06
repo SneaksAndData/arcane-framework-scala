@@ -1,13 +1,15 @@
 package com.sneaksanddata.arcane.framework
-package services.base
+package extensions
 
 import zio.ZIO
 import zio.stream.ZStream
 
 import java.io.BufferedReader
 
+/**
+ * Contains extensions for BufferedReader to read CSV files line by line.
+ */
 object BufferedReaderExtensions:
-
 
   /**
    * Reads a CSV file line by line, concatenating lines that are split by newlines within a quoted field.

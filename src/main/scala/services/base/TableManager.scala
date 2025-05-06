@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.base
 
 import models.ArcaneSchema
+import models.settings.TargetTableSettings
 
-import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import zio.Task
 
 /**

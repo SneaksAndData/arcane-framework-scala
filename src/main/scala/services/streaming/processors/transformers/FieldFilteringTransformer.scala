@@ -1,11 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
-import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
-import models.{ArcaneSchema, DataCell, DataRow, given_NamedCell_DataCell}
-import services.base.SchemaProvider
+import models.DataRow
 import services.filters.FieldsFilteringService
-import services.streaming.base.{GroupingTransformer, MetadataEnrichedRowStreamElement, RowProcessor}
+import services.streaming.base.RowProcessor
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}

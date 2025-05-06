@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.settings.TablePropertiesSettings
 import models.{ArcaneSchema, DataRow}
-import services.consumers.{MergeableBatch, StagedBatch, StagedVersionedBatch}
 import services.streaming.processors.transformers.IndexedStagedBatches
 
-import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import org.apache.iceberg.Table
 import zio.Chunk
 import zio.stream.ZPipeline

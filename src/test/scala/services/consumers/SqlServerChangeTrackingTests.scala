@@ -5,6 +5,7 @@ import models.ArcaneType.StringType
 import models.{Field, MergeKeyField}
 import utils.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
+import com.sneaksanddata.arcane.framework.models.batches.{SqlServerChangeTrackingBackfillBatch, SqlServerChangeTrackingBackfillQuery, SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingMergeQuery}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll

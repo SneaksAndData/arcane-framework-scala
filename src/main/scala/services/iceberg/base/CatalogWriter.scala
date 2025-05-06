@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.lakehouse.base
+package services.iceberg.base
 
 import models.{ArcaneSchema, DataRow}
 

@@ -2,9 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.backfill
 
 import logging.ZIOLogAnnotations.*
-import models.settings.*
+import models.batches.StagedBackfillOverwriteBatch
 import services.base.MergeServiceClient
-import services.consumers.StagedBackfillOverwriteBatch
 import services.merging.JdbcTableManager
 import services.streaming.base.StreamingBatchProcessor
 

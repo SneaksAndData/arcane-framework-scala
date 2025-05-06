@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.lakehouse.base
+package models.settings
+
+import services.iceberg.base.S3CatalogFileIO
 
 /**
  * Represents the settings of an Iceberg catalog.

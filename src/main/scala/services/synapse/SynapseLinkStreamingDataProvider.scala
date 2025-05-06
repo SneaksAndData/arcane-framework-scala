@@ -1,15 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import services.streaming.base.StreamDataProvider
+import logging.ZIOLogAnnotations.*
 import models.DataRow
 import models.app.StreamContext
 import models.settings.VersionedDataGraphBuilderSettings
+import services.streaming.base.StreamDataProvider
 import services.synapse.base.SynapseLinkDataProvider
-import logging.ZIOLogAnnotations.*
 
+import zio.stream.ZStream
 import zio.{ZIO, ZLayer}
-import zio.stream.{ZSink, ZStream}
 
 class SynapseLinkStreamingDataProvider(dataProvider: SynapseLinkDataProvider,
                                        settings: VersionedDataGraphBuilderSettings,

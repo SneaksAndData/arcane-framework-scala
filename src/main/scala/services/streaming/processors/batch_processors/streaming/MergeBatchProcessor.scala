@@ -4,7 +4,7 @@ package services.streaming.processors.batch_processors.streaming
 import logging.ZIOLogAnnotations.*
 import models.settings.*
 import services.base.MergeServiceClient
-import services.merging.{JdbcMergeServiceClient, JdbcTableManager}
+import services.merging.JdbcTableManager
 import services.streaming.base.StagedBatchProcessor
 
 import zio.stream.ZPipeline

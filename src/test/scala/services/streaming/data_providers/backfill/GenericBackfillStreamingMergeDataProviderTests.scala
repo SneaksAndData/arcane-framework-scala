@@ -4,11 +4,10 @@ package services.streaming.data_providers.backfill
 import models.*
 import models.app.StreamContext
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
-import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.iceberg.base.{CatalogWriter, S3CatalogFileIO}
 import services.merging.JdbcTableManager
-import services.streaming.base.{HookManager, StreamDataProvider, StreamingGraphBuilder}
+import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
@@ -17,9 +16,10 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
 import utils.*
-import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.iceberg.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 
-import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
+import com.sneaksanddata.arcane.framework.models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, IcebergCatalogSettings, SourceBufferingSettings}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock

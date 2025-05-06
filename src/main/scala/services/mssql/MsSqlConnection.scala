@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import logging.ZIOLogAnnotations.zlogStream
 import models.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.VersionedBatch
+import services.mssql.MsSqlConnection.{VersionedBatch, closeSafe, executeQuerySafe}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
 import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
@@ -11,7 +12,6 @@ import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogStream
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -20,10 +20,6 @@ import java.time.Duration
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 import scala.annotation.tailrec
-import scala.concurrent.{Future, blocking}
-import scala.util.Using
-import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.closeSafe
-import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.executeQuerySafe
 
 /**
  * Represents a summary of a column in a table.

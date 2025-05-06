@@ -4,11 +4,10 @@ package services.streaming.processors.transformers
 import models.settings.TableFormat.PARQUET
 import models.settings.*
 import models.*
-import services.consumers.{MergeableBatch, StagedVersionedBatch}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings, S3CatalogFileIO}
+import services.iceberg.base.{CatalogWriter, S3CatalogFileIO}
 import services.streaming.base.{MetadataEnrichedRowStreamElement, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, RowGroupTransformer, SnapshotExpirationRequestConvertable, StagedBatchProcessor, ToInFlightBatch}
 import utils.*
-import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
+import services.iceberg.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.processors.utils.TestIndexedStagedBatches
 import services.synapse.SynapseHookManager
@@ -25,6 +24,7 @@ import zio.{Chunk, Reloadable, Runtime, Scope, Unsafe, ZIO, ZLayer}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import tests.shared.IcebergCatalogInfo.*
+import com.sneaksanddata.arcane.framework.models.batches.{MergeableBatch, StagedVersionedBatch}
 
 import scala.concurrent.Future
 

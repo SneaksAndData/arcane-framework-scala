@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.data_providers.backfill
+package services.streaming.base
 
-import services.consumers.StagedBackfillOverwriteBatch
+import models.batches.StagedBackfillOverwriteBatch
 
 import zio.Task
 

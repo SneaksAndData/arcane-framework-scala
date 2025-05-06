@@ -2,8 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.{ArcaneType, DataCell, DataRow}
-import com.sneaksanddata.arcane.framework.services.mssql.SqlDataCell.normalizeName
-
+import services.mssql.SqlDataCell.normalizeName
 
 /**
  * Represents a row of data received from the Microsoft SQL Server.

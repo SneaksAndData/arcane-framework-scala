@@ -3,7 +3,7 @@ package services.streaming.processors
 
 import logging.ZIOLogAnnotations.*
 import models.settings.GroupingSettings
-import services.streaming.base.{GroupingTransformer, MetadataEnrichedRowStreamElement}
+import services.streaming.base.GroupingTransformer
 
 import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}

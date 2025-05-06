@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
-package services.consumers
+package models.batches
 
 import models.ArcaneSchema
-import models.querygen.{MergeQuery, MergeQueryCommons, MergeQuerySegment, OnSegment, OverwriteQuery, OverwriteReplaceQuery, WhenMatchedDelete, WhenMatchedUpdate, WhenNotMatchedInsert}
+import models.query.{MergeQuery, MergeQueryCommons, MergeQuerySegment, OnSegment, OverwriteQuery, OverwriteReplaceQuery, WhenMatchedDelete, WhenMatchedUpdate, WhenNotMatchedInsert}
 import models.settings.TablePropertiesSettings
 
 object WhenMatchedDelete:

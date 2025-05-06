@@ -1,21 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import excpetions.StreamFailException
-import logging.ZIOLogAnnotations.zlog
 import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
 import models.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
-import services.storage.services.AzureBlobStorageReader
+import services.storage.services.azure.AzureBlobStorageReader
 
-import zio.DurationOps.*
-import zio.stream.ZStream
-import zio.{Schedule, Task, ZIO, ZLayer}
-
-import java.io.IOException
-import java.time.Duration
+import zio.{Task, ZIO, ZLayer}
 
 /**
  * A provider of a schema for a data produced by Microsoft Synapse Link.
