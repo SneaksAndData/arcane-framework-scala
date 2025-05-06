@@ -24,6 +24,9 @@ import services.streaming.graph_builders.backfill.GenericBackfillOverwriteGraphB
 import tests.shared.IcebergCatalogInfo.*
 
 import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
+import tests.shared.IcebergCatalogInfo.*
+
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -115,6 +118,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         override def IsBackfilling: Boolean = false
       }),
       ZLayer.succeed(TestSourceBufferingSettings),
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer,
     )
 
     // Act

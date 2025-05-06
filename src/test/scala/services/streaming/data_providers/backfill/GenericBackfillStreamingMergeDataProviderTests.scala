@@ -19,6 +19,8 @@ import tests.shared.IcebergCatalogInfo.*
 import utils.*
 import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+
 import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -160,7 +162,9 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
       }),
-      ZLayer.succeed(TestSourceBufferingSettings),
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer,
+      ZLayer.succeed(TestSourceBufferingSettings)
     )
 
     // Act

@@ -23,6 +23,8 @@ import services.lakehouse.{IcebergCatalogCredential, IcebergS3CatalogWriter}
 import utils.TestBackfillTableSettings
 
 import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
+
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -183,7 +185,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(new StreamContext {
         override def IsBackfilling: Boolean = false
       }),
-      ZLayer.succeed(TestSourceBufferingSettings),
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer,
+      ZLayer.succeed(TestSourceBufferingSettings)
     )
 
     // Act
