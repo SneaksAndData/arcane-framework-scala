@@ -28,7 +28,7 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
   private val streamingStreamContext = new StreamContext:
     override val IsBackfilling: Boolean = false
 
-  private val mergeBackfillSettings = new CustomTestBackfillTableSettings(BackfillBehavior.Merge)
+  private val mergeBackfillSettings     = new CustomTestBackfillTableSettings(BackfillBehavior.Merge)
   private val overwriteBackfillSettings = new CustomTestBackfillTableSettings(BackfillBehavior.Overwrite)
 
   private val graphBuilderConditions = Table(
@@ -36,13 +36,14 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
     (backfillStreamContext, mergeBackfillSettings, "GenericBackfillMergeGraphBuilder"),
     (backfillStreamContext, overwriteBackfillSettings, "GenericBackfillOverwriteGraphBuilder"),
     (streamingStreamContext, overwriteBackfillSettings, "GenericStreamingGraphBuilder"),
-    (streamingStreamContext, mergeBackfillSettings, "GenericStreamingGraphBuilder"),
+    (streamingStreamContext, mergeBackfillSettings, "GenericStreamingGraphBuilder")
   )
 
   it should "generate correct graph builder" in {
     forAll(graphBuilderConditions) { (streamContext, backfillSettings, expectedResult) =>
       // Arrange
-      val service = ZIO.service[StreamingGraphBuilder]
+      val service = ZIO
+        .service[StreamingGraphBuilder]
         .provide(
           GenericGraphBuilderFactory.composedLayer,
           ZLayer.succeed(backfillSettings),
@@ -57,14 +58,13 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[MergeBatchProcessor]),
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
-          ZLayer.succeed(TestSourceBufferingSettings),
+          ZLayer.succeed(TestSourceBufferingSettings)
         )
-      
+
       val getResolvedClassName = service.map(_.getClass.getName.split('.').last)
 
       // Act
       Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(getResolvedClassName)).map { result =>
-
         // Assert
         result must be(expectedResult)
       }

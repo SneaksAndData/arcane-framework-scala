@@ -18,18 +18,18 @@ import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Runtime, Unsafe, ZIO}
 
-
 class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val testInput = LazyList.from(0)
+  private val testInput = LazyList
+    .from(0)
     .takeWhile(_ < 20)
     .map { i =>
       val schema = ArcaneSchema(Seq(MergeKeyField))
-      val batch = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings)
+      val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings)
 
       val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
-      val secondBatch = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings)
+      val secondBatch  = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings)
 
       TestIndexedStagedBatches(Seq(batch, secondBatch), i)
     }
@@ -37,7 +37,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
   it should "run merges, optimizations and schema migrations attempts" in {
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager = mock[JdbcTableManager]
+    val tableManager       = mock[JdbcTableManager]
 
     expecting {
       // Calling once for each batch in batch set
@@ -47,12 +47,16 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       // Calling once for each batch set
       tableManager.optimizeTable(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
       tableManager.expireSnapshots(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
-      tableManager.expireOrphanFiles(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
+      tableManager
+        .expireOrphanFiles(EasyMock.anyObject())
+        .andReturn(ZIO.succeed(BatchOptimizationResult(true)))
+        .times(20)
     }
     replay(mergeServiceClient)
     replay(tableManager)
 
-    val mergeBatchProcessor = MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
+    val mergeBatchProcessor =
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
@@ -68,7 +72,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
   it should "not run optimizations if no settings provided" in {
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager = mock[JdbcTableManager]
+    val tableManager       = mock[JdbcTableManager]
 
     expecting {
       // Calling once for each batch in batch set

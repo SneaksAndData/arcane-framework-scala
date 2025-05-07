@@ -3,7 +3,11 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
-import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.batches.{
+  SqlServerChangeTrackingMergeBatch,
+  StagedBackfillOverwriteBatch,
+  SynapseLinkBackfillOverwriteBatch
+}
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
@@ -44,7 +48,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
 
     replay(streamingGraphBuilder)
 
-    val lifetimeService = TestStreamLifetimeService(streamRepeatCount*2)
+    val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
     val gb = GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, mock[HookManager])
 
     // Act
@@ -68,7 +72,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     replay(streamingGraphBuilder)
 
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
-    val gb = GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, mock[HookManager]) 
+    val gb = GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, mock[HookManager])
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.requestBackfill)).map { result =>
       // Assert
@@ -82,15 +86,22 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     val streamRepeatCount = 5
 
     val testInput = List(
-      List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-      List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
+      List(
+        DataCell("name", ArcaneType.StringType, "John Doe"),
+        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+      ),
+      List(
+        DataCell("name", ArcaneType.StringType, "John"),
+        DataCell("family_name", ArcaneType.StringType, "Doe"),
+        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+      )
     )
 
     val disposeServiceClient = mock[DisposeServiceClient]
-    val mergeServiceClient = mock[MergeServiceClient]
-    val jdbcTableManager = mock[JdbcTableManager]
-    val hookManager = mock[HookManager]
-    val streamDataProvider = mock[StreamDataProvider]
+    val mergeServiceClient   = mock[MergeServiceClient]
+    val jdbcTableManager     = mock[JdbcTableManager]
+    val hookManager          = mock[HookManager]
+    val streamDataProvider   = mock[StreamDataProvider]
 
     expecting {
 
@@ -101,7 +112,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
-      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      jdbcTableManager
+        .cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.createTargetTable
@@ -110,56 +122,67 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       jdbcTableManager.createBackFillTable
         .andReturn(ZIO.unit)
         .anyTimes()
-      
+
       jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
 
       // Validates that the merge service client is called ``streamRepeatCount`` times using the targetTableFullName
       hookManager
-        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.eq(TestTargetTableSettings.targetTableFullName), EasyMock.anyObject())
-        .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
+        .onBatchStaged(
+          EasyMock.anyObject(),
+          EasyMock.anyString(),
+          EasyMock.anyString(),
+          EasyMock.anyObject(),
+          EasyMock.eq(TestTargetTableSettings.targetTableFullName),
+          EasyMock.anyObject()
+        )
+        .andReturn(
+          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings)
+        )
         .times(streamRepeatCount)
     }
     replay(streamDataProvider, hookManager, jdbcTableManager)
 
-    val gb = ZIO.service[GenericBackfillStreamingMergeDataProvider].provide(
-      // Real services
-      GenericStreamingGraphBuilder.layer,
-      GenericGroupingTransformer.layer,
-      DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
-      MergeBatchProcessor.layer,
-      StagingProcessor.layer,
-      FieldsFilteringService.layer,
-      GenericBackfillStreamingMergeDataProvider.layer,
-      IcebergS3CatalogWriter.layer,
+    val gb = ZIO
+      .service[GenericBackfillStreamingMergeDataProvider]
+      .provide(
+        // Real services
+        GenericStreamingGraphBuilder.layer,
+        GenericGroupingTransformer.layer,
+        DisposeBatchProcessor.layer,
+        FieldFilteringTransformer.layer,
+        MergeBatchProcessor.layer,
+        StagingProcessor.layer,
+        FieldsFilteringService.layer,
+        GenericBackfillStreamingMergeDataProvider.layer,
+        IcebergS3CatalogWriter.layer,
 
-      // Settings
-      ZLayer.succeed(TestGroupingSettings),
-      ZLayer.succeed(TestStagingDataSettings),
-      ZLayer.succeed(TablePropertiesSettings),
-      ZLayer.succeed(TestTargetTableSettings),
-      ZLayer.succeed(defaultSettings),
-      ZLayer.succeed(TestFieldSelectionRuleSettings),
+        // Settings
+        ZLayer.succeed(TestGroupingSettings),
+        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TablePropertiesSettings),
+        ZLayer.succeed(TestTargetTableSettings),
+        ZLayer.succeed(defaultSettings),
+        ZLayer.succeed(TestFieldSelectionRuleSettings),
 
-      // Mocks
-      ZLayer.succeed(TestBackfillTableSettings),
-      ZLayer.succeed(new BackfillOverwriteBatchFactory {
-        override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
-      }),
-      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
-      ZLayer.succeed(disposeServiceClient),
-      ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
-      ZLayer.succeed(hookManager),
-      ZLayer.succeed(streamDataProvider),
-      ZLayer.succeed(new StreamContext {
-        override def IsBackfilling: Boolean = false
-      }),
-      ZLayer.succeed(TestSourceBufferingSettings),
-    )
+        // Mocks
+        ZLayer.succeed(TestBackfillTableSettings),
+        ZLayer.succeed(new BackfillOverwriteBatchFactory {
+          override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
+            ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
+        }),
+        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
+        ZLayer.succeed(disposeServiceClient),
+        ZLayer.succeed(mergeServiceClient),
+        ZLayer.succeed(jdbcTableManager),
+        ZLayer.succeed(hookManager),
+        ZLayer.succeed(streamDataProvider),
+        ZLayer.succeed(new StreamContext {
+          override def IsBackfilling: Boolean = false
+        }),
+        ZLayer.succeed(TestSourceBufferingSettings)
+      )
 
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.flatMap(_.requestBackfill))).map { result =>

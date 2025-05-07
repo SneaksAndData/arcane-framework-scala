@@ -19,18 +19,18 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       DataCell("Id", LongType, 1L),
       DataCell("versionnumber", LongType, 1L)
     )
-    
+
     val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB"))
     val settings = new FieldSelectionRuleSettings:
-      override val rule: FieldSelectionRule = fieldSelectionRule
+      override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
-      
+
     val fieldsFilteringService = FieldsFilteringService(settings)
-    val filteredDataRows = fieldsFilteringService.filter(dataRows)
-    
+    val filteredDataRows       = fieldsFilteringService.filter(dataRows)
+
     filteredDataRows should not contain DataCell("colA", StringType, "valueA")
   }
-  
+
   it should "be able to filter included fields from DataRow" in {
     val dataRows: DataRow = List(
       DataCell("colA", StringType, "valueA"),
@@ -41,11 +41,11 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
 
     val fieldSelectionRule = FieldSelectionRule.IncludeFields(Set("colA", "colB", "Id", "versionnumber"))
     val settings = new FieldSelectionRuleSettings:
-      override val rule: FieldSelectionRule = fieldSelectionRule
+      override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
 
     val fieldsFilteringService = FieldsFilteringService(settings)
-    val filteredDataRows = fieldsFilteringService.filter(dataRows)
+    val filteredDataRows       = fieldsFilteringService.filter(dataRows)
 
     filteredDataRows should not contain DataCell("Id", StringType, 1L)
   }
@@ -60,11 +60,11 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
 
     val fieldSelectionRule = FieldSelectionRule.ExcludeFields(Set("colA", "colB"))
     val settings = new FieldSelectionRuleSettings:
-      override val rule: FieldSelectionRule = fieldSelectionRule
+      override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
 
     val fieldsFilteringService = FieldsFilteringService(settings)
-    val filteredDataRows = fieldsFilteringService.filter(schema)
+    val filteredDataRows       = fieldsFilteringService.filter(schema)
 
     filteredDataRows should not contain Field("colA", StringType)
   }
@@ -79,11 +79,11 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
 
     val fieldSelectionRule = FieldSelectionRule.IncludeFields(Set("colA", "colB", "Id", "versionnumber"))
     val settings = new FieldSelectionRuleSettings:
-      override val rule: FieldSelectionRule = fieldSelectionRule
+      override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
 
     val fieldsFilteringService = FieldsFilteringService(settings)
-    val filteredDataRows = fieldsFilteringService.filter(schema)
+    val filteredDataRows       = fieldsFilteringService.filter(schema)
 
     filteredDataRows should not contain Field("Id", StringType)
   }

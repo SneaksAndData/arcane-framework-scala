@@ -5,15 +5,13 @@ import models.schemas.DataRow
 
 import zio.stream.ZStream
 
-/**
- * A trait that represents a backfill data provider.
- * TODO: Deprecated - MSSQL Only
- */
+/** A trait that represents a backfill data provider. TODO: Deprecated - MSSQL Only
+  */
 trait MssqlBackfillDataProvider:
 
-  /**
-   * Provides the backfill data.
-   *
-   * @return A task that represents the backfill data.
-   */
+  /** Provides the backfill data.
+    *
+    * @return
+    *   A task that represents the backfill data.
+    */
   def requestBackfill: ZStream[Any, Throwable, DataRow]

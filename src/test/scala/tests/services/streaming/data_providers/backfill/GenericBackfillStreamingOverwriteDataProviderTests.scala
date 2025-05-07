@@ -3,13 +3,22 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
-import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.batches.{
+  SqlServerChangeTrackingMergeBatch,
+  StagedBackfillOverwriteBatch,
+  SynapseLinkBackfillOverwriteBatch
+}
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
-import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
+import services.streaming.base.{
+  BackfillOverwriteBatchFactory,
+  BackfillStreamingOverwriteDataProvider,
+  HookManager,
+  StreamDataProvider
+}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
@@ -44,8 +53,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
     replay(streamingGraphBuilder)
 
-    val lifetimeService = TestStreamLifetimeService(streamRepeatCount*2)
-    val gb = GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder,
+    val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
+    val gb = GenericBackfillStreamingOverwriteDataProvider(
+      streamingGraphBuilder,
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
@@ -76,7 +86,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     replay(streamingGraphBuilder)
 
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
-    val gb = GenericBackfillStreamingOverwriteDataProvider(streamingGraphBuilder,
+    val gb = GenericBackfillStreamingOverwriteDataProvider(
+      streamingGraphBuilder,
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
@@ -98,15 +109,22 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val streamRepeatCount = 5
 
     val testInput = List(
-      List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-      List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
+      List(
+        DataCell("name", ArcaneType.StringType, "John Doe"),
+        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+      ),
+      List(
+        DataCell("name", ArcaneType.StringType, "John"),
+        DataCell("family_name", ArcaneType.StringType, "Doe"),
+        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+      )
     )
 
     val disposeServiceClient = mock[DisposeServiceClient]
-    val mergeServiceClient = mock[MergeServiceClient]
-    val jdbcTableManager = mock[JdbcTableManager]
-    val hookManager = mock[HookManager]
-    val streamDataProvider = mock[StreamDataProvider]
+    val mergeServiceClient   = mock[MergeServiceClient]
+    val jdbcTableManager     = mock[JdbcTableManager]
+    val hookManager          = mock[HookManager]
+    val streamDataProvider   = mock[StreamDataProvider]
 
     expecting {
 
@@ -121,7 +139,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
-      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      jdbcTableManager
+        .cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.createTargetTable
@@ -137,49 +156,60 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       // Validates that batches produced by the hookManager.onBatchStaged method targeting backfill
       // intermediate table instead of target table
       hookManager
-        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.eq(TestBackfillTableSettings.backfillTableFullName), EasyMock.anyObject())
-        .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
+        .onBatchStaged(
+          EasyMock.anyObject(),
+          EasyMock.anyString(),
+          EasyMock.anyString(),
+          EasyMock.anyObject(),
+          EasyMock.eq(TestBackfillTableSettings.backfillTableFullName),
+          EasyMock.anyObject()
+        )
+        .andReturn(
+          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings)
+        )
         .times(streamRepeatCount)
     }
     replay(streamDataProvider, hookManager, jdbcTableManager, mergeServiceClient)
 
-    val gb = ZIO.service[BackfillStreamingOverwriteDataProvider].provide(
-      // Real services
-      GenericStreamingGraphBuilder.layer,
-      GenericGroupingTransformer.layer,
-      DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
-      MergeBatchProcessor.layer,
-      StagingProcessor.layer,
-      FieldsFilteringService.layer,
-      GenericBackfillStreamingOverwriteDataProvider.layer,
-      IcebergS3CatalogWriter.layer,
+    val gb = ZIO
+      .service[BackfillStreamingOverwriteDataProvider]
+      .provide(
+        // Real services
+        GenericStreamingGraphBuilder.layer,
+        GenericGroupingTransformer.layer,
+        DisposeBatchProcessor.layer,
+        FieldFilteringTransformer.layer,
+        MergeBatchProcessor.layer,
+        StagingProcessor.layer,
+        FieldsFilteringService.layer,
+        GenericBackfillStreamingOverwriteDataProvider.layer,
+        IcebergS3CatalogWriter.layer,
 
-      // Settings
-      ZLayer.succeed(TestGroupingSettings),
-      ZLayer.succeed(TestStagingDataSettings),
-      ZLayer.succeed(TablePropertiesSettings),
-      ZLayer.succeed(TestTargetTableSettings),
-      ZLayer.succeed(defaultSettings),
-      ZLayer.succeed(TestFieldSelectionRuleSettings),
+        // Settings
+        ZLayer.succeed(TestGroupingSettings),
+        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TablePropertiesSettings),
+        ZLayer.succeed(TestTargetTableSettings),
+        ZLayer.succeed(defaultSettings),
+        ZLayer.succeed(TestFieldSelectionRuleSettings),
 
-      // Mocks
-      ZLayer.succeed(TestBackfillTableSettings),
-      ZLayer.succeed(new BackfillOverwriteBatchFactory {
-        override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
-      }),
-      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
-      ZLayer.succeed(disposeServiceClient),
-      ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
-      ZLayer.succeed(hookManager),
-      ZLayer.succeed(streamDataProvider),
-      ZLayer.succeed(new StreamContext {
-        override def IsBackfilling: Boolean = false
-      }),
-      ZLayer.succeed(TestSourceBufferingSettings),
-    )
+        // Mocks
+        ZLayer.succeed(TestBackfillTableSettings),
+        ZLayer.succeed(new BackfillOverwriteBatchFactory {
+          override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
+            ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
+        }),
+        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
+        ZLayer.succeed(disposeServiceClient),
+        ZLayer.succeed(mergeServiceClient),
+        ZLayer.succeed(jdbcTableManager),
+        ZLayer.succeed(hookManager),
+        ZLayer.succeed(streamDataProvider),
+        ZLayer.succeed(new StreamContext {
+          override def IsBackfilling: Boolean = false
+        }),
+        ZLayer.succeed(TestSourceBufferingSettings)
+      )
 
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.flatMap(_.requestBackfill))).map { result =>

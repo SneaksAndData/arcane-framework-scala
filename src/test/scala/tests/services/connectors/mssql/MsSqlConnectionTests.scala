@@ -27,29 +27,27 @@ import scala.util.Success
 
 class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
   private val runtime = Runtime.default
-  
+
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  
+
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
-  val connectionUrl = "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
+  val connectionUrl =
+    "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
 
-  private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) => Success(fields)
+  private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
+    Success(fields)
 
   def createDb(tableName: String): TestConnectionInfo =
-    val dr = new SQLServerDriver()
+    val dr  = new SQLServerDriver()
     val con = dr.connect(connectionUrl, new Properties())
     createTable(tableName, con)
-    util.TestConnectionInfo(
-      ConnectionOptions(
-        connectionUrl,
-        "dbo",
-        tableName,
-        None), con)
+    util.TestConnectionInfo(ConnectionOptions(connectionUrl, "dbo", tableName, None), con)
 
   def createTable(tableName: String, con: Connection): Unit =
-    val query = s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
+    val query =
+      s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
     val statement = con.createStatement()
     statement.executeUpdate(query)
 
@@ -62,13 +60,15 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
   def insertData(con: Connection): Unit =
     val statement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i+1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+      val insertCmd =
+        s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
       statement.execute(insertCmd)
     statement.close()
 
     val updateStatement = con.createStatement()
     for i <- 1 to 10 do
-      val insertCmd = s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+      val insertCmd =
+        s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
       updateStatement.execute(insertCmd)
 
   def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
@@ -84,12 +84,11 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
   }
 
   def removeDb(): Unit =
-    val query = "DROP DATABASE arcane"
-    val dr = new SQLServerDriver()
-    val con = dr.connect(connectionUrl, new Properties())
+    val query     = "DROP DATABASE arcane"
+    val dr        = new SQLServerDriver()
+    val con       = dr.connect(connectionUrl, new Properties())
     val statement = con.createStatement()
     statement.execute(query)
-
 
   def withDatabase(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
     val conn = createDb("MsSqlConnectorsTests")
@@ -102,11 +101,14 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
     val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for query <- QueryProvider.getColumnSummariesQuery(connector.connectionOptions.schemaName,
-      connector.connectionOptions.tableName,
-      connector.catalog)
-    yield query should include ("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
-    
+    val task =
+      for query <- QueryProvider.getColumnSummariesQuery(
+          connector.connectionOptions.schemaName,
+          connector.connectionOptions.tableName,
+          connector.catalog
+        )
+      yield query should include("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
@@ -114,25 +116,25 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
     val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val task = QueryProvider.getSchemaQuery(connector) map { query =>
       query should (
-        include ("ct.SYS_CHANGE_VERSION") and include ("ARCANE_MERGE_KEY")
-        )
+        include("ct.SYS_CHANGE_VERSION") and include("ARCANE_MERGE_KEY")
+      )
     }
-    
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
+    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query = QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1))
-    query should (include ("SELECT MIN(commit_ts)") and include (s"WHERE commit_time > '$formattedTime'"))
+    val query         = QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1))
+    query should (include("SELECT MIN(commit_ts)") and include(s"WHERE commit_time > '$formattedTime'"))
   }
-  
+
   "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
+    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
     val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query = QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1))
-    query should (include ("SELECT MIN(commit_ts)") and (not include "commit_time") and include (s"WHERE commit_ts > 1"))
+    val query         = QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1))
+    query should (include("SELECT MIN(commit_ts)") and (not include "commit_time") and include(s"WHERE commit_ts > 1"))
   }
 
   "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
@@ -162,14 +164,12 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "QueryProvider" should "handle field selection rule" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z" , "cd"))
-      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
-        "SYS_CHANGE_OPERATION",
-        "ARCANE_MERGE_KEY",
-        "ChangeTrackingVersion"
-      )
+      override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z", "cd"))
+      override val essentialFields: Set[String] =
+        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
     }
-    val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val connector =
+      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val expected =
       """declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
         |
@@ -192,31 +192,29 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
   "QueryProvider" should "not allow PKs in filters" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
-      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
-        "SYS_CHANGE_OPERATION",
-        "ARCANE_MERGE_KEY",
-        "ChangeTrackingVersion"
-      )
+      override val essentialFields: Set[String] =
+        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
     }
-    val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val connector =
+      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val task = QueryProvider.getBackfillQuery(connector)
     recoverToExceptionIf[IllegalArgumentException] {
       Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
     } map { exception =>
-      exception.getMessage should be("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule")
+      exception.getMessage should be(
+        "Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"
+      )
     }
   }
 
   "QueryProvider" should "enforce PKs in include filters" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
-      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
-        "SYS_CHANGE_OPERATION",
-        "ARCANE_MERGE_KEY",
-        "ChangeTrackingVersion"
-      )
+      override val essentialFields: Set[String] =
+        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
     }
-    val connector = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val connector =
+      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
     val task = QueryProvider.getBackfillQuery(connector)
     recoverToExceptionIf[IllegalArgumentException] {
       Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
@@ -227,7 +225,8 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "be able to extract schema columns from the database" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val expected = List(Field("x", IntType),
+    val expected = List(
+      Field("x", IntType),
       Field("SYS_CHANGE_VERSION", LongType),
       Field("SYS_CHANGE_OPERATION", StringType),
       Field("y", IntType),
@@ -237,7 +236,8 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       Field("cd", IntType),
       Field("e", FloatType),
       Field("ChangeTrackingVersion", LongType),
-      MergeKeyField)
+      MergeKeyField
+    )
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
       val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column
       fields should be(expected)
@@ -246,46 +246,42 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for schema <- connection.getSchema
-        result <- connection.backfill.runCollect
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.backfill.runCollect
     yield {
       result should have length 20
     }
-    
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for schema <- connection.getSchema
-        result <- connection.backfill.runCollect
-        head = result.head
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.backfill.runCollect
+      head = result.head
     yield {
       head should have length 11
     }
-    
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "return correct number of columns on backfill with filter" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
-      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
-        "SYS_CHANGE_OPERATION",
-        "ARCANE_MERGE_KEY",
-        "ChangeTrackingVersion"
-      )
+      override val essentialFields: Set[String] =
+        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
     }
-    val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
-    val expected = List("x",
-      "SYS_CHANGE_VERSION",
-      "SYS_CHANGE_OPERATION",
-      "a",
-      "b",
-      "ChangeTrackingVersion",
-      "ARCANE_MERGE_KEY")
-    val task = for schema <- connection.getSchema
-                   result <- connection.backfill.runCollect
+    val connection =
+      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val expected =
+      List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion", "ARCANE_MERGE_KEY")
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.backfill.runCollect
     yield {
       result.head.map(c => c.name) should be(expected)
     }
@@ -293,30 +289,28 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
-
   "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for schema <- connection.getSchema
-        result <- connection.getChanges(None, Duration.ofDays(1))
-        (columns, _ ) = result
-        changedData = columns.read.toList
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.getChanges(None, Duration.ofDays(1))
+      (columns, _) = result
+      changedData  = columns.read.toList
     yield {
       changedData should have length 20
     }
-    
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "return correct number of columns on getChanges with filter" in withDatabase { dbInfo =>
     val fieldSelectionRule = new FieldSelectionRuleSettings {
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
-      override val essentialFields: Set[String] = Set("SYS_CHANGE_VERSION",
-        "SYS_CHANGE_OPERATION",
-        "ARCANE_MERGE_KEY",
-        "ChangeTrackingVersion"
-      )
+      override val essentialFields: Set[String] =
+        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
     }
-    val connection = MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
+    val connection =
+      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
 
     val expected = List(
       "x",
@@ -324,13 +318,14 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       "SYS_CHANGE_OPERATION",
       "a",
       "ChangeTrackingVersion",
-      "ARCANE_MERGE_KEY",
+      "ARCANE_MERGE_KEY"
     )
 
-    val task = for schema <- connection.getSchema
-        result <- connection.getChanges(None, Duration.ofDays(1))
-        (columns, _ ) = result
-        changedData = columns.read.toList
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.getChanges(None, Duration.ofDays(1))
+      (columns, _) = result
+      changedData  = columns.read.toList
     yield {
       changedData.head.map(c => c.name) should be(expected)
     }
@@ -352,13 +347,14 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       "cd",
       "e",
       "ChangeTrackingVersion",
-      "ARCANE_MERGE_KEY",
+      "ARCANE_MERGE_KEY"
     )
 
-    val task = for schema <- connection.getSchema
-        result <- connection.getChanges(None, Duration.ofDays(1))
-        (columns, _) = result
-        changedData = columns.read.toList
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.getChanges(None, Duration.ofDays(1))
+      (columns, _) = result
+      changedData  = columns.read.toList
     yield {
       changedData.head.map(c => c.name) should be(expected)
     }
@@ -368,14 +364,15 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
 
   "MsSqlConnection" should "handle deletes" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for schema <- connection.getSchema
-        result <- connection.getChanges(None, Duration.ofDays(1))
-        (columns, version) = result
-        _ <- ZIO.attempt(columns.close())
-        _ <- deleteData(dbInfo.connection, Seq(2))
-        result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
-        (columns2, _) = result2
-        changedData = columns2.read.toList
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.getChanges(None, Duration.ofDays(1))
+      (columns, version) = result
+      _       <- ZIO.attempt(columns.close())
+      _       <- deleteData(dbInfo.connection, Seq(2))
+      result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
+      (columns2, _) = result2
+      changedData   = columns2.read.toList
     yield {
       changedData(1) should contain allOf (
         DataCell("SYS_CHANGE_OPERATION", StringType, "D"),
@@ -385,19 +382,18 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       )
     }
 
-
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
 
   "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
     val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for schema <- connection.getSchema
-        result <- connection.getChanges(None, Duration.ofDays(1))
-        (_, latestVersion) = result
+    val task = for
+      schema <- connection.getSchema
+      result <- connection.getChanges(None, Duration.ofDays(1))
+      (_, latestVersion) = result
     yield {
       latestVersion should be >= 0L
     }
-    
+
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
   }
-

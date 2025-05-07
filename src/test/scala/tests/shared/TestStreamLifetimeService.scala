@@ -21,4 +21,3 @@ object TestStreamLifetimeService:
   def apply(maxQueries: Int) = new TestStreamLifetimeService(maxQueries, _ => ())
 
   def apply(maxQueries: Int, callback: Int => Any) = new TestStreamLifetimeService(maxQueries, callback)
-

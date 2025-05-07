@@ -21,13 +21,14 @@ object AzureModelConversions:
           contentLength = Option(blobItem.getProperties.getContentLength),
           lastModified = Option(blobItem.getProperties.getLastModified.toEpochSecond)
         )
-      else StoredBlob(
-        name = blobItem.getName,
-        createdOn = None,
-        metadata = Map(),
-        contentHash = None,
-        contentEncoding = None,
-        contentType = None,
-        contentLength = None,
-        lastModified = None
-      )
+      else
+        StoredBlob(
+          name = blobItem.getName,
+          createdOn = None,
+          metadata = Map(),
+          contentHash = None,
+          contentEncoding = None,
+          contentType = None,
+          contentLength = None,
+          lastModified = None
+        )

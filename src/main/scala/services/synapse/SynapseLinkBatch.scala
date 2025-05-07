@@ -8,8 +8,7 @@ case class SchemaEnrichedBlob(blob: StoredBlob, schema: ArcaneSchema, latestVers
 
 case class SchemaEnrichedContent(content: String, schema: ArcaneSchema, latestVersion: String)
 
-/**
- * Batch type for Synapse Link is a list of DataRow elements
- */
-type SynapseLinkBatch = DataRow
+/** Batch type for Synapse Link is a list of DataRow elements
+  */
+type SynapseLinkBatch          = DataRow
 type SynapseLinkVersionedBatch = (DataRow, String)

@@ -17,10 +17,13 @@ import scala.util.Using
 class SynapseLinkTests extends AnyFlatSpec with Matchers:
 
   it should "generate a valid overwrite query" in {
-    val query = SynapseLinkBackfillQuery("test.table_a",
+    val query = SynapseLinkBackfillQuery(
+      "test.table_a",
       """SELECT * FROM (
         | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
-        |) WHERE IsDelete = false""".stripMargin, TestTablePropertiesSettings)
+        |) WHERE IsDelete = false""".stripMargin,
+      TestTablePropertiesSettings
+    )
     val expected = Using(Source.fromURL(getClass.getResource("/generate_an_overwrite_query_synapse_link.sql"))) {
       _.getLines().mkString("\n")
     }.get
@@ -55,99 +58,112 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
       Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", "versionnumber")
     )
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query_with_partitions_synapse_link.sql"))) {
-      _.getLines().mkString("\n")
-    }.get
+    val expected =
+      Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query_with_partitions_synapse_link.sql"))) {
+        _.getLines().mkString("\n")
+      }.get
 
     query.query should equal(expected)
   }
 
   "SynapseLinkBackfillOverwriteBatch" should "generate a valid backfill overwrite batch" in {
-    val batch = SynapseLinkBackfillOverwriteBatch("test.staged_a", Seq(
-      MergeKeyField,
-      Field(
-        name = "colA",
-        fieldType = StringType
+    val batch = SynapseLinkBackfillOverwriteBatch(
+      "test.staged_a",
+      Seq(
+        MergeKeyField,
+        Field(
+          name = "colA",
+          fieldType = StringType
+        ),
+        Field(
+          name = "colB",
+          fieldType = StringType
+        ),
+        Field(
+          name = "versionnumber",
+          fieldType = LongType
+        ),
+        Field(
+          name = "Id",
+          fieldType = StringType
+        )
       ),
-      Field(
-        name = "colB",
-        fieldType = StringType
-      ),
-      Field(
-        name = "versionnumber",
-        fieldType = LongType
-      ),
-      Field(
-        name = "Id",
-        fieldType = StringType
-      )
-    ), "test.table_a",
-      TestTablePropertiesSettings)
+      "test.table_a",
+      TestTablePropertiesSettings
+    )
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_overwrite_query.sql"))) {
-      _.getLines().mkString("\n")
-    }.get
+    val expected =
+      Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_overwrite_query.sql"))) {
+        _.getLines().mkString("\n")
+      }.get
 
     batch.batchQuery.query should equal(expected)
   }
-  
+
   "SynapseLinkBackfillMergeBatch" should "generate a valid backfill merge batch" in {
-    val batch = SynapseLinkBackfillMergeBatch("test.staged_a", Seq(
-      MergeKeyField,
-      Field(
-        name = "colA",
-        fieldType = StringType
+    val batch = SynapseLinkBackfillMergeBatch(
+      "test.staged_a",
+      Seq(
+        MergeKeyField,
+        Field(
+          name = "colA",
+          fieldType = StringType
+        ),
+        Field(
+          name = "colB",
+          fieldType = StringType
+        ),
+        Field(
+          name = "Id",
+          fieldType = StringType
+        ),
+        Field(
+          name = "versionnumber",
+          fieldType = LongType
+        )
       ),
-      Field(
-        name = "colB",
-        fieldType = StringType
-      ),
-      Field(
-        name = "Id",
-        fieldType = StringType
-      ),
-      Field(
-        name = "versionnumber",
-        fieldType = LongType
-      )
-    ), "test.table_a",
+      "test.table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_merge_query.sql"))) {
-      _.getLines().mkString("\n")
-    }.get
+    val expected =
+      Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_merge_query.sql"))) {
+        _.getLines().mkString("\n")
+      }.get
 
     batch.batchQuery.query should equal(expected)
   }
 
   "SynapseLinkMergeBatch" should "generate a valid versioned batch" in {
-    val batch = SynapseLinkMergeBatch("test.staged_a", Seq(
-      MergeKeyField,
-      Field(
-        name = "colA",
-        fieldType = StringType
+    val batch = SynapseLinkMergeBatch(
+      "test.staged_a",
+      Seq(
+        MergeKeyField,
+        Field(
+          name = "colA",
+          fieldType = StringType
+        ),
+        Field(
+          name = "colB",
+          fieldType = StringType
+        ),
+        Field(
+          name = "Id",
+          fieldType = StringType
+        ),
+        Field(
+          name = "versionnumber",
+          fieldType = LongType
+        )
       ),
-      Field(
-        name = "colB",
-        fieldType = StringType
-      ),
-      Field(
-        name = "Id",
-        fieldType = StringType
-      ),
-      Field(
-        name = "versionnumber",
-        fieldType = LongType
-      )
-    ),
       "test.table_a",
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
     )
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_merge_query_with_partitions.sql"))) {
-      _.getLines().mkString("\n")
-    }.get
+    val expected =
+      Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_merge_query_with_partitions.sql"))) {
+        _.getLines().mkString("\n")
+      }.get
 
     batch.batchQuery.query should equal(expected)
   }
@@ -155,7 +171,10 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   private val mergeKeyStatements = Table(
     ("tablePropertiesSettings", "expectedResult"),
     (Seq("bucket(ARCANE_MERGE_KEY, 32)"), "filter_out_single_arcane_merge_key_from_merge_match_synapse_link"),
-    (Seq("bucket(ARCANE_MERGE_KEY, 32)", "bucket(colA, 32)", "year(colB)"), "filter_out_arcane_merge_key_from_merge_match_synapse_link")
+    (
+      Seq("bucket(ARCANE_MERGE_KEY, 32)", "bucket(colA, 32)", "year(colB)"),
+      "filter_out_arcane_merge_key_from_merge_match_synapse_link"
+    )
   )
 
   "SynapseLinkMergeBatch" should "filter out arcane merge key from merge match" in {

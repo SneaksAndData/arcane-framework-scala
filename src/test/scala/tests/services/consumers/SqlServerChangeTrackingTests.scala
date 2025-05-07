@@ -1,7 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.consumers
 
-import models.batches.{SqlServerChangeTrackingBackfillBatch, SqlServerChangeTrackingBackfillQuery, SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingMergeQuery}
+import models.batches.{
+  SqlServerChangeTrackingBackfillBatch,
+  SqlServerChangeTrackingBackfillQuery,
+  SqlServerChangeTrackingMergeBatch,
+  SqlServerChangeTrackingMergeQuery
+}
 import models.schemas.ArcaneType.StringType
 import models.schemas.{Field, MergeKeyField}
 import tests.shared.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
@@ -15,10 +20,13 @@ import scala.io.Source
 import scala.util.Using
 
 class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
-  
+
   it should "generate a valid overwrite query" in {
-    val query = SqlServerChangeTrackingBackfillQuery("test.table_a", "SELECT * FROM test.staged_a", TestTablePropertiesSettings)
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_an_overwrite_query.sql"))) { _.getLines().mkString("\n") }.get
+    val query =
+      SqlServerChangeTrackingBackfillQuery("test.table_a", "SELECT * FROM test.staged_a", TestTablePropertiesSettings)
+    val expected = Using(Source.fromURL(getClass.getResource("/generate_an_overwrite_query.sql"))) {
+      _.getLines().mkString("\n")
+    }.get
     query.query should equal(expected)
   }
 
@@ -31,7 +39,9 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query.sql"))) { _.getLines().mkString("\n") }.get
+    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query.sql"))) {
+      _.getLines().mkString("\n")
+    }.get
     query.query should equal(expected)
   }
 
@@ -52,17 +62,23 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
   }
 
   "SqlServerChangeTrackingBackfillBatch" should "generate a valid backfill batch" in {
-    val batch = SqlServerChangeTrackingBackfillBatch("test.staged_a", Seq(
-      MergeKeyField,
-      Field(
-        name = "colA",
-        fieldType = StringType
+    val batch = SqlServerChangeTrackingBackfillBatch(
+      "test.staged_a",
+      Seq(
+        MergeKeyField,
+        Field(
+          name = "colA",
+          fieldType = StringType
+        ),
+        Field(
+          name = "colB",
+          fieldType = StringType
+        )
       ),
-      Field(
-        name = "colB",
-        fieldType = StringType
-      )
-    ), "test.table_a", "test.archive_table_a", TestTablePropertiesSettings)
+      "test.table_a",
+      "test.archive_table_a",
+      TestTablePropertiesSettings
+    )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
       _.getLines().mkString("\n")
@@ -72,8 +88,10 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
   }
 
   "SqlServerChangeTrackingMergeBatch" should "generate a valid versioned batch" in {
-    val batch = SqlServerChangeTrackingMergeBatch("test.staged_a", Seq(
-      MergeKeyField,
+    val batch = SqlServerChangeTrackingMergeBatch(
+      "test.staged_a",
+      Seq(
+        MergeKeyField,
         Field(
           name = "colA",
           fieldType = StringType
@@ -87,9 +105,10 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
       CustomTablePropertiesSettings(Seq("bucket(colA, 32)"))
     )
 
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_merge_query_with_partitions.sql"))) {
-      _.getLines().mkString("\n")
-    }.get
+    val expected =
+      Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_merge_query_with_partitions.sql"))) {
+        _.getLines().mkString("\n")
+      }.get
 
     batch.batchQuery.query should equal(expected)
   }
@@ -114,7 +133,8 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     )
     forAll(mergeKeyStatements) { (partitionSpec, expectation) =>
       val tablePropertiesSettings = CustomTablePropertiesSettings(partitionSpec)
-      val batch = SqlServerChangeTrackingMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings)
+      val batch =
+        SqlServerChangeTrackingMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings)
       val expected = Using(Source.fromURL(getClass.getResource(s"/$expectation.sql"))) {
         _.getLines().mkString("\n")
       }.get
