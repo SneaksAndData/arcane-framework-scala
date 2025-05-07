@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package utils
 
-import models.DataRow
+import models.schemas.DataRow
+
 import zio.Chunk
 
 /**

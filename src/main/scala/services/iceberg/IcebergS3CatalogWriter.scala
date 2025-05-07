@@ -1,29 +1,28 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
-import models.{ArcaneSchema, DataRow}
+import logging.ZIOLogAnnotations.*
+import models.schemas.{ArcaneSchema, DataRow}
+import models.settings.IcebergCatalogSettings
 import services.iceberg.base.CatalogWriter
 
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
+import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.catalog.TableIdentifier
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
-import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
-import org.apache.iceberg.{CatalogProperties, DataFile, PartitionSpec, Schema, Table}
-import logging.ZIOLogAnnotations.*
-import com.sneaksanddata.arcane.framework.models.settings.IcebergCatalogSettings
-
-import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
+import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
+import org.apache.iceberg.*
 import zio.*
 
-import java.time.{Instant, OffsetDateTime}
+import java.time.Instant
 import java.util.UUID
+import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
-import scala.collection.concurrent.TrieMap
 
 /**
  * Converts an Arcane schema to an Iceberg schema.

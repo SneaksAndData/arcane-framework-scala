@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
 import logging.ZIOLogAnnotations.zlog
-import models.DataCell.schema
 import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.schemas.DataCell.schema
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.{IcebergCatalogSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
-import models.{ArcaneSchema, DataRow}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}

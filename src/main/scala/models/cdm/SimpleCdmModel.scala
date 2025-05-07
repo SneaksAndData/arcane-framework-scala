@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.cdm
 
 import models.*
+import models.schemas.*
 
 import upickle.default.*
 

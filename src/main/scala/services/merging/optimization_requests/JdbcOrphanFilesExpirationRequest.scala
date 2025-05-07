@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.merging.models
+package services.merging.optimization_requests
 
 import services.base.{ConditionallyApplicable, SqlExpressionConvertable}
 

@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models
+package models.schemas
 
 /**
  * Represents a row of data or schema with name assigned to it.

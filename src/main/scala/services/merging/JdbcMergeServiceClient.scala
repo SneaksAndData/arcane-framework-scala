@@ -2,38 +2,26 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema
-import com.sneaksanddata.arcane.framework.models.given_NamedCell_ArcaneSchemaField
-import com.sneaksanddata.arcane.framework.services.iceberg.SchemaConversions.toIcebergSchemaFromFields
-
-import scala.jdk.CollectionConverters.*
+import models.app.StreamContext
+import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema, given_NamedCell_ArcaneSchemaField}
+import models.settings.BackfillBehavior.Overwrite
+import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, TargetTableSettings}
 import services.base.*
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import services.merging.models.given_ConditionallyApplicable_JdbcOptimizationRequest
-import services.merging.models.given_ConditionallyApplicable_JdbcSnapshotExpirationRequest
-import services.merging.models.given_ConditionallyApplicable_JdbcOrphanFilesExpirationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
+import services.filters.FieldsFilteringService
 import services.iceberg.SchemaConversions
-import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
+import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
+import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
+import services.merging.optimization_requests.{given, *}
 import utils.SqlUtils.readArcaneSchema
 
-import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.BackfillBehavior.Overwrite
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, TargetTableSettings}
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{DecimalType, TimestampType}
-import zio.{Schedule, Task, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
-import scala.util.Try
+import scala.jdk.CollectionConverters.*
 
 trait JdbcTableManager extends TableManager:
   /**

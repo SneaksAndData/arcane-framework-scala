@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import models.ArcaneSchema
 import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.schemas.ArcaneSchema
 import models.settings.TablePropertiesSettings
 import services.streaming.processors.transformers.StagingProcessor
 

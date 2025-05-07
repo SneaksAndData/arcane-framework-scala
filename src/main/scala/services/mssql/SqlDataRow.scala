@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.{ArcaneType, DataCell, DataRow}
+import models.schemas.{ArcaneType, DataCell, DataRow}
 import services.mssql.SqlDataCell.normalizeName
 
 /**

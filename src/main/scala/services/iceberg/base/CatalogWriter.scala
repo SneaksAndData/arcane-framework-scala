@@ -1,11 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg.base
 
-import models.{ArcaneSchema, DataRow}
+import models.schemas.DataRow
 
 import zio.Task
-
-import scala.concurrent.Future
 
 
 /**

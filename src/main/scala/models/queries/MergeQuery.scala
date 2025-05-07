@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.query
+package models.queries
 
 import scala.annotation.targetName
 

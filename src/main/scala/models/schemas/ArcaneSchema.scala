@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
-package models
+package models.schemas
 
-import models.ArcaneType.StringType
+import ArcaneType.StringType
+import models.*
 import services.base.CanAdd
 
 import scala.language.implicitConversions

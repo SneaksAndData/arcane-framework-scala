@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.consumers
 
-import models.ArcaneType.{LongType, StringType}
 import models.batches.*
-import models.{Field, MergeKeyField}
+import models.schemas.ArcaneType.{LongType, StringType}
+import models.schemas.{Field, MergeKeyField}
 import tests.shared.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec

@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.consumers
 
-import models.ArcaneType.StringType
 import models.batches.{SqlServerChangeTrackingBackfillBatch, SqlServerChangeTrackingBackfillQuery, SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingMergeQuery}
-import models.{Field, MergeKeyField}
+import models.schemas.ArcaneType.StringType
+import models.schemas.{Field, MergeKeyField}
 import tests.shared.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec

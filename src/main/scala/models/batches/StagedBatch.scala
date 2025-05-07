@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.batches
 
-import models.ArcaneSchema
-import models.query.*
+import models.queries.*
+import models.schemas.ArcaneSchema
 
 trait MergeableBatch:
 

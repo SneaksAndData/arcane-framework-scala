@@ -1,14 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
-import models.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
-import models.ArcaneType.*
+import models.schemas.ArcaneType.*
+import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Types
 
-import scala.language.implicitConversions
 import scala.jdk.CollectionConverters.*
+import scala.language.implicitConversions
 
 /**
  * Implicit conversions from ArcaneType to Iceberg schema types

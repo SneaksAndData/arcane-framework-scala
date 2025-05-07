@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import logging.ZIOLogAnnotations.zlogStream
-import models.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
 import services.mssql.MsSqlConnection.{VersionedBatch, closeSafe, executeQuerySafe}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}

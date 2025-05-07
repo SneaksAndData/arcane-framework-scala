@@ -3,6 +3,7 @@ package tests.services.streaming.processors.transformers
 
 import models.*
 import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import models.settings.IcebergCatalogSettings
 import services.iceberg.IcebergS3CatalogWriter
 import services.iceberg.base.CatalogWriter

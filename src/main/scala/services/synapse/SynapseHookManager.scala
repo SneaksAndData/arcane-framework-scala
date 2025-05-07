@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import models.ArcaneSchema
 import models.batches.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import models.schemas.ArcaneSchema
 import models.settings.TablePropertiesSettings
 import services.hooks.manager.EmptyHookManager
 

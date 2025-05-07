@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.query
+package models.queries
 
 /**
  * Marker trait, represents a query used to process a streaming batch

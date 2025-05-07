@@ -1,18 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.merging
 
-import models.ArcaneType.{BooleanType, LongType, StringType}
 import models.app.StreamContext
-import models.{ArcaneSchema, Field, MergeKeyField}
+import models.batches.SynapseLinkMergeBatch
+import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
+import models.schemas.{ArcaneSchema, Field, MergeKeyField}
+import models.settings.JdbcMergeServiceClientSettings
 import services.base.SchemaProvider
+import services.caching.schema_cache.MutableSchemaCache
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.optimization_requests.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
-import com.sneaksanddata.arcane.framework.models.batches.SynapseLinkMergeBatch
-import com.sneaksanddata.arcane.framework.models.settings.JdbcMergeServiceClientSettings
-import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import io.trino.jdbc.TrinoDriver
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec

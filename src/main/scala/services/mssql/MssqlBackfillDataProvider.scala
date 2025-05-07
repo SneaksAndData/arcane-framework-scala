@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.DataRow
+import models.schemas.DataRow
 
 import zio.stream.ZStream
 

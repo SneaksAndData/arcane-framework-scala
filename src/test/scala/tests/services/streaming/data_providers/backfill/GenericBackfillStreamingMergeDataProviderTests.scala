@@ -4,6 +4,7 @@ package tests.services.streaming.data_providers.backfill
 import models.*
 import models.app.StreamContext
 import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter

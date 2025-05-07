@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.data_providers.backfill
 
 import logging.ZIOLogAnnotations.zlog
-import models.ArcaneSchema
 import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.schemas.ArcaneSchema
 import models.settings.{BackfillSettings, TablePropertiesSettings}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, BackfillSubStream, HookManager}

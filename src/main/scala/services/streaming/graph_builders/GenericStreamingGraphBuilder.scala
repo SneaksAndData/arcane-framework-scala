@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders
 
 import logging.ZIOLogAnnotations.zlogStream
-import models.DataCell
+import models.schemas.DataCell
 import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}

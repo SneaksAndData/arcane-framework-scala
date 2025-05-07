@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import models.DataRow
+import models.schemas.DataRow
 
 /**
  * A trait that represents a stream item that can contain stream of data rows interleaved with metadata of

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
-import models.DataRow
+import models.schemas.DataRow
 import services.filters.FieldsFilteringService
 import services.streaming.base.RowProcessor
 

@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.TablePropertiesSettings
-import models.{ArcaneSchema, DataRow}
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 import org.apache.iceberg.Table

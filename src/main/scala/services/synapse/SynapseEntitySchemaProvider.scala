@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.synapse
 
 import models.cdm.{SimpleCdmEntity, SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
-import models.{ArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath

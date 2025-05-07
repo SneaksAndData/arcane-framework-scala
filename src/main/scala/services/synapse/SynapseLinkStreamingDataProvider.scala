@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.synapse
 
 import logging.ZIOLogAnnotations.*
-import models.DataRow
 import models.app.StreamContext
+import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import services.streaming.base.StreamDataProvider
 import services.synapse.base.SynapseLinkDataProvider

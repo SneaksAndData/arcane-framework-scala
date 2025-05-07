@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models
+package models.schemas
 
 import services.streaming.base.MetadataEnrichedRowStreamElement
 

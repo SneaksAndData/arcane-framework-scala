@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.MergeKeyField
+import models.schemas.MergeKeyField
 
 import zio.{Task, ZIO}
 

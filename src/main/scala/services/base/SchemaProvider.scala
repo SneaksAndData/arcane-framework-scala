@@ -1,11 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.ArcaneType
+import models.schemas.ArcaneType
 
 import zio.Task
-
-import scala.concurrent.Future
 
 /**
  * Type class that represents the ability to add a field to a schema.

@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.ArcaneSchema
 import models.batches.{MergeableBatch, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
+import models.schemas.ArcaneSchema
 import models.settings.TablePropertiesSettings
 import services.hooks.manager.EmptyHookManager
 

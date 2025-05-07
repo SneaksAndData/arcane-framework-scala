@@ -1,14 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.batch_processors.backfill
 
-import models.ArcaneType.LongType
-import models.{ArcaneSchema, Field, MergeKeyField}
+import models.batches.SynapseLinkBackfillOverwriteBatch
+import models.schemas.ArcaneType.LongType
+import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.MergeServiceClient
 import services.merging.JdbcTableManager
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import tests.shared.TablePropertiesSettings
 
-import com.sneaksanddata.arcane.framework.models.batches.SynapseLinkBackfillOverwriteBatch
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

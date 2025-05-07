@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.caching.schema_cache
 
-import models.{ArcaneSchema, given_CanAdd_ArcaneSchema}
-import FrozenSchemaProvider.freeze
+import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import services.base.{SchemaCache, SchemaProvider}
+import services.caching.schema_cache.FrozenSchemaProvider.freeze
 
 import zio.{Task, ZIO, ZLayer}
 
