@@ -10,35 +10,30 @@ import zio.{Chunk, ZIO, ZLayer}
 
 import scala.concurrent.duration.Duration
 
-/**
- * @inheritdoc
- */
+/** @inheritdoc
+  */
 class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends GroupingTransformer:
 
-  /**
-   * @inheritdoc
-   */
+  /** @inheritdoc
+    */
   def process: ZPipeline[Any, Throwable, Element, Chunk[Element]] = ZPipeline
     .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
     .mapZIO(logBatchSize)
 
   private def logBatchSize(batch: Chunk[Element]) =
     for _ <- zlog(s"Received batch with ${batch.size} rows from streaming source") yield batch
-    
-/**
- * The companion object for the LazyOutputDataProcessor class.
- */
-object GenericGroupingTransformer:
-  
-  type Environment = GroupingSettings 
 
-  /**
-   * The ZLayer that creates the LazyOutputDataProcessor.
-   */
+/** The companion object for the LazyOutputDataProcessor class.
+  */
+object GenericGroupingTransformer:
+
+  type Environment = GroupingSettings
+
+  /** The ZLayer that creates the LazyOutputDataProcessor.
+    */
   val layer: ZLayer[Environment, Nothing, GenericGroupingTransformer] =
     ZLayer {
-      for
-        settings <- ZIO.service[GroupingSettings]
+      for settings <- ZIO.service[GroupingSettings]
       yield GenericGroupingTransformer(settings)
     }
 

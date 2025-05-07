@@ -33,8 +33,15 @@ import zio.{Runtime, Schedule, Unsafe, ZIO, ZLayer}
 class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
   private val testInput = List(
-    List(DataCell("name", ArcaneType.StringType, "John Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
-    List(DataCell("name", ArcaneType.StringType, "John"), DataCell("family_name", ArcaneType.StringType, "Doe"), DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")),
+    List(
+      DataCell("name", ArcaneType.StringType, "John Doe"),
+      DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+    ),
+    List(
+      DataCell("name", ArcaneType.StringType, "John"),
+      DataCell("family_name", ArcaneType.StringType, "Doe"),
+      DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+    )
   )
 
   it should "gracefully handle stream shutdown" in {
@@ -42,10 +49,10 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     val streamRepeatCount = 5
 
     val disposeServiceClient = mock[DisposeServiceClient]
-    val mergeServiceClient = mock[MergeServiceClient]
-    val jdbcTableManager = mock[JdbcTableManager]
-    val hookManager = mock[HookManager]
-    val streamDataProvider = mock[StreamDataProvider]
+    val mergeServiceClient   = mock[MergeServiceClient]
+    val jdbcTableManager     = mock[JdbcTableManager]
+    val hookManager          = mock[HookManager]
+    val streamDataProvider   = mock[StreamDataProvider]
 
     expecting {
 
@@ -60,11 +67,21 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
       hookManager
-        .onBatchStaged(EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject(), EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings))
+        .onBatchStaged(
+          EasyMock.anyObject(),
+          EasyMock.anyString(),
+          EasyMock.anyString(),
+          EasyMock.anyObject(),
+          EasyMock.anyString(),
+          EasyMock.anyObject()
+        )
+        .andReturn(
+          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings)
+        )
         .times(streamRepeatCount)
 
-      jdbcTableManager.cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
+      jdbcTableManager
+        .cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
         .andReturn(ZIO.unit)
         .anyTimes()
       jdbcTableManager.createTargetTable
@@ -79,38 +96,40 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     }
     replay(streamDataProvider, hookManager, jdbcTableManager)
 
-    val streamRunnerService = ZIO.service[StreamRunnerService].provide(
-      // Real services
-      GenericStreamRunnerService.layer,
-      GenericStreamingGraphBuilder.layer,
-      GenericGroupingTransformer.layer,
-      DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
-      MergeBatchProcessor.layer,
-      StagingProcessor.layer,
-      FieldsFilteringService.layer,
-      IcebergS3CatalogWriter.layer,
+    val streamRunnerService = ZIO
+      .service[StreamRunnerService]
+      .provide(
+        // Real services
+        GenericStreamRunnerService.layer,
+        GenericStreamingGraphBuilder.layer,
+        GenericGroupingTransformer.layer,
+        DisposeBatchProcessor.layer,
+        FieldFilteringTransformer.layer,
+        MergeBatchProcessor.layer,
+        StagingProcessor.layer,
+        FieldsFilteringService.layer,
+        IcebergS3CatalogWriter.layer,
 
-      // Settings
-      ZLayer.succeed(TestGroupingSettings),
-      ZLayer.succeed(TestStagingDataSettings),
-      ZLayer.succeed(TablePropertiesSettings),
-      ZLayer.succeed(TestTargetTableSettings),
-      ZLayer.succeed(defaultSettings),
-      ZLayer.succeed(TestFieldSelectionRuleSettings),
+        // Settings
+        ZLayer.succeed(TestGroupingSettings),
+        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TablePropertiesSettings),
+        ZLayer.succeed(TestTargetTableSettings),
+        ZLayer.succeed(defaultSettings),
+        ZLayer.succeed(TestFieldSelectionRuleSettings),
 
-      // Mocks
-      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount-1, identity)),
-      ZLayer.succeed(disposeServiceClient),
-      ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
-      ZLayer.succeed(hookManager),
-      ZLayer.succeed(streamDataProvider),
-      ZLayer.succeed(new StreamContext {
-        override def IsBackfilling: Boolean = false
-      }),
-      ZLayer.succeed(TestSourceBufferingSettings),
-    )
+        // Mocks
+        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
+        ZLayer.succeed(disposeServiceClient),
+        ZLayer.succeed(mergeServiceClient),
+        ZLayer.succeed(jdbcTableManager),
+        ZLayer.succeed(hookManager),
+        ZLayer.succeed(streamDataProvider),
+        ZLayer.succeed(new StreamContext {
+          override def IsBackfilling: Boolean = false
+        }),
+        ZLayer.succeed(TestSourceBufferingSettings)
+      )
 
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService.flatMap(_.run))).map { _ =>

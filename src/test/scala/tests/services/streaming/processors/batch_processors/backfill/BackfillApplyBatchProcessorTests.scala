@@ -20,12 +20,14 @@ import zio.{Runtime, Unsafe, ZIO}
 class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val testInput = LazyList.from(0).takeWhile(_ < 3)
+  private val testInput = LazyList
+    .from(0)
+    .takeWhile(_ < 3)
     .map { i =>
       val schema = ArcaneSchema(Seq(MergeKeyField))
       SynapseLinkBackfillOverwriteBatch("intermediate-table", schema, "target", TablePropertiesSettings)
     }
-    .concat{
+    .concat {
       LazyList.from(0).takeWhile(_ < 3).map { i =>
         val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
         SynapseLinkBackfillOverwriteBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings)
@@ -35,7 +37,7 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
   it should "run applies" in {
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager = mock[JdbcTableManager]
+    val tableManager       = mock[JdbcTableManager]
 
     expecting {
       // Calling once for each batch in batch set

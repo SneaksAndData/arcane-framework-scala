@@ -12,7 +12,6 @@ import upickle.default.*
 import scala.io.Source
 import scala.util.Using
 
-
 class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
   it should "deserialize the model.json file correctly" in {
     val serialized = Using(Source.fromURL(getClass.getResource("/cdm_model.json"))) {
@@ -23,7 +22,7 @@ class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
 
     (
       result.entities.size should be(3),
-      result.entities.head.attributes.size should be (26),
+      result.entities.head.attributes.size should be(26),
       result.entities(1).attributes.size should be(12),
       result.entities(2).attributes.size should be(16)
     )
