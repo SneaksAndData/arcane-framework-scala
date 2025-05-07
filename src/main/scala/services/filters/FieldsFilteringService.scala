@@ -3,6 +3,7 @@ package services.filters
 
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
+import services.filters.FieldsFilteringService.isValid
 
 import zio.{ZIO, ZLayer}
 
@@ -10,13 +11,10 @@ import zio.{ZIO, ZLayer}
   */
 class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
 
-//  require(fieldSelectionRule.rule match
-//    case included: FieldSelectionRule.IncludeFields => fieldSelectionRule.essentialFields.subsetOf(included.fields)
-//    case excluded: FieldSelectionRule.ExcludeFields => excluded.fields.intersect(fieldSelectionRule.essentialFields).isEmpty
-//    case _ => true,
-//
-//    "The field selection rule must not exclude essential fields: " + fieldSelectionRule.essentialFields.mkString(", ")
-//  )
+  require(
+    fieldSelectionRule.isValid,
+    "The field selection rule must not exclude essential fields: " + fieldSelectionRule.essentialFields.mkString(", ")
+  )
 
   /** Filters the fields of an ArcaneSchema.
     *
@@ -46,6 +44,7 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
     case _ => row
 
 object FieldsFilteringService:
+
   type Environment = FieldSelectionRuleSettings
 
   def apply(fieldSelectionRule: FieldSelectionRuleSettings): FieldsFilteringService = new FieldsFilteringService(
@@ -59,3 +58,12 @@ object FieldsFilteringService:
       for fieldSelectionRule <- ZIO.service[FieldSelectionRuleSettings]
       yield FieldsFilteringService(fieldSelectionRule)
     }
+
+  /** Validates that the field selection rule does not exclude essential fields
+    */
+  extension (fieldSelectionRule: FieldSelectionRuleSettings)
+    def isValid: Boolean = fieldSelectionRule.rule match
+      case included: FieldSelectionRule.IncludeFields => fieldSelectionRule.essentialFields.subsetOf(included.fields)
+      case excluded: FieldSelectionRule.ExcludeFields =>
+        excluded.fields.intersect(fieldSelectionRule.essentialFields).isEmpty
+      case _ => true
