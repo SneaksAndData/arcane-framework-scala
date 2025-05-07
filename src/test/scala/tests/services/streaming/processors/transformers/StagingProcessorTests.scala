@@ -2,9 +2,10 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
 import models.*
-import services.consumers.{MergeableBatch, StagedVersionedBatch}
-import services.lakehouse.IcebergS3CatalogWriter
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
+import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.settings.IcebergCatalogSettings
+import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.base.CatalogWriter
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
