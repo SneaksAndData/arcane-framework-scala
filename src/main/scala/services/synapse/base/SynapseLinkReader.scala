@@ -4,7 +4,7 @@ package services.synapse.base
 import extensions.BufferedReaderExtensions.*
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
-import models.schemas.*
+import models.schemas.{*, given}
 import models.settings.SynapseSourceSettings
 import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
