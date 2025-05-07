@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import zio.Task
 import zio.stream.ZStream
-import zio.{Task, ZIO}
 
 /**
  * Provides a way to get the changes marked with version from a data source.

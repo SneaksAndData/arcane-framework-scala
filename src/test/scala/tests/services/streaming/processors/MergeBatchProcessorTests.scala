@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors
 
-import models.ArcaneType.LongType
-import models.{ArcaneSchema, Field, MergeKeyField}
+import models.batches.SynapseLinkMergeBatch
+import models.schemas.ArcaneType.LongType
+import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.consumers.SynapseLinkMergeBatch
 import services.merging.JdbcTableManager
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches

@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import com.sneaksanddata.arcane.framework.models.DataRow
 import zio.Chunk
 import zio.stream.ZPipeline
 

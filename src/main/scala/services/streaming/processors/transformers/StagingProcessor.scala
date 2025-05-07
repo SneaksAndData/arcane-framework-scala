@@ -2,22 +2,21 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
 import logging.ZIOLogAnnotations.zlog
-import models.DataCell.schema
-import models.settings.{StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
-import models.{ArcaneSchema, DataRow}
-import services.consumers.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
-import services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
-import services.lakehouse.given_Conversion_ArcaneSchema_Schema
-import services.streaming.base.{MetadataEnrichedRowStreamElement, RowGroupTransformer, StagedBatchProcessor}
-import utils.CollectionUtils._
+import models.batches.{MergeableBatch, StagedVersionedBatch}
+import models.schemas.DataCell.schema
+import models.schemas.{ArcaneSchema, DataRow}
+import models.settings.{IcebergCatalogSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
+import services.iceberg.base.CatalogWriter
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
+import utils.CollectionUtils.*
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
-import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
-import scala.collection.parallel.CollectionConverters._
+import zio.{Chunk, Task, ZIO, ZLayer}
 
-import java.time.Duration
+import scala.collection.parallel.CollectionConverters.*
 
 trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 

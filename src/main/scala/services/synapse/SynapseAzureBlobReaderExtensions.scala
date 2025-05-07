@@ -1,15 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
+import logging.ZIOLogAnnotations.zlogStream
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
-
-import logging.ZIOLogAnnotations.zlogStream
 import services.storage.models.base.StoredBlob
-import zio.{Task, ZIO}
+
 import zio.stream.ZStream
 
-import java.time.{Duration, OffsetDateTime}
+import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import scala.util.Try
 

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.ArcaneSchema
+import models.schemas.ArcaneSchema
 
 import zio.Task
 

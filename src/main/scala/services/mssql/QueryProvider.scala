@@ -1,17 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.MergeKeyField
-import models.DatePartitionField
+import models.schemas.MergeKeyField
 
-import org.slf4j.{Logger, LoggerFactory}
 import zio.{Task, ZIO}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
-import scala.concurrent.Future
 import scala.io.Source
-import scala.util.{Try, Using}
 
 object QueryProvider:
   /**

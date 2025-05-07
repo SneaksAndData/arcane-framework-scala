@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import services.mssql.MsSqlConnection.{BackfillBatch, VersionedBatch}
+import models.schemas.DataRow
+import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.base.MssqlVersionedDataProvider
 import services.streaming.base.HasVersion
 
-import com.sneaksanddata.arcane.framework.models.DataRow
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 

@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.filters
 
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
-import models.{ArcaneSchema, DataCell, DataRow, NamedCell}
 
 import zio.{ZIO, ZLayer}
 

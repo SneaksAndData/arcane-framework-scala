@@ -3,14 +3,14 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
+import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
-import services.consumers.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import services.filters.FieldsFilteringService
-import services.lakehouse.IcebergS3CatalogWriter
-import services.lakehouse.base.IcebergCatalogSettings
+import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
-import services.streaming.base.{HookManager, StreamDataProvider}
-import services.streaming.data_providers.backfill.{BackfillOverwriteBatchFactory, GenericBackfillStreamingMergeDataProvider}
+import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
+import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}

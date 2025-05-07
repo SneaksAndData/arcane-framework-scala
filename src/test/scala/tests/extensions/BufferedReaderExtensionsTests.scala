@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.extensions
 
-import services.base.BufferedReaderExtensions.{readMultilineCsvLine, streamMultilineCsv}
+import com.sneaksanddata.arcane.framework.extensions.BufferedReaderExtensions.{readMultilineCsvLine, streamMultilineCsv}
 
 import zio.test.TestAspect.timeout
 import zio.test.*

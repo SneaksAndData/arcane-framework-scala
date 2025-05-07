@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package tests.catalog
 
-import models.ArcaneType.{IntType, StringType}
-import models.{DataCell, Field, MergeKeyField}
-import services.lakehouse.IcebergS3CatalogWriter
-import services.lakehouse.SchemaConversions.*
-import services.lakehouse.base.CatalogWriter
+import models.schemas.ArcaneType.{IntType, StringType}
+import models.schemas.{DataCell, Field, MergeKeyField}
+import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.SchemaConversions.*
+import services.iceberg.base.CatalogWriter
 import tests.shared.IcebergCatalogInfo.*
 
 import org.apache.iceberg.rest.RESTCatalog

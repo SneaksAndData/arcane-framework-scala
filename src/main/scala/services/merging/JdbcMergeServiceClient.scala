@@ -2,51 +2,26 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema
-import com.sneaksanddata.arcane.framework.models.given_NamedCell_ArcaneSchemaField
-import com.sneaksanddata.arcane.framework.services.lakehouse.SchemaConversions.toIcebergSchemaFromFields
-
-import scala.jdk.CollectionConverters.*
+import models.app.StreamContext
+import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema, given_NamedCell_ArcaneSchemaField}
+import models.settings.BackfillBehavior.Overwrite
+import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, TargetTableSettings}
 import services.base.*
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import services.merging.models.given_ConditionallyApplicable_JdbcOptimizationRequest
-import services.merging.models.given_ConditionallyApplicable_JdbcSnapshotExpirationRequest
-import services.merging.models.given_ConditionallyApplicable_JdbcOrphanFilesExpirationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcOptimizationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcSnapshotExpirationRequest
-import services.merging.models.given_SqlExpressionConvertable_JdbcOrphanFilesExpirationRequest
-import services.lakehouse.SchemaConversions
-import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, readStrings}
+import services.filters.FieldsFilteringService
+import services.iceberg.SchemaConversions
+import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
+import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
+import services.merging.maintenance.{given, *}
 import utils.SqlUtils.readArcaneSchema
 
-import com.sneaksanddata.arcane.framework.models.given_CanAdd_ArcaneSchema
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.BackfillBehavior.Overwrite
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient.generateCreateTableSQL
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{DecimalType, TimestampType}
-import zio.{Schedule, Task, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
-import scala.util.Try
-
-trait JdbcMergeServiceClientOptions:
-  /**
-   * The connection URL.
-   */
-  val connectionUrl: String
-
-  /**
-   * Checks if the connection URL is valid.
-   *
-   * @return True if the connection URL is valid, false otherwise.
-   */
-  final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
+import scala.jdk.CollectionConverters.*
 
 trait JdbcTableManager extends TableManager:
   /**
@@ -87,7 +62,7 @@ type SchemaProviderFactory = (String, Connection) => SchemaProvider[ArcaneSchema
  *
  * @param options The options for the consumer.
  */
-class JdbcMergeServiceClient(options: JdbcMergeServiceClientOptions,
+class JdbcMergeServiceClient(options: JdbcMergeServiceClientSettings,
                              targetTableSettings: TargetTableSettings,
                              backfillTableSettings: BackfillSettings,
                              streamContext: StreamContext,
@@ -272,7 +247,7 @@ object JdbcMergeServiceClient:
   /**
    * The environment type for the JdbcConsumer.
    */
-  private type Environment = JdbcMergeServiceClientOptions
+  private type Environment = JdbcMergeServiceClientSettings
     & TargetTableSettings
     & SchemaProvider[ArcaneSchema]
     & FieldsFilteringService
@@ -286,7 +261,7 @@ object JdbcMergeServiceClient:
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply(options: JdbcMergeServiceClientOptions,
+  def apply(options: JdbcMergeServiceClientSettings,
             targetTableSettings: TargetTableSettings,
             backfillTableSettings: BackfillSettings,
             streamContext: StreamContext,
@@ -304,7 +279,7 @@ object JdbcMergeServiceClient:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          connectionOptions <- ZIO.service[JdbcMergeServiceClientOptions]
+          connectionOptions <- ZIO.service[JdbcMergeServiceClientSettings]
           targetTableSettings <- ZIO.service[TargetTableSettings]
           backfillTableSettings <- ZIO.service[BackfillSettings]
           schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]

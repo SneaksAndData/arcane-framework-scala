@@ -6,7 +6,7 @@ import java.time.Duration
 /**
  * Provides grouping settings for the stream
  */
-trait GroupingSettings {
+trait GroupingSettings:
 
   /**
    * The interval to group the data.
@@ -17,4 +17,3 @@ trait GroupingSettings {
    * The number of rows per group.
    */
   val rowsPerGroup: Int
-}

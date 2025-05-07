@@ -1,14 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.merging
 
-import models.ArcaneType.{BooleanType, LongType, StringType}
 import models.app.StreamContext
-import models.{ArcaneSchema, Field, MergeKeyField}
+import models.batches.SynapseLinkMergeBatch
+import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
+import models.schemas.{ArcaneSchema, Field, MergeKeyField}
+import models.settings.JdbcMergeServiceClientSettings
 import services.base.SchemaProvider
-import services.consumers.SynapseLinkMergeBatch
+import services.caching.schema_cache.MutableSchemaCache
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import io.trino.jdbc.TrinoDriver
@@ -37,7 +39,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     override val streamKind: String = "test"
     
 
-  private val options = new JdbcMergeServiceClientOptions:
+  private val options = new JdbcMergeServiceClientSettings:
     /**
      * The connection URL.
      */

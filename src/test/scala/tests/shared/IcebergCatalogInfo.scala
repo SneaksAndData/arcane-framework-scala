@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import services.lakehouse.IcebergCatalogCredential
-import services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
+import services.iceberg.IcebergCatalogCredential
+import services.iceberg.base.S3CatalogFileIO
+import com.sneaksanddata.arcane.framework.models.settings.IcebergCatalogSettings
 
 object IcebergCatalogInfo:
   val defaultNamespace = "test"

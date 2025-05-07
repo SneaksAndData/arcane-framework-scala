@@ -4,9 +4,8 @@ package services.streaming.data_providers.backfill
 import logging.ZIOLogAnnotations.zlog
 import models.settings.BackfillSettings
 import services.app.base.StreamLifetimeService
-import services.streaming.base.{BackfillStreamingMergeDataProvider, BackfillSubStream, HookManager, StreamingGraphBuilder}
+import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingMergeDataProvider, BackfillSubStream, HookManager}
 
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.GenericStreamingGraphBuilder
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 

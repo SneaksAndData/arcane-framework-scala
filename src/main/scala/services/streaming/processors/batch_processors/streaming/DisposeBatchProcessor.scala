@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
 import logging.ZIOLogAnnotations.*
+import models.app.StreamContext
 import services.base.DisposeServiceClient
 import services.streaming.base.StagedBatchProcessor
 
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 

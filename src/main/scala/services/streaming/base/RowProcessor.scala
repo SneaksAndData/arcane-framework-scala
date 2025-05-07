@@ -1,8 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import models.DataRow
-
 import zio.stream.ZPipeline
 
 /**

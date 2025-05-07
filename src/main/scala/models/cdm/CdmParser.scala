@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.cdm
 
-import models.{ArcaneSchema, DataCell, DataRow, MergeKeyField}
+import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField}
 
 import scala.language.implicitConversions
 import scala.util.matching.Regex

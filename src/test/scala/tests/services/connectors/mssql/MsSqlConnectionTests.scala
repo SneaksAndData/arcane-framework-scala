@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.connectors.mssql
 
-import models.ArcaneType.*
+import models.schemas.ArcaneType.*
+import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
-import models.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.base.MsSqlServerFieldsFilteringService
 import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}

@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package utils
 
 import models.*
+import models.schemas.*
 
 import java.sql.ResultSet
 import scala.util.{Failure, Success, Try}

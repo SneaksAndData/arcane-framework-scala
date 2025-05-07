@@ -1,20 +1,20 @@
 package com.sneaksanddata.arcane.framework
 package tests.synapse
 
-import zio.{Scope, ZIO}
-import zio.test.*
-import zio.test.TestAspect.timeout
-
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
-import tests.shared.AzureStorageInfo.*
+import models.app.StreamContext
+import models.schemas.{DataRow, MergeKeyField}
+import models.settings.BackfillBehavior.Overwrite
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import models.app.StreamContext
-import models.settings.BackfillBehavior.Overwrite
+import tests.shared.AzureStorageInfo.*
 
-import models.{DataRow, MergeKeyField}
+import zio.test.*
+import zio.test.TestAspect.timeout
+import zio.{Scope, ZIO}
+
+import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"

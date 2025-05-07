@@ -1,20 +1,20 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
-import models.settings.SynapseSourceSettings
-import services.storage.models.azure.AdlsStoragePath
-import services.base.SchemaProvider
-import services.storage.services.AzureBlobStorageReader
-import services.storage.models.base.StoredBlob
-import services.synapse.SynapseAzureBlobReaderExtensions.*
-import services.base.BufferedReaderExtensions.*
-import models.{ArcaneSchema, ArcaneType, DataCell, DataRow, given_CanAdd_ArcaneSchema}
-import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
+import extensions.BufferedReaderExtensions.*
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
+import models.schemas.ArcaneType.*
+import models.schemas.{*, given}
+import models.settings.SynapseSourceSettings
+import services.base.SchemaProvider
+import services.storage.models.azure.AdlsStoragePath
+import services.storage.models.base.StoredBlob
+import services.storage.services.azure.AzureBlobStorageReader
+import services.synapse.SynapseAzureBlobReaderExtensions.*
+import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 
-import models.ArcaneType.*
-import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
+import zio.{Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException}
 import java.time.format.DateTimeFormatter

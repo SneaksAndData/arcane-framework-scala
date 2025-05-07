@@ -1,10 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import services.mssql.MsSqlConnection.BackfillBatch
+import models.schemas.DataRow
 
-import com.sneaksanddata.arcane.framework.models.DataRow
-import zio.Task
 import zio.stream.ZStream
 
 /**

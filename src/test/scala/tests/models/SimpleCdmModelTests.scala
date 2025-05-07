@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package tests.models
 
-import models.ArcaneSchema
 import models.cdm.{SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
+import models.schemas.ArcaneSchema
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

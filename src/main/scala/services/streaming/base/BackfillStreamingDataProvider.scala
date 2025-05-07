@@ -1,9 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import services.mssql.MsSqlConnection.BackfillBatch
+import models.batches.StagedBackfillOverwriteBatch
 
-import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, StagedBackfillOverwriteBatch}
 import zio.Task
 
 /**

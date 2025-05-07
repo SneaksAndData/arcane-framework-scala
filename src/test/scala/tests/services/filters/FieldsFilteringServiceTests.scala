@@ -2,7 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.services.filters
 
 import models.*
-import models.ArcaneType.{LongType, StringType}
+import models.schemas.ArcaneType.{LongType, StringType}
+import models.schemas.{ArcaneSchema, DataCell, DataRow, Field}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.FieldsFilteringService
 

@@ -3,13 +3,13 @@ package tests.services.streaming
 
 import models.*
 import models.app.StreamContext
+import models.batches.SqlServerChangeTrackingMergeBatch
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
-import services.consumers.SqlServerChangeTrackingMergeBatch
 import services.filters.FieldsFilteringService
-import services.lakehouse.IcebergS3CatalogWriter
-import services.lakehouse.base.IcebergCatalogSettings
+import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
@@ -18,8 +18,8 @@ import services.streaming.processors.batch_processors.streaming.{DisposeBatchPro
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.IcebergCatalogInfo.*
 import tests.shared.*
+import tests.shared.IcebergCatalogInfo.*
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}

@@ -1,16 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, TableMaintenanceSettings}
-import services.base.BatchOptimizationResult
-import services.merging.JdbcTableManager
-import services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
+import services.merging.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 import zio.stream.ZPipeline
-import zio.{Task, ZIO}
-
-
 
 /**
  * A trait that represents a batch that can be converted to an optimization request.
