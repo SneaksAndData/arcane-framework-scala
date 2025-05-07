@@ -10,7 +10,7 @@ import services.base.SchemaProvider
 import services.caching.schema_cache.MutableSchemaCache
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.optimization_requests.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import io.trino.jdbc.TrinoDriver

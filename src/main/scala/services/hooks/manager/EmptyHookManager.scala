@@ -3,7 +3,7 @@ package services.hooks.manager
 
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
-import services.merging.optimization_requests.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.base.{HookManager, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
 import services.streaming.processors.transformers.{IndexedStagedBatches, StagingProcessor}
 

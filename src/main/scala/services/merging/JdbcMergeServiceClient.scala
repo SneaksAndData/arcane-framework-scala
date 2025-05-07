@@ -11,7 +11,7 @@ import services.filters.FieldsFilteringService
 import services.iceberg.SchemaConversions
 import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
-import services.merging.optimization_requests.{given, *}
+import services.merging.maintenance.{given, *}
 import utils.SqlUtils.readArcaneSchema
 
 import org.apache.iceberg.Schema
