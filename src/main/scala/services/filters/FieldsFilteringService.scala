@@ -24,6 +24,8 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
     *   The filtered data/schema.
     */
   def filter(row: DataRow): DataRow = fieldSelectionRule.rule match
+
+
     case includeFields: FieldSelectionRule.IncludeFields =>
       row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
     case excludeFields: FieldSelectionRule.ExcludeFields =>
