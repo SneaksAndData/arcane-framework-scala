@@ -164,12 +164,11 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
         case _ =>
           // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss'Z'
           // example from MS docs: 2021-06-25T16:21:12Z
-          val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
-          if (timestampValue.endsWith("Z")) {
+          // this will parse: 2021-06-25T16:21:12Z, 2021-06-25T16:21:12, 2021-06-25T16:21:12.1231
+          if (timestampValue.endsWith("Z"))
             LocalDateTime.parse(timestampValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          } else {
-            LocalDateTime.parse(timestampValue, formatter)
-          }
+          else
+            LocalDateTime.parse(timestampValue, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
 object SynapseLinkReader:
