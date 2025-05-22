@@ -64,7 +64,7 @@ class MsSqlStreamingDataProvider(
     for
       data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
       rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-      row      <- ZStream.fromIterable(rowsList)
+      row      <- ZStream.fromIterable(rowsList, 1)
     yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
