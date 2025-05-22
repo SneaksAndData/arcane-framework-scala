@@ -31,7 +31,7 @@ class MsSqlStreamingDataProvider(
   override def stream: ZStream[Any, Throwable, DataRow] =
     val stream =
       if streamContext.IsBackfilling then dataProvider.requestBackfill
-      else ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
+      else ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(b => b.read)
     stream
       .map(row =>
         row.map {
@@ -58,34 +58,23 @@ class MsSqlStreamingDataProvider(
         }
       )
 
-  private def readDataBatch[T <: AutoCloseable & QueryResult[LazyList[DataRow]]](
-      batch: T
-  ): ZStream[Any, Throwable, DataRow] =
-    for
-      data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
-      rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-      row      <- ZStream.fromIterable(rowsList, 1)
-    yield row
-
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     for
       versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
       _              <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
       _              <- maybeSleep(versionedBatch)
-      latestVersion    = versionedBatch.getLatestVersion
+      latestVersion    <- versionedBatch.getLatestVersion
       (queryResult, _) = versionedBatch
-      _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
+      _ <- zlog(s"Latest version: $latestVersion")
     yield Some(queryResult, latestVersion)
 
-  private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
-    versionedBatch match
-      case (queryResult, _) =>
-        val headOption = queryResult.read.headOption
-        if headOption.isEmpty then
-          zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
-            settings.changeCaptureInterval
-          )
-        else zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
+  private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Throwable, Unit] = versionedBatch match
+      case (queryResult, _) => queryResult.read.runHead.flatMap {
+        case None => zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
+          settings.changeCaptureInterval
+        )
+        case Some(_) => zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
+      }
 
 object MsSqlStreamingDataProvider:
 

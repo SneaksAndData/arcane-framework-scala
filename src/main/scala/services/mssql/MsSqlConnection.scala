@@ -4,16 +4,16 @@ package services.mssql
 import logging.ZIOLogAnnotations.zlogStream
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.{VersionedBatch, closeSafe, executeQuerySafe}
+import services.mssql.MsSqlConnection.VersionedBatch
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
-import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
-import services.mssql.query.LazyQueryResult.toDataRow
-import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
+import services.mssql.base.{MsSqlServerFieldsFilteringService, QueryResult}
+import services.mssql.query.{ResultSetZIO, ScalarQueryResultZIO}
+import services.mssql.query.MsSqlResultSet.*
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
-import zio.{Scope, Task, UIO, ZIO, ZLayer}
+import zio.*
 
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.Duration
@@ -82,15 +82,7 @@ class MsSqlConnection(
       _         <- zlogStream("Acquired result set with fetch size %s", resultSet.getFetchSize.toString)
       _         <- ZStream.succeed(resultSet.setFetchSize(connectionOptions.fetchSize.getOrElse(1000)))
       _         <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
-      stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-        if hasNext then
-          for
-            columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-            row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-            hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-          yield Some((row, hasNextRow))
-        else ZIO.succeed(None)
-      }
+      stream <- resultSet.toZStream.map(implicitly)
     yield stream
 
   /** Gets the changes in the database since the given version.
@@ -105,16 +97,14 @@ class MsSqlConnection(
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
     ZIO.scoped {
       for
-        versionResult <- ZIO.fromAutoCloseable(
-          executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
-        )
-        version = versionResult.read.getOrElse(Long.MaxValue)
+        versionResult <- executeQuery(query, connection)
+        version <- ScalarQueryResultZIO(versionResult, readChangeTrackingVersion).read.map(_.getOrElse(Long.MaxValue))
         changesQuery <- this.getChangesQuery(version - 1)
 
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.
-        result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-      yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+        result <- executeQuery(changesQuery, connection)
+      yield (ResultSetZIO(result), maybeLatestVersion.getOrElse(0))
     }
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
@@ -178,17 +168,14 @@ class MsSqlConnection(
     if !hasNext then return result
     readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
 
-  private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
-
-  private def executeQuery[QueryResultType](
+  private def executeQuery(
       query: MsSqlQuery,
       connection: Connection,
-      resultFactory: ResultFactory[QueryResultType]
-  ): Task[QueryResultType] =
+  ): Task[ResultSet] =
     for
       statement <- ZIO.attemptBlocking(connection.createStatement())
-      resultSet <- ZIO.attemptBlocking(statement.executeQuery(query))
-    yield resultFactory(statement, resultSet)
+      resultSet <- ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement)) { rs => ZIO.succeed(rs) }
+    yield resultSet
 
 object MsSqlConnection:
 
@@ -223,56 +210,8 @@ object MsSqlConnection:
 
   /** Represents a batch of data.
     */
-  type DataBatch = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]
-
-  /** Represents a batch of data that can be used to backfill the data. Since the data is not versioned, the version is
-    * always 0, and we don't need to be able to peek the head of the result.
-    */
-  type BackfillBatch = QueryResult[LazyQueryResult.OutputType]
+  type DataBatch = QueryResult[ZStream[Any, Throwable, DataRow]]
 
   /** Represents a versioned batch of data.
     */
   type VersionedBatch = (DataBatch, Long)
-
-  /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
-    * by the query if the result set is being closed without cancelling the statement first. see:
-    * https://github.com/microsoft/mssql-jdbc/issues/877 for details. ALL RESULT SETS CREATED FROM MS SQL CONNECTION
-    * MUST BE CLOSED THIS WAY
-    * @param resultSet
-    *   The result set to close.
-    * @param statement
-    *   The statement to close.
-    * @return
-    *   Scoped effect that tracks the result set and closes it when the effect is completed.
-    */
-  extension (statement: Statement)
-    def executeQuerySafe(query: String): ZIO[Scope, Throwable, ResultSet] =
-      for resultSet <- ZIO.acquireRelease(ZIO.attemptBlocking(statement.executeQuery(query)))(rs =>
-          rs.closeSafe(statement)
-        )
-      yield resultSet
-
-  /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
-    * by the query if the result set is being closed without cancelling the statement first. see:
-    * https://github.com/microsoft/mssql-jdbc/issues/877 for details. ALL RESULT SETS CREATED FROM MS SQL CONNECTION
-    * MUST BE CLOSED THIS WAY
-    * @param resultSet
-    *   The result set to close.
-    * @param statement
-    *   The statement to close.
-    * @return
-    *   UIO[Unit] that completes when the result set is closed.
-    */
-  extension (resultSet: ResultSet)
-    def closeSafe(statement: Statement): UIO[Unit] =
-      for
-        _ <- ZIO.succeed(statement.cancel())
-        _ <- ZIO.succeed(resultSet.close())
-      yield ()
-
-  /** Ensures that the head of the result (if any) saved and cannot be lost This is required to let the head function
-    * work properly.
-    */
-  private def ensureHead(result: VersionedBatch): VersionedBatch =
-    val (queryResult, version) = result
-    (queryResult.peekHead, version)
