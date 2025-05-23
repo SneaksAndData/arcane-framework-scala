@@ -58,13 +58,13 @@ class MsSqlStreamingDataProvider(
         }
       )
 
-  private def readDataBatch[T <: AutoCloseable & QueryResult[LazyList[DataRow]]](
+  private def readDataBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
       batch: T
   ): ZStream[Any, Throwable, DataRow] =
     for
       data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
       rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-      row      <- ZStream.fromIterable(rowsList, 1)
+      row      <- ZStream.fromIterator(rowsList, 1)
     yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
@@ -80,7 +80,7 @@ class MsSqlStreamingDataProvider(
   private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
     versionedBatch match
       case (queryResult, _) =>
-        val headOption = queryResult.read.headOption
+        val headOption = queryResult.read.nextOption()
         if headOption.isEmpty then
           zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
             settings.changeCaptureInterval
