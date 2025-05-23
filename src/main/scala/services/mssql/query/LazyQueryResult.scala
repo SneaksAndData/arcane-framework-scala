@@ -11,6 +11,16 @@ import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
+class ResultSetIterator(rs: ResultSet) extends Iterator[DataRow]:
+  private val columns = rs.getMetaData.getColumnCount
+
+  override def hasNext: Boolean = rs.next()
+
+  override def next(): DataRow = toDataRow(rs, columns, List.empty) match {
+    case Success(dataRow)   => dataRow
+    case Failure(exception) => throw exception
+  }
+
 /** Lazy-list based implementation of [[QueryResult]].
   *
   * @param statement
@@ -19,8 +29,8 @@ import scala.util.{Failure, Success, Try}
   *   The result set of the query.
   */
 class LazyQueryResult(protected val statement: Statement, protected val resultSet: ResultSet, eagerHead: List[DataRow])
-    extends QueryResult[LazyList[DataRow]]
-    with CanPeekHead[LazyList[DataRow]]
+    extends QueryResult[Iterator[DataRow]]
+    with CanPeekHead[Iterator[DataRow]]
     with ResultSetOwner:
 
   /** Reads the result of the query.
@@ -28,18 +38,7 @@ class LazyQueryResult(protected val statement: Statement, protected val resultSe
     * @return
     *   The result of the query.
     */
-  override def read: this.OutputType =
-    val columns = resultSet.getMetaData.getColumnCount
-    eagerHead.to(LazyList) #::: LazyList
-      .continually(resultSet)
-      .takeWhile(_.next())
-      .map(row => {
-        toDataRow(row, columns, List.empty) match {
-          case Success(dataRow)   => dataRow
-          case Failure(exception) => throw exception
-        }
-      })
-      .map(implicitly)
+  override def read: this.OutputType = eagerHead.iterator ++ ResultSetIterator(resultSet)
 
   /** Peeks the head of the result of the SQL query mapped to an output type.
     *
@@ -47,7 +46,7 @@ class LazyQueryResult(protected val statement: Statement, protected val resultSe
     *   The head of the result of the query.
     */
   def peekHead: QueryResult[this.OutputType] & CanPeekHead[this.OutputType] =
-    new LazyQueryResult(statement, resultSet, read.headOption.toList)
+    new LazyQueryResult(statement, resultSet, read.nextOption().toList)
 
 /** Companion object for [[LazyQueryResult]].
   */
@@ -55,7 +54,7 @@ object LazyQueryResult {
 
   /** The output type of the query result.
     */
-  type OutputType = LazyList[DataRow]
+  type OutputType = Iterator[DataRow]
 
   /** Creates a new [[LazyQueryResult]] object.
     *
