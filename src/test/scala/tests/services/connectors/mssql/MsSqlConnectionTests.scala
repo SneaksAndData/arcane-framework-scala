@@ -167,6 +167,7 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z", "cd"))
       override val essentialFields: Set[String] =
         Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+      override val isServerSide: Boolean = true
     }
     val connector =
       MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
@@ -194,6 +195,7 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
       override val essentialFields: Set[String] =
         Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+      override val isServerSide: Boolean = true
     }
     val connector =
       MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
@@ -212,6 +214,7 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
       override val essentialFields: Set[String] =
         Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+      override val isServerSide: Boolean = true
     }
     val connector =
       MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
@@ -274,6 +277,7 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
       override val essentialFields: Set[String] =
         Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+      override val isServerSide: Boolean = true
     }
     val connection =
       MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
@@ -308,6 +312,7 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
       override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
       override val essentialFields: Set[String] =
         Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+      override val isServerSide: Boolean = true
     }
     val connection =
       MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))

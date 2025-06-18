@@ -29,3 +29,5 @@ trait FieldSelectionRuleSettings:
     * plugin and should not be configurable.
     */
   val essentialFields: Set[String]
+
+  val isServerSide: Boolean
