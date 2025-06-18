@@ -6,3 +6,4 @@ import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 object TestFieldSelectionRuleSettings extends FieldSelectionRuleSettings:
   override val rule: FieldSelectionRule     = FieldSelectionRule.AllFields
   override val essentialFields: Set[String] = Set()
+  override val isServerSide: Boolean        = false

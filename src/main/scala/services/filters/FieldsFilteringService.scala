@@ -23,10 +23,10 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
     * @return
     *   The filtered data/schema.
     */
-  def filter(row: DataRow): DataRow = fieldSelectionRule.rule match
-    case includeFields: FieldSelectionRule.IncludeFields =>
+  def filter(row: DataRow): DataRow = (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
+    case (false, includeFields: FieldSelectionRule.IncludeFields) =>
       row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
-    case excludeFields: FieldSelectionRule.ExcludeFields =>
+    case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
       row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
     case _ => row
 
@@ -36,10 +36,10 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
     * @return
     *   The filtered data/schema.
     */
-  def filter(row: ArcaneSchema): ArcaneSchema = fieldSelectionRule.rule match
-    case includeFields: FieldSelectionRule.IncludeFields =>
+  def filter(row: ArcaneSchema): ArcaneSchema = (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
+    case (false, includeFields: FieldSelectionRule.IncludeFields) =>
       row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
-    case excludeFields: FieldSelectionRule.ExcludeFields =>
+    case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
       row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
     case _ => row
 
