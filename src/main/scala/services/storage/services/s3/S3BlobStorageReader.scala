@@ -1,23 +1,23 @@
 package com.sneaksanddata.arcane.framework
 package services.storage.services.s3
 
+import logging.ZIOLogAnnotations.zlog
+import services.storage.base.BlobStorageReader
+import services.storage.models.base.StoredBlob
+import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
-import com.sneaksanddata.arcane.framework.services.storage.base.BlobStorageReader
-import com.sneaksanddata.arcane.framework.services.storage.models.base.{BlobPath, StoredBlob}
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, ListObjectsV2Request}
-import services.storage.models.s3.S3ModelConversions.given
-import zio.{Task, ZIO}
 import zio.stream.ZStream
-import scala.jdk.CollectionConverters.*
-import scala.language.implicitConversions
+import zio.{Task, ZIO}
 
 import java.io.{BufferedReader, InputStreamReader}
+import scala.jdk.CollectionConverters.*
+import scala.language.implicitConversions
 
 final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends BlobStorageReader[S3StoragePath]:
   private val serviceClientSettings = settings.getOrElse(S3ClientSettings())
