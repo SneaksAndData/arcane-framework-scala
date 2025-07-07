@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AzureModelConversions.given
 import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
-import services.storage.models.base.StoredBlob
+import services.storage.models.base.{BlobPath, StoredBlob}
 
 import com.azure.core.credential.TokenCredential
 import com.azure.identity.DefaultAzureCredentialBuilder
