@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.storage.models.amazon
+package services.storage.models.s3
 
 import services.storage.models.base.BlobPath
 
@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
   * @param objectKey
   *   The key of the object in the bucket.
   */
-final case class AmazonS3StoragePath(bucket: String, objectKey: String) extends BlobPath:
+final case class S3StoragePath(bucket: String, objectKey: String) extends BlobPath:
 
   /** Converts the path to a HDFS-style path.
     *
@@ -31,23 +31,23 @@ final case class AmazonS3StoragePath(bucket: String, objectKey: String) extends 
     *   The new path.
     */
   @targetName("plus")
-  def +(keyName: String): AmazonS3StoragePath =
+  def +(keyName: String): S3StoragePath =
     copy(objectKey = if (objectKey.isEmpty) keyName else s"$objectKey/$keyName")
 
-/** Companion object for [[AmazonS3StoragePath]].
+/** Companion object for [[S3StoragePath]].
   */
-object AmazonS3StoragePath {
+object S3StoragePath {
   private val matchRegex: String = "s3a://([^/]+)/?(.*)"
 
-  /** Creates an [[AmazonS3StoragePath]] from the given HDFS path.
+  /** Creates an [[S3StoragePath]] from the given HDFS path.
     *
     * @param hdfsPath
     *   The HDFS path.
     * @return
-    *   The [[AmazonS3StoragePath]].
+    * The [[S3StoragePath]].
     */
-  def apply(hdfsPath: String): Try[AmazonS3StoragePath] = matchRegex.r.findFirstMatchIn(hdfsPath) match {
-    case Some(matched) => Success(new AmazonS3StoragePath(matched.group(1), matched.group(2).stripSuffix("/")))
+  def apply(hdfsPath: String): Try[S3StoragePath] = matchRegex.r.findFirstMatchIn(hdfsPath) match {
+    case Some(matched) => Success(new S3StoragePath(matched.group(1), matched.group(2).stripSuffix("/")))
     case None =>
       Failure(
         IllegalArgumentException(s"An AmazonS3StoragePath must be in the format s3a://bucket/path, but was: $hdfsPath")
