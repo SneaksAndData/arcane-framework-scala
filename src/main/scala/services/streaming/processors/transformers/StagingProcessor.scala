@@ -33,7 +33,7 @@ class StagingProcessor(
   override def process(
       onStagingTablesComplete: OnStagingTablesComplete,
       onBatchStaged: OnBatchStaged
-  ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
+  ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] = {
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements =>
@@ -58,6 +58,7 @@ class StagingProcessor(
       )
       .zipWithIndex
       .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
+  }
 
   private def writeDataRows(
       rows: Chunk[DataRow],

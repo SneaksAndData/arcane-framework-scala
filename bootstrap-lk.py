@@ -34,7 +34,7 @@ def init_lk():
         resp.raise_for_status()
 
     # add namespace
-    warehouse_prefix = requests.get("http://localhost:20001/catalog/v1/config?warehouse=demo").json()["overrides"]["prefix"]
+    warehouse_prefix = requests.get("http://localhost:20001/catalog/v1/config?warehouse=demo").json()["defaults"]["prefix"]
     ns_resp = requests.post(f"http://localhost:20001/catalog/v1/{warehouse_prefix}/namespaces", json={
       "namespace": ["test"]
     })
