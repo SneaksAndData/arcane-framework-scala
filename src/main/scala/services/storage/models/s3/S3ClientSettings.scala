@@ -7,13 +7,13 @@ import java.net.URI
 import java.time.Duration
 
 case class S3ClientSettings(
-  usePathStyle: Boolean,
-  region: Option[Region],
-  endpoint: Option[URI],
-  maxResultsPerPage: Int,
+    usePathStyle: Boolean,
+    region: Option[Region],
+    endpoint: Option[URI],
+    maxResultsPerPage: Int,
     retryMaxAttempts: Int,
     retryBaseDelay: Duration,
-retryMaxDelay: Duration
+    retryMaxDelay: Duration
 )
 
 object S3ClientSettings:
@@ -21,9 +21,9 @@ object S3ClientSettings:
       region: Option[String] = None,
       endpoint: Option[String] = None,
       pathStyleAccess: Boolean = false,
-        maxResultsPerPage: Int = 1000,
+      maxResultsPerPage: Int = 1000,
       retryMaxAttempts: Int = 5,
-        retryBaseDelay: Duration = Duration.ofMillis(100),
+      retryBaseDelay: Duration = Duration.ofMillis(100),
       retryMaxDelay: Duration = Duration.ofSeconds(1)
   ): S3ClientSettings = new S3ClientSettings(
     region = region.map(Region.of),
@@ -31,6 +31,6 @@ object S3ClientSettings:
     usePathStyle = pathStyleAccess,
     maxResultsPerPage = maxResultsPerPage,
     retryMaxAttempts = retryMaxAttempts,
-    retryBaseDelay = retryBaseDelay, 
+    retryBaseDelay = retryBaseDelay,
     retryMaxDelay = retryMaxDelay
   )

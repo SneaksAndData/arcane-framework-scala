@@ -15,10 +15,16 @@ import java.io.BufferedReader
 
 final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends BlobStorageReader[S3StoragePath]:
   private val serviceClientSettings = settings.getOrElse(S3ClientSettings())
-  private val defaultCredential = DefaultCredentialsProvider.builder().asyncCredentialUpdateEnabled(true).build()
-  private val retryStrategy = AwsRetryStrategy.standardRetryStrategy().toBuilder.maxAttempts(serviceClientSettings.retryMaxAttempts)
+  private val defaultCredential     = DefaultCredentialsProvider.builder().asyncCredentialUpdateEnabled(true).build()
+  private val retryStrategy =
+    AwsRetryStrategy.standardRetryStrategy().toBuilder.maxAttempts(serviceClientSettings.retryMaxAttempts)
   private val s3Client = {
-    var builder = S3Client.builder().credentialsProvider(defaultCredential).forcePathStyle(serviceClientSettings.usePathStyle).crossRegionAccessEnabled(true).dualstackEnabled(true)
+    var builder = S3Client
+      .builder()
+      .credentialsProvider(defaultCredential)
+      .forcePathStyle(serviceClientSettings.usePathStyle)
+      .crossRegionAccessEnabled(true)
+      .dualstackEnabled(true)
 
     if (serviceClientSettings.region.isDefined)
       builder = builder.region(serviceClientSettings.region.get)
@@ -28,7 +34,6 @@ final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends Blob
 
     builder.build()
   }
-
 
   override def blobExists(blobPath: S3StoragePath): Task[Boolean] = ???
 

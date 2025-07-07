@@ -44,7 +44,7 @@ object S3StoragePath {
     * @param hdfsPath
     *   The HDFS path.
     * @return
-    * The [[S3StoragePath]].
+    *   The [[S3StoragePath]].
     */
   def apply(hdfsPath: String): Try[S3StoragePath] = matchRegex.r.findFirstMatchIn(hdfsPath) match {
     case Some(matched) => Success(new S3StoragePath(matched.group(1), matched.group(2).stripSuffix("/")))
