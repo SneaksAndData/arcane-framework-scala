@@ -7,16 +7,11 @@ import services.storage.models.base.StoredBlob
 import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
-import software.amazon.awssdk.auth.credentials.{
-  AwsBasicCredentials,
-  AwsCredentials,
-  DefaultCredentialsProvider,
-  StaticCredentialsProvider
-}
+import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentials, DefaultCredentialsProvider, StaticCredentialsProvider}
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, ListObjectsV2Request}
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, ListObjectsV2Request, NoSuchKeyException}
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -66,7 +61,10 @@ final class S3BlobStorageReader(
       s3Client.headObject(HeadObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build())
     )
     .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: ${result.eTag()}") *> ZIO.succeed(true))
-    .onError(_ => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} does not exist") *> ZIO.succeed(false))
+    .catchSome {
+      case _: NoSuchKeyException =>
+        ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} does not exist") *> ZIO.succeed(false)
+    }
 
   override def readBlobContent(blobPath: S3StoragePath): Task[String] = for
     _ <- zlog("Reading file %s/%s from S3", blobPath.bucket, blobPath.objectKey)
