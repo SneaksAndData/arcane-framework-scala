@@ -28,6 +28,6 @@ object S3BlobStorageReaderTests extends ZIOSpecDefault {
         path     <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         prefixes <- storageReader.streamPrefixes(path).runCount
       yield assertTrue(prefixes == 50)
-    },
+    }
   )
 }
