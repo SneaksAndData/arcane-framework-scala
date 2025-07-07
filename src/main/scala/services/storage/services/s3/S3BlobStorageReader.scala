@@ -3,17 +3,21 @@ package services.storage.services.s3
 
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.services.storage.base.BlobStorageReader
 import com.sneaksanddata.arcane.framework.services.storage.models.base.{BlobPath, StoredBlob}
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, ListObjectsV2Request}
+import services.storage.models.s3.S3ModelConversions.given
 import zio.{Task, ZIO}
 import zio.stream.ZStream
+import scala.jdk.CollectionConverters.*
+import scala.language.implicitConversions
 
-import java.io.BufferedReader
+import java.io.{BufferedReader, InputStreamReader}
 
 final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends BlobStorageReader[S3StoragePath]:
   private val serviceClientSettings = settings.getOrElse(S3ClientSettings())
@@ -53,8 +57,52 @@ final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends Blob
     .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: ${result.eTag()}") *> ZIO.succeed(true))
     .onError(_ => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} does not exist") *> ZIO.succeed(false))
 
-  override def readBlobContent(blobPath: S3StoragePath): Task[String] = ???
+  override def readBlobContent(blobPath: S3StoragePath): Task[String] = for
+    _ <- zlog("Reading file %s/%s from S3", blobPath.bucket, blobPath.objectKey)
+    response <- ZIO.attemptBlocking(
+      s3Client.getObject(GetObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build())
+    )
+    content <- ZIO.succeed(response.readAllBytes().map(_.toChar).mkString)
+  yield content
 
-  override def streamBlobContent(blobPath: S3StoragePath): Task[BufferedReader] = ???
+  override def streamBlobContent(blobPath: S3StoragePath): Task[BufferedReader] = for
+    _ <- zlog("Streaming file %s/%s from S3", blobPath.bucket, blobPath.objectKey)
+    streamReader <- ZIO
+      .attemptBlocking(
+        s3Client.getObject(GetObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build())
+      )
+      .map(InputStreamReader(_))
+      .map(sr => new BufferedReader(sr))
+  yield streamReader
 
-  override def streamPrefixes(rootPrefix: S3StoragePath): ZStream[Any, Throwable, StoredBlob] = ???
+  override def streamPrefixes(rootPrefix: S3StoragePath): ZStream[Any, Throwable, StoredBlob] = ZStream
+    .paginate(
+      s3Client.listObjectsV2(
+        ListObjectsV2Request
+          .builder()
+          .bucket(rootPrefix.bucket)
+          .prefix(rootPrefix.objectKey)
+          .maxKeys(serviceClientSettings.maxResultsPerPage)
+          .build()
+      )
+    ) { response =>
+      if (response.isTruncated()) {
+        (
+          response.contents().asScala.toList,
+          Some(
+            s3Client.listObjectsV2(
+              ListObjectsV2Request
+                .builder()
+                .bucket(rootPrefix.bucket)
+                .prefix(rootPrefix.objectKey)
+                .maxKeys(serviceClientSettings.maxResultsPerPage)
+                .continuationToken(response.continuationToken())
+                .build()
+            )
+          )
+        )
+      } else {
+        (response.contents().asScala.toList, None)
+      }
+    }
+    .flatMap(v => ZStream.fromIterable(v.map(implicitly)))
