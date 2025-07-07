@@ -22,11 +22,12 @@ object S3BlobStorageReaderTests extends ZIOSpecDefault {
         result <- storageReader.blobExists(path)
       yield assertTrue(!result)
     },
+    // maxKeys 5 is applied during the test, ensuring we test pagination as well
     test("streamPrefixes returns a stream of correct length") {
       for
         path     <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         prefixes <- storageReader.streamPrefixes(path).runCount
       yield assertTrue(prefixes == 50)
-    }
+    },
   )
 }
