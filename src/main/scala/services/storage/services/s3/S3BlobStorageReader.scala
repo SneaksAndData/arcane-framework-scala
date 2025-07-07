@@ -7,7 +7,12 @@ import services.storage.models.base.StoredBlob
 import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
+import software.amazon.awssdk.auth.credentials.{
+  AwsBasicCredentials,
+  AwsCredentials,
+  DefaultCredentialsProvider,
+  StaticCredentialsProvider
+}
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
@@ -19,7 +24,11 @@ import java.io.{BufferedReader, InputStreamReader}
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
-final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends BlobStorageReader[S3StoragePath]:
+final class S3BlobStorageReader(
+    secretAccessKey: Option[String],
+    accessKeyId: Option[String],
+    settings: Option[S3ClientSettings]
+) extends BlobStorageReader[S3StoragePath]:
   private val serviceClientSettings = settings.getOrElse(S3ClientSettings())
   private val defaultCredential     = DefaultCredentialsProvider.builder().asyncCredentialUpdateEnabled(true).build()
   private val retryStrategy =
@@ -33,13 +42,15 @@ final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends Blob
       .circuitBreakerEnabled(true)
       .build()
   private val s3Client: S3Client = {
-    var builder = S3Client
-      .builder()
-      .credentialsProvider(defaultCredential)
-      .forcePathStyle(serviceClientSettings.usePathStyle)
-      .crossRegionAccessEnabled(true)
-      .dualstackEnabled(true)
-      .overrideConfiguration(o => o.retryStrategy(retryStrategy))
+    var builder = S3Client.builder().forcePathStyle(serviceClientSettings.usePathStyle)
+
+    if (secretAccessKey.isDefined && accessKeyId.isDefined) {
+      builder = builder.credentialsProvider(
+        StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId.get, secretAccessKey.get))
+      )
+    } else {
+      builder = builder.credentialsProvider(defaultCredential)
+    }
 
     if (serviceClientSettings.region.isDefined)
       builder = builder.region(serviceClientSettings.region.get)
@@ -47,7 +58,7 @@ final class S3BlobStorageReader(settings: Option[S3ClientSettings]) extends Blob
     if (serviceClientSettings.endpoint.isDefined)
       builder = builder.endpointOverride(serviceClientSettings.endpoint.get)
 
-    builder.build()
+    builder.overrideConfiguration(o => o.retryStrategy(retryStrategy)).build()
   }
 
   override def blobExists(blobPath: S3StoragePath): Task[Boolean] = ZIO
