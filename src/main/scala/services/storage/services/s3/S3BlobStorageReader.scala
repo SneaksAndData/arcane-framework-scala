@@ -7,11 +7,22 @@ import services.storage.models.base.StoredBlob
 import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
-import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentials, AwsCredentialsProvider, DefaultCredentialsProvider, StaticCredentialsProvider}
+import software.amazon.awssdk.auth.credentials.{
+  AwsBasicCredentials,
+  AwsCredentials,
+  AwsCredentialsProvider,
+  DefaultCredentialsProvider,
+  StaticCredentialsProvider
+}
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, ListObjectsV2Request, NoSuchKeyException}
+import software.amazon.awssdk.services.s3.model.{
+  GetObjectRequest,
+  HeadObjectRequest,
+  ListObjectsV2Request,
+  NoSuchKeyException
+}
 import zio.stream.{ZSink, ZStream}
 import zio.{Task, ZIO}
 
@@ -117,6 +128,6 @@ final class S3BlobStorageReader(
     )
 
   override def downloadBlob(blobPath: S3StoragePath): Task[String] = for
-    fileName <- ZIO.succeed(s"/tmp/${blobPath.objectKey}")
-    _ <- streamBlob(blobPath) >>> ZSink.fromPath(Paths.get(fileName))
+    fileName <- ZIO.succeed(s"/tmp/${UUID.randomUUID()}-${blobPath.objectKey}}")
+    _        <- streamBlob(blobPath) >>> ZSink.fromPath(Paths.get(fileName))
   yield fileName
