@@ -93,23 +93,23 @@ final class S3BlobStorageReader(
       .map(sr => new BufferedReader(sr))
   yield streamReader
 
-  private def preBuildListObjectsV2Request(bucket: String, key: String): ListObjectsV2Request.Builder =
+  private def preBuildListObjectsV2Request(path: S3StoragePath): ListObjectsV2Request.Builder =
     ListObjectsV2Request
       .builder()
-      .bucket(bucket)
-      .prefix(key)
+      .bucket(path.bucket)
+      .prefix(path.objectKey)
       .maxKeys(serviceClientSettings.maxResultsPerPage)
 
   override def streamPrefixes(rootPrefix: S3StoragePath): ZStream[Any, Throwable, StoredBlob] = ZStream
     .paginate(
-      s3Client.listObjectsV2(preBuildListObjectsV2Request(rootPrefix.bucket, rootPrefix.objectKey).build())
+      s3Client.listObjectsV2(preBuildListObjectsV2Request(rootPrefix).build())
     ) { response =>
       if (response.isTruncated()) {
         (
           response.contents().asScala.toList,
           Some(
             s3Client.listObjectsV2(
-              preBuildListObjectsV2Request(rootPrefix.bucket, rootPrefix.objectKey)
+              preBuildListObjectsV2Request(rootPrefix)
                 .continuationToken(response.nextContinuationToken())
                 .build()
             )
