@@ -54,7 +54,20 @@ services:
       - |
         mc alias set e2e "http://localhost:9000" minioadmin minioadmin
         mc admin info e2e
-        mc mb e2e/tmp && mc mb e2e/lakehouse
+        mc mb --ignore-existing e2e/tmp && mc mb --ignore-existing e2e/lakehouse && mc mb --ignore-existing e2e/s3-blob-reader
+  s3_reader_prepare:
+    image: python:3.11-slim-bookworm
+    network_mode: host
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_ENDPOINT_URL_S3=http://localhost:9000
+    depends_on:
+      - prepare_buckets
+    restart: "no"
+    volumes:
+      - ./populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
+    command: [ "/bin/sh", "-c", "pip install boto3 pandas pyarrow fastparquet && python /populate-s3-reader-bucket.py"  ]
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   lakekeeper:
     image: quay.io/lakekeeper/catalog:v0.9.2
