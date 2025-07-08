@@ -10,37 +10,40 @@ import zio.stream.ZStream
 import java.io.{BufferedReader, Reader}
 import scala.concurrent.Future
 
-/**
- * A trait that defines the interface for reading from a blob storage.
- *
- * @tparam PathType The type of the path to the blob.
- */
+/** A trait that defines the interface for reading from a blob storage.
+  *
+  * @tparam PathType
+  *   The type of the path to the blob.
+  */
 trait BlobStorageReader[PathType <: BlobPath]:
-  /**
-   * Gets the content of the blob at the given path.
-   *
-   * @param blobPath The path to the blob.
-   * @return A task containing the Reader instance. The reader returned by the function will be closed by the caller.
-   */
-  def streamBlobContent(blobPath: AdlsStoragePath): Task[BufferedReader]
+  /** Gets the content of the blob at the given path.
+    *
+    * @param blobPath
+    *   The path to the blob.
+    * @return
+    *   A task containing the Reader instance. The reader returned by the function will be closed by the caller.
+    */
+  def streamBlobContent(blobPath: PathType): Task[BufferedReader]
 
-  /**
-   * Reads blob content as a string
-   * @param blobPath Path to blob
-   * @return
-   */
-  def readBlobContent(blobPath: AdlsStoragePath): Task[String]
+  /** Reads blob content as a string
+    * @param blobPath
+    *   Path to blob
+    * @return
+    */
+  def readBlobContent(blobPath: PathType): Task[String]
 
-  /**
-   * Streams the prefixes of the blobs at the given root prefix.
-   * @param rootPrefix The root prefix.
-   * @return The stream of the prefixes.
-   */
+  /** Streams the prefixes of the blobs at the given root prefix.
+    * @param rootPrefix
+    *   The root prefix.
+    * @return
+    *   The stream of the prefixes.
+    */
   def streamPrefixes(rootPrefix: PathType): ZStream[Any, Throwable, StoredBlob]
 
-  /**
-   * Checks if the blob exists at the given path.
-   * @param blobPath The path to the blob.
-   * @return A future that will be completed with true if the blob exists, false otherwise.
-   */
+  /** Checks if the blob exists at the given path.
+    * @param blobPath
+    *   The path to the blob.
+    * @return
+    *   A future that will be completed with true if the blob exists, false otherwise.
+    */
   def blobExists(blobPath: PathType): Task[Boolean]

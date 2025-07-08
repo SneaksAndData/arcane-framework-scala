@@ -5,6 +5,7 @@ import logging.ZIOLogAnnotations.*
 import models.settings.GroupingSettings
 import services.streaming.base.GroupingTransformer
 import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
+import services.streaming.base.GroupingTransformer
 
 import zio.*
 import zio.stream.ZPipeline
@@ -16,22 +17,20 @@ import scala.concurrent.duration.Duration
  */
 class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics) extends GroupingTransformer:
 
-  /**
-   * @inheritdoc
-   */
+  /** @inheritdoc
+    */
   def process: ZPipeline[Any, Throwable, Element, Chunk[Element]] = ZPipeline
     .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
     .mapZIO(logBatchSize)
 
   private def logBatchSize(batch: Chunk[Element]) =
-    for 
+    for
       size <- ZIO.succeed(batch.size.toLong) @@ declaredMetrics.rowsIncoming
       _ <- zlog(s"Received batch with %s rows from streaming source", size.toString)
     yield batch
-    
-/**
- * The companion object for the LazyOutputDataProcessor class.
- */
+
+/** The companion object for the LazyOutputDataProcessor class.
+  */
 object GenericGroupingTransformer:
   
   type Environment = GroupingSettings
@@ -42,13 +41,11 @@ object GenericGroupingTransformer:
     require(!groupingSettings.groupingInterval.equals(Duration.Zero), "groupingInterval must be greater than 0")
     new GenericGroupingTransformer(groupingSettings, declaredMetrics)
 
-  /**
-   * The ZLayer that creates the LazyOutputDataProcessor.
-   */
+  /** The ZLayer that creates the LazyOutputDataProcessor.
+    */
   val layer: ZLayer[Environment, Nothing, GenericGroupingTransformer] =
     ZLayer {
-      for
-        settings <- ZIO.service[GroupingSettings]
+      for settings <- ZIO.service[GroupingSettings]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
       yield GenericGroupingTransformer(settings, declaredMetrics)
     }

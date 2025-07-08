@@ -54,10 +54,23 @@ services:
       - |
         mc alias set e2e "http://localhost:9000" minioadmin minioadmin
         mc admin info e2e
-        mc mb e2e/tmp && mc mb e2e/lakehouse
+        mc mb --ignore-existing e2e/tmp && mc mb --ignore-existing e2e/lakehouse && mc mb --ignore-existing e2e/s3-blob-reader
+  s3_reader_prepare:
+    image: python:3.11-slim-bookworm
+    network_mode: host
+    environment:
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_ENDPOINT_URL_S3=http://localhost:9000
+    depends_on:
+      - prepare_buckets
+    restart: "no"
+    volumes:
+      - ./populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
+    command: [ "/bin/sh", "-c", "pip install boto3 pandas pyarrow fastparquet && python /populate-s3-reader-bucket.py"  ]
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:latest-main
+    image: quay.io/lakekeeper/catalog:v0.9.2
     network_mode: host
     environment:
       #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -70,7 +83,7 @@ services:
       - RUST_LOG=trace,axum=trace,sqlx=trace,iceberg-catalog=trace
     command: [ "serve" ]
     healthcheck:
-      test: [ "CMD", "/home/nonroot/iceberg-catalog", "healthcheck" ]
+      test: [ "CMD", "/home/nonroot/lakekeeper", "healthcheck" ]
       interval: 1s
       timeout: 10s
       retries: 30
@@ -100,7 +113,7 @@ services:
       - ./populate-cdm-container.py:/populate-cdm-container.py
     command: [ "/bin/sh", "-c", "pip install azure-storage-blob==12.24.1 requests && python /populate-cdm-container.py" ]
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:latest-main
+    image: quay.io/lakekeeper/catalog:v0.9.2
     network_mode: host
     environment:
       #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
