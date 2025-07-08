@@ -10,6 +10,7 @@ import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 import software.amazon.awssdk.auth.credentials.{
   AwsBasicCredentials,
   AwsCredentials,
+  AwsCredentialsProvider,
   DefaultCredentialsProvider,
   StaticCredentialsProvider
 }
@@ -30,12 +31,10 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
 final class S3BlobStorageReader(
-    secretAccessKey: Option[String],
-    accessKeyId: Option[String],
+    credentialsProvider: AwsCredentialsProvider,
     settings: Option[S3ClientSettings]
 ) extends BlobStorageReader[S3StoragePath]:
   private val serviceClientSettings = settings.getOrElse(S3ClientSettings())
-  private val defaultCredential     = DefaultCredentialsProvider.builder().asyncCredentialUpdateEnabled(true).build()
   private val retryStrategy =
     AwsRetryStrategy
       .standardRetryStrategy()
@@ -47,15 +46,8 @@ final class S3BlobStorageReader(
       .circuitBreakerEnabled(true)
       .build()
   private val s3Client: S3Client = {
-    var builder = S3Client.builder().forcePathStyle(serviceClientSettings.usePathStyle)
-
-    if (secretAccessKey.isDefined && accessKeyId.isDefined) {
-      builder = builder.credentialsProvider(
-        StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId.get, secretAccessKey.get))
-      )
-    } else {
-      builder = builder.credentialsProvider(defaultCredential)
-    }
+    var builder =
+      S3Client.builder().forcePathStyle(serviceClientSettings.usePathStyle).credentialsProvider(credentialsProvider)
 
     if (serviceClientSettings.region.isDefined)
       builder = builder.region(serviceClientSettings.region.get)
