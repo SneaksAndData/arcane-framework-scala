@@ -1,32 +1,23 @@
 package com.sneaksanddata.arcane.framework
 package services.storage.services.s3
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.StoredBlob
 import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
-import software.amazon.awssdk.auth.credentials.{
-  AwsBasicCredentials,
-  AwsCredentials,
-  AwsCredentialsProvider,
-  DefaultCredentialsProvider,
-  StaticCredentialsProvider
-}
+import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentials, AwsCredentialsProvider, DefaultCredentialsProvider, StaticCredentialsProvider}
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{
-  GetObjectRequest,
-  HeadObjectRequest,
-  ListObjectsV2Request,
-  NoSuchKeyException
-}
-import zio.stream.ZStream
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, ListObjectsV2Request, NoSuchKeyException}
+import zio.stream.{ZSink, ZStream}
 import zio.{Task, ZIO}
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{BufferedReader, ByteArrayInputStream, InputStreamReader}
+import java.nio.file.Paths
+import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
@@ -76,7 +67,7 @@ final class S3BlobStorageReader(
   yield content
 
   override def streamBlobContent(blobPath: S3StoragePath): Task[BufferedReader] = for
-    _ <- zlog("Streaming file %s/%s from S3", blobPath.bucket, blobPath.objectKey)
+    _ <- zlog("Streaming file %s/%s as text from S3", blobPath.bucket, blobPath.objectKey)
     streamReader <- ZIO
       .attemptBlocking(
         s3Client.getObject(GetObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build())
@@ -112,3 +103,20 @@ final class S3BlobStorageReader(
       }
     }
     .flatMap(v => ZStream.fromIterable(v.map(implicitly)))
+
+  override def streamBlob(blobPath: S3StoragePath): ZStream[Any, Throwable, Byte] =
+    zlogStream("Streaming file %s/%s content (bytes) from S3", blobPath.bucket, blobPath.objectKey).flatMap(_ =>
+      ZStream
+        .fromZIO(
+          ZIO
+            .attemptBlocking(
+              s3Client.getObject(GetObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build())
+            )
+        )
+        .flatMap(ZStream.fromInputStream(_))
+    )
+
+  override def downloadBlob(blobPath: S3StoragePath): Task[String] = for
+    fileName <- ZIO.succeed(s"/tmp/${blobPath.objectKey}")
+    _ <- streamBlob(blobPath) >>> ZSink.fromPath(Paths.get(fileName))
+  yield fileName

@@ -7,7 +7,7 @@ import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStor
 import zio.Task
 import zio.stream.ZStream
 
-import java.io.{BufferedReader, Reader}
+import java.io.{BufferedReader, ByteArrayInputStream, Reader}
 import scala.concurrent.Future
 
 /** A trait that defines the interface for reading from a blob storage.
@@ -16,14 +16,33 @@ import scala.concurrent.Future
   *   The type of the path to the blob.
   */
 trait BlobStorageReader[PathType <: BlobPath]:
-  /** Gets the content of the blob at the given path.
+  /** Streams the content of the blob (as text) at the given path.
     *
     * @param blobPath
     *   The path to the blob.
     * @return
-    *   A task containing the Reader instance. The reader returned by the function will be closed by the caller.
+    *   A task containing a BufferedReader instance. The reader returned by the function should be closed by the caller.
     */
   def streamBlobContent(blobPath: PathType): Task[BufferedReader]
+
+  /** Streams bytes from a blob at a given path.
+    *
+    * @param blobPath
+    *   The path to the blob.
+    * @return
+    *   A task containing a ByteArrayInputStream instance. The reader returned by the function should be closed by the
+    *   caller.
+    */
+  def streamBlob(blobPath: PathType): ZStream[Any, Throwable, Byte]
+
+  /** Downloads a blob at a given path to a temporary folder
+    *
+    * @param blobPath
+    *   The path to the blob.
+    * @return
+    *   A path to the downloaded blob.
+    */
+  def downloadBlob(blobPath: PathType): Task[String]
 
   /** Reads blob content as a string
     * @param blobPath
