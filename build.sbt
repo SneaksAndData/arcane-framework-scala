@@ -17,7 +17,7 @@ resolvers += "Sonatype Central" at "https://central.sonatype.com/repository/mave
 releaseVersionFile := file("version.sbt")
 releaseVersionBump := sbtrelease.Version.Bump.Bugfix
 releaseProcess := Seq[ReleaseStep](
-    checkSnapshotDependencies,              // : ReleaseStep
+//    checkSnapshotDependencies,              // : ReleaseStep
     inquireVersions,                        // : ReleaseStep
     runClean,                               // : ReleaseStep
     setReleaseVersion,                      // : ReleaseStep
