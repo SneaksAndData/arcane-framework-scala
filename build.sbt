@@ -12,6 +12,8 @@ credentials += Credentials(
     sys.env.getOrElse("GITHUB_TOKEN", "")
 )
 
+resolvers += "Sonatype Central" at "https://central.sonatype.com/repository/maven-snapshots/"
+
 releaseVersionFile := file("version.sbt")
 releaseVersionBump := sbtrelease.Version.Bump.Bugfix
 releaseProcess := Seq[ReleaseStep](
@@ -79,7 +81,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.1",
 
 
-        // Test dependencies
+    // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-3" % "3.2.19.0" % Test,
@@ -97,6 +99,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
 
     // Metrics
-//    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.3.1",
-//    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.3.1",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.3.1+14-dfefecb7-SNAPSHOT",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.3.1+14-dfefecb7-SNAPSHOT",
   )
