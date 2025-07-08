@@ -134,9 +134,9 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(new StreamContext {
           override def IsBackfilling: Boolean = false
         }),
-        ZLayer.succeed(TestSourceBufferingSettings)
-      DeclaredMetrics.layer,
-      ArcaneDimensionsProvider.layer,
+        ZLayer.succeed(TestSourceBufferingSettings),
+        DeclaredMetrics.layer,
+        ArcaneDimensionsProvider.layer,
     )
 
     // Act
