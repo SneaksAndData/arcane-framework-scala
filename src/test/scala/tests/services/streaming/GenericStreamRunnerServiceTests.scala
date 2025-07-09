@@ -131,8 +131,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(new StreamContext {
           override def IsBackfilling: Boolean = false
-          override def streamId: String = "test-stream-id"
-          override def streamKind: String = "test-stream-kind"
+          override def streamId: String       = "test-stream-id"
+          override def streamKind: String     = "test-stream-kind"
         }),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,

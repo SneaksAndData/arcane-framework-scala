@@ -3,7 +3,11 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
-import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.batches.{
+  SqlServerChangeTrackingMergeBatch,
+  StagedBackfillOverwriteBatch,
+  SynapseLinkBackfillOverwriteBatch
+}
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
@@ -180,8 +184,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(new StreamContext {
           override def IsBackfilling: Boolean = false
-          override def streamId: String = "test-stream-id"
-          override def streamKind: String = "test-stream-kind"
+          override def streamId: String       = "test-stream-id"
+          override def streamKind: String     = "test-stream-kind"
         }),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
