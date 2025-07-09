@@ -81,7 +81,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
   ): StagedBatchProcessor#BatchType =
     new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
-  override def spec: Spec[TestEnvironment, Any] = suite("StagingProcessor")(
+  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
     test("run with empty batch and produce no output") {
       for {
         stagingProcessor <- getProcessor
