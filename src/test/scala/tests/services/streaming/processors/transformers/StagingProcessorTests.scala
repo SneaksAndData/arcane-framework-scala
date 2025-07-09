@@ -89,7 +89,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .succeed(Chunk[TestInput]())
           .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
           .run(ZSink.last)
-      } yield assertTrue(!result.isEmpty)
+      } yield assertTrue(result.isEmpty)
     },
     test("write data rows grouped by schema to staging tables") {
 
