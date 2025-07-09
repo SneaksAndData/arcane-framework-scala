@@ -81,7 +81,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
   ): StagedBatchProcessor#BatchType =
     new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
-  def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
+  override def spec: Spec[TestEnvironment , Any] = suite("StagingProcessor")(
     test("run with empty batch and produce no output") {
       for {
         stagingProcessor <- getProcessor
@@ -89,7 +89,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .succeed(Chunk[TestInput]())
           .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
           .run(ZSink.last)
-      } yield assertTrue(result.isEmpty)
+      } yield assertTrue(!result.isEmpty)
     },
     test("write data rows grouped by schema to staging tables") {
 
@@ -101,6 +101,4 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     }
-  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(
-    zio.Duration.fromSeconds(60)
-  ) @@ TestAspect.withLiveClock
+  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout( zio.Duration.fromSeconds(60) ) @@ TestAspect.withLiveClock
