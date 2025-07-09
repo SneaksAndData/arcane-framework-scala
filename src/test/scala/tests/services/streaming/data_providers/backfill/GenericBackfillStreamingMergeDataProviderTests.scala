@@ -3,10 +3,14 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
+import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
+import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
+import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
@@ -18,10 +22,6 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import com.sneaksanddata.arcane.framework.models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
-import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
-import com.sneaksanddata.arcane.framework.models.settings.{BufferingStrategy, SourceBufferingSettings}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -180,6 +180,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(new StreamContext {
           override def IsBackfilling: Boolean = false
+          override def streamId: String = "test-stream-id"
+          override def streamKind: String = "test-stream-kind"
         }),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,

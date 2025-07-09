@@ -3,8 +3,7 @@ package services.streaming.processors
 
 import logging.ZIOLogAnnotations.*
 import models.settings.GroupingSettings
-import services.streaming.base.GroupingTransformer
-import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
+import services.metrics.DeclaredMetrics
 import services.streaming.base.GroupingTransformer
 
 import zio.*
@@ -12,10 +11,10 @@ import zio.stream.ZPipeline
 
 import scala.concurrent.duration.Duration
 
-/**
- * @inheritdoc
- */
-class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics) extends GroupingTransformer:
+/** @inheritdoc
+  */
+class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics)
+    extends GroupingTransformer:
 
   /** @inheritdoc
     */
@@ -26,15 +25,14 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMet
   private def logBatchSize(batch: Chunk[Element]) =
     for
       size <- ZIO.succeed(batch.size.toLong) @@ declaredMetrics.rowsIncoming
-      _ <- zlog(s"Received batch with %s rows from streaming source", size.toString)
+      _    <- zlog(s"Received batch with %s rows from streaming source", size.toString)
     yield batch
 
 /** The companion object for the LazyOutputDataProcessor class.
   */
 object GenericGroupingTransformer:
-  
-  type Environment = GroupingSettings
-    & DeclaredMetrics
+
+  type Environment = GroupingSettings & DeclaredMetrics
 
   def apply(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics): GenericGroupingTransformer =
     require(groupingSettings.rowsPerGroup > 0, "Rows per group must be greater than 0")
@@ -45,7 +43,8 @@ object GenericGroupingTransformer:
     */
   val layer: ZLayer[Environment, Nothing, GenericGroupingTransformer] =
     ZLayer {
-      for settings <- ZIO.service[GroupingSettings]
+      for
+        settings        <- ZIO.service[GroupingSettings]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
       yield GenericGroupingTransformer(settings, declaredMetrics)
     }
