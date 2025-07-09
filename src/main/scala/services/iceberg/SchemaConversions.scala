@@ -2,11 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
+import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DataCell, DataRow}
 
 import org.apache.iceberg.Schema
+import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.parquet.ParquetSchemaUtil
-import org.apache.iceberg.types.Types
+import org.apache.iceberg.types.{Type, Types}
 import org.apache.parquet.schema.MessageType
 
 import scala.jdk.CollectionConverters.*
@@ -38,9 +39,37 @@ object SchemaConversions:
 
   implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)
 
-
-/**
- * Implicit converter of Parquet schema (MessageType) to Iceberg Schema (Schema)
- */
+/** Implicit converter of Parquet schema (MessageType) to Iceberg Schema (Schema)
+  */
 given Conversion[org.apache.parquet.schema.MessageType, Schema] with
   override def apply(parquetSchema: MessageType): Schema = ParquetSchemaUtil.convert(parquetSchema)
+
+given Conversion[GenericRecord, DataRow] with
+  override def apply(record: GenericRecord): DataRow = record
+    .struct()
+    .asSchema()
+    .columns()
+    .asScala
+    .map { nestedField =>
+      DataCell(
+        name = nestedField.name(),
+        Type = nestedField.`type`(),
+        value = record.get(nestedField.fieldId() - 1)
+      )
+    }
+    .toList
+
+given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
+  override def apply(icebergType: Type): ArcaneType = icebergType match
+    case _: Types.IntegerType                             => IntType
+    case _: Types.LongType                                => LongType
+    case _: Types.BinaryType                              => ByteArrayType
+    case _: Types.BooleanType                             => BooleanType
+    case _: Types.StringType                              => StringType
+    case _: Types.DateType                                => DateType
+    case t: Types.TimestampType if t.shouldAdjustToUTC()  => DateTimeOffsetType
+    case t: Types.TimestampType if !t.shouldAdjustToUTC() => TimestampType
+    case t: Types.DecimalType                             => BigDecimalType(t.precision(), t.scale())
+    case _: Types.DoubleType                              => DoubleType
+    case _: Types.FloatType                               => FloatType
+    case _: Types.TimeType                                => TimeType

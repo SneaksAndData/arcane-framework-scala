@@ -3,7 +3,7 @@ package tests.s3
 
 import java.nio.file.Paths
 import services.storage.models.s3.S3StoragePath
-import services.iceberg.interop.given
+import services.iceberg.interop.{ParquetScanner, given}
 import services.iceberg.given_Conversion_MessageType_Schema
 import tests.shared.S3StorageInfo.storageReader
 
@@ -46,23 +46,9 @@ object S3BlobStorageReaderTests extends ZIOSpecDefault {
       for
         path           <- ZIO.succeed(S3StoragePath(s"s3a://$bucket/0.parquet.gzip").get)
         downloadedFile <- storageReader.downloadBlob(path, "/tmp")
-        inputFile <- ZIO.attempt(Files.localInput(downloadedFile)).map(implicitly)
-        fileSchema <- ZIO.succeed(ParquetFileReader.readFooter(inputFile, ParquetReadOptions.builder.build(), inputFile.newStream()).getFileMetaData.getSchema)
-        data <- ZIO.attemptBlockingIO(
-          Parquet
-            .read(Files.localInput(downloadedFile))
-            .project(fileSchema)
-            .createReaderFunc(schema =>
-              GenericParquetReaders.buildReader(
-                fileSchema,
-                schema
-              )
-            )
-            .build()
-            .iterator()
-        )
-        rows <- ZStream.fromIterator(data.asScala).runCount
-      yield assertTrue(rows == 100)
+        scanner        <- ZIO.succeed(ParquetScanner(downloadedFile))
+        rows           <- scanner.getRows.runCollect
+      yield assertTrue(rows.size == 100)
     }
   )
 }
