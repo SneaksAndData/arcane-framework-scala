@@ -118,6 +118,25 @@ final class AzureBlobStorageReader(
     result <- ZIO.attemptBlockingIO(client.downloadContent().toBytes.map(_.toChar).mkString)
   yield result
 
+  /** Streams bytes from a blob at a given path.
+    *
+    * @param blobPath
+    *   The path to the blob.
+    * @return
+    *   A task containing a ByteArrayInputStream instance. The reader returned by the function should be closed by the
+    *   caller.
+    */
+  override def streamBlob(blobPath: AdlsStoragePath): ZStream[Any, Throwable, Byte] = ???
+
+  /** Downloads a blob at a given path to a temporary folder
+    *
+    * @param blobPath
+    *   The path to the blob.
+    * @return
+    *   A path to the downloaded blob.
+    */
+  override def downloadBlob(blobPath: AdlsStoragePath, localPath: String): Task[String] = ???
+
 object AzureBlobStorageReader:
   /** Create AzureBlobStorageReader for the account using TokenCredential
     * @param accountName
