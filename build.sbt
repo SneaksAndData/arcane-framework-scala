@@ -41,13 +41,18 @@ lazy val root = (project in file("."))
     Test / logBuffered := false,
 
     // Framework dependencies
-    libraryDependencies += "dev.zio" %% "zio" % "2.1.16",
-    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.16",
+    libraryDependencies += "dev.zio" %% "zio" % "2.1.19",
+    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.19",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.29.52",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
     libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
+    // Iceberg deps - read
+    // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-mapreduce-client-core
+    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.4.1",
+
+    // Iceberg deps - core API, S3 and write
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
     libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.8.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-core
@@ -83,8 +88,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-3" % "3.2.19.0" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.16" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.16" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.19" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.19" % Test,
 
     // Logging and metrics
     // For ZIO
