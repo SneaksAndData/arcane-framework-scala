@@ -12,12 +12,10 @@ credentials += Credentials(
     sys.env.getOrElse("GITHUB_TOKEN", "")
 )
 
-resolvers += "Sonatype Central" at "https://central.sonatype.com/repository/maven-snapshots/"
-
 releaseVersionFile := file("version.sbt")
 releaseVersionBump := sbtrelease.Version.Bump.Bugfix
 releaseProcess := Seq[ReleaseStep](
-//    checkSnapshotDependencies,              // : ReleaseStep
+    checkSnapshotDependencies,              // : ReleaseStep
     inquireVersions,                        // : ReleaseStep
     runClean,                               // : ReleaseStep
     setReleaseVersion,                      // : ReleaseStep
@@ -99,6 +97,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
 
     // Metrics
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.3.1+14-dfefecb7-SNAPSHOT",
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.3.1+14-dfefecb7-SNAPSHOT",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.4.0",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.4.0",
   )
