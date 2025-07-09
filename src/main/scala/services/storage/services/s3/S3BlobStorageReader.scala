@@ -127,7 +127,7 @@ final class S3BlobStorageReader(
         .flatMap(ZStream.fromInputStream(_))
     )
 
-  override def downloadBlob(blobPath: S3StoragePath): Task[String] = for
-    fileName <- ZIO.succeed(s"/tmp/${UUID.randomUUID()}-${blobPath.objectKey}}")
+  override def downloadBlob(blobPath: S3StoragePath, localPath: String): Task[String] = for
+    fileName <- ZIO.succeed(s"$localPath/${UUID.randomUUID()}-${blobPath.objectKey}}")
     _        <- streamBlob(blobPath) >>> ZSink.fromPath(Paths.get(fileName))
   yield fileName

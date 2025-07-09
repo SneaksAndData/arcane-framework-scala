@@ -135,7 +135,7 @@ final class AzureBlobStorageReader(
     * @return
     *   A path to the downloaded blob.
     */
-  override def downloadBlob(blobPath: AdlsStoragePath): Task[String] = ???
+  override def downloadBlob(blobPath: AdlsStoragePath, localPath: String): Task[String] = ???
 
 object AzureBlobStorageReader:
   /** Create AzureBlobStorageReader for the account using TokenCredential

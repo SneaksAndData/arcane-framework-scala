@@ -50,7 +50,7 @@ object S3BlobStorageReaderTests extends ZIOSpecDefault {
           )
         )
         path           <- ZIO.succeed(S3StoragePath(s"s3a://$bucket/0.parquet.gzip").get)
-        downloadedFile <- storageReader.downloadBlob(path)
+        downloadedFile <- storageReader.downloadBlob(path, "/tmp")
         data <- ZIO.attemptBlockingIO(
           Parquet
             .read(Files.localInput(downloadedFile))

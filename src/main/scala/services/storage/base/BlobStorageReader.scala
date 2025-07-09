@@ -42,7 +42,7 @@ trait BlobStorageReader[PathType <: BlobPath]:
     * @return
     *   A path to the downloaded blob.
     */
-  def downloadBlob(blobPath: PathType): Task[String]
+  def downloadBlob(blobPath: PathType, localPath: String): Task[String]
 
   /** Reads blob content as a string
     * @param blobPath
