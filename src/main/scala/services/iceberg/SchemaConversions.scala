@@ -5,7 +5,9 @@ import models.schemas.ArcaneType.*
 import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType}
 
 import org.apache.iceberg.Schema
+import org.apache.iceberg.parquet.ParquetSchemaUtil
 import org.apache.iceberg.types.Types
+import org.apache.parquet.schema.MessageType
 
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
@@ -35,3 +37,10 @@ object SchemaConversions:
   )
 
   implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)
+
+
+/**
+ * Implicit converter of Parquet schema (MessageType) to Iceberg Schema (Schema)
+ */
+given Conversion[org.apache.parquet.schema.MessageType, Schema] with
+  override def apply(parquetSchema: MessageType): Schema = ParquetSchemaUtil.convert(parquetSchema)
