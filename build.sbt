@@ -84,7 +84,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.1",
 
 
-        // Test dependencies
+    // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-3" % "3.2.19.0" % Test,
@@ -100,4 +100,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.24.3",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.17",
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
+
+    // Metrics
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.4.0",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.4.0",
   )

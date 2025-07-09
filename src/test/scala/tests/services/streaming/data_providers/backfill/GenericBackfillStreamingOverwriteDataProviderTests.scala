@@ -9,10 +9,12 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch
 }
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
+import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
+import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,
   BackfillStreamingOverwriteDataProvider,
@@ -29,6 +31,8 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
+import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -207,8 +211,12 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(new StreamContext {
           override def IsBackfilling: Boolean = false
+          override def streamId: String       = "test-stream-id"
+          override def streamKind: String     = "test-stream-kind"
         }),
-        ZLayer.succeed(TestSourceBufferingSettings)
+        ZLayer.succeed(TestSourceBufferingSettings),
+        DeclaredMetrics.layer,
+        ArcaneDimensionsProvider.layer
       )
 
     // Act
