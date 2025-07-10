@@ -49,10 +49,9 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
     )
   yield rowsIterator
 
-  /**
-   * Reads Parquet file schema and converts it to Iceberg schema
-   * @return
-   */
+  /** Reads Parquet file schema and converts it to Iceberg schema
+    * @return
+    */
   def getIcebergSchema: Task[Schema] = getParquetSchema.map(implicitly)
 
   /** A stream of rows. Note: temporarily this returns a stream of DataRow objects. Once

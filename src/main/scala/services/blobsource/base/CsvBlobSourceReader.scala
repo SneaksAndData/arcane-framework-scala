@@ -10,15 +10,19 @@ import services.storage.models.s3.S3StoragePath
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
-class CsvBlobSourceReader[PathType <: BlobPath](blobPath: PathType, reader: BlobStorageReader[PathType], schema: ArcaneSchema) extends SchemaProvider[ArcaneSchema]:
+class CsvBlobSourceReader[PathType <: BlobPath](
+    blobPath: PathType,
+    reader: BlobStorageReader[PathType],
+    schema: ArcaneSchema
+) extends SchemaProvider[ArcaneSchema]:
 
   override def getSchema: Task[SchemaType] = ???
 
   /** Gets an empty schema.
-   *
-   * @return
-   * An empty schema.
-   */
+    *
+    * @return
+    *   An empty schema.
+    */
   override def empty: SchemaType = ArcaneSchema.empty()
 
   def getChanges: ZStream[Any, Throwable, DataRow] = ???

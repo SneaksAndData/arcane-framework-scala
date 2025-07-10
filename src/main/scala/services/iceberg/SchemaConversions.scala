@@ -76,5 +76,7 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
 
 given Conversion[Schema, ArcaneSchema] with
   override def apply(icebergSchema: Schema): ArcaneSchema = ArcaneSchema(
-    icebergSchema.columns().asScala.map(nf => Field(name = nf.name(), fieldType = nf.`type`())).toSeq ++ Seq(MergeKeyField)
+    icebergSchema.columns().asScala.map(nf => Field(name = nf.name(), fieldType = nf.`type`())).toSeq ++ Seq(
+      MergeKeyField
+    )
   )
