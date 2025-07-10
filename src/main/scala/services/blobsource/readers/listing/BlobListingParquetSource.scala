@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package services.blobsource.readers
+package services.blobsource.readers.listing
 
-import models.schemas.*
-import models.schemas.given
+import models.schemas.{*, given}
 import services.base.SchemaProvider
+import services.blobsource.readers.BlobSourceReader
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.storage.base.BlobStorageReader
@@ -14,9 +14,10 @@ import zio.stream.ZStream
 import zio.{Task, ZIO}
 
 import java.security.MessageDigest
+import java.time.Duration
 import java.util.Base64
 
-class ParquetBlobSourceReader[PathType <: BlobPath](
+class BlobListingParquetSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
@@ -65,11 +66,15 @@ class ParquetBlobSourceReader[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: Long): ZStream[Any, Throwable, OutputRow] = for
+  override def getChanges(startFrom: Long): ZStream[Any, Throwable, (OutputRow, Long)] = for
     sourceFile <- reader.streamPrefixes(sourcePath)
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
     row     <- scanner.getRows.map(enrichedWithMergeKey)
-  yield row
+  yield (row, 0)
+
+  // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
+  // thus they always act like they lookback until beginning of time
+  override def getStartFrom(lookbackInterval: Duration): Task[Long] = ZIO.succeed(0)

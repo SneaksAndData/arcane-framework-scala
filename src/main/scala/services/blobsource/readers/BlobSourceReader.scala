@@ -1,7 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers
 
+import zio.Task
 import zio.stream.ZStream
+
+import java.time.Duration
 
 /** Base trait for all blob source readers
   */
@@ -15,4 +18,6 @@ trait BlobSourceReader:
     *   Time (Unix) to emit changes from for next iteration
     * @return
     */
-  def getChanges(startFrom: Long): ZStream[Any, Throwable, OutputRow]
+  def getChanges(startFrom: Long): ZStream[Any, Throwable, (OutputRow, Long)]
+
+  def getStartFrom(lookbackInterval: Duration): Task[Long]
