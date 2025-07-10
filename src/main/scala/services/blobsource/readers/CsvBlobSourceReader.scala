@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.blobsource.base
+package services.blobsource.readers
 
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
@@ -10,11 +10,15 @@ import services.storage.models.s3.S3StoragePath
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
-class JsonBlobSourceReader[PathType <: BlobPath](
+class CsvBlobSourceReader[PathType <: BlobPath](
     blobPath: PathType,
     reader: BlobStorageReader[PathType],
-    schema: ArcaneSchema
-) extends SchemaProvider[ArcaneSchema]:
+    schema: ArcaneSchema,
+    primaryKeys: Seq[String]
+) extends BlobSourceReader
+    with SchemaProvider[ArcaneSchema]:
+
+  override type OutputRow = DataRow
 
   override def getSchema: Task[SchemaType] = ???
 
@@ -25,4 +29,4 @@ class JsonBlobSourceReader[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  def getChanges: ZStream[Any, Throwable, DataRow] = ???
+  override def getChanges(startFrom: Long): ZStream[Any, Throwable, DataRow] = ???

@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
-package services.blobsource.base
+package services.blobsource.readers
 
-import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
+import models.schemas.*
+import models.schemas.given
 import services.base.SchemaProvider
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
@@ -20,7 +21,10 @@ class ParquetBlobSourceReader[PathType <: BlobPath](
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
     primaryKeys: Seq[String]
-) extends SchemaProvider[ArcaneSchema]:
+) extends BlobSourceReader
+    with SchemaProvider[ArcaneSchema]:
+
+  override type OutputRow = DataRow
 
   private val mergeKeyHasher                        = MessageDigest.getInstance("SHA-256")
   private def encodeHash(hash: Array[Byte]): String = Base64.getEncoder.encodeToString(hash)
@@ -32,7 +36,7 @@ class ParquetBlobSourceReader[PathType <: BlobPath](
           row.find(cell => cell.name == key) match
             case Some(pkCell) => pkCell.value
             case None =>
-              throw new RuntimeException(s"Primary key ${key} does not exist in the rows emitted by this source")
+              throw new RuntimeException(s"Primary key $key does not exist in the rows emitted by this source")
         }
         .mkString
         .toLowerCase
@@ -61,7 +65,7 @@ class ParquetBlobSourceReader[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  def getChanges: ZStream[Any, Throwable, DataRow] = for
+  override def getChanges(startFrom: Long): ZStream[Any, Throwable, OutputRow] = for
     sourceFile <- reader.streamPrefixes(sourcePath)
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
