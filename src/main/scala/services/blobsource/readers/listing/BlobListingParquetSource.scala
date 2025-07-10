@@ -38,7 +38,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
       keys
         .map { key =>
           row.find(cell => cell.name == key) match
-            case Some(pkCell) => pkCell.value
+            case Some(pkCell) => pkCell.value.toString
             case None =>
               throw new RuntimeException(s"Primary key $key does not exist in the rows emitted by this source")
         }

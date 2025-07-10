@@ -5,7 +5,7 @@ import java.nio.file.Paths
 import services.storage.models.s3.S3StoragePath
 import services.iceberg.interop.{ParquetScanner, given}
 import services.iceberg.given_Conversion_MessageType_Schema
-import tests.shared.S3StorageInfo.storageReader
+import tests.shared.S3StorageInfo.*
 
 import org.apache.iceberg.data.parquet.GenericParquetReaders
 import org.apache.iceberg.parquet.{Parquet, ParquetSchemaUtil}
@@ -13,15 +13,15 @@ import org.apache.iceberg.types.Types.{NestedField, StringType}
 import org.apache.iceberg.{Files, Schema, io}
 import org.apache.parquet.ParquetReadOptions
 import org.apache.parquet.hadoop.ParquetFileReader
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO}
 import zio.stream.{ZSink, ZStream}
+import zio.test.TestAspect.timeout
 
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
 object S3BlobStorageReaderTests extends ZIOSpecDefault {
-  val bucket = "s3-blob-reader"
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("S3BlobStorageReader")(
     test("blobExists returns true if a blob exists in a bucket") {
       for
@@ -50,5 +50,5 @@ object S3BlobStorageReaderTests extends ZIOSpecDefault {
         rows           <- scanner.getRows.runCollect
       yield assertTrue(rows.size == 100)
     }
-  )
+  ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock
 }
