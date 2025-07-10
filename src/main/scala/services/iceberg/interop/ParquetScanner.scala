@@ -26,13 +26,13 @@ import scala.language.implicitConversions
   */
 class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
   private def getParquetFile: Task[InputFile] = ZIO.succeed(icebergFile).map(implicitly)
-  private def getSchema: Task[MessageType] = for
+  private def getParquetSchema: Task[MessageType] = for
     file        <- getParquetFile
     parquetMeta <- ZIO.attempt(ParquetFileReader.readFooter(file, ParquetReadOptions.builder.build(), file.newStream()))
   yield parquetMeta.getFileMetaData.getSchema
 
   private def recordIterator: Task[Iterator[GenericRecord]] = for
-    icebergSchema <- getSchema
+    icebergSchema <- getParquetSchema
     rowsIterator <- ZIO.attemptBlocking(
       Parquet
         .read(icebergFile)
@@ -48,6 +48,12 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
         .asScala
     )
   yield rowsIterator
+
+  /**
+   * Reads Parquet file schema and converts it to Iceberg schema
+   * @return
+   */
+  def getIcebergSchema: Task[Schema] = getParquetSchema.map(implicitly)
 
   /** A stream of rows. Note: temporarily this returns a stream of DataRow objects. Once
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/181 is resolved, conversion from GenericRecord to

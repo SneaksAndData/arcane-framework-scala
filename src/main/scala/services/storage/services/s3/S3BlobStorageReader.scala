@@ -87,12 +87,12 @@ final class S3BlobStorageReader(
       .map(sr => new BufferedReader(sr))
   yield streamReader
 
-  private def preBuildListObjectsV2Request(path: S3StoragePath): ListObjectsV2Request.Builder =
+  private def preBuildListObjectsV2Request(path: S3StoragePath, maxKeys: Int = serviceClientSettings.maxResultsPerPage): ListObjectsV2Request.Builder =
     ListObjectsV2Request
       .builder()
       .bucket(path.bucket)
       .prefix(path.objectKey)
-      .maxKeys(serviceClientSettings.maxResultsPerPage)
+      .maxKeys(maxKeys)
 
   override def streamPrefixes(rootPrefix: S3StoragePath): ZStream[Any, Throwable, StoredBlob] = ZStream
     .paginate(
@@ -131,3 +131,16 @@ final class S3BlobStorageReader(
     fileName <- ZIO.succeed(s"$localPath/${UUID.randomUUID()}-${blobPath.objectKey}}")
     _        <- streamBlob(blobPath) >>> ZSink.fromPath(Paths.get(fileName))
   yield fileName
+
+  /** Downloads a random blob found at a given path to a temporary folder
+   *
+   * @param rootPath
+   * The path containing one or more blob.
+   * @return
+   * A path to the downloaded blob.
+   */
+  override def downloadRandomBlob(rootPath: S3StoragePath, localPath: String): Task[String] = for
+    response <- ZIO.attemptBlocking(s3Client.listObjectsV2(preBuildListObjectsV2Request(rootPath, 1).build()))
+    blob <- ZIO.succeed(response.contents().asScala.toList.map(implicitly).head)
+    result <- downloadBlob(S3StoragePath(bucket = rootPath.bucket, objectKey = blob.name), localPath)
+  yield result

@@ -137,6 +137,15 @@ final class AzureBlobStorageReader(
     */
   override def downloadBlob(blobPath: AdlsStoragePath, localPath: String): Task[String] = ???
 
+  /** Downloads a random blob found at a given path to a temporary folder
+   *
+   * @param rootPath
+   * The path containing one or more blob.
+   * @return
+   * A path to the downloaded blob.
+   */
+  override def downloadRandomBlob(rootPath: AdlsStoragePath, localPath: String): Task[String] = ???
+
 object AzureBlobStorageReader:
   /** Create AzureBlobStorageReader for the account using TokenCredential
     * @param accountName
