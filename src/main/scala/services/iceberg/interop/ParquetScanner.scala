@@ -20,6 +20,10 @@ import zio.{Task, ZIO}
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
+/** Streams Parquet rows from a provided Iceberg Parquet file.
+  * @param icebergFile
+  *   Iceberg InputFile
+  */
 class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
   private def getParquetFile: Task[InputFile] = ZIO.succeed(icebergFile).map(implicitly)
   private def getSchema: Task[MessageType] = for
@@ -27,24 +31,31 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
     parquetMeta <- ZIO.attempt(ParquetFileReader.readFooter(file, ParquetReadOptions.builder.build(), file.newStream()))
   yield parquetMeta.getFileMetaData.getSchema
 
-  def getRows: ZStream[Any, Throwable, DataRow] = ZStream
-    .fromZIO(for
-      icebergSchema <- getSchema
-      rowsIterator <- ZIO.attemptBlocking(
-        Parquet
-          .read(icebergFile)
-          .project(icebergSchema)
-          .createReaderFunc(schema =>
-            GenericParquetReaders.buildReader(
-              icebergSchema,
-              schema
-            )
+  private def recordIterator: Task[Iterator[GenericRecord]] = for
+    icebergSchema <- getSchema
+    rowsIterator <- ZIO.attemptBlocking(
+      Parquet
+        .read(icebergFile)
+        .project(icebergSchema)
+        .createReaderFunc(schema =>
+          GenericParquetReaders.buildReader(
+            icebergSchema,
+            schema
           )
-          .build[GenericRecord]()
-          .iterator()
-          .asScala
-      )
-    yield rowsIterator)
+        )
+        .build[GenericRecord]()
+        .iterator()
+        .asScala
+    )
+  yield rowsIterator
+
+  /** A stream of rows. Note: temporarily this returns a stream of DataRow objects. Once
+    * https://github.com/SneaksAndData/arcane-framework-scala/issues/181 is resolved, conversion from GenericRecord to
+    * DataRow will be removed.
+    * @return
+    */
+  def getRows: ZStream[Any, Throwable, DataRow] = ZStream
+    .fromZIO(recordIterator)
     .flatMap(ZStream.fromIterator(_))
     .map(implicitly)
 
