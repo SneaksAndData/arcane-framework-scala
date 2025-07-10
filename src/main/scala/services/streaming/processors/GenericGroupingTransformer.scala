@@ -3,16 +3,18 @@ package services.streaming.processors
 
 import logging.ZIOLogAnnotations.*
 import models.settings.GroupingSettings
+import services.metrics.DeclaredMetrics
 import services.streaming.base.GroupingTransformer
 
+import zio.*
 import zio.stream.ZPipeline
-import zio.{Chunk, ZIO, ZLayer}
 
 import scala.concurrent.duration.Duration
 
 /** @inheritdoc
   */
-class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends GroupingTransformer:
+class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics)
+    extends GroupingTransformer:
 
   /** @inheritdoc
     */
@@ -21,23 +23,28 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings) extends Gro
     .mapZIO(logBatchSize)
 
   private def logBatchSize(batch: Chunk[Element]) =
-    for _ <- zlog(s"Received batch with ${batch.size} rows from streaming source") yield batch
+    for
+      size <- ZIO.succeed(batch.size.toLong) @@ declaredMetrics.rowsIncoming
+      _    <- zlog(s"Received batch with %s rows from streaming source", size.toString)
+    yield batch
 
 /** The companion object for the LazyOutputDataProcessor class.
   */
 object GenericGroupingTransformer:
 
-  type Environment = GroupingSettings
+  type Environment = GroupingSettings & DeclaredMetrics
+
+  def apply(groupingSettings: GroupingSettings, declaredMetrics: DeclaredMetrics): GenericGroupingTransformer =
+    require(groupingSettings.rowsPerGroup > 0, "Rows per group must be greater than 0")
+    require(!groupingSettings.groupingInterval.equals(Duration.Zero), "groupingInterval must be greater than 0")
+    new GenericGroupingTransformer(groupingSettings, declaredMetrics)
 
   /** The ZLayer that creates the LazyOutputDataProcessor.
     */
   val layer: ZLayer[Environment, Nothing, GenericGroupingTransformer] =
     ZLayer {
-      for settings <- ZIO.service[GroupingSettings]
-      yield GenericGroupingTransformer(settings)
+      for
+        settings        <- ZIO.service[GroupingSettings]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield GenericGroupingTransformer(settings, declaredMetrics)
     }
-
-  def apply(groupingSettings: GroupingSettings): GenericGroupingTransformer =
-    require(groupingSettings.rowsPerGroup > 0, "Rows per group must be greater than 0")
-    require(!groupingSettings.groupingInterval.equals(Duration.Zero), "groupingInterval must be greater than 0")
-    new GenericGroupingTransformer(groupingSettings)
