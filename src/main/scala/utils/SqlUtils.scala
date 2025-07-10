@@ -24,10 +24,9 @@ object SqlUtils:
       val arcaneColumns =
         for c <- columns
         yield c match
-          case (MergeKeyField.name, Success(_))      => Success(MergeKeyField)
-          case (DatePartitionField.name, Success(_)) => Success(DatePartitionField)
-          case (name, Success(arcaneType))           => Success(Field(name, arcaneType))
-          case (_, Failure(e))                       => Failure(e)
+          case (MergeKeyField.name, Success(_)) => Success(MergeKeyField)
+          case (name, Success(arcaneType))      => Success(Field(name, arcaneType))
+          case (_, Failure(e))                  => Failure(e)
 
       Try(arcaneColumns.collect {
         case Success(field) => field
