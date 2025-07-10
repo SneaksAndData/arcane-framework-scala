@@ -21,12 +21,14 @@ class BlobSourceDataProvider(sourceReader: BlobSourceReader, settings: Versioned
 
   override def firstVersion: Task[Long] = sourceReader.getStartFrom(settings.lookBackInterval)
 
+  def nextVersion: Task[Long] = sourceReader.getLatestVersion
+
 object BlobSourceDataProvider:
   private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
-      blobSource <- ZIO.service[BlobSourceReader]
+      blobSource        <- ZIO.service[BlobSourceReader]
     yield BlobSourceDataProvider(blobSource, versionedSettings)
   }

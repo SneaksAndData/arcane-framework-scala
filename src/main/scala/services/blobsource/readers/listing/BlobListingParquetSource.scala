@@ -2,16 +2,16 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import models.schemas.{*, given}
+import models.settings.BlobSourceSettings
 import services.base.SchemaProvider
 import services.blobsource.readers.BlobSourceReader
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
+import services.storage.models.s3.S3StoragePath
+import services.storage.services.s3.S3BlobStorageReader
 
-import com.sneaksanddata.arcane.framework.models.settings.BlobSourceSettings
-import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3StoragePath
-import com.sneaksanddata.arcane.framework.services.storage.services.s3.S3BlobStorageReader
 import org.apache.iceberg.data.GenericRecord
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -82,20 +82,27 @@ class BlobListingParquetSource[PathType <: BlobPath](
   // thus they always act like they lookback until beginning of time
   override def getStartFrom(lookbackInterval: Duration): Task[Long] = ZIO.succeed(0)
 
+  override def getLatestVersion: Task[Long] = ZIO.succeed(0)
+
 object BlobListingParquetSource:
-  def apply(sourcePath: S3StoragePath, s3Reader: S3BlobStorageReader, tempPath: String, primaryKeys: Seq[String]): BlobListingParquetSource[S3StoragePath] =
+  def apply(
+      sourcePath: S3StoragePath,
+      s3Reader: S3BlobStorageReader,
+      tempPath: String,
+      primaryKeys: Seq[String]
+  ): BlobListingParquetSource[S3StoragePath] =
     new BlobListingParquetSource[S3StoragePath](sourcePath, s3Reader, tempPath, primaryKeys)
 
-  /**
-   * Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
-   */
-  val layer: ZLayer[BlobSourceSettings & S3BlobStorageReader, IllegalArgumentException, BlobListingParquetSource[S3StoragePath]] = ZLayer {
-      for
-        blobReader     <- ZIO.service[S3BlobStorageReader]
-        sourceSettings <- ZIO.service[BlobSourceSettings]
-        sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
-          S3StoragePath(sourceSettings.sourcePath).toOption
-        )        
-      yield BlobListingParquetSource(sourcePath, blobReader, sourceSettings.tempStoragePath, sourceSettings.primaryKeys)
-    }
-  
+  /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
+    */
+  val layer: ZLayer[BlobSourceSettings & S3BlobStorageReader, IllegalArgumentException, BlobListingParquetSource[
+    S3StoragePath
+  ]] = ZLayer {
+    for
+      blobReader     <- ZIO.service[S3BlobStorageReader]
+      sourceSettings <- ZIO.service[BlobSourceSettings]
+      sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
+        S3StoragePath(sourceSettings.sourcePath).toOption
+      )
+    yield BlobListingParquetSource(sourcePath, blobReader, sourceSettings.tempStoragePath, sourceSettings.primaryKeys)
+  }

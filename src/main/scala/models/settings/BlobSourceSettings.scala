@@ -5,9 +5,8 @@ package models.settings
   */
 trait BlobSourceSettings extends SourceSettings:
 
-  /**
-   * Blob storage prefix for source blobs
-   */
+  /** Blob storage prefix for source blobs
+    */
   val sourcePath: String
 
   /** Location to store temporary files
