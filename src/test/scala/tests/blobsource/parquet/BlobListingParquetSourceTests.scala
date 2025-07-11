@@ -20,9 +20,9 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
         schema <- source.getSchema
-      yield assertTrue(schema.size == 10 + 1) && assertTrue(
+      yield assertTrue(schema.size == 10 + 2) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
-      ) // expect 10 fields + 1 ARCANE_MERGE_KEY
+      ) // expect 10 fields + ARCANE_MERGE_KEY + versionField
     },
     test("getChanges return correct rows") {
       for

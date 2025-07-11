@@ -89,7 +89,7 @@ class UpsertBlobMergeBatch(
   override def reduceExpr: String =
     // for merge query, we must carry over deletions so they can be applied in a MERGE statement by MatchedAppendOnlyDelete
     s"""SELECT * FROM (
-       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY createdon DESC) FETCH FIRST 1 ROWS WITH TIES
+       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${BlobBatchCommons.versionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
 
   override val batchQuery: MergeQuery =
