@@ -8,7 +8,7 @@ import models.settings.VersionedDataGraphBuilderSettings
 import services.blobsource.readers.BlobSourceReader
 import services.streaming.base.{RowProcessor, StreamDataProvider}
 
-import zio.ZIO
+import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
 class BlobSourceStreamingDataProvider(
@@ -57,3 +57,21 @@ class BlobSourceStreamingDataProvider(
         case _ => ZStream.empty
       }
       .map(_._1.asInstanceOf[DataRow])
+
+object BlobSourceStreamingDataProvider:
+  private type Environment = BlobSourceDataProvider & VersionedDataGraphBuilderSettings & StreamContext
+
+  def apply(
+      dataProvider: BlobSourceDataProvider,
+      settings: VersionedDataGraphBuilderSettings,
+      streamContext: StreamContext
+  ): BlobSourceStreamingDataProvider = new BlobSourceStreamingDataProvider(dataProvider, settings, streamContext)
+
+  val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
+    ZLayer {
+      for
+        dataProvider  <- ZIO.service[BlobSourceDataProvider]
+        settings      <- ZIO.service[VersionedDataGraphBuilderSettings]
+        streamContext <- ZIO.service[StreamContext]
+      yield BlobSourceStreamingDataProvider(dataProvider, settings, streamContext)
+    }

@@ -10,11 +10,15 @@ import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
 
-class BlobSourceDataProvider(sourceReader: BlobSourceReader, settings: VersionedDataGraphBuilderSettings)
-    extends VersionedDataProvider[Long, BlobSourceVersionedBatch]
+class BlobSourceDataProvider(
+    sourceReader: BlobSourceReader,
+    settings: VersionedDataGraphBuilderSettings,
+    backfillSettings: BackfillSettings
+) extends VersionedDataProvider[Long, BlobSourceVersionedBatch]
     with BackfillDataProvider[BlobSourceBatch]:
 
-  override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] = sourceReader.getChanges(0).map(_._1)
+  override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] =
+    sourceReader.getChanges(backfillSettings.backfillStartDate.map(_.toInstant.toEpochMilli).getOrElse(0L)).map(_._1)
 
   override def requestChanges(previousVersion: Long): ZStream[Any, Throwable, BlobSourceVersionedBatch] =
     sourceReader.getChanges(previousVersion)
@@ -29,6 +33,7 @@ object BlobSourceDataProvider:
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      backfillSettings  <- ZIO.service[BackfillSettings]
       blobSource        <- ZIO.service[BlobSourceReader]
-    yield BlobSourceDataProvider(blobSource, versionedSettings)
+    yield BlobSourceDataProvider(blobSource, versionedSettings, backfillSettings)
   }
