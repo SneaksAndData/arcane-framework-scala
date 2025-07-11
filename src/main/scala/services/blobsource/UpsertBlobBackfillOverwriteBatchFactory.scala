@@ -23,7 +23,7 @@ import zio.{Task, ZIO, ZLayer}
   * @param tablePropertiesSettings
   *   The table properties settings.
   */
-class BlobSourceBackfillOverwriteBatchFactory(
+class UpsertBlobBackfillOverwriteBatchFactory(
     jdbcMergeServiceClient: JdbcMergeServiceClient,
     backfillSettings: BackfillSettings,
     targetTableSettings: TargetTableSettings,
@@ -43,7 +43,7 @@ class BlobSourceBackfillOverwriteBatchFactory(
 
 /** The companion object for the BlobSourceBackfillOverwriteBatchFactory class.
   */
-object BlobSourceBackfillOverwriteBatchFactory:
+object UpsertBlobBackfillOverwriteBatchFactory:
 
   /** The environment required for the BlobSourceBackfillOverwriteBatchFactory.
     */
@@ -67,8 +67,8 @@ object BlobSourceBackfillOverwriteBatchFactory:
       backfillSettings: BackfillSettings,
       targetTableSettings: TargetTableSettings,
       tablePropertiesSettings: TablePropertiesSettings
-  ): BlobSourceBackfillOverwriteBatchFactory =
-    new BlobSourceBackfillOverwriteBatchFactory(
+  ): UpsertBlobBackfillOverwriteBatchFactory =
+    new UpsertBlobBackfillOverwriteBatchFactory(
       jdbcMergeServiceClient,
       backfillSettings,
       targetTableSettings,
@@ -84,7 +84,7 @@ object BlobSourceBackfillOverwriteBatchFactory:
         backfillSettings        <- ZIO.service[BackfillSettings]
         targetTableSettings     <- ZIO.service[TargetTableSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-      yield BlobSourceBackfillOverwriteBatchFactory(
+      yield UpsertBlobBackfillOverwriteBatchFactory(
         mergeServiceClient,
         backfillSettings,
         targetTableSettings,

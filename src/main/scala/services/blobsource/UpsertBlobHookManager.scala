@@ -8,7 +8,7 @@ import services.hooks.manager.EmptyHookManager
 
 import org.apache.iceberg.Table
 
-class BlobSourceHookManager extends EmptyHookManager:
+class UpsertBlobHookManager extends EmptyHookManager:
   /** Converts the batch to a format that can be consumed by the next processor.
     */
   def onBatchStaged(
@@ -22,7 +22,7 @@ class BlobSourceHookManager extends EmptyHookManager:
     val batchName = table.name().split('.').last
     UpsertBlobMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
-object BlobSourceHookManager:
+object UpsertBlobHookManager:
   /** The required environment for the EmptyHookManager.
     */
   type Environment = Any
@@ -32,6 +32,6 @@ object BlobSourceHookManager:
     * @return
     *   A new empty hook manager.
     */
-  def apply(): BlobSourceHookManager = new BlobSourceHookManager()
+  def apply(): UpsertBlobHookManager = new UpsertBlobHookManager()
 
-  val layer: zio.ZLayer[Any, Nothing, BlobSourceHookManager] = zio.ZLayer.succeed(BlobSourceHookManager())
+  val layer: zio.ZLayer[Any, Nothing, UpsertBlobHookManager] = zio.ZLayer.succeed(UpsertBlobHookManager())
