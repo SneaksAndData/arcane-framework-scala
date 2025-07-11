@@ -51,7 +51,7 @@ class BlobSourceStreamingDataProvider(
       .flatMap {
         case (newVersion, previousVersion) if newVersion > previousVersion =>
           dataProvider.requestChanges(previousVersion)
-        // handle unversioned case this way, for now
+        // handle unversioned/initial case this way
         case (newVersion, previousVersion) if newVersion == 0 && newVersion == previousVersion =>
           dataProvider.requestChanges(previousVersion)
         case _ => ZStream.empty

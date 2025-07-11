@@ -34,6 +34,6 @@ class BlobListingCsvSource[PathType <: BlobPath](
 
   override def getChanges(startFrom: Long): ZStream[Any, Throwable, (OutputRow, Long)] = ???
 
-  override def getStartFrom(lookbackInterval: Duration): Task[Long] = ZIO.succeed(0)
+  override def getStartFrom(lookBackInterval: Duration): Task[Long] = ZIO.succeed(0)
 
   override def getLatestVersion: Task[Long] = ZIO.succeed(0)

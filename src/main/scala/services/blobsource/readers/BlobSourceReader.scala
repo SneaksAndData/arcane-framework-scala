@@ -20,6 +20,6 @@ trait BlobSourceReader:
     */
   def getChanges(startFrom: Long): ZStream[Any, Throwable, (OutputRow, Long)]
 
-  def getStartFrom(lookbackInterval: Duration): Task[Long]
+  def getStartFrom(lookBackInterval: Duration): Task[Long]
 
   def getLatestVersion: Task[Long]

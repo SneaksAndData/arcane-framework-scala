@@ -13,11 +13,11 @@ import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
 import org.apache.iceberg.data.GenericRecord
-import zio.stream.ZStream
+import zio.stream.{ZSink, ZStream}
 import zio.{Task, ZIO, ZLayer}
 
 import java.security.MessageDigest
-import java.time.Duration
+import java.time.{Duration, OffsetDateTime}
 import java.util.Base64
 
 class BlobListingParquetSource[PathType <: BlobPath](
@@ -76,13 +76,22 @@ class BlobListingParquetSource[PathType <: BlobPath](
     )
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
     row     <- scanner.getRows.map(enrichedWithMergeKey)
-  yield (row, 0)
+  yield (row, sourceFile.createdOn.getOrElse(0))
 
   // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
   // thus they always act like they lookback until beginning of time
-  override def getStartFrom(lookbackInterval: Duration): Task[Long] = ZIO.succeed(0)
+  override def getStartFrom(lookBackInterval: Duration): Task[Long] = ZIO.succeed(
+    OffsetDateTime
+      .now()
+      .minus(lookBackInterval)
+      .toInstant
+      .toEpochMilli
+  )
 
-  override def getLatestVersion: Task[Long] = ZIO.succeed(0)
+  override def getLatestVersion: Task[Long] = reader
+    .streamPrefixes(sourcePath)
+    .map(_.createdOn.getOrElse(0L))
+    .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
 
 object BlobListingParquetSource:
   def apply(
