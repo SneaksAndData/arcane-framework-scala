@@ -8,7 +8,7 @@ import models.settings.VersionedDataGraphBuilderSettings
 import services.blobsource.readers.BlobSourceReader
 import services.streaming.base.{RowProcessor, StreamDataProvider}
 
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
 
 class BlobSourceStreamingDataProvider(
@@ -17,6 +17,35 @@ class BlobSourceStreamingDataProvider(
     streamContext: StreamContext
 ) extends StreamDataProvider:
 
+  /** Determines the next version to start emitting elements from, depending on the current and new value available from
+    * the data provider
+    * @param version
+    *   a ZIO task that emits the version used for the last iteration
+    * @return
+    */
+  private def nextVersion(version: Task[Long]) = for
+    previousVersion <- version
+    newVersion      <- dataProvider.nextVersion
+    _ <- ZIO.when(newVersion == previousVersion) {
+      for
+        _ <- zlog(
+          "No version updates, next check in %s seconds, current version: %s",
+          settings.changeCaptureInterval.toSeconds.toString,
+          previousVersion.toString
+        )
+        _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+      yield ()
+    }
+  yield Some(
+    (newVersion, previousVersion) -> ZIO
+      .succeed(newVersion)
+      .flatMap(v => dataProvider.firstVersion.map(fv => (v, fv)))
+      .map {
+        case (nextVersion, lookbackVersion) if lookbackVersion < nextVersion => nextVersion
+        case (_, lookbackVersion)                                            => lookbackVersion
+      }
+  )
+
   /** Returns the stream of elements.
     */
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then {
@@ -24,30 +53,7 @@ class BlobSourceStreamingDataProvider(
     dataProvider.requestBackfill.map(_.asInstanceOf[DataRow])
   } else
     ZStream
-      .unfoldZIO(dataProvider.firstVersion) { version =>
-        for
-          previousVersion <- version
-          newVersion      <- dataProvider.nextVersion
-          _ <- ZIO.when(newVersion == previousVersion) {
-            for
-              _ <- zlog(
-                "No version updates, next check in %s seconds, current version: %s",
-                settings.changeCaptureInterval.toSeconds.toString,
-                previousVersion.toString
-              )
-              _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
-            yield ()
-          }
-        yield Some(
-          (newVersion, previousVersion) -> ZIO
-            .succeed(newVersion)
-            .flatMap(v => dataProvider.firstVersion.map(fv => (v, fv)))
-            .map {
-              case (nextVersion, lookbackVersion) if lookbackVersion < nextVersion => nextVersion
-              case (_, lookbackVersion)                                            => lookbackVersion
-            }
-        )
-      }
+      .unfoldZIO(dataProvider.firstVersion)(nextVersion)
       .flatMap {
         case (newVersion, previousVersion) if newVersion > previousVersion =>
           dataProvider.requestChanges(previousVersion)
