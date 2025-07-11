@@ -85,7 +85,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
       .now()
       .minus(lookBackInterval)
       .toInstant
-      .toEpochMilli
+      .toEpochMilli / 1000
   )
 
   override def getLatestVersion: Task[Long] = reader

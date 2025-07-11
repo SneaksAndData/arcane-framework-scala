@@ -21,6 +21,11 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
   }
 
+  private val emptyStreamSettings = new VersionedDataGraphBuilderSettings {
+    override val lookBackInterval: Duration      = Duration.ofSeconds(1)
+    override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
+  }
+
   private val backfillSettings = new BackfillSettings {
     override val backfillBehavior: BackfillBehavior = Overwrite
     override val backfillStartDate: Option[OffsetDateTime] = Some(
@@ -53,5 +58,26 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillStreamContext))
         rows <- sdp.stream.runCount
       yield assertTrue(rows == 50 * 100)
+    },
+    test("stream changes correctly") {
+      for
+        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
+        dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, streamSettings, backfillSettings))
+        sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, changeCaptureStreamContext))
+        rows <- sdp.stream.timeout(zio.Duration.fromSeconds(10)).runCount
+      // since no new files are added to the storage, emitted amount should be equal to backfill run and do not increase
+      yield assertTrue(rows == 50 * 100)
+    },
+    test("stream changes respecting lookback interval") {
+      for
+        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
+        dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, emptyStreamSettings, backfillSettings))
+        sdp <- ZIO.succeed(
+          BlobSourceStreamingDataProvider(dataProvider, emptyStreamSettings, changeCaptureStreamContext)
+        )
+        rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount
+      yield assertTrue(rows == 0)
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

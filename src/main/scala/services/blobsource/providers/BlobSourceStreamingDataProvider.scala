@@ -54,7 +54,8 @@ class BlobSourceStreamingDataProvider(
         // handle unversioned/initial case this way
         case (newVersion, previousVersion) if newVersion == 0 && newVersion == previousVersion =>
           dataProvider.requestChanges(previousVersion)
-        case _ => ZStream.empty
+        case _ =>
+          ZStream.empty
       }
       .map(_._1.asInstanceOf[DataRow])
 
