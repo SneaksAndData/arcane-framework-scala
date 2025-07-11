@@ -38,11 +38,29 @@ trait BlobStorageReader[PathType <: BlobPath]:
   /** Downloads a blob at a given path to a temporary folder
     *
     * @param blobPath
-    *   The path to the blob.
+    *   The path to the blob as PathType
     * @return
     *   A path to the downloaded blob.
     */
   def downloadBlob(blobPath: PathType, localPath: String): Task[String]
+
+  /** Downloads a blob at a given path to a temporary folder
+    *
+    * @param blobPath
+    *   The path to the blob as String
+    * @return
+    *   A path to the downloaded blob.
+    */
+  def downloadBlob(blobPath: String, localPath: String): Task[String]
+
+  /** Downloads a random blob found at a given path to a temporary folder
+    *
+    * @param rootPath
+    *   The path containing one or more blob.
+    * @return
+    *   A path to the downloaded blob.
+    */
+  def downloadRandomBlob(rootPath: PathType, localPath: String): Task[String]
 
   /** Reads blob content as a string
     * @param blobPath

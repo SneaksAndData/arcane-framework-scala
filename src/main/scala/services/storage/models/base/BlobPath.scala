@@ -11,4 +11,6 @@ trait BlobPath {
     *   The path as a string.
     */
   def toHdfsPath: String
+
+  def protocol: String
 }

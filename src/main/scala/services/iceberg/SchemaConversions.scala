@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DataCell, DataRow}
+import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DataCell, DataRow, Field, MergeKeyField}
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.data.GenericRecord
@@ -73,3 +73,10 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.DoubleType                              => DoubleType
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
+
+given Conversion[Schema, ArcaneSchema] with
+  override def apply(icebergSchema: Schema): ArcaneSchema = ArcaneSchema(
+    icebergSchema.columns().asScala.map(nf => Field(name = nf.name(), fieldType = nf.`type`())).toSeq ++ Seq(
+      MergeKeyField
+    )
+  )

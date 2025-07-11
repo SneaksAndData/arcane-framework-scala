@@ -24,6 +24,8 @@ final case class AdlsStoragePath(accountName: String, container: String, blobPre
     else s"${blobPrefix.stripSuffix("/")}/$part"
   )
 
+  override def protocol: String = "abfss"
+
 object AdlsStoragePath:
   private val matchRegex: String = "^abfss:\\/\\/([^@]+)@([^\\.]+)\\.dfs\\.core\\.windows\\.net\\/(.*)$"
 
