@@ -16,7 +16,9 @@ import models.settings.TablePropertiesSettings
 
 object MatchedUpdate {
   def apply(cols: Seq[String]): WhenMatchedUpdate = new WhenMatchedUpdate {
-    override val segmentCondition: Option[String] = None
+    override val segmentCondition: Option[String] = Some(
+      s"${MergeQueryCommons.SOURCE_ALIAS}.${BlobBatchCommons.versionField.name} > ${MergeQueryCommons.TARGET_ALIAS}.${BlobBatchCommons.versionField.name}"
+    )
     override val columns: Seq[String]             = cols
   }
 }
@@ -38,8 +40,8 @@ object UpsertBlobMergeQuery:
   ): MergeQuery =
     MergeQuery(targetName, sourceQuery)
       ++ OnSegment(Map(), mergeKey, partitionFields.filterNot(c => c == mergeKey))
-      ++ MatchedUpdate(columns)
-      ++ NotMatchedInsert(columns.filterNot(c => c == mergeKey))
+      ++ MatchedUpdate(columns.filterNot(c => c == mergeKey))
+      ++ NotMatchedInsert(columns)
 
 object UpsertBlobBackfillQuery:
   def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
