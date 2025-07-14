@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package tests.blobsource.parquet
 
+import models.batches.BlobBatchCommons
 import models.schemas.MergeKeyField
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
 
-import com.sneaksanddata.arcane.framework.models.batches.BlobBatchCommons
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
