@@ -19,7 +19,7 @@ object MatchedUpdate {
     override val segmentCondition: Option[String] = Some(
       s"${MergeQueryCommons.SOURCE_ALIAS}.${BlobBatchCommons.versionField.name} > ${MergeQueryCommons.TARGET_ALIAS}.${BlobBatchCommons.versionField.name}"
     )
-    override val columns: Seq[String]             = cols
+    override val columns: Seq[String] = cols
   }
 }
 
