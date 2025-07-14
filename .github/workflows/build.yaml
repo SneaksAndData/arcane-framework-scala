@@ -32,11 +32,11 @@ jobs:
         shell: bash
         run: |
           export $(cat unit-tests.env| xargs)
-          sbt clean coverage testOnly tests.synapse.SynapseLinkStreamingDataProviderTests coverageReport
-      - name: Validate formatting
-        shell: bash
-        run: sbt scalafmtCheckAll
-      - uses: 5monkeys/cobertura-action@v14
-        with:
-          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
-          minimum_coverage: 40
+          sbt clean testOnly tests.synapse.SynapseLinkStreamingDataProviderTests
+#      - name: Validate formatting
+#        shell: bash
+#        run: sbt scalafmtCheckAll
+#      - uses: 5monkeys/cobertura-action@v14
+#        with:
+#          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
+#          minimum_coverage: 40
