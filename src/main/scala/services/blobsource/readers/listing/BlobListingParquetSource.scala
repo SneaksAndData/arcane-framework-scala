@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
+import models.batches.BlobBatchCommons
+import models.schemas.ArcaneType.LongType
 import models.schemas.{*, given}
 import models.settings.BlobSourceSettings
 import services.base.SchemaProvider
@@ -48,11 +50,17 @@ class BlobListingParquetSource[PathType <: BlobPath](
     )
   )
 
-  private def enrichedWithMergeKey(row: DataRow): DataRow = row ++ Seq(
+  private def enrich(row: DataRow, version: Long): DataRow = row ++ Seq(
     DataCell(
       name = MergeKeyField.name,
       Type = MergeKeyField.fieldType,
       value = getMergeKeyValue(row, primaryKeys)
+    ),
+    // merge query requires a versionField to ensure rows are updated correctly
+    DataCell(
+      name = BlobBatchCommons.versionField.name,
+      Type = BlobBatchCommons.versionField.fieldType,
+      value = version
     )
   )
 
@@ -60,7 +68,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
     filePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
     scanner  <- ZIO.attempt(ParquetScanner(filePath))
     schema   <- scanner.getIcebergSchema.map(implicitly)
-  yield schema
+  yield schema ++ Seq(BlobBatchCommons.versionField)
 
   /** Gets an empty schema.
     *
@@ -75,7 +83,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
-    row     <- scanner.getRows.map(enrichedWithMergeKey)
+    row     <- scanner.getRows.map(enrich(_, sourceFile.createdOn.getOrElse(0)))
   yield (row, sourceFile.createdOn.getOrElse(0))
 
   // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed

@@ -117,4 +117,4 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             .count(_.nonEmpty) == 4
         )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
