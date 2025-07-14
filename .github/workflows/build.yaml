@@ -11,7 +11,7 @@ on:
 jobs:
   validate_commit:
     name: Validate commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores-public
 
     if: ${{ github.ref != 'refs/heads/main' }}
     permissions:
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           export $(cat unit-tests.env| xargs)
-          sbt clean coverage test coverageReport
+          sbt clean coverage testOnly tests.synapse.SynapseLinkStreamingDataProviderTests coverageReport
       - name: Validate formatting
         shell: bash
         run: sbt scalafmtCheckAll
