@@ -6,6 +6,7 @@ import services.blobsource.readers.listing.BlobListingParquetSource
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
 
+import com.sneaksanddata.arcane.framework.models.batches.BlobBatchCommons
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
@@ -22,6 +23,8 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
         schema <- source.getSchema
       yield assertTrue(schema.size == 10 + 2) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
+      ) && assertTrue(
+        schema.exists(f => f.name == BlobBatchCommons.versionField.name)
       ) // expect 10 fields + ARCANE_MERGE_KEY + versionField
     },
     test("getChanges return correct rows") {
@@ -29,11 +32,14 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
         rows   <- source.getChanges(0).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 11)) && assertTrue(
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
         rows
           .map(_._1)
           .forall(row =>
-            (row.last.name == MergeKeyField.name) && (row.last.value
+            (row.takeRight(2).head.name == MergeKeyField.name) && (row
+              .takeRight(2)
+              .head
+              .value
               .asInstanceOf[String] == Base64.getEncoder.encodeToString(
               MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
             ))
