@@ -1,10 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg.interop
 
-import logging.ZIOLogAnnotations.zlogStream
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow}
 import services.iceberg.{given_Conversion_GenericRecord_DataRow, given_Conversion_MessageType_Schema}
 import services.iceberg.interop.given
+import extensions.ZExtensions.*
 
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetReaders
@@ -17,6 +18,7 @@ import org.apache.parquet.schema.MessageType
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
+import java.io.File
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
@@ -54,6 +56,14 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
     */
   def getIcebergSchema: Task[Schema] = getParquetSchema.map(implicitly)
 
+  private def cleanup: Task[Unit] = for
+    file <- ZIO.succeed(new File(icebergFile.location()))
+    _    <- zlog("Row stream finished for file %s, deleting", icebergFile.location())
+    _ <- ZIO
+      .attemptBlockingIO(file.delete())
+      .orDie // require deletion to succeed, to avoid risking filling up the temp storage
+  yield ()
+
   /** A stream of rows. Note: temporarily this returns a stream of DataRow objects. Once
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/181 is resolved, conversion from GenericRecord to
     * DataRow will be removed.
@@ -63,6 +73,7 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
     .fromZIO(recordIterator)
     .flatMap(ZStream.fromIterator(_))
     .map(implicitly)
+    .onComplete(cleanup)
 
 object ParquetScanner:
   def apply(path: String): ParquetScanner                          = new ParquetScanner(Files.localInput(path))
