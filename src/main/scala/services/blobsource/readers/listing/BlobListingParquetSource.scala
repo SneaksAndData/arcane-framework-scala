@@ -78,13 +78,13 @@ class BlobListingParquetSource[PathType <: BlobPath](
   override def empty: SchemaType = ArcaneSchema.empty()
 
   override def getChanges(startFrom: Long): ZStream[Any, Throwable, (OutputRow, Long)] = for
-    sourceFile <- reader.streamPrefixes(sourcePath)
+    sourceFile <- reader.streamPrefixes(sourcePath).filter(_.createdOn.getOrElse(0L) >= startFrom)
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
     row     <- scanner.getRows.map(enrich(_, sourceFile.createdOn.getOrElse(0)))
-  yield (row, sourceFile.createdOn.getOrElse(0))
+  yield (row, sourceFile.createdOn.getOrElse(0L))
 
   // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
   // thus they always act like they lookback until beginning of time

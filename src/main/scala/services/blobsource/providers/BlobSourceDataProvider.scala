@@ -18,7 +18,9 @@ class BlobSourceDataProvider(
     with BackfillDataProvider[BlobSourceBatch]:
 
   override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] =
-    sourceReader.getChanges(backfillSettings.backfillStartDate.map(_.toInstant.toEpochMilli).getOrElse(0L)).map(_._1)
+    sourceReader
+      .getChanges(backfillSettings.backfillStartDate.map(_.toInstant.toEpochMilli / 1000).getOrElse(0L))
+      .map(_._1)
 
   override def requestChanges(previousVersion: Long): ZStream[Any, Throwable, BlobSourceVersionedBatch] =
     sourceReader.getChanges(previousVersion)
