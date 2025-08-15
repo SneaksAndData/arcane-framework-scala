@@ -10,6 +10,7 @@ import org.apache.iceberg.parquet.ParquetSchemaUtil
 import org.apache.iceberg.types.{Type, Types}
 import org.apache.parquet.schema.MessageType
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
@@ -30,6 +31,7 @@ object SchemaConversions:
     case FloatType                        => Types.FloatType.get()
     case ShortType                        => Types.IntegerType.get()
     case TimeType                         => Types.TimeType.get()
+    case ListType(elementType)            => Types.ListType.ofOptional(0, toIcebergType(elementType))
 
   implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
     schema.zipWithIndex.map { (field, index) =>
@@ -60,7 +62,8 @@ given Conversion[GenericRecord, DataRow] with
     .toList
 
 given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
-  override def apply(icebergType: Type): ArcaneType = icebergType match
+  @tailrec
+  final override def apply(icebergType: Type): ArcaneType = icebergType match
     case _: Types.IntegerType                             => IntType
     case _: Types.LongType                                => LongType
     case _: Types.BinaryType                              => ByteArrayType
@@ -73,6 +76,7 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.DoubleType                              => DoubleType
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
+    case t: Types.ListType                                => apply(t.elementType())
 
 given Conversion[Schema, ArcaneSchema] with
   override def apply(icebergSchema: Schema): ArcaneSchema = ArcaneSchema(
