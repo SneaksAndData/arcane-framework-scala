@@ -23,6 +23,7 @@ enum ArcaneType:
   case FloatType
   case ShortType
   case TimeType
+  case ListType(elementType: ArcaneType)
 
 /** A field in the schema definition
   */
