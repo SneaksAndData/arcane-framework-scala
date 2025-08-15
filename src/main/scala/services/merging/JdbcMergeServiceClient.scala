@@ -288,7 +288,7 @@ object JdbcMergeServiceClient:
       case TypeID.STRING => "VARCHAR"
       case TypeID.UUID   => "UUID"
       case TypeID.BINARY => "VARBINARY"
-      case TypeID.LIST => s"ARRAY(${icebergType.asInstanceOf[ListType].elementType().convertType})"
+      case TypeID.LIST   => s"ARRAY(${icebergType.asInstanceOf[ListType].elementType().convertType})"
       case _             => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
     }
 
