@@ -31,13 +31,25 @@ object SchemaConversions:
     case FloatType                        => Types.FloatType.get()
     case ShortType                        => Types.IntegerType.get()
     case TimeType                         => Types.TimeType.get()
-    case ListType(elementType)            => Types.ListType.ofOptional(0, toIcebergType(elementType))
 
-  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
-    schema.zipWithIndex.map { (field, index) =>
-      Types.NestedField.optional(index, field.name, field.fieldType)
-    }.asJava
-  )
+  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = {
+    var idShift = 0
+    new Schema(
+      schema.zipWithIndex.map { (field, index) =>
+        field.fieldType match {
+          case _: ListType =>
+            val newField = Types.NestedField.optional(
+              index + idShift,
+              field.name,
+              Types.ListType.ofOptional(index + idShift + 1, field.fieldType)
+            )
+            idShift += 1
+            newField
+          case _ => Types.NestedField.optional(index + idShift, field.name, field.fieldType)
+        }
+      }.asJava
+    )
+  }
 
   implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)
 
