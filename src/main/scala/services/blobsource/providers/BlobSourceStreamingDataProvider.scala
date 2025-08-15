@@ -26,7 +26,7 @@ class BlobSourceStreamingDataProvider(
   private def nextVersion(version: Task[Long]) = for
     previousVersion <- version
     newVersion      <- dataProvider.nextVersion
-    _ <- ZIO.when(newVersion == previousVersion) {
+    _ <- ZIO.when(newVersion <= previousVersion) {
       for
         _ <- zlog(
           "No version updates, next check in %s seconds, current version: %s",
