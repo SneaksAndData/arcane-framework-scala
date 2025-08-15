@@ -62,7 +62,6 @@ given Conversion[GenericRecord, DataRow] with
     .toList
 
 given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
-  @tailrec
   final override def apply(icebergType: Type): ArcaneType = icebergType match
     case _: Types.IntegerType                             => IntType
     case _: Types.LongType                                => LongType
@@ -76,7 +75,7 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.DoubleType                              => DoubleType
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
-    case t: Types.ListType                                => apply(t.elementType())
+    case t: Types.ListType                                => ListType(apply(t.elementType()))
 
 given Conversion[Schema, ArcaneSchema] with
   override def apply(icebergSchema: Schema): ArcaneSchema = ArcaneSchema(
