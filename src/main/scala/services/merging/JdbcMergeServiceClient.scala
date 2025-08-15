@@ -11,13 +11,13 @@ import services.filters.FieldsFilteringService
 import services.iceberg.SchemaConversions
 import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
-import services.merging.maintenance.{given, *}
+import services.merging.maintenance.{*, given}
 import utils.SqlUtils.readArcaneSchema
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.{DecimalType, TimestampType}
+import org.apache.iceberg.types.Types.{DecimalType, ListType, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -288,6 +288,7 @@ object JdbcMergeServiceClient:
       case TypeID.STRING => "VARCHAR"
       case TypeID.UUID   => "UUID"
       case TypeID.BINARY => "VARBINARY"
+      case TypeID.LIST => s"ARRAY(${icebergType.asInstanceOf[ListType].elementType().convertType})"
       case _             => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
     }
 
