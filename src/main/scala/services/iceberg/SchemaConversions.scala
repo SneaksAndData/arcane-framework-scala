@@ -31,25 +31,29 @@ object SchemaConversions:
     case FloatType                        => Types.FloatType.get()
     case ShortType                        => Types.IntegerType.get()
     case TimeType                         => Types.TimeType.get()
+    case ListType(elementType, elementId) => Types.ListType.ofOptional(elementId, elementType)
 
-  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = {
-    var idShift = 0
-    new Schema(
-      schema.zipWithIndex.map { (field, index) =>
-        field.fieldType match {
-          case _: ListType =>
-            val newField = Types.NestedField.optional(
-              index + idShift,
-              field.name,
-              Types.ListType.ofOptional(index + idShift + 1, field.fieldType)
-            )
-            idShift += 1
-            newField
-          case _ => Types.NestedField.optional(index + idShift, field.name, field.fieldType)
-        }
-      }.asJava
-    )
-  }
+  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
+    schema
+      .foldLeft(Seq[(ArcaneSchemaField, Int)]()) { (agg, e) =>
+        if agg.isEmpty then agg ++ Seq((e, 0))
+        else
+          e.fieldType match {
+            case ListType(elementType, _) =>
+              agg ++ Seq(
+                (
+                  Field(name = e.name, fieldType = ListType(elementType = elementType, elementId = agg.last._2 + 1)),
+                  agg.last._2 + 2
+                )
+              )
+            case _ => agg ++ Seq((e, agg.last._2 + 1))
+          }
+      }
+      .map { (field, index) =>
+        Types.NestedField.optional(index, field.name, field.fieldType)
+      }
+      .asJava
+  )
 
   implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)
 
@@ -87,7 +91,7 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.DoubleType                              => DoubleType
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
-    case t: Types.ListType                                => ListType(apply(t.elementType()))
+    case t: Types.ListType                                => ListType(apply(t.elementType()), t.elementId())
 
 given Conversion[Schema, ArcaneSchema] with
   override def apply(icebergSchema: Schema): ArcaneSchema = ArcaneSchema(
