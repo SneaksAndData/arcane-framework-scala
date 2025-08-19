@@ -40,7 +40,7 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     (
       arcaneSchema.length should be(iceberg.columns().size + 1),
       arcaneSchema.reverse.head should be(MergeKeyField),
-      arcaneSchema.find(f => f.name == "event_value_bigdecimal").map(f => f.fieldType == BigDecimalType(16, 4))
+      arcaneSchema.find(f => f.name == "event_value_bigdecimal").map(f => f.fieldType == BigDecimalType(16, 4)) should be(Some(true))
     )
   }
 
@@ -58,8 +58,8 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     (
       arcaneSchema.length should be(iceberg.columns().size() + 1),
       arcaneSchema.reverse.head should be(MergeKeyField),
-      arcaneSchema.find(f => f.name == "call_stack_1").map(f => f.fieldType == ListType(StringType, 3)),
-      arcaneSchema.find(f => f.name == "call_stack_2").map(f => f.fieldType == ListType(StringType, 5))
+      arcaneSchema.find(f => f.name == "call_stack_1").map(f => f.fieldType == ListType(StringType, 3)) should be(Some(true)),
+      arcaneSchema.find(f => f.name == "call_stack_2").map(f => f.fieldType == ListType(StringType, 5)) should be (Some(true))
     )
   }
 
@@ -82,11 +82,11 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
           Types.NestedField.optional(3, "call_stack_2", Types.ListType.ofOptional(4, Types.StringType.get()))
         ),
         new Schema(
-          Types.NestedField.optional(1, "level", Types.StringType.get()),
-          Types.NestedField.optional(2, "call_stack_1", Types.ListType.ofOptional(3, Types.StringType.get())),
-          Types.NestedField.optional(4, "event_time", Types.TimestampType.withZone()),
-          Types.NestedField.optional(5, "call_stack_2", Types.ListType.ofOptional(6, Types.StringType.get())),
-          Types.NestedField.optional(7, "event_time_2", Types.TimestampType.withZone())
+          Types.NestedField.optional(0, "level", Types.StringType.get()),
+          Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
+          Types.NestedField.optional(3, "event_time", Types.TimestampType.withZone()),
+          Types.NestedField.optional(4, "call_stack_2", Types.ListType.ofOptional(5, Types.StringType.get())),
+          Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
         )
       )
     ) { iceberg =>
@@ -96,10 +96,7 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
 
       (
         iceberg2.columns().size() should be(iceberg.columns().size()),
-        iceberg2.columns().asScala.map(f => (f.name(), f.fieldId())) == iceberg
-          .columns()
-          .asScala
-          .map(f => (f.name(), f.fieldId()))
+        iceberg2.idToName().asScala should equal(iceberg.idToName().asScala)
       )
     }
   }

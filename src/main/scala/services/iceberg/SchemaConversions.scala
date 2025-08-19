@@ -35,21 +35,21 @@ object SchemaConversions:
 
   implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
     schema
-      .foldLeft(Seq[(ArcaneSchemaField, Int)]()) { (agg, e) =>
-        if agg.isEmpty then agg ++ Seq((e, 0))
+      .foldLeft(Seq[(ArcaneSchemaField, Int, Int)]()) { (agg, e) =>
+        if agg.isEmpty then agg ++ Seq((e, 0, 0))
         else
           e.fieldType match {
             case ListType(elementType, _) =>
               agg ++ Seq(
                 (
-                  Field(name = e.name, fieldType = ListType(elementType = elementType, elementId = agg.last._2 + 1)),
-                  agg.last._2 + 2
+                  Field(name = e.name, fieldType = ListType(elementType = elementType, elementId = agg.last._2 + agg.last._3 + 2)),
+                  agg.last._2 + 1 + agg.last._3, 1
                 )
               )
-            case _ => agg ++ Seq((e, agg.last._2 + 1))
+            case _ => agg ++ Seq((e, agg.last._2 + 1 + agg.last._3, 0))
           }
       }
-      .map { (field, index) =>
+      .map { (field, index, _) =>
         Types.NestedField.optional(index, field.name, field.fieldType)
       }
       .asJava
