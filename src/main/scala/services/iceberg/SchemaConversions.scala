@@ -42,8 +42,12 @@ object SchemaConversions:
             case ListType(elementType, _) =>
               agg ++ Seq(
                 (
-                  Field(name = e.name, fieldType = ListType(elementType = elementType, elementId = agg.last._2 + agg.last._3 + 2)),
-                  agg.last._2 + 1 + agg.last._3, 1
+                  Field(
+                    name = e.name,
+                    fieldType = ListType(elementType = elementType, elementId = agg.last._2 + agg.last._3 + 2)
+                  ),
+                  agg.last._2 + 1 + agg.last._3,
+                  1
                 )
               )
             case _ => agg ++ Seq((e, agg.last._2 + 1 + agg.last._3, 0))

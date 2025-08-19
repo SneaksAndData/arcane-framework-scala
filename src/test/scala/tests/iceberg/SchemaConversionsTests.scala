@@ -40,7 +40,9 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     (
       arcaneSchema.length should be(iceberg.columns().size + 1),
       arcaneSchema.reverse.head should be(MergeKeyField),
-      arcaneSchema.find(f => f.name == "event_value_bigdecimal").map(f => f.fieldType == BigDecimalType(16, 4)) should be(Some(true))
+      arcaneSchema
+        .find(f => f.name == "event_value_bigdecimal")
+        .map(f => f.fieldType == BigDecimalType(16, 4)) should be(Some(true))
     )
   }
 
@@ -58,8 +60,12 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     (
       arcaneSchema.length should be(iceberg.columns().size() + 1),
       arcaneSchema.reverse.head should be(MergeKeyField),
-      arcaneSchema.find(f => f.name == "call_stack_1").map(f => f.fieldType == ListType(StringType, 3)) should be(Some(true)),
-      arcaneSchema.find(f => f.name == "call_stack_2").map(f => f.fieldType == ListType(StringType, 5)) should be (Some(true))
+      arcaneSchema.find(f => f.name == "call_stack_1").map(f => f.fieldType == ListType(StringType, 3)) should be(
+        Some(true)
+      ),
+      arcaneSchema.find(f => f.name == "call_stack_2").map(f => f.fieldType == ListType(StringType, 5)) should be(
+        Some(true)
+      )
     )
   }
 
