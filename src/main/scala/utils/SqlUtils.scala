@@ -79,7 +79,7 @@ object SqlUtils:
       case java.sql.Types.VARCHAR   => Success(ArcaneType.StringType)
       case java.sql.Types.VARBINARY => Success(ArcaneType.ByteArrayType)
       case java.sql.Types.ARRAY if arrayBaseElementType.isDefined =>
-        Success(ArcaneType.ListType(toArcaneType(arrayBaseElementType.get, 0, 0, None).get, 0))
+        toArcaneType(arrayBaseElementType.get, 0, 0, None).map(elementType => ArcaneType.ListType(elementType, 0))
 
       case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
 
