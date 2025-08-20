@@ -9,6 +9,20 @@ import scala.util.{Failure, Success, Try}
 
 object SqlUtils:
 
+  class JdbcTypeInfo(
+      val name: String,
+      val typeId: Int,
+      val precision: Int,
+      val scale: Int
+  )
+  private case class JdbcArrayTypeInfo(
+      name: String,
+      typeId: Int,
+      precision: Int,
+      scale: Int,
+      arrayBaseElementType: JdbcTypeInfo
+  ) extends JdbcTypeInfo(name, typeId, precision, scale)
+
   /** Reads the schema of a table from a SQL result set.
     *
     * @param resultSet
@@ -21,7 +35,7 @@ object SqlUtils:
       val columns = resultSet.getColumns.map({ typeInfo =>
         (
           typeInfo.name.toUpperCase(),
-          toArcaneType(typeInfo.typeId, typeInfo.precision, typeInfo.scale, typeInfo.arrayBaseElementTypeId)
+          toArcaneType(typeInfo)
         )
       })
       val arcaneColumns =
@@ -43,8 +57,8 @@ object SqlUtils:
     * @return
     *   The Arcane type.
     */
-  def toArcaneType(sqlType: Int, precision: Int, scale: Int, arrayBaseElementType: Option[Int]): Try[ArcaneType] =
-    sqlType match
+  def toArcaneType(jdbcField: JdbcTypeInfo): Try[ArcaneType] =
+    jdbcField.typeId match
       case java.sql.Types.BIGINT                  => Success(ArcaneType.LongType)
       case java.sql.Types.BINARY                  => Success(ArcaneType.ByteArrayType)
       case java.sql.Types.BIT                     => Success(ArcaneType.BooleanType)
@@ -53,11 +67,11 @@ object SqlUtils:
       case java.sql.Types.DATE                    => Success(ArcaneType.DateType)
       case java.sql.Types.TIMESTAMP               => Success(ArcaneType.TimestampType)
       case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
-      case java.sql.Types.DECIMAL                 => Success(ArcaneType.BigDecimalType(precision, scale))
+      case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType(jdbcField.precision, jdbcField.scale))
 
       // numeric is functionally identical to decimal
       // see: https://learn.microsoft.com/en-us/sql/t-sql/data-types/decimal-and-numeric-transact-sql
-      case java.sql.Types.NUMERIC => Success(ArcaneType.BigDecimalType(precision, scale))
+      case java.sql.Types.NUMERIC => Success(ArcaneType.BigDecimalType(jdbcField.precision, jdbcField.scale))
 
       // The SQL Server text and ntext types map to the JDBC LONGVARCHAR and LONGNVARCHAR type, respectively.
       // see: https://learn.microsoft.com/en-us/sql/connect/jdbc/understanding-data-type-differences?view=sql-server-ver16#character-types
@@ -78,21 +92,37 @@ object SqlUtils:
       case java.sql.Types.NVARCHAR  => Success(ArcaneType.StringType)
       case java.sql.Types.VARCHAR   => Success(ArcaneType.StringType)
       case java.sql.Types.VARBINARY => Success(ArcaneType.ByteArrayType)
-      case java.sql.Types.ARRAY if arrayBaseElementType.isDefined =>
-        toArcaneType(arrayBaseElementType.get, 0, 0, None).map(elementType => ArcaneType.ListType(elementType, 0))
+      case java.sql.Types.ARRAY =>
+        jdbcField match {
+          case f: JdbcArrayTypeInfo =>
+            toArcaneType(f.arrayBaseElementType).map(elementType => ArcaneType.ListType(elementType, 0))
+        }
 
-      case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
+      case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: ${jdbcField.typeId}"))
 
   /** Gets the columns of a result set.
     */
   extension (resultSet: ResultSet)
-    def getColumns: Seq[(name: String, typeId: Int, precision: Int, scale: Int, arrayBaseElementTypeId: Option[Int])] =
+    def getColumns: Seq[JdbcTypeInfo] =
       for i <- 1 to resultSet.getMetaData.getColumnCount
-      yield (
-        resultSet.getMetaData.getColumnName(i),
-        resultSet.getMetaData.getColumnType(i),
-        resultSet.getMetaData.getPrecision(i),
-        resultSet.getMetaData.getScale(i),
-        if resultSet.getMetaData.getColumnType(i) == java.sql.Types.ARRAY then Some(resultSet.getArray(i).getBaseType)
-        else None
-      )
+      yield
+        if resultSet.getMetaData.getColumnType(i) == java.sql.Types.ARRAY then
+          JdbcArrayTypeInfo(
+            name = resultSet.getMetaData.getColumnName(i),
+            typeId = resultSet.getMetaData.getColumnType(i),
+            precision = resultSet.getMetaData.getPrecision(i),
+            scale = resultSet.getMetaData.getScale(i),
+            new JdbcTypeInfo(
+              name = "",
+              typeId = resultSet.getArray(i).getBaseType,
+              precision = resultSet.getArray(i).getResultSet.getMetaData.getPrecision(1),
+              scale = resultSet.getArray(i).getResultSet.getMetaData.getScale(1)
+            )
+          )
+        else
+          new JdbcTypeInfo(
+            name = resultSet.getMetaData.getColumnName(i),
+            typeId = resultSet.getMetaData.getColumnType(i),
+            precision = resultSet.getMetaData.getPrecision(i),
+            scale = resultSet.getMetaData.getScale(i)
+          )
