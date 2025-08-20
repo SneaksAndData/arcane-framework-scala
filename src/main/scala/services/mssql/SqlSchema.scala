@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import services.base.CanAdd
-import utils.SqlUtils.toArcaneType
+import utils.SqlUtils.{JdbcTypeInfo, toArcaneType}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -30,6 +30,6 @@ object SqlSchema:
     sqlSchema match
       case Seq() => Success(schema)
       case (name, fieldType, precision, scale) +: xs =>
-        toArcaneType(fieldType, precision, scale) match
+        toArcaneType(new JdbcTypeInfo(name = name, typeId = fieldType, precision = precision, scale = scale)) match
           case Success(arcaneType) => toSchema(xs, schema.addField("\\W+".r.replaceAllIn(name, ""), arcaneType))
           case Failure(exception)  => Failure[Schema](exception)

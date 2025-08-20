@@ -16,8 +16,8 @@ object SqlUtils:
       val scale: Int
   )
   private case class JdbcArrayTypeInfo(
-      name: String,
-      typeId: Int,
+      override val name: String,
+      override val typeId: Int,
       arrayBaseElementType: JdbcTypeInfo
   ) extends JdbcTypeInfo(name, typeId, 0, 0)
 
