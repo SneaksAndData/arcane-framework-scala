@@ -5,7 +5,7 @@ import models.schemas.{DataCell, DataRow}
 import services.mssql.base.{CanPeekHead, QueryResult, ResultSetOwner}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.{SqlDataCell, SqlDataRow, given_Conversion_SqlDataRow_DataRow}
-import utils.SqlUtils.{JdbcTypeInfo, toArcaneType}
+import utils.SqlUtils.{JdbcFieldInfo, toArcaneType}
 
 import java.sql.{ResultSet, Statement}
 import scala.annotation.tailrec
@@ -79,7 +79,7 @@ object LazyQueryResult {
       val precision = row.getMetaData.getPrecision(column)
       val scale     = row.getMetaData.getScale(column)
 
-      toArcaneType(new JdbcTypeInfo(name = name, typeId = dataType, precision = precision, scale = scale)) match
+      toArcaneType(new JdbcFieldInfo(name = name, typeId = dataType, precision = precision, scale = scale)) match
         case Success(arcaneType) => toDataRow(row, column - 1, SqlDataCell(name, arcaneType, value) :: acc)
         case Failure(exception)  => Failure(exception)
 

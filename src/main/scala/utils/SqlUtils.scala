@@ -9,17 +9,17 @@ import scala.util.{Failure, Success, Try}
 
 object SqlUtils:
 
-  class JdbcTypeInfo(
+  class JdbcFieldInfo(
       val name: String,
       val typeId: Int,
       val precision: Int,
       val scale: Int
   )
-  private case class JdbcArrayTypeInfo(
+  private case class JdbcArrayFieldInfo(
       override val name: String,
       override val typeId: Int,
-      arrayBaseElementType: JdbcTypeInfo
-  ) extends JdbcTypeInfo(name, typeId, 0, 0)
+      arrayBaseElementType: JdbcFieldInfo
+  ) extends JdbcFieldInfo(name, typeId, 0, 0)
 
   /** Reads the schema of a table from a SQL result set.
     *
@@ -55,7 +55,7 @@ object SqlUtils:
     * @return
     *   The Arcane type.
     */
-  def toArcaneType(jdbcTypeInfo: JdbcTypeInfo): Try[ArcaneType] =
+  def toArcaneType(jdbcTypeInfo: JdbcFieldInfo): Try[ArcaneType] =
     jdbcTypeInfo.typeId match
       case java.sql.Types.BIGINT                  => Success(ArcaneType.LongType)
       case java.sql.Types.BINARY                  => Success(ArcaneType.ByteArrayType)
@@ -92,29 +92,32 @@ object SqlUtils:
       case java.sql.Types.VARBINARY => Success(ArcaneType.ByteArrayType)
       case java.sql.Types.ARRAY =>
         jdbcTypeInfo match {
-          case f: JdbcArrayTypeInfo =>
+          case f: JdbcArrayFieldInfo =>
             toArcaneType(f.arrayBaseElementType).map(elementType => ArcaneType.ListType(elementType, 0))
           case _ =>
             Failure(
               new IllegalArgumentException(
-                s"Type ${jdbcTypeInfo.name} has java.sql.types.Array identifier, but is not provided as JdbcArrayTypeInfo"
+                s"Type of the column ${jdbcTypeInfo.name} has java.sql.types.Array identifier, but is not provided as JdbcArrayFieldInfo"
               )
             )
         }
 
-      case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId}"))
+      case _ =>
+        Failure(
+          new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId} for column ${jdbcTypeInfo.name}")
+        )
 
   /** Gets the columns of a result set.
     */
   extension (resultSet: ResultSet)
-    def getColumns: Seq[JdbcTypeInfo] =
+    def getColumns: Seq[JdbcFieldInfo] =
       for i <- 1 to resultSet.getMetaData.getColumnCount
       yield
         if resultSet.getMetaData.getColumnType(i) == java.sql.Types.ARRAY then
-          JdbcArrayTypeInfo(
+          JdbcArrayFieldInfo(
             name = resultSet.getMetaData.getColumnName(i),
             typeId = resultSet.getMetaData.getColumnType(i),
-            new JdbcTypeInfo(
+            new JdbcFieldInfo(
               name = "",
               typeId = resultSet.getArray(i).getBaseType,
               precision = resultSet.getArray(i).getResultSet.getMetaData.getPrecision(1),
@@ -122,7 +125,7 @@ object SqlUtils:
             )
           )
         else
-          new JdbcTypeInfo(
+          new JdbcFieldInfo(
             name = resultSet.getMetaData.getColumnName(i),
             typeId = resultSet.getMetaData.getColumnType(i),
             precision = resultSet.getMetaData.getPrecision(i),
