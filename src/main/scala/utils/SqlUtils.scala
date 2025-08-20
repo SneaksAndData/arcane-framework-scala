@@ -96,6 +96,7 @@ object SqlUtils:
         jdbcTypeInfo match {
           case f: JdbcArrayTypeInfo =>
             toArcaneType(f.arrayBaseElementType).map(elementType => ArcaneType.ListType(elementType, 0))
+          case _ => Failure(new IllegalArgumentException(s"Type ${jdbcTypeInfo.name} has java.sql.types.Array identifier, but is not provided as JdbcArrayTypeInfo"))  
         }
 
       case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId}"))
