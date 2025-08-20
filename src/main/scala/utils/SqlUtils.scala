@@ -52,13 +52,13 @@ object SqlUtils:
 
   /** Converts a SQL type to an Arcane type.
     *
-    * @param sqlType
+    * @param jdbcTypeInfo
     *   The SQL type.
     * @return
     *   The Arcane type.
     */
-  def toArcaneType(jdbcField: JdbcTypeInfo): Try[ArcaneType] =
-    jdbcField.typeId match
+  def toArcaneType(jdbcTypeInfo: JdbcTypeInfo): Try[ArcaneType] =
+    jdbcTypeInfo.typeId match
       case java.sql.Types.BIGINT                  => Success(ArcaneType.LongType)
       case java.sql.Types.BINARY                  => Success(ArcaneType.ByteArrayType)
       case java.sql.Types.BIT                     => Success(ArcaneType.BooleanType)
@@ -67,11 +67,11 @@ object SqlUtils:
       case java.sql.Types.DATE                    => Success(ArcaneType.DateType)
       case java.sql.Types.TIMESTAMP               => Success(ArcaneType.TimestampType)
       case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
-      case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType(jdbcField.precision, jdbcField.scale))
+      case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType(jdbcTypeInfo.precision, jdbcTypeInfo.scale))
 
       // numeric is functionally identical to decimal
       // see: https://learn.microsoft.com/en-us/sql/t-sql/data-types/decimal-and-numeric-transact-sql
-      case java.sql.Types.NUMERIC => Success(ArcaneType.BigDecimalType(jdbcField.precision, jdbcField.scale))
+      case java.sql.Types.NUMERIC => Success(ArcaneType.BigDecimalType(jdbcTypeInfo.precision, jdbcTypeInfo.scale))
 
       // The SQL Server text and ntext types map to the JDBC LONGVARCHAR and LONGNVARCHAR type, respectively.
       // see: https://learn.microsoft.com/en-us/sql/connect/jdbc/understanding-data-type-differences?view=sql-server-ver16#character-types
@@ -93,12 +93,12 @@ object SqlUtils:
       case java.sql.Types.VARCHAR   => Success(ArcaneType.StringType)
       case java.sql.Types.VARBINARY => Success(ArcaneType.ByteArrayType)
       case java.sql.Types.ARRAY =>
-        jdbcField match {
+        jdbcTypeInfo match {
           case f: JdbcArrayTypeInfo =>
             toArcaneType(f.arrayBaseElementType).map(elementType => ArcaneType.ListType(elementType, 0))
         }
 
-      case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: ${jdbcField.typeId}"))
+      case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId}"))
 
   /** Gets the columns of a result set.
     */
