@@ -28,13 +28,13 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
         .map { case c: JdbcArrayFieldInfo =>
           c.typeId == java.sql.Types.ARRAY && c.arrayBaseElementType.typeId == java.sql.Types.VARCHAR
         }
-        .isDefined,
+        .isDefined should be(true),
       columns
         .find(c => c.name == "c4")
         .map { case c: JdbcArrayFieldInfo =>
           c.typeId == java.sql.Types.ARRAY && c.arrayBaseElementType.typeId == java.sql.Types.DECIMAL && c.arrayBaseElementType.precision == 16 && c.arrayBaseElementType.scale == 3
         }
-        .isDefined
+        .isDefined should be(true)
     )
   }
 }
