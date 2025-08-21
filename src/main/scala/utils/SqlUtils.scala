@@ -15,7 +15,7 @@ object SqlUtils:
       val precision: Int,
       val scale: Int
   )
-  private case class JdbcArrayFieldInfo(
+  case class JdbcArrayFieldInfo(
       override val name: String,
       override val typeId: Int,
       arrayBaseElementType: JdbcFieldInfo
@@ -107,6 +107,46 @@ object SqlUtils:
           new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId} for column ${jdbcTypeInfo.name}")
         )
 
+  private def parseArrayType(arrayTypeString: String): JdbcFieldInfo =
+    arrayTypeString.replace("array(", "").replace(")", "") match {
+      case "varchar" =>
+        new JdbcFieldInfo(
+          name = "",
+          typeId = java.sql.Types.VARCHAR,
+          precision = 0,
+          scale = 0
+        )
+      case "integer" =>
+        new JdbcFieldInfo(
+          name = "",
+          typeId = java.sql.Types.INTEGER,
+          precision = 0,
+          scale = 0
+        )
+      case "float" =>
+        new JdbcFieldInfo(
+          name = "",
+          typeId = java.sql.Types.FLOAT,
+          precision = 0,
+          scale = 0
+        )
+      case "double" =>
+        new JdbcFieldInfo(
+          name = "",
+          typeId = java.sql.Types.DOUBLE,
+          precision = 0,
+          scale = 0
+        )
+      case decimal if decimal.startsWith("decimal") =>
+        new JdbcFieldInfo(
+          name = "",
+          typeId = java.sql.Types.DECIMAL,
+          precision = decimal.split(",").head.replace("decimal(", "").toInt,
+          scale = decimal.split(",").reverse.head.replace(")", "").toInt
+        )
+      case _ => throw new RuntimeException(s"Unmapped array type for schema migration: $arrayTypeString")
+    }
+
   /** Gets the columns of a result set.
     */
   extension (resultSet: ResultSet)
@@ -117,12 +157,7 @@ object SqlUtils:
           JdbcArrayFieldInfo(
             name = resultSet.getMetaData.getColumnName(i),
             typeId = resultSet.getMetaData.getColumnType(i),
-            new JdbcFieldInfo(
-              name = "",
-              typeId = resultSet.getArray(i).getBaseType,
-              precision = resultSet.getArray(i).getResultSet.getMetaData.getPrecision(1),
-              scale = resultSet.getArray(i).getResultSet.getMetaData.getScale(1)
-            )
+            parseArrayType(resultSet.getMetaData.getColumnTypeName(i))
           )
         else
           new JdbcFieldInfo(
