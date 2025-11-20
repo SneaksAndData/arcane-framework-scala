@@ -45,8 +45,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             ))
 
             if !pred then {
-              println(s"Mismatch on ${row.takeRight(2).head.value}, expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}")
-              println(s"Mismatch on ${row.takeRight(2).head.name}, expected ${MergeKeyField.name}")
+              println(s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}")
             }
 
             pred
