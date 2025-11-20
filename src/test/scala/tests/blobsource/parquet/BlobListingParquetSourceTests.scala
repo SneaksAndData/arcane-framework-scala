@@ -36,14 +36,21 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
         rows
           .map(_._1)
           .forall(row =>
-            (row.takeRight(2).head.name == MergeKeyField.name) && (row
+            val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
               .takeRight(2)
               .head
               .value
               .asInstanceOf[String] == Base64.getEncoder.encodeToString(
               MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
             ))
+
+            if !pred then {
+              println(s"Mismatch on ${row.takeRight(2).head.value}, expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}")
+              println(s"Mismatch on ${row.takeRight(2).head.name}, expected ${MergeKeyField.name}")
+            }
+
+            pred
           )
       )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock
