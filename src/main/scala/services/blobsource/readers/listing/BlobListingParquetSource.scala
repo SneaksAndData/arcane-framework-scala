@@ -5,7 +5,6 @@ import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.BlobSourceSettings
 import services.base.SchemaProvider
-import services.blobsource.readers.BlobSourceReader
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.storage.base.BlobStorageReader
@@ -13,17 +12,15 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
-import zio.stream.{ZSink, ZStream}
+import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
-
-import java.time.{Duration, OffsetDateTime}
 
 class BlobListingParquetSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
     primaryKeys: Seq[String]
-) extends BlobSourceReader
+) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
   override type OutputRow = DataRow
@@ -49,21 +46,6 @@ class BlobListingParquetSource[PathType <: BlobPath](
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
     row     <- scanner.getRows.map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys))
   yield (row, sourceFile.createdOn.getOrElse(0L))
-
-  // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
-  // thus they always act like they lookback until beginning of time
-  override def getStartFrom(lookBackInterval: Duration): Task[Long] = ZIO.succeed(
-    OffsetDateTime
-      .now()
-      .minus(lookBackInterval)
-      .toInstant
-      .toEpochMilli / 1000
-  )
-
-  override def getLatestVersion: Task[Long] = reader
-    .streamPrefixes(sourcePath)
-    .map(_.createdOn.getOrElse(0L))
-    .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
 
 object BlobListingParquetSource:
   def apply(

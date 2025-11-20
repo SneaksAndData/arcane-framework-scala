@@ -23,8 +23,8 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends Blob
     val decoder = DecoderFactory.get().jsonDecoder(schema, line)
     reader.read(null, decoder)
 
-
-  override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream.fromFileName(filePath)
+  override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
+    .fromFileName(filePath)
     .via(ZPipeline.utf8Decode >>> ZPipeline.splitLines) // assume each line a JSON object
     .map(parseJsonLine)
 
@@ -38,10 +38,8 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends Blob
 
 object JsonScanner:
   def apply(path: String, schema: org.apache.avro.Schema): JsonScanner = new JsonScanner(
-    schema=schema,
+    schema = schema,
     filePath = path
   )
 
   def parseSchema(schemaStr: String): org.apache.avro.Schema = org.apache.avro.Schema.Parser().parse(schemaStr)
-
-

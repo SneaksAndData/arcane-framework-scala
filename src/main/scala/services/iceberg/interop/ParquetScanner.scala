@@ -70,7 +70,6 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile) extends BlobS
     .flatMap(ZStream.fromIterator(_))
     .map(implicitly)
 
-
 object ParquetScanner:
   def apply(path: String): ParquetScanner                          = new ParquetScanner(Files.localInput(path))
   def apply(file: org.apache.iceberg.io.InputFile): ParquetScanner = new ParquetScanner(file)
