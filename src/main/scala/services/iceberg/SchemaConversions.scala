@@ -9,6 +9,9 @@ import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.parquet.ParquetSchemaUtil
 import org.apache.iceberg.types.{Type, Types}
 import org.apache.parquet.schema.MessageType
+import org.apache.avro.generic.GenericRecord as AvroGenericRecord
+import org.apache.avro.Schema.Type as AvroType
+import org.apache.avro.Schema as AvroSchema
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
@@ -80,6 +83,41 @@ given Conversion[GenericRecord, DataRow] with
       )
     }
     .toList
+  
+given Conversion[AvroSchema, ArcaneSchema] with
+  override def apply(avroSchema: AvroSchema): ArcaneSchema = ArcaneSchema(
+    avroSchema.getFields.asScala.map { avroField => 
+      Field(
+        name = avroField.name(),
+        fieldType = avroField.schema().getType
+      )
+    }.toSeq ++ Seq(MergeKeyField)
+  )
+  
+given Conversion[AvroType, ArcaneType] with
+  override def apply(avroType: AvroType): ArcaneType = avroType match
+    case org.apache.avro.Schema.Type.INT => IntType
+    case org.apache.avro.Schema.Type.LONG => LongType
+    case org.apache.avro.Schema.Type.BYTES => ByteArrayType
+    case org.apache.avro.Schema.Type.BOOLEAN => BooleanType
+    case org.apache.avro.Schema.Type.STRING => StringType
+    case org.apache.avro.Schema.Type.DOUBLE => DoubleType
+    case org.apache.avro.Schema.Type.FLOAT => FloatType
+    
+
+given Conversion[AvroGenericRecord, DataRow] with
+  override def apply(record: AvroGenericRecord): DataRow = record
+    .getSchema
+    .getFields
+    .asScala
+    .map { avroField =>
+      DataCell(
+        name = avroField.name(),
+        Type = avroField.schema().getType,
+        value = record.get(avroField.name())
+      )
+    }
+    .toList  
 
 given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
   final override def apply(icebergType: Type): ArcaneType = icebergType match

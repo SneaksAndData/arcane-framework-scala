@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import models.batches.BlobBatchCommons
-import models.schemas.ArcaneType.LongType
 import models.schemas.{*, given}
 import models.settings.BlobSourceSettings
 import services.base.SchemaProvider
@@ -14,13 +13,10 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
-import org.apache.iceberg.data.GenericRecord
 import zio.stream.{ZSink, ZStream}
 import zio.{Task, ZIO, ZLayer}
 
-import java.security.MessageDigest
 import java.time.{Duration, OffsetDateTime}
-import java.util.Base64
 
 class BlobListingParquetSource[PathType <: BlobPath](
     sourcePath: PathType,
@@ -31,38 +27,6 @@ class BlobListingParquetSource[PathType <: BlobPath](
     with SchemaProvider[ArcaneSchema]:
 
   override type OutputRow = DataRow
-
-  private val mergeKeyHasher                        = MessageDigest.getInstance("SHA-256")
-  private def encodeHash(hash: Array[Byte]): String = Base64.getEncoder.encodeToString(hash)
-
-  private def getMergeKeyValue(row: DataRow, keys: Seq[String]): String = encodeHash(
-    mergeKeyHasher.digest(
-      keys
-        .map { key =>
-          row.find(cell => cell.name == key) match
-            case Some(pkCell) => pkCell.value.toString
-            case None =>
-              throw new RuntimeException(s"Primary key $key does not exist in the rows emitted by this source")
-        }
-        .mkString
-        .toLowerCase
-        .getBytes("UTF-8")
-    )
-  )
-
-  private def enrich(row: DataRow, version: Long): DataRow = row ++ Seq(
-    DataCell(
-      name = MergeKeyField.name,
-      Type = MergeKeyField.fieldType,
-      value = getMergeKeyValue(row, primaryKeys)
-    ),
-    // merge query requires a versionField to ensure rows are updated correctly
-    DataCell(
-      name = BlobBatchCommons.versionField.name,
-      Type = BlobBatchCommons.versionField.fieldType,
-      value = version
-    )
-  )
 
   override def getSchema: Task[SchemaType] = for
     filePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
@@ -83,7 +47,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
-    row     <- scanner.getRows.map(enrich(_, sourceFile.createdOn.getOrElse(0)))
+    row     <- scanner.getRows.map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys))
   yield (row, sourceFile.createdOn.getOrElse(0L))
 
   // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
