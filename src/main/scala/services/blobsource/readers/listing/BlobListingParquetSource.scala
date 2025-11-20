@@ -3,7 +3,7 @@ package services.blobsource.readers.listing
 
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
-import models.settings.BlobSourceSettings
+import models.settings.blob.ParquetBlobSourceSettings
 import services.base.SchemaProvider
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
@@ -58,12 +58,12 @@ object BlobListingParquetSource:
 
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
-  val layer: ZLayer[BlobSourceSettings & S3BlobStorageReader, IllegalArgumentException, BlobListingParquetSource[
+  val layer: ZLayer[ParquetBlobSourceSettings & S3BlobStorageReader, IllegalArgumentException, BlobListingParquetSource[
     S3StoragePath
   ]] = ZLayer {
     for
       blobReader     <- ZIO.service[S3BlobStorageReader]
-      sourceSettings <- ZIO.service[BlobSourceSettings]
+      sourceSettings <- ZIO.service[ParquetBlobSourceSettings]
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
         S3StoragePath(sourceSettings.sourcePath).toOption
       )
