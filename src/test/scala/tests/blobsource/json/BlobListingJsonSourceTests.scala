@@ -23,43 +23,83 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
                              |    "fields": [
                              |        {
                              |            "name": "col0",
-                             |            "type": "int"
+                             |            "type": [
+                             |                "null",
+                             |                "int"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col1",
-                             |            "type": "string"
+                             |            "type": [
+                             |                "null",
+                             |                "string"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col2",
-                             |            "type": "int"
+                             |            "type": [
+                             |                "null",
+                             |                "int"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col3",
-                             |            "type": "string"
+                             |            "type": [
+                             |                "null",
+                             |                "string"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col4",
-                             |            "type": "int"
+                             |            "type": [
+                             |                "null",
+                             |                "int"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col5",
-                             |            "type": "string"
+                             |            "type": [
+                             |                "null",
+                             |                "string"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col6",
-                             |            "type": "int"
+                             |            "type": [
+                             |                "null",
+                             |                "int"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col7",
-                             |            "type": "string"
+                             |            "type": [
+                             |                "null",
+                             |                "string"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col8",
-                             |            "type": "int"
+                             |            "type": [
+                             |                "null",
+                             |                "int"
+                             |            ],
+                             |            "default": null
                              |        },
                              |        {
                              |            "name": "col9",
-                             |            "type": "string"
+                             |            "type": [
+                             |                "null",
+                             |                "string"
+                             |            ],
+                             |            "default": null
                              |        }
                              |    ]
                              |}""".stripMargin
@@ -78,6 +118,33 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
     test("getChanges return correct rows") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
+        rows   <- source.getChanges(0).runCollect
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
+        rows
+          .map(_._1)
+          .forall(row =>
+            val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
+              .takeRight(2)
+              .head
+              .value
+              .asInstanceOf[String] == Base64.getEncoder.encodeToString(
+              MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
+            ))
+
+            if !pred then {
+              println(
+                s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
+              )
+            }
+
+            pred
+          )
+      )
+    },
+    test("getChanges return correct rows for source with variable number of fields") {
+      for
+        path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
         source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
         rows   <- source.getChanges(0).runCollect
       yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(

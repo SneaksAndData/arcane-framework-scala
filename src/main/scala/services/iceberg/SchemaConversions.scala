@@ -84,17 +84,23 @@ given Conversion[GenericRecord, DataRow] with
     }
     .toList
 
+/**
+ * Unpacks the real type from the UNION. Expects NULL to always be the first.
+ * @param field AVRO field type
+ * @return
+ */
+def unfoldAvroUnion(field: AvroSchema.Field): AvroSchema.Type =
+  field.schema().getType match
+    case org.apache.avro.Schema.Type.UNION =>
+      field.schema().getTypes.get(1).getType
+    case _ => field.schema().getType
+
 given Conversion[AvroSchema, ArcaneSchema] with
   override def apply(avroSchema: AvroSchema): ArcaneSchema =
-    def getAvroType(field: AvroSchema.Field): AvroSchema.Type =
-      if field.schema().getType == org.apache.avro.Schema.Type.UNION then
-        field.schema().getTypes.get(1).getType
-      else field.schema().getType
-
     ArcaneSchema(avroSchema.getFields.asScala.map { avroField =>
       Field(
         name = avroField.name(),
-        fieldType = getAvroType(avroField)
+        fieldType = unfoldAvroUnion(avroField)
       )
     }.toSeq ++ Seq(MergeKeyField))
 
@@ -122,7 +128,7 @@ given Conversion[AvroGenericRecord, DataRow] with
   override def apply(record: AvroGenericRecord): DataRow = record.getSchema.getFields.asScala.map { avroField =>
     DataCell(
       name = avroField.name(),
-      Type = avroField.schema().getType,
+      Type = unfoldAvroUnion(avroField),
       value = record.get(avroField.name())
     )
   }.toList

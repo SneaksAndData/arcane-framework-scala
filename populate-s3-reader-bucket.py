@@ -56,13 +56,16 @@ def get_parquet_test_data():
 def get_json_test_data():
     return { f"col{i}": generate_value(i) for i in range(10)}
 
+def get_json_test_data_variable_content():
+    return { f"col{i}": generate_value(i) for i in range(10) if i % random.randint(1, 9) == 0}
+
 def generate_parquet_file(fname):
     df = pd.DataFrame(data=get_parquet_test_data())
     df.to_parquet(f'{fname}.parquet.gzip', compression='gzip')
 
-def generate_json_file(fname, line_count):
+def generate_json_file(fname, line_count, generator_func):
     content = ""
-    json_lines = [json.dumps(get_json_test_data()) for i in range(line_count)]
+    json_lines = [json.dumps(generator_func()) for i in range(line_count)]
     with open(f'{fname}.json', 'w', encoding='utf-8') as f:
         f.write('\n'.join(json_lines))
 
@@ -75,10 +78,13 @@ def generate_parquet_test_files():
 
 def generate_json_test_files():
     os.makedirs("/tmp/s3-json", exist_ok=True)
+    os.makedirs("/tmp/s3-json-variable", exist_ok=True)
 
     for ix_file in range(50):
-        generate_json_file(f'/tmp/s3-json/{ix_file}', 100)
+        generate_json_file(f'/tmp/s3-json/{ix_file}', 100, get_json_test_data)
+        generate_json_file(f'/tmp/s3-json-variable/{ix_file}', 100, get_json_test_data_variable_content)
         upload_file(f'/tmp/s3-json/{ix_file}.json', 's3-blob-reader-json')
+        upload_file(f'/tmp/s3-json-variable/{ix_file}.json', 's3-blob-reader-json-variable')
 
 generate_parquet_test_files()
 generate_json_test_files()
