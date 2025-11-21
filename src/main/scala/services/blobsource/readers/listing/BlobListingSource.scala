@@ -17,9 +17,8 @@ abstract class BlobListingSource[PathType <: BlobPath](
     primaryKeys: Seq[String]
 ) extends BlobSourceReader:
 
-  /**
-   * SHA-256 hasher. Note that this is NOT thread safe and must not be created outside the BlobListingSource
-   */
+  /** SHA-256 hasher. Note that this is NOT thread safe and must not be created outside the BlobListingSource
+    */
   protected val mergeKeyHasher: MessageDigest = MessageDigest.getInstance("SHA-256")
 
   override def getLatestVersion: Task[Long] = reader
