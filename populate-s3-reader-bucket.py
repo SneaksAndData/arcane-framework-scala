@@ -54,7 +54,7 @@ def get_parquet_test_data():
     return { f"col{i}": [generate_value(i) for _ in range(100)] for i in range(10)}
 
 def get_json_test_data():
-    return { f"col{i}": generate_value(random.randint(0, 1000)) for i in range(10)}
+    return { f"col{i}": generate_value(i) for i in range(10)}
 
 def generate_parquet_file(fname):
     df = pd.DataFrame(data=get_parquet_test_data())

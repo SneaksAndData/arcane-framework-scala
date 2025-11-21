@@ -87,8 +87,8 @@ given Conversion[GenericRecord, DataRow] with
 given Conversion[AvroSchema, ArcaneSchema] with
   override def apply(avroSchema: AvroSchema): ArcaneSchema =
     def getAvroType(field: AvroSchema.Field): AvroSchema.Type =
-      val types = field.schema().getTypes
-      if types.size() > 1 then types.get(1).getType
+      if field.schema().getType == org.apache.avro.Schema.Type.UNION then
+        field.schema().getTypes.get(1).getType
       else field.schema().getType
 
     ArcaneSchema(avroSchema.getFields.asScala.map { avroField =>

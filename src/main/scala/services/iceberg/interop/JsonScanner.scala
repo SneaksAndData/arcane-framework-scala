@@ -2,19 +2,16 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg.interop
 
 import logging.ZIOLogAnnotations.zlog
-import models.schemas.{ArcaneType, DataCell, DataRow}
+import models.schemas.DataRow
 import services.iceberg.base.BlobScanner
-import services.iceberg.{given_Conversion_AvroGenericRecord_DataRow, given_Conversion_AvroType_ArcaneType}
+import services.iceberg.given_Conversion_AvroGenericRecord_DataRow
 
-import org.apache.avro.data.Json
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.DecoderFactory
-import org.apache.iceberg.Schema
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Task, ZIO}
 
 import java.io.File
-import scala.jdk.CollectionConverters.*
 
 class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends BlobScanner:
   private val reader = GenericDatumReader[GenericRecord](schema)
