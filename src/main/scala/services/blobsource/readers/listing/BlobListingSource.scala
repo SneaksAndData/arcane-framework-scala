@@ -8,6 +8,7 @@ import services.storage.models.base.BlobPath
 import zio.stream.ZSink
 import zio.{Task, ZIO}
 
+import java.security.MessageDigest
 import java.time.{Duration, OffsetDateTime}
 
 abstract class BlobListingSource[PathType <: BlobPath](
@@ -15,6 +16,11 @@ abstract class BlobListingSource[PathType <: BlobPath](
     reader: BlobStorageReader[PathType],
     primaryKeys: Seq[String]
 ) extends BlobSourceReader:
+
+  /**
+   * SHA-256 hasher. Note that this is NOT thread safe and must not be created outside the BlobListingSource
+   */
+  protected val mergeKeyHasher: MessageDigest = MessageDigest.getInstance("SHA-256")
 
   override def getLatestVersion: Task[Long] = reader
     .streamPrefixes(sourcePath)

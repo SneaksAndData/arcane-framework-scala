@@ -27,8 +27,6 @@ class BlobListingJsonSource[PathType <: BlobPath](
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
-  private val mergeKeyHasher = MessageDigest.getInstance("SHA-256")
-
   override type OutputRow = DataRow
 
   private def sourceSchema: Task[AvroSchema] = for parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
