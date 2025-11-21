@@ -16,6 +16,8 @@ import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.security.MessageDigest
+
 class BlobListingJsonSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
@@ -24,6 +26,8 @@ class BlobListingJsonSource[PathType <: BlobPath](
     avroSchemaString: String
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
+
+  private val mergeKeyHasher = MessageDigest.getInstance("SHA-256")
 
   override type OutputRow = DataRow
 
@@ -47,7 +51,9 @@ class BlobListingJsonSource[PathType <: BlobPath](
     )
     schema  <- ZStream.fromZIO(sourceSchema)
     scanner <- ZStream.succeed(JsonScanner(downloadedFile, schema))
-    row     <- scanner.getRows.map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys))
+    row <- scanner.getRows.map(
+      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+    )
   yield (row, sourceFile.createdOn.getOrElse(0L))
 
 object BlobListingJsonSource:

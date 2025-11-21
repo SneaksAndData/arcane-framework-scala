@@ -13,12 +13,10 @@ object BlobBatchCommons:
     fieldType = LongType
   )
 
-  private val mergeKeyHasher = MessageDigest.getInstance("SHA-256")
-
   private def encodeHash(hash: Array[Byte]): String = Base64.getEncoder.encodeToString(hash)
 
-  private def getMergeKeyValue(row: DataRow, keys: Seq[String]): String = encodeHash(
-    mergeKeyHasher.digest(
+  private def getMergeKeyValue(row: DataRow, keys: Seq[String], hasher: MessageDigest): String = encodeHash(
+    hasher.digest(
       keys
         .map { key =>
           row.find(cell => cell.name == key) match
@@ -32,16 +30,17 @@ object BlobBatchCommons:
     )
   )
 
-  def enrichBatchRow(row: DataRow, version: Long, primaryKeys: Seq[String]): DataRow = row ++ Seq(
-    DataCell(
-      name = MergeKeyField.name,
-      Type = MergeKeyField.fieldType,
-      value = getMergeKeyValue(row, primaryKeys)
-    ),
-    // merge query requires a versionField to ensure rows are updated correctly
-    DataCell(
-      name = BlobBatchCommons.versionField.name,
-      Type = BlobBatchCommons.versionField.fieldType,
-      value = version
+  def enrichBatchRow(row: DataRow, version: Long, primaryKeys: Seq[String], hasher: MessageDigest): DataRow =
+    row ++ Seq(
+      DataCell(
+        name = MergeKeyField.name,
+        Type = MergeKeyField.fieldType,
+        value = getMergeKeyValue(row, primaryKeys, hasher)
+      ),
+      // merge query requires a versionField to ensure rows are updated correctly
+      DataCell(
+        name = BlobBatchCommons.versionField.name,
+        Type = BlobBatchCommons.versionField.fieldType,
+        value = version
+      )
     )
-  )

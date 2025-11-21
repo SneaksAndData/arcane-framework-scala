@@ -15,6 +15,8 @@ import services.storage.services.s3.S3BlobStorageReader
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.security.MessageDigest
+
 class BlobListingParquetSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
@@ -22,6 +24,8 @@ class BlobListingParquetSource[PathType <: BlobPath](
     primaryKeys: Seq[String]
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
+
+  private val mergeKeyHasher = MessageDigest.getInstance("SHA-256")
 
   override type OutputRow = DataRow
 
@@ -44,7 +48,9 @@ class BlobListingParquetSource[PathType <: BlobPath](
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
-    row     <- scanner.getRows.map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys))
+    row <- scanner.getRows.map(
+      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+    )
   yield (row, sourceFile.createdOn.getOrElse(0L))
 
 object BlobListingParquetSource:
