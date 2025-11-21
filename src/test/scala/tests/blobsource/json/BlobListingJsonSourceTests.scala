@@ -2,17 +2,41 @@ package com.sneaksanddata.arcane.framework
 package tests.blobsource.json
 
 import models.batches.BlobBatchCommons
-import models.schemas.MergeKeyField
+import models.schemas.{DataRow, MergeKeyField}
 import services.blobsource.readers.listing.BlobListingJsonSource
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
 
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, ZIO}
+import zio.{Chunk, Scope, ZIO}
 
 import java.security.MessageDigest
 import java.util.Base64
+
+def assertValidChunk(rows: Chunk[(DataRow, Long)]) = {
+  assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
+    rows
+      .map(_._1)
+      .forall(row =>
+        val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
+          .takeRight(2)
+          .head
+          .value
+          .asInstanceOf[String] == Base64.getEncoder.encodeToString(
+          MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
+        ))
+
+        if !pred then {
+          println(
+            s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
+          )
+        }
+
+        pred
+      )
+  )
+}
 
 object BlobListingJsonSourceTests extends ZIOSpecDefault:
   private val testSchema = """{
@@ -120,53 +144,13 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
         source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
         rows   <- source.getChanges(0).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
-        rows
-          .map(_._1)
-          .forall(row =>
-            val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
-              .takeRight(2)
-              .head
-              .value
-              .asInstanceOf[String] == Base64.getEncoder.encodeToString(
-              MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
-            ))
-
-            if !pred then {
-              println(
-                s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
-              )
-            }
-
-            pred
-          )
-      )
+      yield assertValidChunk(rows)
     },
     test("getChanges return correct rows for source with variable number of fields") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
         source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
         rows   <- source.getChanges(0).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
-        rows
-          .map(_._1)
-          .forall(row =>
-            val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
-              .takeRight(2)
-              .head
-              .value
-              .asInstanceOf[String] == Base64.getEncoder.encodeToString(
-              MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
-            ))
-
-            if !pred then {
-              println(
-                s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
-              )
-            }
-
-            pred
-          )
-      )
+      yield assertValidChunk(rows)
     }
   ) @@ timeout(zio.Duration.fromSeconds(20)) @@ TestAspect.withLiveClock
