@@ -85,14 +85,18 @@ given Conversion[GenericRecord, DataRow] with
     .toList
 
 given Conversion[AvroSchema, ArcaneSchema] with
-  override def apply(avroSchema: AvroSchema): ArcaneSchema = ArcaneSchema(
-    avroSchema.getFields.asScala.map { avroField =>
+  override def apply(avroSchema: AvroSchema): ArcaneSchema =
+    def getAvroType(field: AvroSchema.Field): AvroSchema.Type =
+      val types = field.schema().getTypes
+      if types.size() > 1 then types.get(1).getType
+      else field.schema().getType
+
+    ArcaneSchema(avroSchema.getFields.asScala.map { avroField =>
       Field(
         name = avroField.name(),
-        fieldType = avroField.schema().getType
+        fieldType = getAvroType(avroField)
       )
-    }.toSeq ++ Seq(MergeKeyField)
-  )
+    }.toSeq ++ Seq(MergeKeyField))
 
 given Conversion[AvroType, ArcaneType] with
   override def apply(avroType: AvroType): ArcaneType = avroType match
@@ -103,6 +107,16 @@ given Conversion[AvroType, ArcaneType] with
     case org.apache.avro.Schema.Type.STRING  => StringType
     case org.apache.avro.Schema.Type.DOUBLE  => DoubleType
     case org.apache.avro.Schema.Type.FLOAT   => FloatType
+    case org.apache.avro.Schema.Type.RECORD  => throw UnsupportedOperationException("Cast from RECORD is not supported")
+    case org.apache.avro.Schema.Type.ENUM    => StringType
+    case org.apache.avro.Schema.Type.ARRAY   => throw UnsupportedOperationException("Cast from ARRAY is not supported")
+    case org.apache.avro.Schema.Type.MAP     => throw UnsupportedOperationException("Cast from MAP is not supported")
+    case org.apache.avro.Schema.Type.UNION =>
+      throw UnsupportedOperationException(
+        "Cast from UNION is not expected. This is a bug and it should be reported to maintainers"
+      )
+    case org.apache.avro.Schema.Type.FIXED => StringType // fixed-size string in AVRO, default to STRING
+    case org.apache.avro.Schema.Type.NULL  => throw UnsupportedOperationException("Cast from NULL is not supported")
 
 given Conversion[AvroGenericRecord, DataRow] with
   override def apply(record: AvroGenericRecord): DataRow = record.getSchema.getFields.asScala.map { avroField =>

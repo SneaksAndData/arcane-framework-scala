@@ -17,6 +17,7 @@
 # under the License.
 #
 
+import json
 import pandas as pd
 import string
 import random
@@ -41,20 +42,29 @@ def upload_file(file_name, bucket, object_name=None):
     _ = s3_client.upload_file(file_name, bucket, object_name)
 
 
+def generate_value(index):
+    if index % 2 == 0:
+        return random.randint(1, 100)
+
+    alphanum = list(string.ascii_uppercase + string.digits)
+    random.shuffle(alphanum)
+    return ''.join(alphanum[:random.randint(1, 10)])
+
+def get_parquet_test_data():
+    return { f"col{i}": [generate_value(i) for _ in range(100)] for i in range(10)}
+
+def get_json_test_data():
+    return { f"col{i}": generate_value(random.randint(0, 1000)) for i in range(10)}
+
 def generate_parquet_file(fname):
-    def _generate_value(index):
-        if index % 2 == 0:
-            return random.randint(1, 100)
-
-        alphanum = list(string.ascii_uppercase + string.digits)
-        random.shuffle(alphanum)
-        return ''.join(alphanum[:random.randint(1, 10)])
-
-
-    data = { f"col{i}": [_generate_value(i) for _ in range(100)] for i in range(10)}
-
-    df = pd.DataFrame(data=data)
+    df = pd.DataFrame(data=get_parquet_test_data())
     df.to_parquet(f'{fname}.parquet.gzip', compression='gzip')
+
+def generate_json_file(fname, line_count):
+    content = ""
+    json_lines = [json.dumps(get_json_test_data()) for i in range(line_count)]
+    with open(f'{fname}.json', 'w', encoding='utf-8') as f:
+        f.write('\n'.join(json_lines))
 
 def generate_parquet_test_files():
     os.makedirs("/tmp/s3-parquet", exist_ok=True)
@@ -63,4 +73,12 @@ def generate_parquet_test_files():
         generate_parquet_file(f'/tmp/s3-parquet/{ix_file}')
         upload_file(f'/tmp/s3-parquet/{ix_file}.parquet.gzip', 's3-blob-reader')
 
+def generate_json_test_files():
+    os.makedirs("/tmp/s3-json", exist_ok=True)
+
+    for ix_file in range(50):
+        generate_json_file(f'/tmp/s3-json/{ix_file}', 100)
+        upload_file(f'/tmp/s3-json/{ix_file}.json', 's3-blob-reader-json')
+
 generate_parquet_test_files()
+generate_json_test_files()

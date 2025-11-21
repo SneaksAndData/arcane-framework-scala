@@ -8,6 +8,7 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 
 object S3StorageInfo:
   val bucket          = "s3-blob-reader"
+  val jsonBucket      = "s3-blob-reader-json"
   val accessKeyId     = "minioadmin"
   val secretAccessKey = "minioadmin"
   val endpoint        = "http://localhost:9000"
