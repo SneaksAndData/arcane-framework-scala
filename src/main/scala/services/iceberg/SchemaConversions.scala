@@ -84,11 +84,11 @@ given Conversion[GenericRecord, DataRow] with
     }
     .toList
 
-/**
- * Unpacks the real type from the UNION. Expects NULL to always be the first.
- * @param field AVRO field type
- * @return
- */
+/** Unpacks the real type from the UNION. Expects NULL to always be the first.
+  * @param field
+  *   AVRO field type
+  * @return
+  */
 def unfoldAvroUnion(field: AvroSchema.Field): AvroSchema.Type =
   field.schema().getType match
     case org.apache.avro.Schema.Type.UNION =>

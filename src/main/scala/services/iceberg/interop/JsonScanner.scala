@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg.interop
 
-
 import com.fasterxml.jackson.databind.node.{JsonNodeFactory, ObjectNode}
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.DataRow
@@ -16,14 +15,15 @@ import zio.{Task, ZIO}
 import java.io.File
 
 class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends BlobScanner:
-  private val reader = GenericDatumReader[GenericRecord](schema)
-  private val jsonMapper = com.fasterxml.jackson.databind.ObjectMapper()
+  private val reader      = GenericDatumReader[GenericRecord](schema)
+  private val jsonMapper  = com.fasterxml.jackson.databind.ObjectMapper()
   private val nodeFactory = JsonNodeFactory.instance
 
-  private def getOptionalTypeName(optionalType: org.apache.avro.Schema): String = optionalType.getTypes.get(1).getType.getName
+  private def getOptionalTypeName(optionalType: org.apache.avro.Schema): String =
+    optionalType.getTypes.get(1).getType.getName
 
   private def parseJsonLine(line: String): GenericRecord =
-    val rawJson = jsonMapper.readTree(line)
+    val rawJson  = jsonMapper.readTree(line)
     val safeJson = rawJson.deepCopy[ObjectNode]()
     // check if any top-level nodes are missing
     // nested fields or objects with potentially missing fields are not supported
@@ -32,7 +32,7 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends Blob
     // http://avro.apache.org/docs/current/spec.html#json_encoding
     // https://issues.apache.org/jira/browse/AVRO-1582
     // IMPORTANT: all schema fields MUST have default value assigned to be NULL and MUST declare NULL as a first type
-    // force source json to comply with AVRO requirements for optional field encoding by wrapping non-null fields in {<field_type>: <field_value>} 
+    // force source json to comply with AVRO requirements for optional field encoding by wrapping non-null fields in {<field_type>: <field_value>}
     schema.getFields.forEach { avroField =>
       if !avroField.hasDefaultValue then
         throw IllegalArgumentException("All fields in the schema must have default NULL value assigned")

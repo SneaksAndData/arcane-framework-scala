@@ -7,12 +7,12 @@ import services.storage.services.s3.S3BlobStorageReader
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 
 object S3StorageInfo:
-  val bucket          = "s3-blob-reader"
-  val jsonBucket      = "s3-blob-reader-json"
-  val jsonBucketVariable      = "s3-blob-reader-json-variable"
-  val accessKeyId     = "minioadmin"
-  val secretAccessKey = "minioadmin"
-  val endpoint        = "http://localhost:9000"
+  val bucket             = "s3-blob-reader"
+  val jsonBucket         = "s3-blob-reader-json"
+  val jsonBucketVariable = "s3-blob-reader-json-variable"
+  val accessKeyId        = "minioadmin"
+  val secretAccessKey    = "minioadmin"
+  val endpoint           = "http://localhost:9000"
 
   val storageReader = S3BlobStorageReader(
     StaticCredentialsProvider.create(AwsBasicCredentials.create(secretAccessKey, accessKeyId)),
