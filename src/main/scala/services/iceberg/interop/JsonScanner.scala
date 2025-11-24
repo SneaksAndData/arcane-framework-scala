@@ -7,6 +7,7 @@ import models.schemas.DataRow
 import services.iceberg.base.BlobScanner
 import services.iceberg.given_Conversion_AvroGenericRecord_DataRow
 
+import com.fasterxml.jackson.databind.JsonNode
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.DecoderFactory
 import zio.stream.{ZPipeline, ZStream}
@@ -14,7 +15,8 @@ import zio.{Task, ZIO}
 
 import java.io.File
 
-class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends BlobScanner:
+class JsonScanner(schema: org.apache.avro.Schema, filePath: String, jsonPointerExpr: Option[String])
+    extends BlobScanner:
   private val reader      = GenericDatumReader[GenericRecord](schema)
   private val jsonMapper  = com.fasterxml.jackson.databind.ObjectMapper()
   private val nodeFactory = JsonNodeFactory.instance
@@ -22,8 +24,19 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends Blob
   private def getOptionalTypeName(optionalType: org.apache.avro.Schema): String =
     optionalType.getTypes.get(1).getType.getName
 
+  private def applyJsonPointer(node: JsonNode): JsonNode =
+    jsonPointerExpr match
+      case Some(pointer) => node.at(pointer)
+      case None          => node
+
   private def parseJsonLine(line: String): GenericRecord =
-    val rawJson  = jsonMapper.readTree(line)
+    val rawJson = applyJsonPointer(jsonMapper.readTree(line))
+
+    if rawJson.isMissingNode then
+      throw IllegalArgumentException(
+        s"Applying the provided json pointer expression: `$jsonPointerExpr` resulted in an empty node"
+      )
+
     val safeJson = rawJson.deepCopy[ObjectNode]()
     // check if any top-level nodes are missing
     // nested fields or objects with potentially missing fields are not supported
@@ -79,7 +92,15 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String) extends Blob
 object JsonScanner:
   def apply(path: String, schema: org.apache.avro.Schema): JsonScanner = new JsonScanner(
     schema = schema,
-    filePath = path
+    filePath = path,
+    None
   )
+
+  def apply(path: String, schema: org.apache.avro.Schema, jsonPointerExpr: Option[String]): JsonScanner =
+    new JsonScanner(
+      schema = schema,
+      filePath = path,
+      jsonPointerExpr
+    )
 
   def parseSchema(schemaStr: String): org.apache.avro.Schema = org.apache.avro.Schema.Parser().parse(schemaStr)

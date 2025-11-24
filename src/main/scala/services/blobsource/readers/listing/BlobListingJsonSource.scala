@@ -16,14 +16,13 @@ import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-import java.security.MessageDigest
-
 class BlobListingJsonSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
     primaryKeys: Seq[String],
-    avroSchemaString: String
+    avroSchemaString: String,
+    jsonPointerExpr: Option[String]
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
@@ -48,7 +47,7 @@ class BlobListingJsonSource[PathType <: BlobPath](
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     schema  <- ZStream.fromZIO(sourceSchema)
-    scanner <- ZStream.succeed(JsonScanner(downloadedFile, schema))
+    scanner <- ZStream.succeed(JsonScanner(downloadedFile, schema, jsonPointerExpr))
     row <- scanner.getRows.map(
       BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
     )
@@ -60,9 +59,17 @@ object BlobListingJsonSource:
       s3Reader: S3BlobStorageReader,
       tempPath: String,
       primaryKeys: Seq[String],
-      avroSchemaString: String
+      avroSchemaString: String,
+      jsonPointerExpr: Option[String]
   ): BlobListingJsonSource[S3StoragePath] =
-    new BlobListingJsonSource[S3StoragePath](sourcePath, s3Reader, tempPath, primaryKeys, avroSchemaString)
+    new BlobListingJsonSource[S3StoragePath](
+      sourcePath,
+      s3Reader,
+      tempPath,
+      primaryKeys,
+      avroSchemaString,
+      jsonPointerExpr
+    )
 
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
@@ -80,6 +87,7 @@ object BlobListingJsonSource:
       blobReader,
       sourceSettings.tempStoragePath,
       sourceSettings.primaryKeys,
-      sourceSettings.avroSchemaString
+      sourceSettings.avroSchemaString,
+      if (sourceSettings.jsonPointerExpression.isEmpty) None else Some(sourceSettings.jsonPointerExpression)
     )
   }

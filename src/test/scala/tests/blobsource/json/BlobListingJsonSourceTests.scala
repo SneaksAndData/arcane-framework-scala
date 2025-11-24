@@ -130,8 +130,10 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobListingJsonSource")(
     test("getSchema returns correct schema") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
-        source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
+        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        source <- ZIO.succeed(
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"))
+        )
         schema <- source.getSchema
       yield assertTrue(schema.size == 10 + 2) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
@@ -141,16 +143,20 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
     },
     test("getChanges return correct rows") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
-        source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
-        rows   <- source.getChanges(0).runCollect
+        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        source <- ZIO.succeed(
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"))
+        )
+        rows <- source.getChanges(0).runCollect
       yield assertValidChunk(rows)
     },
     test("getChanges return correct rows for source with variable number of fields") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
-        source <- ZIO.succeed(BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema))
-        rows   <- source.getChanges(0).runCollect
+        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
+        source <- ZIO.succeed(
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"))
+        )
+        rows <- source.getChanges(0).runCollect
       yield assertValidChunk(rows)
     }
   ) @@ timeout(zio.Duration.fromSeconds(20)) @@ TestAspect.withLiveClock
