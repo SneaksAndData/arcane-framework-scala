@@ -24,6 +24,7 @@ enum ArcaneType:
   case ShortType
   case TimeType
   case ListType(elementType: ArcaneType, elementId: Int)
+  case ObjectType
 
   override def equals(obj: Any): Boolean = (this, obj) match {
     case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType

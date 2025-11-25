@@ -35,6 +35,7 @@ object SchemaConversions:
     case ShortType                        => Types.IntegerType.get()
     case TimeType                         => Types.TimeType.get()
     case ListType(elementType, elementId) => Types.ListType.ofOptional(elementId, elementType)
+    case ObjectType                       => Types.VariantType.get()
 
   implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
     schema
@@ -113,10 +114,10 @@ given Conversion[AvroType, ArcaneType] with
     case org.apache.avro.Schema.Type.STRING  => StringType
     case org.apache.avro.Schema.Type.DOUBLE  => DoubleType
     case org.apache.avro.Schema.Type.FLOAT   => FloatType
-    case org.apache.avro.Schema.Type.RECORD  => throw UnsupportedOperationException("Cast from RECORD is not supported")
+    case org.apache.avro.Schema.Type.RECORD  => ObjectType
     case org.apache.avro.Schema.Type.ENUM    => StringType
-    case org.apache.avro.Schema.Type.ARRAY   => throw UnsupportedOperationException("Cast from ARRAY is not supported")
-    case org.apache.avro.Schema.Type.MAP     => throw UnsupportedOperationException("Cast from MAP is not supported")
+    case org.apache.avro.Schema.Type.ARRAY   => ObjectType
+    case org.apache.avro.Schema.Type.MAP     => ObjectType
     case org.apache.avro.Schema.Type.UNION =>
       throw UnsupportedOperationException(
         "Cast from UNION is not expected. This is a bug and it should be reported to maintainers"
