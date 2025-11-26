@@ -29,8 +29,10 @@ class BlobListingJsonSource[PathType <: BlobPath](
 
   override type OutputRow = DataRow
 
-  private def sourceSchema: Task[AvroSchema] = for parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
-  yield parser.parse(avroSchemaString)
+  private def sourceSchema: Task[AvroSchema] = for
+    parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
+    schema <- ZIO.attempt(parser.parse(avroSchemaString))
+  yield schema
 
   override def getSchema: Task[SchemaType] = for arcaneSchema <- sourceSchema.map(implicitly)
   yield arcaneSchema ++ Seq(BlobBatchCommons.versionField)
