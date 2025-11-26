@@ -113,15 +113,12 @@ class JsonScanner(
       )
     }
 
-    // prepare source for processing
-    val safeJson = rawJson.deepCopy[ObjectNode]()
-
-    if jsonArrayPointers.isEmpty then Seq(safeJson).map(decodeJson)
+    if jsonArrayPointers.isEmpty then Seq(getAvroCompliantNode(rawJson.asInstanceOf[ObjectNode])).map(decodeJson)
     else
       // first explode array fields if requested by the client
       jsonArrayPointers
         .flatMap { case (jsonPointer, fieldMap) =>
-          explodeJsonArray(safeJson, jsonPointer, fieldMap)
+          explodeJsonArray(rawJson, jsonPointer, fieldMap)
         }
         .map(decodeJson)
         .toSeq
