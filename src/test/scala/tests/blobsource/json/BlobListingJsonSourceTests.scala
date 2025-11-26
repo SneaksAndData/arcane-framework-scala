@@ -132,7 +132,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"))
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"), Map())
         )
         schema <- source.getSchema
       yield assertTrue(schema.size == 10 + 2) && assertTrue(
@@ -145,7 +145,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"))
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"), Map())
         )
         rows <- source.getChanges(0).runCollect
       yield assertValidChunk(rows)
@@ -154,7 +154,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"))
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"), Map())
         )
         rows <- source.getChanges(0).runCollect
       yield assertValidChunk(rows)

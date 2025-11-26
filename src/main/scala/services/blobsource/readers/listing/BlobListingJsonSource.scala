@@ -22,7 +22,8 @@ class BlobListingJsonSource[PathType <: BlobPath](
     tempStoragePath: String,
     primaryKeys: Seq[String],
     avroSchemaString: String,
-    jsonPointerExpr: Option[String]
+    jsonPointerExpr: Option[String],
+    jsonArrayPointers: Map[String, Map[String, String]]
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
@@ -47,7 +48,7 @@ class BlobListingJsonSource[PathType <: BlobPath](
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
     schema  <- ZStream.fromZIO(sourceSchema)
-    scanner <- ZStream.succeed(JsonScanner(downloadedFile, schema, jsonPointerExpr))
+    scanner <- ZStream.succeed(JsonScanner(downloadedFile, schema, jsonPointerExpr, jsonArrayPointers))
     row <- scanner.getRows.map(
       BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
     )
@@ -60,7 +61,8 @@ object BlobListingJsonSource:
       tempPath: String,
       primaryKeys: Seq[String],
       avroSchemaString: String,
-      jsonPointerExpr: Option[String]
+      jsonPointerExpr: Option[String],
+      jsonArrayPointers: Map[String, Map[String, String]]
   ): BlobListingJsonSource[S3StoragePath] =
     new BlobListingJsonSource[S3StoragePath](
       sourcePath,
@@ -68,7 +70,8 @@ object BlobListingJsonSource:
       tempPath,
       primaryKeys,
       avroSchemaString,
-      jsonPointerExpr
+      jsonPointerExpr,
+      jsonArrayPointers
     )
 
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
@@ -88,6 +91,7 @@ object BlobListingJsonSource:
       sourceSettings.tempStoragePath,
       sourceSettings.primaryKeys,
       sourceSettings.avroSchemaString,
-      if (sourceSettings.jsonPointerExpression.isEmpty) None else Some(sourceSettings.jsonPointerExpression)
+      if (sourceSettings.jsonPointerExpression.isEmpty) None else Some(sourceSettings.jsonPointerExpression),
+      sourceSettings.jsonArrayPointers
     )
   }

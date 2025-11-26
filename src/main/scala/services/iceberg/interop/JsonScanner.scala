@@ -7,6 +7,7 @@ import models.schemas.DataRow
 import services.iceberg.base.BlobScanner
 import services.iceberg.given_Conversion_AvroGenericRecord_DataRow
 
+import com.fasterxml.jackson.core.JsonPointer
 import com.fasterxml.jackson.databind.JsonNode
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.DecoderFactory
@@ -14,9 +15,14 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.{Task, ZIO}
 
 import java.io.File
+import scala.jdk.CollectionConverters.*
 
-class JsonScanner(schema: org.apache.avro.Schema, filePath: String, jsonPointerExpr: Option[String])
-    extends BlobScanner:
+class JsonScanner(
+    schema: org.apache.avro.Schema,
+    filePath: String,
+    jsonPointerExpr: Option[String],
+    jsonArrayPointers: Map[String, Map[String, String]]
+) extends BlobScanner:
   private val reader      = GenericDatumReader[GenericRecord](schema)
   private val jsonMapper  = com.fasterxml.jackson.databind.ObjectMapper()
   private val nodeFactory = JsonNodeFactory.instance
@@ -29,15 +35,35 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String, jsonPointerE
       case Some(pointer) => node.at(pointer)
       case None          => node
 
-  private def parseJsonLine(line: String): GenericRecord =
-    val rawJson = applyJsonPointer(jsonMapper.readTree(line))
+  private def explodeJsonArray(root: JsonNode, pointerExpr: String, fieldMap: Map[String, String]): Seq[ObjectNode] =
+    val rootClone = root.deepCopy[ObjectNode]()
+    val arrayNode = rootClone.at(pointerExpr)
 
-    if rawJson.isMissingNode then
-      throw IllegalArgumentException(
-        s"Applying the provided json pointer expression: `$jsonPointerExpr` resulted in an empty node"
-      )
+    if !arrayNode.isArray then
+      throw IllegalArgumentException(s"Node at $pointerExpr expected to be an JsonArray, but it is not")
 
-    val safeJson = rawJson.deepCopy[ObjectNode]()
+    val compiledPointer = JsonPointer.compile(pointerExpr)
+    // assume parent is an object
+    val parent = root.at(compiledPointer.head()).asInstanceOf[ObjectNode]
+    parent.remove(compiledPointer.last().getMatchingProperty)
+
+    arrayNode
+      .elements()
+      .asScala
+      .map { element =>
+        val newNode = rootClone.deepCopy[ObjectNode]()
+
+        element.fieldNames().asScala.foreach { elementFieldName =>
+          newNode.set(fieldMap(elementFieldName), element.get(elementFieldName))
+        }
+
+        newNode
+      }
+      .toSeq
+
+  private def getAvroCompliantNode(node: ObjectNode): ObjectNode =
+    val compliantNode = node.deepCopy[ObjectNode]()
+
     // check if any top-level nodes are missing
     // nested fields or objects with potentially missing fields are not supported
     // this is required as AVRO requires special formatting of JSON fields that are declared as optional, see
@@ -50,7 +76,7 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String, jsonPointerE
       if !avroField.hasDefaultValue then
         throw IllegalArgumentException("All fields in the schema must have default NULL value assigned")
 
-      val jsonNodeValue = Option(rawJson.get(avroField.name()))
+      val jsonNodeValue = Option(compliantNode.get(avroField.name()))
 
       // extract field name for modified JSON
       val wrappedTypeName = getOptionalTypeName(avroField.schema())
@@ -59,27 +85,51 @@ class JsonScanner(schema: org.apache.avro.Schema, filePath: String, jsonPointerE
       val wrapperNode = nodeFactory.objectNode()
 
       // check if a node is missing
-      if !rawJson.has(avroField.name()) then
+      if !compliantNode.has(avroField.name()) then
         // AVRO can fill nulls, but can't fill in missing fields - helping here
-        safeJson.set(avroField.name(), nodeFactory.nullNode())
+        compliantNode.set(avroField.name(), nodeFactory.nullNode())
 
       // only run this for non-null nodes
       if !jsonNodeValue.forall(_.isNull) then
         wrapperNode.set(wrappedTypeName, jsonNodeValue.get)
 
         // create new node
-        safeJson.set(avroField.name(), wrapperNode)
+        compliantNode.set(avroField.name(), wrapperNode)
 
     }
 
-    val decoder = DecoderFactory.get().jsonDecoder(schema, safeJson.toString)
+    compliantNode
 
+  private def decodeJson(node: ObjectNode): DataRow =
+    val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
     reader.read(null, decoder)
+
+  private def parseJsonLine(line: String): Seq[DataRow] =
+    val rawJson = applyJsonPointer(jsonMapper.readTree(line))
+
+    if rawJson.isMissingNode then {
+      throw IllegalArgumentException(
+        s"Applying the provided json pointer expression: `$jsonPointerExpr` resulted in an empty node"
+      )
+    }
+
+    // prepare source for processing
+    val safeJson = rawJson.deepCopy[ObjectNode]()
+
+    if jsonArrayPointers.isEmpty then Seq(safeJson).map(decodeJson)
+    else
+      // first explode array fields if requested by the client
+      jsonArrayPointers
+        .flatMap { case (jsonPointer, fieldMap) =>
+          explodeJsonArray(safeJson, jsonPointer, fieldMap)
+        }
+        .map(decodeJson)
+        .toSeq
 
   override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
     .fromFileName(filePath)
     .via(ZPipeline.utf8Decode >>> ZPipeline.splitLines) // assume each line a JSON object
-    .map(parseJsonLine)
+    .flatMap(line => ZStream.from(parseJsonLine(line)))
 
   override def cleanup: Task[Unit] = for
     file <- ZIO.succeed(new File(filePath))
@@ -93,14 +143,29 @@ object JsonScanner:
   def apply(path: String, schema: org.apache.avro.Schema): JsonScanner = new JsonScanner(
     schema = schema,
     filePath = path,
-    None
+    None,
+    Map()
   )
 
   def apply(path: String, schema: org.apache.avro.Schema, jsonPointerExpr: Option[String]): JsonScanner =
     new JsonScanner(
       schema = schema,
       filePath = path,
-      jsonPointerExpr
+      jsonPointerExpr,
+      Map()
+    )
+
+  def apply(
+      path: String,
+      schema: org.apache.avro.Schema,
+      jsonPointerExpr: Option[String],
+      jsonArrayPointers: Map[String, Map[String, String]]
+  ): JsonScanner =
+    new JsonScanner(
+      schema = schema,
+      filePath = path,
+      jsonPointerExpr,
+      jsonArrayPointers
     )
 
   def parseSchema(schemaStr: String): org.apache.avro.Schema = org.apache.avro.Schema.Parser().parse(schemaStr)
