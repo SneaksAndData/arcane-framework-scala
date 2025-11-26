@@ -59,6 +59,11 @@ def get_json_test_data():
 def get_json_test_data_variable_content():
     return { "index": random.randint(0, 1000), "body": { f"col{i}": generate_value(i) for i in range(10) if i % random.randint(1, 9) == 0 } }
 
+def get_json_test_data_nested_array():
+    base_body = { f"col{i}": generate_value(i) for i in range(10) if i % random.randint(1, 9) == 0 }
+    full_body = base_body | { "nested_array": { "value": [{ f"nested_col_1": generate_value(1), f"nested_col_2": generate_value(2) } for i in range(10)] } }
+    return { "index": random.randint(0, 1000), "body": full_body }
+
 def generate_parquet_file(fname):
     df = pd.DataFrame(data=get_parquet_test_data())
     df.to_parquet(f'{fname}.parquet.gzip', compression='gzip')
@@ -79,12 +84,16 @@ def generate_parquet_test_files():
 def generate_json_test_files():
     os.makedirs("/tmp/s3-json", exist_ok=True)
     os.makedirs("/tmp/s3-json-variable", exist_ok=True)
+    os.makedirs("/tmp/s3-json-nested-array", exist_ok=True)
 
     for ix_file in range(50):
         generate_json_file(f'/tmp/s3-json/{ix_file}', 100, get_json_test_data)
         generate_json_file(f'/tmp/s3-json-variable/{ix_file}', 100, get_json_test_data_variable_content)
+        generate_json_file(f'/tmp/s3-json-nested-array/{ix_file}', 10, get_json_test_data_nested_array)
+
         upload_file(f'/tmp/s3-json/{ix_file}.json', 's3-blob-reader-json')
         upload_file(f'/tmp/s3-json-variable/{ix_file}.json', 's3-blob-reader-json-variable')
+        upload_file(f'/tmp/s3-json-nested-array/{ix_file}.json', 's3-blob-reader-json-nested-array')
 
 generate_parquet_test_files()
 generate_json_test_files()

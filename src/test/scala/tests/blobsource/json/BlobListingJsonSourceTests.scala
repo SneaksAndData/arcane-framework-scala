@@ -5,6 +5,7 @@ import models.batches.BlobBatchCommons
 import models.schemas.{DataRow, MergeKeyField}
 import services.blobsource.readers.listing.BlobListingJsonSource
 import services.storage.models.s3.S3StoragePath
+import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
 
 import zio.test.TestAspect.timeout
@@ -14,8 +15,10 @@ import zio.{Chunk, Scope, ZIO}
 import java.security.MessageDigest
 import java.util.Base64
 
-def assertValidChunk(rows: Chunk[(DataRow, Long)]) = {
-  assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
+def assertValidChunk(rows: Chunk[(DataRow, Long)], expectedSize: Int, expectedFieldCount: Int) = {
+  assertTrue(rows.size == expectedSize) && assertTrue(
+    rows.map(_._1).forall(v => v.size == expectedFieldCount)
+  ) && assertTrue(
     rows
       .map(_._1)
       .forall(row =>
@@ -39,100 +42,12 @@ def assertValidChunk(rows: Chunk[(DataRow, Long)]) = {
 }
 
 object BlobListingJsonSourceTests extends ZIOSpecDefault:
-  private val testSchema = """{
-                             |    "name": "BlobListingJsonSource",
-                             |    "namespace": "com.sneaksanddata.arcane.BlobListingJsonSource",
-                             |    "doc": "Avro Schema for BlobListingJsonSource tests",
-                             |    "type": "record",
-                             |    "fields": [
-                             |        {
-                             |            "name": "col0",
-                             |            "type": [
-                             |                "null",
-                             |                "int"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col1",
-                             |            "type": [
-                             |                "null",
-                             |                "string"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col2",
-                             |            "type": [
-                             |                "null",
-                             |                "int"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col3",
-                             |            "type": [
-                             |                "null",
-                             |                "string"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col4",
-                             |            "type": [
-                             |                "null",
-                             |                "int"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col5",
-                             |            "type": [
-                             |                "null",
-                             |                "string"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col6",
-                             |            "type": [
-                             |                "null",
-                             |                "int"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col7",
-                             |            "type": [
-                             |                "null",
-                             |                "string"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col8",
-                             |            "type": [
-                             |                "null",
-                             |                "int"
-                             |            ],
-                             |            "default": null
-                             |        },
-                             |        {
-                             |            "name": "col9",
-                             |            "type": [
-                             |                "null",
-                             |                "string"
-                             |            ],
-                             |            "default": null
-                             |        }
-                             |    ]
-                             |}""".stripMargin
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobListingJsonSource")(
     test("getSchema returns correct schema") {
       for
         path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"), Map())
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
         )
         schema <- source.getSchema
       yield assertTrue(schema.size == 10 + 2) && assertTrue(
@@ -145,18 +60,35 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"), Map())
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
         )
         rows <- source.getChanges(0).runCollect
-      yield assertValidChunk(rows)
+      yield assertValidChunk(rows, 50 * 100, 12)
     },
     test("getChanges return correct rows for source with variable number of fields") {
       for
         path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), testSchema, Some("/body"), Map())
+          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
         )
         rows <- source.getChanges(0).runCollect
-      yield assertValidChunk(rows)
+      yield assertValidChunk(rows, 50 * 100, 12)
+    },
+    test("getChanges return correct rows when using array explode") {
+      for
+        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketNestedArray").get)
+        source <- ZIO.succeed(
+          BlobListingJsonSource(
+            path,
+            storageReader,
+            "/tmp",
+            Seq("col0"),
+            nestedArraySchema,
+            Some("/body"),
+            Map("/nested_array/value" -> Map())
+          )
+        )
+        rows <- source.getChanges(0).runCollect
+      yield assertValidChunk(rows, 50 * 100, 14)
     }
   ) @@ timeout(zio.Duration.fromSeconds(20)) @@ TestAspect.withLiveClock

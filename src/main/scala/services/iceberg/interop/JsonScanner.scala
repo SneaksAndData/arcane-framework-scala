@@ -44,8 +44,8 @@ class JsonScanner(
 
     val compiledPointer = JsonPointer.compile(pointerExpr)
     // assume parent is an object
-    val parent = root.at(compiledPointer.head()).asInstanceOf[ObjectNode]
-    parent.remove(compiledPointer.last().getMatchingProperty)
+    val parent = rootClone.at(compiledPointer.head()).asInstanceOf[ObjectNode]
+    rootClone.remove(compiledPointer.getMatchingProperty)
 
     arrayNode
       .elements()
@@ -54,14 +54,14 @@ class JsonScanner(
         val newNode = rootClone.deepCopy[ObjectNode]()
 
         element.fieldNames().asScala.foreach { elementFieldName =>
-          newNode.set(fieldMap(elementFieldName), element.get(elementFieldName))
+          newNode.set(fieldMap.getOrElse(elementFieldName, elementFieldName), element.get(elementFieldName))
         }
 
-        newNode
+        getAvroCompliantNode(newNode)
       }
       .toSeq
 
-  private def getAvroCompliantNode(node: ObjectNode): ObjectNode =
+  private def getAvroCompliantNode(node: JsonNode): ObjectNode =
     val compliantNode = node.deepCopy[ObjectNode]()
 
     // check if any top-level nodes are missing
@@ -91,10 +91,14 @@ class JsonScanner(
 
       // only run this for non-null nodes
       if !jsonNodeValue.forall(_.isNull) then
-        wrapperNode.set(wrappedTypeName, jsonNodeValue.get)
+        // ignore already wrapped node
+        if jsonNodeValue.flatMap(v => Option(v.get(wrappedTypeName))).isEmpty then
 
-        // create new node
-        compliantNode.set(avroField.name(), wrapperNode)
+          // set wrapped value
+          wrapperNode.set(wrappedTypeName, jsonNodeValue.get)
+
+          // create new node
+          compliantNode.set(avroField.name(), wrapperNode)
 
     }
 
@@ -105,7 +109,8 @@ class JsonScanner(
     reader.read(null, decoder)
 
   private def parseJsonLine(line: String): Seq[DataRow] =
-    val rawJson = applyJsonPointer(jsonMapper.readTree(line))
+    val rawJson       = applyJsonPointer(jsonMapper.readTree(line))
+    val avroCompliant = getAvroCompliantNode(rawJson.asInstanceOf[ObjectNode])
 
     if rawJson.isMissingNode then {
       throw IllegalArgumentException(
@@ -113,12 +118,12 @@ class JsonScanner(
       )
     }
 
-    if jsonArrayPointers.isEmpty then Seq(getAvroCompliantNode(rawJson.asInstanceOf[ObjectNode])).map(decodeJson)
+    if jsonArrayPointers.isEmpty then Seq(avroCompliant).map(decodeJson)
     else
       // first explode array fields if requested by the client
       jsonArrayPointers
         .flatMap { case (jsonPointer, fieldMap) =>
-          explodeJsonArray(rawJson, jsonPointer, fieldMap)
+          explodeJsonArray(avroCompliant, jsonPointer, fieldMap)
         }
         .map(decodeJson)
         .toSeq
