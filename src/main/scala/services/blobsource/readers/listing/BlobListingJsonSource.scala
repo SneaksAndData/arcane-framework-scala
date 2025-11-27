@@ -31,7 +31,9 @@ class BlobListingJsonSource[PathType <: BlobPath](
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
-    schema <- ZIO.attempt(parser.parse(avroSchemaString)).orDie
+    schema <- ZIO
+      .attempt(parser.parse(avroSchemaString))
+      .orDieWith(e => Throwable("Invalid Avro schema provided for source", e))
   yield schema
 
   override def getSchema: Task[SchemaType] = for arcaneSchema <- sourceSchema.map(implicitly)
