@@ -90,5 +90,22 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
         )
         rows <- source.getChanges(0).runCollect
       yield assertValidChunk(rows, 50 * 100, 14)
+    },
+    test("getChanges return correct rows when using array explode for nested arrays") {
+      for
+        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketRootNestedArray").get)
+        source <- ZIO.succeed(
+          BlobListingJsonSource(
+            path,
+            storageReader,
+            "/tmp",
+            Seq("col0"),
+            nestedArraySchema,
+            Some("/body"),
+            Map("/data" -> Map(), "/nested_array/value" -> Map())
+          )
+        )
+        rows <- source.getChanges(0).runCollect
+      yield assertValidChunk(rows, 20 * 10 * 50, 14)
     }
   ) @@ timeout(zio.Duration.fromSeconds(20)) @@ TestAspect.withLiveClock

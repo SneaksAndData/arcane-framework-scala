@@ -122,11 +122,11 @@ class JsonScanner(
     else
       // first explode array fields if requested by the client
       jsonArrayPointers
-        .flatMap { case (jsonPointer, fieldMap) =>
-          explodeJsonArray(avroCompliant, jsonPointer, fieldMap)
+        .foldLeft(Seq.empty[ObjectNode]) { case (agg, (jsonPointer, fieldMap)) =>
+          if agg.isEmpty then explodeJsonArray(avroCompliant, jsonPointer, fieldMap)
+          else agg.flatMap(explodeJsonArray(_, jsonPointer, fieldMap))
         }
         .map(decodeJson)
-        .toSeq
 
   override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
     .fromFileName(filePath)
