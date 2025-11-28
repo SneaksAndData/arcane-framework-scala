@@ -3,9 +3,9 @@ package services.metrics
 
 import services.base.DimensionsProvider
 
-import zio.metrics.Metric.Counter
+import zio.metrics.Metric.{Counter, Gauge}
 import zio.metrics.{Metric, MetricLabel}
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 /** A object that contains the declared metrics names.
   */
@@ -19,6 +19,54 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     */
   val rowsIncoming: Counter[Long] = Metric
     .counter(s"$metricsNamespace.rows.incoming")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to transform a source rows into a mergeable batch
+    */
+  val batchTransformDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.batch.transform_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to create a staging table from incoming row chunk
+    */
+  val batchStageDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.batch.stage_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to merge a staging table into target
+    */
+  val batchMergeDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.batch.merge_query_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to complete merge stage, which includes schema migration, merge and maintenance
+    */
+  val batchMergeStageDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.batch.merge_stage_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to dispose of a staging batch table
+    */
+  val batchDisposeDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.batch.dispose_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to run optimize on the target
+    */
+  val targetOptimizeDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.target.optimize_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to run expire snapshots on the target
+    */
+  val targetSnapshotExpireDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.target.snapshot_expire_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Time it takes to run orphan files removal on the target
+    */
+  val targetRemoveOrphanDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.target.remove_orphan_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
   extension (labels: Map[String, String])
@@ -47,3 +95,13 @@ object DeclaredMetrics:
       for dimensionsProvider <- ZIO.service[DimensionsProvider]
       yield DeclaredMetrics(dimensionsProvider)
     }
+
+  /** Measures running time of each task
+    */
+  extension [TaskResult](task: Task[TaskResult])
+    def gaugeDuration(metric: Gauge[Double]): ZIO[Any, Throwable, TaskResult] = for
+      startTime <- ZIO.succeed(System.nanoTime())
+      result    <- task
+      endTime   <- ZIO.succeed(System.nanoTime())
+      _         <- ZIO.succeed((endTime - startTime).toDouble) @@ metric
+    yield result

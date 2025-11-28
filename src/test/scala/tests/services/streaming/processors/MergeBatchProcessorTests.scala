@@ -6,6 +6,7 @@ import models.schemas.ArcaneType.LongType
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
 import services.merging.JdbcTableManager
+import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
@@ -38,6 +39,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
     val tableManager       = mock[JdbcTableManager]
+    val declaredMetrics    = mock[DeclaredMetrics]
 
     expecting {
       // Calling once for each batch in batch set
@@ -54,9 +56,10 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     }
     replay(mergeServiceClient)
     replay(tableManager)
+    replay(declaredMetrics)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance)
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance, declaredMetrics)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
@@ -73,6 +76,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
     val tableManager       = mock[JdbcTableManager]
+    val declaredMetrics    = mock[DeclaredMetrics]
 
     expecting {
       // Calling once for each batch in batch set
@@ -84,8 +88,10 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     }
     replay(mergeServiceClient)
     replay(tableManager)
+    replay(declaredMetrics)
 
-    val mergeBatchProcessor = MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings)
+    val mergeBatchProcessor =
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings, declaredMetrics)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
