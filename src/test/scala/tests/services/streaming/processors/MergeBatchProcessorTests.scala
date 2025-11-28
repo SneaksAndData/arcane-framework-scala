@@ -8,6 +8,7 @@ import services.base.{BatchOptimizationResult, MergeServiceClient}
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
+import tests.services.streaming.processors.transformers.NullDimensionsProvider
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
 
@@ -39,7 +40,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
     val tableManager       = mock[JdbcTableManager]
-    val declaredMetrics    = mock[DeclaredMetrics]
+    val declaredMetrics    = DeclaredMetrics(NullDimensionsProvider)
 
     expecting {
       // Calling once for each batch in batch set
@@ -56,7 +57,6 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     }
     replay(mergeServiceClient)
     replay(tableManager)
-    replay(declaredMetrics)
 
     val mergeBatchProcessor =
       MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance, declaredMetrics)
@@ -76,7 +76,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
     val tableManager       = mock[JdbcTableManager]
-    val declaredMetrics    = mock[DeclaredMetrics]
+    val declaredMetrics    = DeclaredMetrics(NullDimensionsProvider)
 
     expecting {
       // Calling once for each batch in batch set
@@ -88,7 +88,6 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     }
     replay(mergeServiceClient)
     replay(tableManager)
-    replay(declaredMetrics)
 
     val mergeBatchProcessor =
       MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings, declaredMetrics)
