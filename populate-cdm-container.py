@@ -1483,7 +1483,7 @@ def create_blobs():
 
         if folder != FOLDERS[0]:
             upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
-            upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/1.csv", DELETE_FILE_CONTENT)
+            upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/4.csv", DELETE_FILE_CONTENT)
             upload_blob_file(blob_service_client, INCORRECT_SCHEMA_CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
         if folder == FOLDERS[0]:
             upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON_WITHOUT_DIMENSION_ATTRIBUTE_VALUE)
