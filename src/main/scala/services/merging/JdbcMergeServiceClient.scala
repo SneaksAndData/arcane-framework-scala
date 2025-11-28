@@ -36,6 +36,8 @@ trait JdbcTableManager extends TableManager:
     */
   override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
 
+  override type TableAnalyzeRequest = JdbcAnalyzeRequest
+
 class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
   /** @inheritdoc
     */
@@ -249,6 +251,17 @@ class JdbcMergeServiceClient(
         applicationResult <- ZIO.attempt(statement.execute())
       yield resultMapper(applicationResult)
     }
+
+  override def analyzeTable(request: Option[TableAnalyzeRequest]): Task[Unit] =
+    request match
+      case Some(request) if request.isApplicable =>
+        executeBatchQuery(
+          request.toSqlExpression,
+          request.name,
+          "Running ANALYZE",
+          _ => BatchOptimizationResult(false)
+        )
+      case _ => ZIO.succeed(BatchOptimizationResult(true))
 
 object JdbcMergeServiceClient:
 

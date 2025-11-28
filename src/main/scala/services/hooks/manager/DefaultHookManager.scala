@@ -2,13 +2,15 @@ package com.sneaksanddata.arcane.framework
 package services.hooks.manager
 
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
+import models.settings.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import services.merging.maintenance.{
+  JdbcAnalyzeRequest,
   JdbcOptimizationRequest,
   JdbcOrphanFilesExpirationRequest,
   JdbcSnapshotExpirationRequest
 }
 import services.streaming.base.{
+  AnalyzeRequestConvertable,
   HookManager,
   OptimizationRequestConvertable,
   OrphanFilesExpirationRequestConvertable,
@@ -18,11 +20,12 @@ import services.streaming.processors.transformers.{IndexedStagedBatches, Staging
 
 import zio.Chunk
 
-class EmptyIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], batchIndex: Long)
+class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], batchIndex: Long)
     extends IndexedStagedBatches(groupedBySchema, batchIndex)
     with SnapshotExpirationRequestConvertable
     with OrphanFilesExpirationRequestConvertable
-    with OptimizationRequestConvertable:
+    with OptimizationRequestConvertable
+    with AnalyzeRequestConvertable:
 
   override def getSnapshotExpirationRequest(
       settings: Option[SnapshotExpirationSettings]
@@ -56,9 +59,23 @@ class EmptyIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch &
       )
     }
 
-/** A hook manager that does nothing.
+  override def getAnalyzeRequest(settings: Option[AnalyzeSettings]): Option[JdbcAnalyzeRequest] =
+    settings.map { analyzerSettings =>
+      JdbcAnalyzeRequest(
+        groupedBySchema.head.targetTableName,
+        analyzerSettings.batchThreshold,
+        analyzerSettings.includedColumns,
+        batchIndex
+      )
+    }
+
+/** A hook manager that performs standard operations based on batchIndex:
+ * OPTIMIZE
+ * Expire Snapshots
+ * Remove Orphans
+ * ANALYZE.
   */
-abstract class EmptyHookManager extends HookManager:
+abstract class DefaultHookManager extends HookManager:
 
   /** Enriches received staging batch with metadata and converts it to in-flight batch.
     */
@@ -67,4 +84,4 @@ abstract class EmptyHookManager extends HookManager:
       index: Long,
       others: Chunk[Any]
   ): StagingProcessor#OutgoingElement =
-    new EmptyIndexedStagedBatches(staged, index)
+    new DefaultIndexedStagedBatches(staged, index)
