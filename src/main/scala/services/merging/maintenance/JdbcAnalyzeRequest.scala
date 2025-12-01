@@ -19,7 +19,7 @@ case class JdbcAnalyzeRequest(
     includedColumns: Seq[String],
     batchIndex: Long
 ):
-  require(optimizeThreshold > 0, "Optimize threshold must be greater than 0")
+  require(analyzeThreshold > 0, "Analyze threshold must be greater than 0")
 
 /** @inheritdoc
   */
