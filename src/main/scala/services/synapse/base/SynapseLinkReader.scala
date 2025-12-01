@@ -55,7 +55,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
           // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
           .map(schema =>
             files
-              .sortBy(b => b.name)(Ordering.String.reverse)
+              .sortBy(b => b.name.split("/").last.replace(".csv", "").toInt)(Ordering.Int.reverse)
               .map(csvBlob => SchemaEnrichedBlob(csvBlob, schema, datePrefix._2))
           )
       }
