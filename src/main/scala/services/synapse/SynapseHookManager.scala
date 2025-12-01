@@ -4,13 +4,13 @@ package services.synapse
 import models.batches.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import models.schemas.ArcaneSchema
 import models.settings.TablePropertiesSettings
-import services.hooks.manager.EmptyHookManager
+import services.hooks.manager.DefaultHookManager
 
 import org.apache.iceberg.Table
 
 /** A hook manager that does nothing.
   */
-class SynapseHookManager extends EmptyHookManager:
+class SynapseHookManager extends DefaultHookManager:
   /** Converts the batch to a format that can be consumed by the next processor.
     */
   def onBatchStaged(
@@ -25,7 +25,7 @@ class SynapseHookManager extends EmptyHookManager:
     SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
 object SynapseHookManager:
-  /** The required environment for the EmptyHookManager.
+  /** The required environment for the DefaultHookManager.
     */
   type Environment = Any
 

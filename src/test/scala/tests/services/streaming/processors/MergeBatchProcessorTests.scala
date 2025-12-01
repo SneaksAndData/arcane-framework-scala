@@ -58,6 +58,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         .expireOrphanFiles(EasyMock.anyObject())
         .andReturn(ZIO.succeed(BatchOptimizationResult(true)))
         .times(20)
+      tableManager.analyzeTable(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
     }
     replay(mergeServiceClient)
     replay(tableManager)
@@ -89,6 +90,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       tableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
+      tableManager.analyzeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
     replay(mergeServiceClient)
     replay(tableManager)

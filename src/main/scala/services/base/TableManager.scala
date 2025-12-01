@@ -66,6 +66,8 @@ trait TableManager:
 
   type OrphanFilesExpirationRequest
 
+  type TableAnalyzeRequest
+
   /** Optimizes a table.
     *
     * @param batchOptimizationRequest
@@ -133,3 +135,8 @@ trait TableManager:
     *   The result of the archive table creation operation.
     */
   def createBackFillTable: Task[Unit]
+
+  /** Runs ANALYZE on the table
+    * @return
+    */
+  def analyzeTable(request: Option[TableAnalyzeRequest]): Task[BatchOptimizationResult]

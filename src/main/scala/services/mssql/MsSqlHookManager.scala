@@ -4,13 +4,13 @@ package services.mssql
 import models.batches.{MergeableBatch, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
 import models.settings.TablePropertiesSettings
-import services.hooks.manager.EmptyHookManager
+import services.hooks.manager.DefaultHookManager
 
 import org.apache.iceberg.Table
 
 /** A hook manager that does nothing.
   */
-class MsSqlHookManager extends EmptyHookManager:
+class MsSqlHookManager extends DefaultHookManager:
   /** Converts the batch to a format that can be consumed by the next processor.
     */
   def onBatchStaged(
@@ -25,7 +25,7 @@ class MsSqlHookManager extends EmptyHookManager:
     SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
 object MsSqlHookManager:
-  /** The required environment for the EmptyHookManager.
+  /** The required environment for the DefaultHookManager.
     */
   type Environment = Any
 

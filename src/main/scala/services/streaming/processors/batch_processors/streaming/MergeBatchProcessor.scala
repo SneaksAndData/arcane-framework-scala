@@ -49,6 +49,11 @@ class MergeBatchProcessor(
             targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings
           )
         )
+        _ <- tableManager.analyzeTable(
+          batchesSet.getAnalyzeRequest(
+            targetTableSettings.maintenanceSettings.targetAnalyzeSettings
+          )
+        )
       yield batchesSet).gaugeDuration(declaredMetrics.batchMergeStageDuration)
     )
 
