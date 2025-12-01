@@ -6,7 +6,7 @@ import services.base.{ConditionallyApplicable, SqlExpressionConvertable}
 /** A request to optimize a table.
   * @param tableName
   *   The name of the table to analyze.
-  * @param optimizeThreshold
+  * @param analyzeThreshold
   *   The batch count threshold for analysis to trigger.
   * @param includedColumns
   *   The list of columns to collect extended statistics for. All columns will be used if empty
@@ -15,7 +15,7 @@ import services.base.{ConditionallyApplicable, SqlExpressionConvertable}
   */
 case class JdbcAnalyzeRequest(
     tableName: String,
-    optimizeThreshold: Long,
+    analyzeThreshold: Long,
     includedColumns: Seq[String],
     batchIndex: Long
 ):
@@ -45,4 +45,4 @@ given ConditionallyApplicable[JdbcAnalyzeRequest] with
   /** @inheritdoc
     */
   extension (request: JdbcAnalyzeRequest)
-    def isApplicable: Boolean = (request.batchIndex + 1) % request.optimizeThreshold == 0
+    def isApplicable: Boolean = (request.batchIndex + 1) % request.analyzeThreshold == 0
