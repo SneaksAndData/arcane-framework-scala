@@ -257,7 +257,7 @@ class JdbcMergeServiceClient(
       yield resultMapper(applicationResult)
     }
 
-  override def analyzeTable(request: Option[TableAnalyzeRequest]): Task[Unit] =
+  override def analyzeTable(request: Option[TableAnalyzeRequest]): Task[BatchOptimizationResult] =
     request match
       case Some(request) if request.isApplicable =>
         executeBatchQuery(

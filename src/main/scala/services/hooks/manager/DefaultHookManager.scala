@@ -69,11 +69,8 @@ class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch
       )
     }
 
-/** A hook manager that performs standard operations based on batchIndex:
- * OPTIMIZE
- * Expire Snapshots
- * Remove Orphans
- * ANALYZE.
+/** A hook manager that performs standard operations based on batchIndex: OPTIMIZE Expire Snapshots Remove Orphans
+  * ANALYZE.
   */
 abstract class DefaultHookManager extends HookManager:
 

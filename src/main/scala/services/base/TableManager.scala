@@ -139,4 +139,4 @@ trait TableManager:
   /** Runs ANALYZE on the table
     * @return
     */
-  def analyzeTable(request: Option[TableAnalyzeRequest]): Task[Unit]
+  def analyzeTable(request: Option[TableAnalyzeRequest]): Task[BatchOptimizationResult]
