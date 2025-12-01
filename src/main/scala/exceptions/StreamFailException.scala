@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package excpetions
+package exceptions
 
 /** Exception thrown when stream fails. This exception should not be caught, as it indicates a hard failure in the
   * stream.
