@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.blob
 
-/** Synapse-link specific source settings
+import models.settings.SourceSettings
+
+/** Blob-source specific source settings
   */
 trait BlobSourceSettings extends SourceSettings:
 

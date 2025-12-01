@@ -9,6 +9,9 @@ import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.parquet.ParquetSchemaUtil
 import org.apache.iceberg.types.{Type, Types}
 import org.apache.parquet.schema.MessageType
+import org.apache.avro.generic.GenericRecord as AvroGenericRecord
+import org.apache.avro.Schema.Type as AvroType
+import org.apache.avro.Schema as AvroSchema
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
@@ -32,6 +35,7 @@ object SchemaConversions:
     case ShortType                        => Types.IntegerType.get()
     case TimeType                         => Types.TimeType.get()
     case ListType(elementType, elementId) => Types.ListType.ofOptional(elementId, elementType)
+    case ObjectType                       => Types.VariantType.get()
 
   implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
     schema
@@ -80,6 +84,55 @@ given Conversion[GenericRecord, DataRow] with
       )
     }
     .toList
+
+/** Unpacks the real type from the UNION. Expects NULL to always be the first.
+  * @param field
+  *   AVRO field type
+  * @return
+  */
+def unfoldAvroUnion(field: AvroSchema.Field): AvroSchema.Type =
+  field.schema().getType match
+    case org.apache.avro.Schema.Type.UNION =>
+      field.schema().getTypes.get(1).getType
+    case _ => field.schema().getType
+
+given Conversion[AvroSchema, ArcaneSchema] with
+  override def apply(avroSchema: AvroSchema): ArcaneSchema =
+    ArcaneSchema(avroSchema.getFields.asScala.map { avroField =>
+      Field(
+        name = avroField.name(),
+        fieldType = unfoldAvroUnion(avroField)
+      )
+    }.toSeq ++ Seq(MergeKeyField))
+
+given Conversion[AvroType, ArcaneType] with
+  override def apply(avroType: AvroType): ArcaneType = avroType match
+    case org.apache.avro.Schema.Type.INT     => IntType
+    case org.apache.avro.Schema.Type.LONG    => LongType
+    case org.apache.avro.Schema.Type.BYTES   => ByteArrayType
+    case org.apache.avro.Schema.Type.BOOLEAN => BooleanType
+    case org.apache.avro.Schema.Type.STRING  => StringType
+    case org.apache.avro.Schema.Type.DOUBLE  => DoubleType
+    case org.apache.avro.Schema.Type.FLOAT   => FloatType
+    case org.apache.avro.Schema.Type.RECORD  => ObjectType
+    case org.apache.avro.Schema.Type.ENUM    => StringType
+    case org.apache.avro.Schema.Type.ARRAY   => ObjectType
+    case org.apache.avro.Schema.Type.MAP     => ObjectType
+    case org.apache.avro.Schema.Type.UNION =>
+      throw UnsupportedOperationException(
+        "Cast from UNION is not expected. This is a bug and it should be reported to maintainers"
+      )
+    case org.apache.avro.Schema.Type.FIXED => StringType // fixed-size string in AVRO, default to STRING
+    case org.apache.avro.Schema.Type.NULL  => throw UnsupportedOperationException("Cast from NULL is not supported")
+
+given Conversion[AvroGenericRecord, DataRow] with
+  override def apply(record: AvroGenericRecord): DataRow = record.getSchema.getFields.asScala.map { avroField =>
+    DataCell(
+      name = avroField.name(),
+      Type = unfoldAvroUnion(avroField),
+      value = record.get(avroField.name())
+    )
+  }.toList
 
 given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
   final override def apply(icebergType: Type): ArcaneType = icebergType match

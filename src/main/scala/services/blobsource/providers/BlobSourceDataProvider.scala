@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.providers
 
-import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.{BlobSourceBatch, BlobSourceVersionedBatch}

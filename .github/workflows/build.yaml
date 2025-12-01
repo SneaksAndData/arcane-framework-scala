@@ -22,17 +22,26 @@ jobs:
       checks: write       # required for cobertura-action
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup Scala
         uses: japgolly/setup-everything-scala@v3.1
         with:
           java-version: temurin:1.23.0.1
+
       - name: Build the Docker Compose stack
         run: docker compose up --quiet-pull -d
+
+      - name: Get Compose Logs
+        if: always()
+        run: docker compose logs
+
       - name: Build and test
         shell: bash
         run: |
           export $(cat unit-tests.env| xargs)
           sbt clean coverage test coverageReport
+
       - name: Validate formatting
         shell: bash
         run: sbt scalafmtCheckAll

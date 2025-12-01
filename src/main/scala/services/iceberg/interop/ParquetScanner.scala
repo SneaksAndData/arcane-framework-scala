@@ -7,6 +7,7 @@ import services.iceberg.{given_Conversion_GenericRecord_DataRow, given_Conversio
 import services.iceberg.interop.given
 import extensions.ZExtensions.*
 
+import com.sneaksanddata.arcane.framework.services.iceberg.base.BlobScanner
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetReaders
 import org.apache.iceberg.parquet.Parquet
@@ -26,7 +27,7 @@ import scala.language.implicitConversions
   * @param icebergFile
   *   Iceberg InputFile
   */
-class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
+class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile) extends BlobScanner:
   private def getParquetFile: Task[InputFile] = ZIO.succeed(icebergFile).map(implicitly)
   private def getParquetSchema: Task[MessageType] = for
     file        <- getParquetFile
@@ -56,7 +57,7 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
     */
   def getIcebergSchema: Task[Schema] = getParquetSchema.map(implicitly)
 
-  private def cleanup: Task[Unit] = for
+  override def cleanup: Task[Unit] = for
     file <- ZIO.succeed(new File(icebergFile.location()))
     _    <- zlog("Row stream finished for file %s, deleting", icebergFile.location())
     _ <- ZIO
@@ -64,16 +65,10 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile):
       .orDie // require deletion to succeed, to avoid risking filling up the temp storage
   yield ()
 
-  /** A stream of rows. Note: temporarily this returns a stream of DataRow objects. Once
-    * https://github.com/SneaksAndData/arcane-framework-scala/issues/181 is resolved, conversion from GenericRecord to
-    * DataRow will be removed.
-    * @return
-    */
-  def getRows: ZStream[Any, Throwable, DataRow] = ZStream
+  override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
     .fromZIO(recordIterator)
     .flatMap(ZStream.fromIterator(_))
     .map(implicitly)
-    .onComplete(cleanup)
 
 object ParquetScanner:
   def apply(path: String): ParquetScanner                          = new ParquetScanner(Files.localInput(path))
