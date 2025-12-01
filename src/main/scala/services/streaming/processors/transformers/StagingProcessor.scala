@@ -8,6 +8,8 @@ import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.{IcebergCatalogSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.metrics.DeclaredMetrics
+import services.metrics.DeclaredMetrics._
 import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
 import utils.CollectionUtils.*
 
@@ -25,7 +27,8 @@ class StagingProcessor(
     tablePropertiesSettings: TablePropertiesSettings,
     targetTableSettings: TargetTableSettings,
     icebergCatalogSettings: IcebergCatalogSettings,
-    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema]
+    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+    declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
@@ -37,24 +40,25 @@ class StagingProcessor(
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
       .mapZIO(elements =>
-        for
+        (for
           _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)
           groupedBySchema <-
-            if stagingDataSettings.isUnifiedSchema then ZIO.succeed(Map(elements.head.schema -> elements))
-            else
-              ZIO.succeed(
-                elements.toArray.par
-                  .map(r => r.schema -> r)
-                  .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
-                    (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
-                    mergeGroupedChunks
-                  )
-              )
+            (if stagingDataSettings.isUnifiedSchema then ZIO.succeed(Map(elements.head.schema -> elements))
+             else
+               ZIO.succeed(
+                 elements.toArray.par
+                   .map(r => r.schema -> r)
+                   .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
+                     (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
+                     mergeGroupedChunks
+                   )
+               )
+            ).gaugeDuration(declaredMetrics.batchTransformDuration)
           _ <- zlog("Batch is ready for staging")
           applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
             writeDataRows(groupedBySchema(schema), schema, onBatchStaged)
           )
-        yield applyTasks.map(batches => batches)
+        yield applyTasks.map(batches => batches)).gaugeDuration(declaredMetrics.batchStageDuration)
       )
       .zipWithIndex
       .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
@@ -83,18 +87,20 @@ object StagingProcessor:
       tablePropertiesSettings: TablePropertiesSettings,
       targetTableSettings: TargetTableSettings,
       icebergCatalogSettings: IcebergCatalogSettings,
-      catalogWriter: CatalogWriter[RESTCatalog, Table, Schema]
+      catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+      declaredMetrics: DeclaredMetrics
   ): StagingProcessor =
     new StagingProcessor(
       stagingDataSettings,
       tablePropertiesSettings,
       targetTableSettings,
       icebergCatalogSettings,
-      catalogWriter
+      catalogWriter,
+      declaredMetrics
     )
 
   type Environment = StagingDataSettings & TablePropertiesSettings & TargetTableSettings & IcebergCatalogSettings &
-    CatalogWriter[RESTCatalog, Table, Schema]
+    CatalogWriter[RESTCatalog, Table, Schema] & DeclaredMetrics
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
@@ -104,11 +110,13 @@ object StagingProcessor:
         targetTableSettings     <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings  <- ZIO.service[IcebergCatalogSettings]
         catalogWriter           <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        declaredMetrics         <- ZIO.service[DeclaredMetrics]
       yield StagingProcessor(
         stagingDataSettings,
         tablePropertiesSettings,
         targetTableSettings,
         icebergCatalogSettings,
-        catalogWriter
+        catalogWriter,
+        declaredMetrics
       )
     }

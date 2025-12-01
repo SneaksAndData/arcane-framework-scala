@@ -5,10 +5,12 @@ import models.app.StreamContext
 import models.schemas.{DataRow, MergeKeyField}
 import models.settings.BackfillBehavior.Overwrite
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
+import tests.shared.NullDimensionsProvider
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -71,7 +73,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings)
         )
         provider <- ZIO.succeed(
-          SynapseLinkStreamingDataProvider(synapseLinkDataProvider, graphSettings, backfillStreamContext)
+          SynapseLinkStreamingDataProvider(
+            synapseLinkDataProvider,
+            graphSettings,
+            backfillStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
         )
         rows <- provider.stream.map(_ => 1).runSum
       // expect 30 rows, since each file has 5 rows
@@ -88,7 +95,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings)
         )
         provider <- ZIO.succeed(
-          SynapseLinkStreamingDataProvider(synapseLinkDataProvider, graphSettings, changeCaptureStreamContext)
+          SynapseLinkStreamingDataProvider(
+            synapseLinkDataProvider,
+            graphSettings,
+            changeCaptureStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
         )
         rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCount
       // expect 5 rows, since each file has 5 rows
@@ -104,7 +116,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings)
         )
         provider <- ZIO.succeed(
-          SynapseLinkStreamingDataProvider(synapseLinkDataProvider, graphSettings, changeCaptureStreamContext)
+          SynapseLinkStreamingDataProvider(
+            synapseLinkDataProvider,
+            graphSettings,
+            changeCaptureStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
         )
         rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCollect
       // delete must ALWAYS come last, otherwise there is a risk of re-inserting the same row

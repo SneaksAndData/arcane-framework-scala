@@ -15,6 +15,7 @@ import services.merging.maintenance.{
   JdbcOrphanFilesExpirationRequest,
   JdbcSnapshotExpirationRequest
 }
+import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import io.trino.jdbc.TrinoDriver
@@ -93,7 +94,8 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     fieldsFilteringServiceMock,
     TestTablePropertiesSettings,
     MutableSchemaCache(),
-    schemaProviderFactory
+    schemaProviderFactory,
+    DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
   )
 
   it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>

@@ -16,3 +16,7 @@ trait TableMaintenanceSettings:
   /** Orphan files expiration settings for the target table
     */
   val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings]
+
+  /** Settings for running ANALYZE
+    */
+  val targetAnalyzeSettings: Option[AnalyzeSettings]

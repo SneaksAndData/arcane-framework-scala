@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
+import models.settings.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import services.merging.maintenance.{
+  JdbcAnalyzeRequest,
   JdbcOptimizationRequest,
   JdbcOrphanFilesExpirationRequest,
   JdbcSnapshotExpirationRequest
@@ -51,6 +52,18 @@ trait OrphanFilesExpirationRequestConvertable:
       settings: Option[OrphanFilesExpirationSettings]
   ): Option[JdbcOrphanFilesExpirationRequest]
 
+/** A trait that represents a batch that can be converted to an orphan files expiration request.
+  */
+trait AnalyzeRequestConvertable:
+  /** Gets the analyze request.
+    *
+    * @param settings
+    *   The analyze settings.
+    * @return
+    *   The analyze request.
+    */
+  def getAnalyzeRequest(settings: Option[AnalyzeSettings]): Option[JdbcAnalyzeRequest]
+
 /** A trait that represents a batch processor.
   */
 trait StagedBatchProcessor extends StreamingBatchProcessor:
@@ -58,7 +71,7 @@ trait StagedBatchProcessor extends StreamingBatchProcessor:
   /** @inheritdoc
     */
   override type BatchType = IndexedStagedBatches & SnapshotExpirationRequestConvertable &
-    OrphanFilesExpirationRequestConvertable & OptimizationRequestConvertable
+    OrphanFilesExpirationRequestConvertable & OptimizationRequestConvertable & AnalyzeRequestConvertable
 
   /** Processes the incoming data.
     *

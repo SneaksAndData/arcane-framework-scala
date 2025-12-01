@@ -5,14 +5,17 @@ import models.*
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import models.settings.IcebergCatalogSettings
+import services.base.DimensionsProvider
 import services.iceberg.IcebergS3CatalogWriter
 import services.iceberg.base.CatalogWriter
+import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
 import tests.shared.{
+  NullDimensionsProvider,
   TestIcebergCatalogSettings,
   TestStagingDataSettings,
   TestTablePropertiesSettings,
@@ -25,6 +28,8 @@ import zio.stream.{ZSink, ZStream}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Chunk, Scope, ZIO, ZLayer}
+
+import scala.collection.immutable.SortedMap
 
 type TestInput = DataRow
 
@@ -57,7 +62,8 @@ object StagingProcessorTests extends ZIOSpecDefault:
       TestTablePropertiesSettings,
       TestTargetTableSettingsWithMaintenance,
       TestIcebergCatalogSettings,
-      catalogWriterService
+      catalogWriterService,
+      DeclaredMetrics(NullDimensionsProvider)
     )
   } yield stagingProcessor
 
