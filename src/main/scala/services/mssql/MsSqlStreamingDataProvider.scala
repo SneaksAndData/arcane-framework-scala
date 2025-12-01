@@ -32,31 +32,37 @@ class MsSqlStreamingDataProvider(
     val stream =
       if streamContext.IsBackfilling then dataProvider.requestBackfill
       else ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
+
     stream
-      .map(row =>
-        row.map {
-          case DataCell(name, ArcaneType.TimestampType, value) if value != null =>
-            DataCell(
-              name,
-              ArcaneType.TimestampType,
-              LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC)
-            )
+      .map(_.handleSpecialTypes)
 
-          case DataCell(name, ArcaneType.TimestampType, value) if value == null =>
-            DataCell(name, ArcaneType.TimestampType, null)
+  extension (row: DataRow)
+    private def handleSpecialTypes: DataRow =
+      row.map {
+        case DataCell(name, ArcaneType.TimestampType, value) if value != null =>
+          DataCell(
+            name,
+            ArcaneType.TimestampType,
+            LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC)
+          )
 
-          case DataCell(name, ArcaneType.ByteArrayType, value) if value != null =>
-            DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
+        case DataCell(name, ArcaneType.TimestampType, value) if value == null =>
+          DataCell(name, ArcaneType.TimestampType, null)
 
-          case DataCell(name, ArcaneType.ByteArrayType, value) if value == null =>
-            DataCell(name, ArcaneType.ByteArrayType, null)
+        case DataCell(name, ArcaneType.ByteArrayType, value) if value != null =>
+          DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
 
-          case DataCell(name, ArcaneType.ShortType, value) =>
-            DataCell(name, ArcaneType.IntType, value.asInstanceOf[Short].toInt)
+        case DataCell(name, ArcaneType.ByteArrayType, value) if value == null =>
+          DataCell(name, ArcaneType.ByteArrayType, null)
 
-          case other => other
-        }
-      )
+        case DataCell(name, ArcaneType.ShortType, value) =>
+          DataCell(name, ArcaneType.IntType, value.asInstanceOf[Short].toInt)
+
+        case DataCell(name, ArcaneType.DateType, value) =>
+          DataCell(name, ArcaneType.DateType, value.asInstanceOf[java.sql.Date].toLocalDate)
+
+        case other => other
+      }
 
   private def readDataBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
       batch: T
