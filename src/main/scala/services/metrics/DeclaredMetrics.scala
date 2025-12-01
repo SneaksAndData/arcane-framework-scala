@@ -24,25 +24,25 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
   /** Time it takes to transform a source rows into a mergeable batch
     */
   val batchTransformDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch.transform_duration")
+    .gauge(s"$metricsNamespace.batch.grouping_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
   /** Time it takes to create a staging table from incoming row chunk
     */
   val batchStageDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch.stage_duration")
+    .gauge(s"$metricsNamespace.batch_set.stage_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
   /** Time it takes to merge a staging table into target
     */
   val batchMergeDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch.merge_query_duration")
+    .gauge(s"$metricsNamespace.batch.merge_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
   /** Time it takes to complete merge stage, which includes schema migration, merge and maintenance
     */
   val batchMergeStageDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch.merge_stage_duration")
+    .gauge(s"$metricsNamespace.batch_set.merge_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
   /** Time it takes to dispose of a staging batch table

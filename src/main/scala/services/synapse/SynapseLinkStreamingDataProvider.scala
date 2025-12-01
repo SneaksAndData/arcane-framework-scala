@@ -24,7 +24,7 @@ class SynapseLinkStreamingDataProvider(
     metrics: DeclaredMetrics
 ) extends StreamDataProvider:
 
-  private val batchDelayInterval = metrics.tagMetric(Metric.gauge("arcane.stream.synapse.batch_delay_interval"))
+  private val batchDelayInterval = metrics.tagMetric(Metric.gauge("arcane.stream.synapse.processing_lag"))
 
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then
     dataProvider.requestBackfill
