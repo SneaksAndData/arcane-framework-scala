@@ -15,6 +15,7 @@ import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
 import tests.shared.{
+  NullDimensionsProvider,
   TestIcebergCatalogSettings,
   TestStagingDataSettings,
   TestTablePropertiesSettings,
@@ -36,9 +37,6 @@ given MetadataEnrichedRowStreamElement[TestInput] with
   extension (element: TestInput) def isDataRow: Boolean   = element.isInstanceOf[DataRow]
   extension (element: TestInput) def toDataRow: DataRow   = element
   extension (element: DataRow) def fromDataRow: TestInput = element
-
-object NullDimensionsProvider extends DimensionsProvider:
-  override def getDimensions: SortedMap[String, String] = SortedMap()
 
 object StagingProcessorTests extends ZIOSpecDefault:
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(

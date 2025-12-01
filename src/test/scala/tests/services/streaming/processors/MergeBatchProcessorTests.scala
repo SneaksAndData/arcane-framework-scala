@@ -8,9 +8,13 @@ import services.base.{BatchOptimizationResult, MergeServiceClient}
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
-import tests.services.streaming.processors.transformers.NullDimensionsProvider
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.{TablePropertiesSettings, TestTargetTableSettings, TestTargetTableSettingsWithMaintenance}
+import tests.shared.{
+  NullDimensionsProvider,
+  TablePropertiesSettings,
+  TestTargetTableSettings,
+  TestTargetTableSettingsWithMaintenance
+}
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}

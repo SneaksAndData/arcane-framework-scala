@@ -69,6 +69,9 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     .gauge(s"$metricsNamespace.target.remove_orphan_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
+  def tagMetric[Type, In, Out](metric: Metric[Type, In, Out]): Metric[Type, In, Out] =
+    metric.tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
   extension (labels: Map[String, String])
     private def toMetricsLabelSet: Set[MetricLabel] =
       labels.map { case (key, value) => MetricLabel(key, value) }.toSet

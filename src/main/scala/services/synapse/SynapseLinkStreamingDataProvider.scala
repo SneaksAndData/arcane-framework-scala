@@ -5,17 +5,26 @@ import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
+import services.metrics.DeclaredMetrics
 import services.streaming.base.StreamDataProvider
 import services.synapse.base.SynapseLinkDataProvider
 
+import zio.metrics.Metric
 import zio.stream.ZStream
 import zio.{ZIO, ZLayer}
+
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 class SynapseLinkStreamingDataProvider(
     dataProvider: SynapseLinkDataProvider,
     settings: VersionedDataGraphBuilderSettings,
-    streamContext: StreamContext
+    streamContext: StreamContext,
+    metrics: DeclaredMetrics
 ) extends StreamDataProvider:
+
+  private val batchDelayInterval = metrics.tagMetric(Metric.gauge("arcane.stream.synapse.batch_delay_interval"))
 
   override def stream: ZStream[Any, Throwable, DataRow] = if streamContext.IsBackfilling then
     dataProvider.requestBackfill
@@ -33,6 +42,17 @@ class SynapseLinkStreamingDataProvider(
                 previousVersion
               )
               _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+            yield ()
+          }
+          _ <- ZIO.when(newVersion.isDefined) {
+            for _ <- ZIO.succeed(
+                ChronoUnit.SECONDS
+                  .between(
+                    OffsetDateTime.parse(newVersion.get, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")),
+                    OffsetDateTime.now()
+                  )
+                  .toDouble
+              ) @@ batchDelayInterval
             yield ()
           }
         // if we keep staying at previousVersion when no changes have been emitted
@@ -58,7 +78,7 @@ object SynapseLinkStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = SynapseLinkDataProvider & VersionedDataGraphBuilderSettings & StreamContext
+  type Environment = SynapseLinkDataProvider & VersionedDataGraphBuilderSettings & StreamContext & DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -69,9 +89,10 @@ object SynapseLinkStreamingDataProvider:
   def apply(
       dataProvider: SynapseLinkDataProvider,
       settings: VersionedDataGraphBuilderSettings,
-      streamContext: StreamContext
+      streamContext: StreamContext,
+      metrics: DeclaredMetrics
   ): SynapseLinkStreamingDataProvider =
-    new SynapseLinkStreamingDataProvider(dataProvider, settings, streamContext)
+    new SynapseLinkStreamingDataProvider(dataProvider, settings, streamContext, metrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
@@ -81,5 +102,6 @@ object SynapseLinkStreamingDataProvider:
         dataProvider  <- ZIO.service[SynapseLinkDataProvider]
         settings      <- ZIO.service[VersionedDataGraphBuilderSettings]
         streamContext <- ZIO.service[StreamContext]
-      yield SynapseLinkStreamingDataProvider(dataProvider, settings, streamContext)
+        metrics       <- ZIO.service[DeclaredMetrics]
+      yield SynapseLinkStreamingDataProvider(dataProvider, settings, streamContext, metrics)
     }
