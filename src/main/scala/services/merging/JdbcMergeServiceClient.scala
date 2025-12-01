@@ -3,7 +3,7 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
-import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema, given_NamedCell_ArcaneSchemaField}
+import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.BackfillBehavior.Overwrite
 import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, TargetTableSettings}
 import services.base.*
@@ -12,6 +12,8 @@ import services.iceberg.SchemaConversions
 import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
 import services.merging.maintenance.{*, given}
+import services.metrics.DeclaredMetrics
+import services.metrics.DeclaredMetrics._
 import utils.SqlUtils.readArcaneSchema
 
 import org.apache.iceberg.Schema
@@ -70,7 +72,8 @@ class JdbcMergeServiceClient(
     fieldsFilteringService: FieldsFilteringService,
     tablePropertiesSettings: TablePropertiesSettings,
     schemaProviderCache: SchemaCache,
-    maybeSchemaProviderFactory: Option[SchemaProviderFactory]
+    maybeSchemaProviderFactory: Option[SchemaProviderFactory],
+    declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -87,11 +90,13 @@ class JdbcMergeServiceClient(
     */
   override def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     executeBatchQuery(batch.batchQuery.query, batch.name, "Applying", _ => true)
+      .gaugeDuration(declaredMetrics.batchMergeDuration)
 
   /** @inheritdoc
     */
   override def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
     executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
+      .gaugeDuration(declaredMetrics.batchDisposeDuration)
 
   /** @inheritdoc
     */
@@ -103,7 +108,7 @@ class JdbcMergeServiceClient(
           maybeRequest.get.name,
           "Optimizing",
           _ => BatchOptimizationResult(false)
-        )
+        ).gaugeDuration(declaredMetrics.targetOptimizeDuration)
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /** @inheritdoc
@@ -116,7 +121,7 @@ class JdbcMergeServiceClient(
           request.name,
           "Expiring old snapshots",
           _ => BatchOptimizationResult(false)
-        )
+        ).gaugeDuration(declaredMetrics.targetSnapshotExpireDuration)
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /** @inheritdoc
@@ -129,7 +134,7 @@ class JdbcMergeServiceClient(
           request.name,
           "Removing orphan files",
           _ => BatchOptimizationResult(false)
-        )
+        ).gaugeDuration(declaredMetrics.targetRemoveOrphanDuration)
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
   /** @inheritdoc
@@ -308,7 +313,7 @@ object JdbcMergeServiceClient:
   /** The environment type for the JdbcConsumer.
     */
   private type Environment = JdbcMergeServiceClientSettings & TargetTableSettings & SchemaProvider[ArcaneSchema] &
-    FieldsFilteringService & TablePropertiesSettings & StreamContext & BackfillSettings & SchemaCache
+    FieldsFilteringService & TablePropertiesSettings & StreamContext & BackfillSettings & SchemaCache & DeclaredMetrics
 
   /** Factory method to create JdbcConsumer.
     * @param options
@@ -325,7 +330,8 @@ object JdbcMergeServiceClient:
       fieldsFilteringService: FieldsFilteringService,
       tablePropertiesSettings: TablePropertiesSettings,
       schemaProviderManager: SchemaCache,
-      maybeSchemaProviderFactory: Option[SchemaProviderFactory]
+      maybeSchemaProviderFactory: Option[SchemaProviderFactory],
+      declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
@@ -336,7 +342,8 @@ object JdbcMergeServiceClient:
       fieldsFilteringService,
       tablePropertiesSettings,
       schemaProviderManager,
-      maybeSchemaProviderFactory
+      maybeSchemaProviderFactory,
+      declaredMetrics
     )
 
   /** The ZLayer that creates the JdbcConsumer.
@@ -353,6 +360,7 @@ object JdbcMergeServiceClient:
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
           streamContext           <- ZIO.service[StreamContext]
           schemaProviderManager   <- ZIO.service[SchemaCache]
+          declaredMetrics         <- ZIO.service[DeclaredMetrics]
         yield JdbcMergeServiceClient(
           connectionOptions,
           targetTableSettings,
@@ -362,7 +370,8 @@ object JdbcMergeServiceClient:
           fieldsFilteringService,
           tablePropertiesSettings,
           schemaProviderManager,
-          None
+          None,
+          declaredMetrics
         )
       }
     }
