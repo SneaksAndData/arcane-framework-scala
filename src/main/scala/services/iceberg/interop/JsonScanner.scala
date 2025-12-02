@@ -40,7 +40,9 @@ class JsonScanner(
     val arrayNode = rootClone.at(pointerExpr)
 
     if !arrayNode.isArray then
-      throw IllegalArgumentException(s"Node at $pointerExpr expected to be an JsonArray, but it is not")
+      throw IllegalArgumentException(
+        s"Node at $pointerExpr expected to be an JsonArray, but is instead ${arrayNode.getNodeType.name()}"
+      )
 
     val compiledPointer = JsonPointer.compile(pointerExpr)
     // assume parent is an object
