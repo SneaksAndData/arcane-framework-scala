@@ -54,7 +54,14 @@ services:
       - |
         mc alias set e2e "http://localhost:9000" minioadmin minioadmin
         mc admin info e2e
-        mc mb --ignore-existing e2e/tmp && mc mb --ignore-existing e2e/lakehouse && mc mb --ignore-existing e2e/s3-blob-reader && mc mb --ignore-existing e2e/s3-blob-reader-json && mc mb --ignore-existing e2e/s3-blob-reader-json-variable && mc mb --ignore-existing e2e/s3-blob-reader-json-nested-array && mc mb --ignore-existing e2e/s3-blob-reader-json-root-nested-array
+        mc mb --ignore-existing e2e/tmp \
+          && mc mb --ignore-existing e2e/lakehouse \
+          && mc mb --ignore-existing e2e/s3-blob-reader \
+          && mc mb --ignore-existing e2e/s3-blob-reader-json \
+          && mc mb --ignore-existing e2e/s3-blob-reader-json-variable \
+          && mc mb --ignore-existing e2e/s3-blob-reader-json-nested-array \
+          && mc mb --ignore-existing e2e/s3-blob-reader-json-root-nested-array \
+          && mc mb --ignore-existing e2e/s3-blob-reader-json-root-nested-jarray
   s3_reader_prepare:
     image: python:3.11-slim-bookworm
     network_mode: host
