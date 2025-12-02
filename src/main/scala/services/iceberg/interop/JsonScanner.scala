@@ -106,15 +106,10 @@ class JsonScanner(
 
     compliantNode
 
-  private def decodeJson(node: ObjectNode): DataRow =
-    val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
-    reader.read(null, decoder)
+  private def decodeObjectNode(node: ObjectNode): Seq[DataRow] =
+    val avroCompliant = getAvroCompliantNode(node)
 
-  private def parseJsonLine(line: String): Seq[DataRow] =
-    val rawJson       = applyJsonPointer(jsonMapper.readTree(line))
-    val avroCompliant = getAvroCompliantNode(rawJson.asInstanceOf[ObjectNode])
-
-    if rawJson.isMissingNode then {
+    if node.isMissingNode then {
       throw IllegalArgumentException(
         s"Applying the provided json pointer expression: `$jsonPointerExpr` resulted in an empty node"
       )
@@ -129,6 +124,30 @@ class JsonScanner(
           else agg.flatMap(explodeJsonArray(_, jsonPointer, fieldMap))
         }
         .map(decodeJson)
+
+  private def decodeJson(node: ObjectNode): DataRow =
+    val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
+    reader.read(null, decoder)
+
+  private def parseJsonLine(line: String): Seq[DataRow] =
+    val rawJson = applyJsonPointer(jsonMapper.readTree(line))
+
+    if rawJson.isArray then // parse array root node
+      rawJson
+        .elements()
+        .asScala
+        .flatMap { node =>
+          if !node.isObject then throw IllegalArgumentException(s"Expected object node, got ${node.getNodeType.name()}")
+
+          decodeObjectNode(node.asInstanceOf[ObjectNode])
+        }
+        .toSeq
+    else if rawJson.isObject then // parse object root node
+      decodeObjectNode(rawJson.asInstanceOf[ObjectNode])
+    else
+      throw IllegalArgumentException(
+        s"Expected either array node or object node as root node of the source document. Got ${rawJson.getNodeType.name()}"
+      )
 
   override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
     .fromFileName(filePath)
