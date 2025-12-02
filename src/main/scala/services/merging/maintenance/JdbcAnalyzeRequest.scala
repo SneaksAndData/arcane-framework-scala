@@ -31,8 +31,8 @@ given SqlExpressionConvertable[JdbcAnalyzeRequest] with
     def toSqlExpression: String =
       if request.includedColumns.nonEmpty then
         val columnList = request.includedColumns.map(col => s"'$col'").mkString(",")
-        s"ANALYZE TABLE ${request.tableName} WITH (columns = ARRAY[$columnList])"
-      else s"ANALYZE TABLE ${request.tableName}"
+        s"ANALYZE ${request.tableName} WITH (columns = ARRAY[$columnList])"
+      else s"ANALYZE ${request.tableName}"
 
   /** @inheritdoc
     */
