@@ -42,7 +42,7 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
   private val fieldsFilteringServiceMock = mock[FieldsFilteringService]
   private val streamContext = new StreamContext:
     override val streamId: String       = "test"
-    override val IsBackfilling: Boolean = true
+    override val IsBackfilling: Boolean = false
     override val streamKind: String     = "test"
 
   private val options = new JdbcMergeServiceClientSettings:
