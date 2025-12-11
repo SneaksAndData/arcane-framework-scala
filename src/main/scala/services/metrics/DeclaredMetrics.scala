@@ -69,6 +69,12 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     .gauge(s"$metricsNamespace.target.remove_orphan_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
+  /** Time it takes to run ANALYZE on the target
+    */
+  val targetAnalyzeDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.target.analyze_duration")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
   def tagMetric[Type, In, Out](metric: Metric[Type, In, Out]): Metric[Type, In, Out] =
     metric.tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
