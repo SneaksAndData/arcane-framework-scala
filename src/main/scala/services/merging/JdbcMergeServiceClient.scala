@@ -102,7 +102,7 @@ class JdbcMergeServiceClient(
     */
   override def optimizeTable(maybeRequest: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] =
     maybeRequest match
-      case Some(request) if request.isApplicable =>
+      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           maybeRequest.get.name,
@@ -115,7 +115,7 @@ class JdbcMergeServiceClient(
     */
   override def expireSnapshots(maybeRequest: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] =
     maybeRequest match
-      case Some(request) if request.isApplicable =>
+      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           request.name,
@@ -128,7 +128,7 @@ class JdbcMergeServiceClient(
     */
   override def expireOrphanFiles(maybeRequest: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] =
     maybeRequest match
-      case Some(request) if request.isApplicable =>
+      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           request.name,
@@ -259,7 +259,7 @@ class JdbcMergeServiceClient(
 
   override def analyzeTable(request: Option[TableAnalyzeRequest]): Task[BatchOptimizationResult] =
     request match
-      case Some(request) if request.isApplicable =>
+      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           request.name,
