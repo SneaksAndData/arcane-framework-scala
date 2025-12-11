@@ -265,7 +265,7 @@ class JdbcMergeServiceClient(
           request.name,
           "Running ANALYZE",
           _ => BatchOptimizationResult(false)
-        )
+        ).gaugeDuration(declaredMetrics.targetAnalyzeDuration)
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
 object JdbcMergeServiceClient:
