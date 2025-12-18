@@ -41,26 +41,26 @@ lazy val root = (project in file("."))
     Test / logBuffered := false,
 
     // Framework dependencies
-    libraryDependencies += "dev.zio" %% "zio" % "2.1.19",
-    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.19",
+    libraryDependencies += "dev.zio" %% "zio" % "2.1.23",
+    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.23",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.29.52",
-    libraryDependencies += "com.lihaoyi" %% "upickle" % "4.0.2",
+    libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.1",
     libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
     // Iceberg deps - read
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-mapreduce-client-core
-    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.4.1",
+    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.4.2",
 
     // Iceberg deps - core API, S3 and write
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
-    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.8.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.10.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-core
-    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.8.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.10.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-parquet
-    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.8.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.10.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
-    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.8.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.10.0",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
     libraryDependencies += "software.amazon.awssdk" % "auth" % "2.29.52",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
@@ -68,9 +68,9 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/software.amazon.awssdk/sts
     libraryDependencies += "software.amazon.awssdk" % "sts" % "2.29.52",
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
-    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.1",
+    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.2",
     // https://mvnrepository.com/artifact/io.trino/trino-jdbc
-    libraryDependencies += "io.trino" % "trino-jdbc" % "474",
+    libraryDependencies += "io.trino" % "trino-jdbc" % "478",
 
     // Azure dependencies
     // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
@@ -93,15 +93,15 @@ lazy val root = (project in file("."))
 
     // Logging and metrics
     // For ZIO
-    libraryDependencies += "dev.zio" %% "zio-logging" % "2.3.2",
-    libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.3.2",
+    libraryDependencies += "dev.zio" %% "zio-logging" % "2.5.2",
+    libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.5.2",
     
     // For DataDog
-    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.24.3",
-    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.17",
-    libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "8.0",
+    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.25.3",
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.22",
+    libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "9.0",
 
     // Metrics
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.4.0",
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.4.0",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.5.4",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.4",
   )
