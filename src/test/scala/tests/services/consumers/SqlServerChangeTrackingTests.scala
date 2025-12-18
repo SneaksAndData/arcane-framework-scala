@@ -76,7 +76,6 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      "test.archive_table_a",
       TestTablePropertiesSettings
     )
 

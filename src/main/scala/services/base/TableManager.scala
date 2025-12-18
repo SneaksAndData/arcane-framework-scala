@@ -129,10 +129,10 @@ trait TableManager:
     */
   def createTargetTable: Task[Unit]
 
-  /** Creates the archive table.
+  /** Creates the backfill staging table.
     *
     * @return
-    *   The result of the archive table creation operation.
+    *   The result of the backfill staging table creation operation.
     */
   def createBackFillTable: Task[Unit]
 

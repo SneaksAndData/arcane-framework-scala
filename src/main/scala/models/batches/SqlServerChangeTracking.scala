@@ -61,7 +61,6 @@ class SqlServerChangeTrackingBackfillBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    archiveName: String,
     tablePropertiesSettings: TablePropertiesSettings
 ) extends StagedBackfillOverwriteBatch:
 
@@ -75,18 +74,15 @@ class SqlServerChangeTrackingBackfillBatch(
   override val batchQuery: OverwriteQuery =
     SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
-  def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
-
 object SqlServerChangeTrackingBackfillBatch:
   /** */
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      archiveName: String,
       tablePropertiesSettings: TablePropertiesSettings
   ): StagedBackfillOverwriteBatch =
-    new SqlServerChangeTrackingBackfillBatch(batchName, batchSchema, targetName, archiveName, tablePropertiesSettings)
+    new SqlServerChangeTrackingBackfillBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
 class SqlServerChangeTrackingMergeBatch(
     batchName: String,
@@ -114,8 +110,6 @@ class SqlServerChangeTrackingMergeBatch(
       mergeKey = mergeKey,
       columns = schema.map(f => f.name)
     )
-
-  def archiveExpr(archiveTableName: String): String = s"INSERT INTO $archiveTableName $reduceExpr"
 
 object SqlServerChangeTrackingMergeBatch:
   def apply(

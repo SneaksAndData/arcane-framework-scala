@@ -33,7 +33,6 @@ class MsSqlBackfillOverwriteBatchFactory(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
-      "",
       tablePropertiesSettings
     )
 
