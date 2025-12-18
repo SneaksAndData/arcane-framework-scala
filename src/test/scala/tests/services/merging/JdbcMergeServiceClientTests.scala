@@ -77,14 +77,6 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
     insertValues(s"staged_$tableName")
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
 
-  private def withTargetAndArchiveTables(tableName: String)(test: Connection => Task[Assertion]): Future[Assertion] =
-    createTable(tableName)
-    createTable(s"archive_$tableName")
-    val connection = createTable(s"staged_$tableName")
-    insertValues(s"staged_$tableName")
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
-
   private def getSystemUnderTest(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(
     options,
     TestTargetTableSettings,
