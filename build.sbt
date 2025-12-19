@@ -44,7 +44,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio" % "2.1.23",
     libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.23",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.1.jre11",
-    libraryDependencies += "software.amazon.awssdk" % "s3" % "2.29.52",
+    libraryDependencies += "software.amazon.awssdk" % "s3" % "2.33.13",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.1",
     libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
@@ -62,11 +62,11 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
     libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.10.0",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
-    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.29.52",
+    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.33.13",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
-    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.29.52",
+    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.33.13",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/sts
-    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.29.52",
+    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.33.13",
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
     libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.2",
     // https://mvnrepository.com/artifact/io.trino/trino-jdbc
@@ -74,9 +74,9 @@ lazy val root = (project in file("."))
 
     // Azure dependencies
     // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
-    libraryDependencies += "com.azure" % "azure-storage-blob" % "12.29.1",
+    libraryDependencies += "com.azure" % "azure-storage-blob" % "12.32.0",
     // https://mvnrepository.com/artifact/com.azure/azure-identity
-    libraryDependencies += "com.azure" % "azure-identity" % "1.15.3",
+    libraryDependencies += "com.azure" % "azure-identity" % "1.18.1",
     // Jackson pin
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.1",
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-core" % "2.18.1",
@@ -88,8 +88,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-3" % "3.2.19.0" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.19" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.19" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.23" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.23" % Test,
 
     // Logging and metrics
     // For ZIO
