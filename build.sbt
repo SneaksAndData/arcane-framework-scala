@@ -1,4 +1,4 @@
-import sbtrelease.ReleaseStateTransformations.{checkSnapshotDependencies, commitNextVersion, commitReleaseVersion, inquireVersions, publishArtifacts, pushChanges, runClean, setNextVersion, setReleaseVersion, tagRelease}
+import sbtrelease.ReleaseStateTransformations.{checkSnapshotDependencies, inquireVersions, publishArtifacts, runClean, setReleaseVersion}
 
 val scala361 = "3.6.1"
 

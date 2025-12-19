@@ -135,7 +135,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
         Parquet
           .writeData(file)
           .schema(tbl.schema())
-          .createWriterFunc(GenericParquetWriter.buildWriter)
+          .createWriterFunc(GenericParquetWriter.create)
           .overwrite()
           .withSpec(PartitionSpec.unpartitioned())
           .build[GenericRecord]()
