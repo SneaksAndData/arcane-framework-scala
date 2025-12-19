@@ -116,7 +116,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         )
       yield assertTrue(query.contains("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey"))
     },
-    test("QueryProvider should generate schema query") {
+    test("QueryProvider generates schema query") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("schema_query_test", connection))
@@ -129,28 +129,15 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         )
         query <- QueryProvider.getSchemaQuery(connector)
       yield assertTrue(query.contains("ct.SYS_CHANGE_VERSION") && query.contains("ARCANE_MERGE_KEY"))
+    },
+    test("QueryProvider generates time-based query if previous version not provided") {
+      for
+        formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
+        query <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1)))
+      yield assertTrue(query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formattedTime'"))
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
 
-//
-//
-//  "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
-//    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-//    val task = QueryProvider.getSchemaQuery(connector) map { query =>
-//      query should (
-//        include("ct.SYS_CHANGE_VERSION") and include("ARCANE_MERGE_KEY")
-//      )
-//    }
-//
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-//  }
-//
-//  "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
-//    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-//    val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-//    val query         = QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1))
-//    query should (include("SELECT MIN(commit_ts)") and include(s"WHERE commit_time > '$formattedTime'"))
-//  }
 //
 //  "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
 //    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
