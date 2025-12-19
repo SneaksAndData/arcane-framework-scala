@@ -6,7 +6,7 @@ import services.iceberg.base.S3CatalogFileIO
 /** Represents the settings of an Iceberg catalog.
   */
 trait IcebergCatalogSettings:
-  /** The namespace of the catalog.
+  /** The namespace (schema) of the catalog.
     */
   val namespace: String
 

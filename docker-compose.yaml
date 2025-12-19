@@ -166,6 +166,6 @@ services:
       lakekeeper:
         condition: service_healthy
     network_mode: host
-    image: "trinodb/trino:474"
+    image: "trinodb/trino:478"
     volumes:
       - ./unit-tests.properties:/etc/trino/catalog/iceberg.properties

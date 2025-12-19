@@ -3,7 +3,7 @@ package services.metrics
 
 import zio.ZLayer
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
+import zio.metrics.connectors.statsd.{DatagramSocketConfig, StatsdClient}
 import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 
 /** DataDog metrics configuration and layer setup. This module provides the necessary configurations and layers to
@@ -13,7 +13,7 @@ object DataDog {
 
   /** Environment required to run the DataDog metrics layer.
     */
-  type Environment = DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
+  type Environment = DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig & StatsdClient
 
   object UdsPublisher {
 
