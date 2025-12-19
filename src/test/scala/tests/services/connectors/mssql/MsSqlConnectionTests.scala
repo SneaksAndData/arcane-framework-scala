@@ -133,44 +133,52 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
     test("QueryProvider generates time-based query if previous version not provided") {
       for
         formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
-        query <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1)))
-      yield assertTrue(query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formattedTime'"))
+        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1)))
+      yield assertTrue(
+        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formattedTime'")
+      )
+    },
+    test("QueryProvider generates version-based query if previous version is provided") {
+      for
+        formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
+        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1)))
+      yield assertTrue(
+        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_ts > 1") && !query.contains(
+          "commit_time"
+        )
+      )
+    },
+    test("QueryProvider generates backfill query") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("backfill_query", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "backfill_query", None),
+            emptyFieldsFilteringService
+          )
+        )
+        expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
+            |
+            |SELECT
+            |tq.[x],
+            |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
+            |'I' as SYS_CHANGE_OPERATION,
+            |tq.[y],
+            |tq.[z],
+            |tq.[a],
+            |tq.[b],
+            |tq.[c/d],
+            |tq.[e],
+            |@currentVersion AS 'ChangeTrackingVersion',
+            |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
+            |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
+        query <- QueryProvider.getBackfillQuery(connector)
+      yield assertTrue(query == expected)
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
 
-//
-//  "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
-//    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-//    val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-//    val query         = QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1))
-//    query should (include("SELECT MIN(commit_ts)") and (not include "commit_time") and include(s"WHERE commit_ts > 1"))
-//  }
-//
-//  "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
-//    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-//    val expected =
-//      """declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
-//        |
-//        |SELECT
-//        |tq.[x],
-//        |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
-//        |'I' as SYS_CHANGE_OPERATION,
-//        |tq.[y],
-//        |tq.[z],
-//        |tq.[a],
-//        |tq.[b],
-//        |tq.[c/d],
-//        |tq.[e],
-//        |@currentVersion AS 'ChangeTrackingVersion',
-//        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
-//        |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
-//    val task = QueryProvider.getBackfillQuery(connector) map { query =>
-//      query should be(expected)
-//    }
-//
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-//  }
-//
 //  "QueryProvider" should "handle field selection rule" in withDatabase { dbInfo =>
 //    val fieldSelectionRule = new FieldSelectionRuleSettings {
 //      override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z", "cd"))
