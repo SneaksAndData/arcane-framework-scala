@@ -8,42 +8,38 @@ import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.base.MsSqlServerFieldsFilteringService
 import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}
-import tests.services.connectors.mssql.util.TestConnectionInfo
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
-import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.*
-import zio.{Runtime, Unsafe, ZIO}
+import zio.test.*
+import zio.test.Assertion.{equalTo, fails, hasMessage}
+import zio.test.TestAspect.timeout
+import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, LocalDateTime}
 import java.util.Properties
 import scala.List
-import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.util.Success
 
-class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
-  private val runtime = Runtime.default
-
+object MsSqlConnectionTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-
   /// To avoid mocking current date/time  we use the formatter that will always return the same value
   private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
-  val connectionUrl =
+  private val connectionUrl =
     "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
 
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
     Success(fields)
 
-  def createDb(tableName: String): TestConnectionInfo =
-    val dr  = new SQLServerDriver()
-    val con = dr.connect(connectionUrl, new Properties())
-    createTable(tableName, con)
-    util.TestConnectionInfo(ConnectionOptions(connectionUrl, "dbo", tableName, None), con)
+  private def getConnection: Task[Connection] = for
+    dr  <- ZIO.attempt(new SQLServerDriver())
+    con <- ZIO.attemptBlocking(dr.connect(connectionUrl, new Properties()))
+  yield con
 
   def createTable(tableName: String, con: Connection): Unit =
     val query =
@@ -57,348 +53,437 @@ class MsSqlConnectionTests extends flatspec.AsyncFlatSpec with Matchers:
     val enableCtCmd = s"use arcane; alter table dbo.$tableName enable change_tracking;"
     statement.executeUpdate(enableCtCmd)
 
-  def insertData(con: Connection): Unit =
-    val statement = con.createStatement()
-    for i <- 1 to 10 do
-      val insertCmd =
-        s"use arcane; insert into dbo.MsSqlConnectorsTests values($i, ${i + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
-      statement.execute(insertCmd)
-    statement.close()
-
-    val updateStatement = con.createStatement()
-    for i <- 1 to 10 do
-      val insertCmd =
-        s"use arcane; insert into dbo.MsSqlConnectorsTests values(${i * 1000}, ${i * 1000 + 1}, ${i * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
-      updateStatement.execute(insertCmd)
-
-  def deleteData(connection: Connection, primaryKeys: Seq[Int]): ZIO[Any, Throwable, Unit] = ZIO.scoped {
+  def insertData(con: Connection, tableName: String): Task[Unit] =
     for
-      statement <- ZIO.attempt(connection.prepareStatement("DELETE FROM dbo.MsSqlConnectorsTests WHERE x = ?"))
-      _ <- ZIO.foreachDiscard(primaryKeys) { number =>
-        ZIO.attempt {
-          statement.setInt(1, number)
-          statement.executeUpdate()
+      _ <- ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
+        ZIO.attemptBlocking(statement.close()).orDie
+      ) { statement =>
+        ZIO.foreach(1 to 10) { index =>
+          val insertCmd =
+            s"use arcane; insert into dbo.$tableName values($index, ${index + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+          ZIO.attemptBlocking(statement.execute(insertCmd))
+        }
+      }
+      _ <- ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
+        ZIO.attemptBlocking(statement.close()).orDie
+      ) { statement =>
+        ZIO.foreach(1 to 10) { index =>
+          val updateCmd =
+            s"use arcane; insert into dbo.$tableName values(${index * 1000}, ${index * 1000 + 1}, ${index * 1000 + 2}, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+          ZIO.attemptBlocking(statement.execute(updateCmd))
         }
       }
     yield ()
-  }
 
-  def removeDb(): Unit =
-    val query     = "DROP DATABASE arcane"
-    val dr        = new SQLServerDriver()
-    val con       = dr.connect(connectionUrl, new Properties())
-    val statement = con.createStatement()
-    statement.execute(query)
+  def updateData(con: Connection, tableName: String): Task[Unit] =
+    for _ <- ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
+        ZIO.attemptBlocking(statement.close()).orDie
+      ) { statement =>
+        ZIO.foreach(1 to 10) { index =>
+          val updateCmd =
+            s"use arcane; update dbo.$tableName set y = ${index * scala.util.Random.nextInt()};"
+          ZIO.attemptBlocking(statement.execute(updateCmd))
+        }
+      }
+    yield ()
 
-  def withDatabase(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
-    val conn = createDb("MsSqlConnectorsTests")
-    insertData(conn.connection)
-    test(conn)
+  def deleteData(connection: Connection, primaryKeys: Seq[Int], tableName: String): ZIO[Any, Throwable, Unit] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.attempt(connection.prepareStatement(s"use arcane; delete from dbo.$tableName where x = ?"))
+        _ <- ZIO.foreachDiscard(primaryKeys) { number =>
+          ZIO.attempt {
+            statement.setInt(1, number)
+            statement.executeUpdate()
+          }
+        }
+      yield ()
+    }
 
-  def withFreshTable(tableName: String)(test: TestConnectionInfo => Future[Assertion]): Future[Assertion] =
-    val conn = createDb(tableName)
-    test(conn)
-
-  "QueryProvider" should "generate columns query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task =
-      for query <- QueryProvider.getColumnSummariesQuery(
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlConnectionTests")(
+    test("QueryProvider generates columns query") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("columns_query_test", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "columns_query_test", None),
+            emptyFieldsFilteringService
+          )
+        )
+        query <- QueryProvider.getColumnSummariesQuery(
           connector.connectionOptions.schemaName,
           connector.connectionOptions.tableName,
           connector.catalog
         )
-      yield query should include("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey")
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "QueryProvider" should "generate schema query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = QueryProvider.getSchemaQuery(connector) map { query =>
-      query should (
-        include("ct.SYS_CHANGE_VERSION") and include("ARCANE_MERGE_KEY")
+      yield assertTrue(query.contains("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey"))
+    },
+    test("QueryProvider generates schema query") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("schema_query_test", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "schema_query_test", None),
+            emptyFieldsFilteringService
+          )
+        )
+        query <- QueryProvider.getSchemaQuery(connector)
+      yield assertTrue(query.contains("ct.SYS_CHANGE_VERSION") && query.contains("ARCANE_MERGE_KEY"))
+    },
+    test("QueryProvider generates time-based query if previous version not provided") {
+      for
+        formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
+        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1)))
+      yield assertTrue(
+        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formattedTime'")
       )
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "QueryProvider" should "generate time-based query if previous version not provided" in withDatabase { dbInfo =>
-    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query         = QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1))
-    query should (include("SELECT MIN(commit_ts)") and include(s"WHERE commit_time > '$formattedTime'"))
-  }
-
-  "QueryProvider" should "generate version-based query if previous version is provided" in withDatabase { dbInfo =>
-    val connector     = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val formattedTime = constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1)))
-    val query         = QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1))
-    query should (include("SELECT MIN(commit_ts)") and (not include "commit_time") and include(s"WHERE commit_ts > 1"))
-  }
-
-  "QueryProvider" should "generate backfill query" in withDatabase { dbInfo =>
-    val connector = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val expected =
-      """declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
-        |
-        |SELECT
-        |tq.[x],
-        |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
-        |'I' as SYS_CHANGE_OPERATION,
-        |tq.[y],
-        |tq.[z],
-        |tq.[a],
-        |tq.[b],
-        |tq.[c/d],
-        |tq.[e],
-        |@currentVersion AS 'ChangeTrackingVersion',
-        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
-        |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
-    val task = QueryProvider.getBackfillQuery(connector) map { query =>
-      query should be(expected)
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "QueryProvider" should "handle field selection rule" in withDatabase { dbInfo =>
-    val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z", "cd"))
-      override val essentialFields: Set[String] =
-        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
-      override val isServerSide: Boolean = true
-    }
-    val connector =
-      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
-    val expected =
-      """declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
-        |
-        |SELECT
-        |tq.[x],
-        |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
-        |'I' as SYS_CHANGE_OPERATION,
-        |tq.[y],
-        |tq.[e],
-        |@currentVersion AS 'ChangeTrackingVersion',
-        |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
-        |FROM [arcane].[dbo].[MsSqlConnectorsTests] tq""".stripMargin
-    val task = QueryProvider.getBackfillQuery(connector) map { query =>
-      query should be(expected)
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "QueryProvider" should "not allow PKs in filters" in withDatabase { dbInfo =>
-    val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
-      override val essentialFields: Set[String] =
-        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
-      override val isServerSide: Boolean = true
-    }
-    val connector =
-      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
-    val task = QueryProvider.getBackfillQuery(connector)
-    recoverToExceptionIf[IllegalArgumentException] {
-      Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-    } map { exception =>
-      exception.getMessage should be(
-        "Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"
+    },
+    test("QueryProvider generates version-based query if previous version is provided") {
+      for
+        formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
+        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1)))
+      yield assertTrue(
+        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_ts > 1") && !query.contains(
+          "commit_time"
+        )
       )
-    }
-  }
-
-  "QueryProvider" should "enforce PKs in include filters" in withDatabase { dbInfo =>
-    val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
-      override val essentialFields: Set[String] =
-        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
-      override val isServerSide: Boolean = true
-    }
-    val connector =
-      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
-    val task = QueryProvider.getBackfillQuery(connector)
-    recoverToExceptionIf[IllegalArgumentException] {
-      Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-    } map { exception =>
-      exception.getMessage should be("Fields ['x'] are primary keys, and must be included in the field selection rule")
-    }
-  }
-
-  "MsSqlConnection" should "be able to extract schema columns from the database" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val expected = List(
-      Field("x", IntType),
-      Field("SYS_CHANGE_VERSION", LongType),
-      Field("SYS_CHANGE_OPERATION", StringType),
-      Field("y", IntType),
-      Field("z", BigDecimalType(30, 6)),
-      Field("a", ByteArrayType),
-      Field("b", TimestampType),
-      Field("cd", IntType),
-      Field("e", FloatType),
-      Field("ChangeTrackingVersion", LongType),
-      MergeKeyField
-    )
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(connection.getSchema)) map { schema =>
-      val fields = for column <- schema if column.isInstanceOf[ArcaneSchemaField] yield column
-      fields should be(expected)
-    }
-  }
-
-  "MsSqlConnection" should "return correct number of rows on backfill" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.backfill.runCollect
-    yield {
-      result should have length 20
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "return correct number of columns on backfill" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.backfill.runCollect
-      head = result.head
-    yield {
-      head should have length 11
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "return correct number of columns on backfill with filter" in withDatabase { dbInfo =>
-    val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
-      override val essentialFields: Set[String] =
-        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
-      override val isServerSide: Boolean = true
-    }
-    val connection =
-      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
-    val expected =
-      List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion", "ARCANE_MERGE_KEY")
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.backfill.runCollect
-    yield {
-      result.head.map(c => c.name) should be(expected)
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "return correct number of rows on getChanges" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.getChanges(None, Duration.ofDays(1))
-      (columns, _) = result
-      changedData  = columns.read.toList
-    yield {
-      changedData should have length 20
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "return correct number of columns on getChanges with filter" in withDatabase { dbInfo =>
-    val fieldSelectionRule = new FieldSelectionRuleSettings {
-      override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
-      override val essentialFields: Set[String] =
-        Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
-      override val isServerSide: Boolean = true
-    }
-    val connection =
-      MsSqlConnection(dbInfo.connectionOptions, new ColumnSummaryFieldsFilteringService(fieldSelectionRule))
-
-    val expected = List(
-      "x",
-      "SYS_CHANGE_VERSION",
-      "SYS_CHANGE_OPERATION",
-      "a",
-      "ChangeTrackingVersion",
-      "ARCANE_MERGE_KEY"
-    )
-
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.getChanges(None, Duration.ofDays(1))
-      (columns, _) = result
-      changedData  = columns.read.toList
-    yield {
-      changedData.head.map(c => c.name) should be(expected)
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "return correct number of columns on getChanges" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-
-    val expected = List(
-      "x",
-      "SYS_CHANGE_VERSION",
-      "SYS_CHANGE_OPERATION",
-      "y",
-      "z",
-      "a",
-      "b",
-      "cd",
-      "e",
-      "ChangeTrackingVersion",
-      "ARCANE_MERGE_KEY"
-    )
-
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.getChanges(None, Duration.ofDays(1))
-      (columns, _) = result
-      changedData  = columns.read.toList
-    yield {
-      changedData.head.map(c => c.name) should be(expected)
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "handle deletes" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.getChanges(None, Duration.ofDays(1))
-      (columns, version) = result
-      _       <- ZIO.attempt(columns.close())
-      _       <- deleteData(dbInfo.connection, Seq(2))
-      result2 <- connection.getChanges(Some(version), Duration.ofDays(1))
-      (columns2, _) = result2
-      changedData   = columns2.read.toList
-    yield {
-      changedData(1) should contain allOf (
-        DataCell("SYS_CHANGE_OPERATION", StringType, "D"),
-
-        // NOTE: the value here is computed manually
-        DataCell("ARCANE_MERGE_KEY", StringType, "913da1f8df6f8fd47593840d533ba0458cc9873996bf310460abb495b34c232a")
+    },
+    test("QueryProvider generates backfill query") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("backfill_query", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "backfill_query", None),
+            emptyFieldsFilteringService
+          )
+        )
+        expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
+            |
+            |SELECT
+            |tq.[x],
+            |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
+            |'I' as SYS_CHANGE_OPERATION,
+            |tq.[y],
+            |tq.[z],
+            |tq.[a],
+            |tq.[b],
+            |tq.[c/d],
+            |tq.[e],
+            |@currentVersion AS 'ChangeTrackingVersion',
+            |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
+            |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
+        query <- QueryProvider.getBackfillQuery(connector)
+      yield assertTrue(query == expected)
+    },
+    test("QueryProvider handles field selection rule") {
+      for
+        fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
+          override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z", "cd"))
+          override val essentialFields: Set[String] =
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+          override val isServerSide: Boolean = true
+        })
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "field_selection_rule", None),
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+          )
+        )
+        expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
+              |
+              |SELECT
+              |tq.[x],
+              |CAST(0 as BIGINT) as SYS_CHANGE_VERSION,
+              |'I' as SYS_CHANGE_OPERATION,
+              |tq.[y],
+              |tq.[e],
+              |@currentVersion AS 'ChangeTrackingVersion',
+              |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
+              |FROM [arcane].[dbo].[field_selection_rule] tq""".stripMargin)
+        query <- QueryProvider.getBackfillQuery(connector)
+      yield assertTrue(query == expected)
+    },
+    test("QueryProvider does not allow PKs in filters") {
+      for
+        fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
+          override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
+          override val essentialFields: Set[String] =
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+          override val isServerSide: Boolean = true
+        })
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_no_pk", None),
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+          )
+        )
+        result <- QueryProvider.getBackfillQuery(connector).exit
+      yield zio.test.assert(result)(
+        fails(
+          hasMessage(equalTo("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"))
+        )
       )
+    },
+    test("QueryProvider enforces PKs in include filters") {
+      for
+        fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
+          override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
+          override val essentialFields: Set[String] =
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+          override val isServerSide: Boolean = true
+        })
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_pk", None),
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+          )
+        )
+        result <- QueryProvider.getBackfillQuery(connector).exit
+      yield zio.test.assert(result)(
+        fails(hasMessage(equalTo("Fields ['x'] are primary keys, and must be included in the field selection rule")))
+      )
+    },
+    test("MsSqlConnection extracts schema columns from the database") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "extracts_schema_columns", None),
+            emptyFieldsFilteringService
+          )
+        )
+        expected <- ZIO.succeed(
+          List(
+            Field("x", IntType),
+            Field("SYS_CHANGE_VERSION", LongType),
+            Field("SYS_CHANGE_OPERATION", StringType),
+            Field("y", IntType),
+            Field("z", BigDecimalType(30, 6)),
+            Field("a", ByteArrayType),
+            Field("b", TimestampType),
+            Field("cd", IntType),
+            Field("e", FloatType),
+            Field("ChangeTrackingVersion", LongType),
+            MergeKeyField
+          )
+        )
+        schema <- connector.getSchema
+      yield zio.test.assert(expected)(equalTo(schema.collect { case f: ArcaneSchemaField =>
+        f
+      }))
+    },
+    test("MsSqlConnection returns correct number of rows on backfill") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("backfill_rows", connection))
+              .flatMap(_ => insertData(connection, "backfill_rows"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "backfill_rows", None),
+            emptyFieldsFilteringService
+          )
+        )
+        rows <- connector.backfill.runCollect
+      yield assertTrue(rows.size == 20)
+    },
+    test("MsSqlConnection returns correct number of columns on backfill") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("backfill_columns", connection))
+              .flatMap(_ => insertData(connection, "backfill_columns"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "backfill_columns", None),
+            emptyFieldsFilteringService
+          )
+        )
+        rows <- connector.backfill.runCollect
+      yield assertTrue(rows.head.size == 11)
+    },
+    test("MsSqlConnection returns correct number of columns on backfill with filter") {
+      for
+        fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
+          override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
+          override val essentialFields: Set[String] =
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+          override val isServerSide: Boolean = true
+        })
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("backfill_columns_filtered", connection))
+              .flatMap(_ => insertData(connection, "backfill_columns_filtered"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "backfill_columns_filtered", None),
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+          )
+        )
+        expected <- ZIO.succeed(
+          List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion", "ARCANE_MERGE_KEY")
+        )
+        rows <- connector.backfill.runCollect
+      yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
+    },
+    test("MsSqlConnection returns correct number of rows on getChanges") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("get_changes_rows", connection))
+              .flatMap(_ => insertData(connection, "get_changes_rows"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "get_changes_rows", None),
+            emptyFieldsFilteringService
+          )
+        )
+        (rows, _) <- connector.getChanges(None, Duration.ofDays(1))
+      yield assertTrue(rows.read.toList.size == 20)
+    },
+    test("MsSqlConnection returns correct number of rows on getChanges with filter") {
+      for
+        fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
+          override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
+          override val essentialFields: Set[String] =
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+          override val isServerSide: Boolean = true
+        })
+        expected <- ZIO.succeed(
+          List(
+            "x",
+            "SYS_CHANGE_VERSION",
+            "SYS_CHANGE_OPERATION",
+            "a",
+            "ChangeTrackingVersion",
+            "ARCANE_MERGE_KEY"
+          )
+        )
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("get_changes_rows_filtered", connection))
+              .flatMap(_ => insertData(connection, "get_changes_rows_filtered"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "get_changes_rows_filtered", None),
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+          )
+        )
+        (rows, _) <- connector.getChanges(None, Duration.ofDays(1))
+      yield zio.test.assert(rows.read.toList.head.map(_.name))(equalTo(expected))
+    },
+    test("MsSqlConnection returns correct number of columns on getChanges") {
+      for
+        expected <- ZIO.succeed(
+          List(
+            "x",
+            "SYS_CHANGE_VERSION",
+            "SYS_CHANGE_OPERATION",
+            "y",
+            "z",
+            "a",
+            "b",
+            "cd",
+            "e",
+            "ChangeTrackingVersion",
+            "ARCANE_MERGE_KEY"
+          )
+        )
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("get_changes_columns", connection))
+              .flatMap(_ => insertData(connection, "get_changes_columns"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "get_changes_columns", None),
+            emptyFieldsFilteringService
+          )
+        )
+        (rows, _) <- connector.getChanges(None, Duration.ofDays(1))
+      yield zio.test.assert(rows.read.toList.head.map(_.name))(equalTo(expected))
+    },
+    test("MsSqlConnection handles deletes") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("get_changes_deletes", connection))
+              .flatMap(_ => insertData(connection, "get_changes_deletes"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "get_changes_deletes", None),
+            emptyFieldsFilteringService
+          )
+        )
+        (rows, version) <- connector.getChanges(None, Duration.ofDays(1))
+        _               <- ZIO.attempt(rows.close())
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => deleteData(connection, Seq(2), "get_changes_deletes")
+        )
+        (rowsAfterDelete, _) <- connector.getChanges(Some(version), Duration.ofDays(1))
+      yield assertTrue(
+        rowsAfterDelete.read.toList.exists(row =>
+          row.contains(DataCell("SYS_CHANGE_OPERATION", StringType, "D")) && row.contains(
+            DataCell("ARCANE_MERGE_KEY", StringType, "913da1f8df6f8fd47593840d533ba0458cc9873996bf310460abb495b34c232a")
+          )
+        )
+      ) // NOTE: the value here is computed manually
+    },
+    test("MsSqlConnection updates latest version when changes received") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("get_latest_version", connection))
+              .flatMap(_ => insertData(connection, "get_latest_version"))
+        )
+        connector <- ZIO.succeed(
+          MsSqlConnection(
+            ConnectionOptions(connectionUrl, "dbo", "get_latest_version", None),
+            emptyFieldsFilteringService
+          )
+        )
+        (_, version0) <- connector.getChanges(None, Duration.ofDays(1))
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => updateData(connection, "get_latest_version")
+        )
+        _ <- ZIO.sleep(zio.Duration.fromSeconds(1))
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => updateData(connection, "get_latest_version")
+        )
+        _             <- ZIO.sleep(zio.Duration.fromSeconds(1))
+        (_, version1) <- connector.getChanges(Some(version0), Duration.ofDays(1))
+      yield assertTrue(
+        version1 > 0L
+      ) // in fact, this value is not currently used by streaming data provider. We should consider either using it, or removing it entirely.
     }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
-
-  "MsSqlConnection" should "update latest version when changes received" in withDatabase { dbInfo =>
-    val connection = MsSqlConnection(dbInfo.connectionOptions, emptyFieldsFilteringService)
-    val task = for
-      schema <- connection.getSchema
-      result <- connection.getChanges(None, Duration.ofDays(1))
-      (_, latestVersion) = result
-    yield {
-      latestVersion should be >= 0L
-    }
-
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(task))
-  }
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

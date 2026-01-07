@@ -114,7 +114,7 @@ class MsSqlConnection(
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.
         result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-      yield MsSqlConnection.ensureHead((result, maybeLatestVersion.getOrElse(0)))
+      yield MsSqlConnection.ensureHead((result, version))
     }
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
