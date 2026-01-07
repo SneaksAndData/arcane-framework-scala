@@ -16,7 +16,20 @@ import java.nio.ByteBuffer
 import java.sql.Timestamp
 import java.time.{LocalDateTime, ZoneOffset}
 
-/** Streaming data provider for Microsoft SQL Server.
+/** Streaming data provider for Microsoft SQL Server. This provider relies on Change Tracking functionality of SQL
+  * Server. For the provider to work correctly, source database must have Change Tracking enabled, and each streamed
+  * source table must also have Change Tracking active. The provider relies on `sys.dm_tran_commit_table` to extract
+  * EARLIEST version via `min(commit_ts)` available at commit_time > current watermark time. Given that multiple sources
+  * indicate that `commit_ts` and CHANGE_TRACKING_CURRENT_VERSION() contain identical values:
+  *
+  * https://stackoverflow.com/questions/13821161/find-change-tracking-time-in-sql-server
+  * https://www.brentozar.com/archive/2014/06/performance-tuning-sql-server-change-tracking/#:~:text=We've%20looked%20at%20which,MIN(commit_time)%20AS%20minimum_commit_time%2C
+  * https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/change-tracking-sys-dm-tran-commit-table?view=sql-server-ver17
+  * https://learn.microsoft.com/en-us/sql/relational-databases/system-functions/change-tracking-current-version-transact-sql?view=sql-server-ver17
+  *
+  * the provider assumes that `commit_ts` can be used as watermark value interchangeable with the result from
+  * CHANGE_TRACKING_CURRENT_VERSION(). This enables initial lookup on stream start from `sys.dm_tran_commit_table` that
+  * continues into using CHANGE_TRACKING_CURRENT_VERSION() values that come from the stream output.
   */
 class MsSqlStreamingDataProvider(
     dataProvider: MsSqlDataProvider,
@@ -76,11 +89,11 @@ class MsSqlStreamingDataProvider(
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     for
       versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
-      _              <- zlog(s"Received versioned batch: ${versionedBatch.getLatestVersion}")
-      _              <- maybeSleep(versionedBatch)
-      latestVersion    = versionedBatch.getLatestVersion
+      latestVersion = versionedBatch.getLatestVersion
+      _ <- zlog(s"Received versioned batch: $latestVersion")
+      _ <- maybeSleep(versionedBatch)
       (queryResult, _) = versionedBatch
-      _ <- zlog(s"Latest version: ${versionedBatch.getLatestVersion}")
+      _ <- zlog(s"Latest version: $latestVersion")
     yield Some(queryResult, latestVersion)
 
   private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
