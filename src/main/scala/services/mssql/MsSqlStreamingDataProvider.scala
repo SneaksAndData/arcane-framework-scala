@@ -89,9 +89,9 @@ class MsSqlStreamingDataProvider(
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     for
       versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
-      latestVersion    = versionedBatch.getLatestVersion
-      _              <- zlog(s"Received versioned batch: $latestVersion")
-      _              <- maybeSleep(versionedBatch)
+      latestVersion = versionedBatch.getLatestVersion
+      _ <- zlog(s"Received versioned batch: $latestVersion")
+      _ <- maybeSleep(versionedBatch)
       (queryResult, _) = versionedBatch
       _ <- zlog(s"Latest version: $latestVersion")
     yield Some(queryResult, latestVersion)
