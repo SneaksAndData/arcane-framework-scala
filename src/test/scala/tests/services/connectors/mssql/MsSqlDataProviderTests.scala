@@ -63,7 +63,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("backfill_rows", connection, fieldString, pkString))
+              .attemptBlocking(createTable("streaming_test", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "streaming_test"))
         )
         connection <- ZIO.succeed(
