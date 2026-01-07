@@ -8,8 +8,8 @@ import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.base.MsSqlServerFieldsFilteringService
 import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}
+import tests.services.connectors.mssql.util.MsSqlTestServices.*
 
-import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.*
@@ -18,40 +18,19 @@ import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
-import java.time.format.DateTimeFormatter
 import java.time.{Duration, LocalDateTime}
-import java.util.Properties
 import scala.List
 import scala.language.postfixOps
 import scala.util.Success
 
 object MsSqlConnectionTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  /// To avoid mocking current date/time  we use the formatter that will always return the same value
-  private implicit val constantFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("111")
 
-  private val connectionUrl =
-    "jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;username=sa;password=tMIxN11yGZgMC;databaseName=arcane"
+  private val fieldString = "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
+  private val pkString    = "primary key(x)"
 
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
     Success(fields)
-
-  private def getConnection: Task[Connection] = for
-    dr  <- ZIO.attempt(new SQLServerDriver())
-    con <- ZIO.attemptBlocking(dr.connect(connectionUrl, new Properties()))
-  yield con
-
-  def createTable(tableName: String, con: Connection): Unit =
-    val query =
-      s"use arcane; drop table if exists dbo.$tableName; create table dbo.$tableName (x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
-    val statement = con.createStatement()
-    statement.executeUpdate(query)
-
-    val createPKCmd = s"use arcane; alter table dbo.$tableName add constraint pk_$tableName primary key(x);"
-    statement.executeUpdate(createPKCmd)
-
-    val enableCtCmd = s"use arcane; alter table dbo.$tableName enable change_tracking;"
-    statement.executeUpdate(enableCtCmd)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
     for
@@ -104,7 +83,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
     test("QueryProvider generates columns query") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("columns_query_test", connection))
+          connection => ZIO.attemptBlocking(createTable("columns_query_test", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -122,7 +101,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
     test("QueryProvider generates schema query") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("schema_query_test", connection))
+          connection => ZIO.attemptBlocking(createTable("schema_query_test", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -154,7 +133,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
     test("QueryProvider generates backfill query") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("backfill_query", connection))
+          connection => ZIO.attemptBlocking(createTable("backfill_query", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -189,7 +168,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection))
+          connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -220,7 +199,8 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection))
+          connection =>
+            ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -244,7 +224,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection))
+          connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -260,7 +240,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
     test("MsSqlConnection extracts schema columns from the database") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection))
+          connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
           MsSqlConnection(
@@ -293,7 +273,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("backfill_rows", connection))
+              .attemptBlocking(createTable("backfill_rows", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "backfill_rows"))
         )
         connector <- ZIO.succeed(
@@ -310,7 +290,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("backfill_columns", connection))
+              .attemptBlocking(createTable("backfill_columns", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "backfill_columns"))
         )
         connector <- ZIO.succeed(
@@ -333,7 +313,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("backfill_columns_filtered", connection))
+              .attemptBlocking(createTable("backfill_columns_filtered", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "backfill_columns_filtered"))
         )
         connector <- ZIO.succeed(
@@ -353,7 +333,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("get_changes_rows", connection))
+              .attemptBlocking(createTable("get_changes_rows", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_rows"))
         )
         connector <- ZIO.succeed(
@@ -386,7 +366,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("get_changes_rows_filtered", connection))
+              .attemptBlocking(createTable("get_changes_rows_filtered", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_rows_filtered"))
         )
         connector <- ZIO.succeed(
@@ -418,7 +398,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("get_changes_columns", connection))
+              .attemptBlocking(createTable("get_changes_columns", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_columns"))
         )
         connector <- ZIO.succeed(
@@ -435,7 +415,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("get_changes_deletes", connection))
+              .attemptBlocking(createTable("get_changes_deletes", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_deletes"))
         )
         connector <- ZIO.succeed(
@@ -463,7 +443,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable("get_latest_version", connection))
+              .attemptBlocking(createTable("get_latest_version", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_latest_version"))
         )
         connector <- ZIO.succeed(
