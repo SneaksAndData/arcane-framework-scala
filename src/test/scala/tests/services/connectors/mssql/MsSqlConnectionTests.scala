@@ -482,6 +482,6 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         )
         _             <- ZIO.sleep(zio.Duration.fromSeconds(1))
         (_, version1) <- connector.getChanges(Some(version0), Duration.ofDays(1))
-      yield assertTrue(version1 > 0L)
+      yield assertTrue(version1 > 0L) // in fact, this value is not currently used by streaming data provider. We should consider either using it, or removing it entirely.
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
