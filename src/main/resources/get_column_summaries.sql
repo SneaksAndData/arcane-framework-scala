@@ -9,3 +9,4 @@ where
     tc.CONSTRAINT_TYPE = N'PRIMARY KEY'
     and tc.TABLE_NAME = N'{table}'
     and tc.TABLE_SCHEMA = N'{schema}'
+order by c.ORDINAL_POSITION

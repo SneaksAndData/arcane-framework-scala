@@ -16,30 +16,30 @@ import services.merging.maintenance.{
   JdbcSnapshotExpirationRequest
 }
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import tests.services.connectors.mssql.MsSqlConnectionTests.suite
+import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
 import io.trino.jdbc.TrinoDriver
-import org.scalatest.Assertion
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
-import zio.{Runtime, Task, Unsafe}
+import org.scalatestplus.easymock.EasyMockSugar.mock
+import zio.test.TestAspect.timeout
+import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.{Scope, Task, Unsafe, ZIO}
 
 import java.sql.Connection
 import java.util.Properties
-import scala.concurrent.Future
 
-class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
-
+object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private val connectionUri = "jdbc:trino://localhost:8080/iceberg/test?user=test"
   private val schema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) :: Field(
     "colA",
     StringType
   ) :: Field("colB", StringType) :: Field("Id", StringType) :: Nil
-  private val runtime = Runtime.default
 
   private val schemaProviderMock         = mock[SchemaProvider[ArcaneSchema]]
   private val fieldsFilteringServiceMock = mock[FieldsFilteringService]
+
   private val streamContext = new StreamContext:
     override val streamId: String       = "test"
     override val IsBackfilling: Boolean = false
@@ -50,143 +50,171 @@ class JdbcMergeServiceClientTests extends AsyncFlatSpec with Matchers with EasyM
       */
     override val connectionUrl: String = connectionUri
 
-  private def createTable(tableName: String): Connection =
-    val driver     = new TrinoDriver()
-    val connection = driver.connect(connectionUri, new Properties())
-    val statement  = connection.createStatement()
+  private def getJdbcMergeServiceClient(schemaProviderFactory: Option[SchemaProviderFactory]) =
+    new JdbcMergeServiceClient(
+      options,
+      TestTargetTableSettings,
+      TestBackfillTableSettings,
+      streamContext,
+      schemaProviderMock,
+      fieldsFilteringServiceMock,
+      TestTablePropertiesSettings,
+      MutableSchemaCache(),
+      schemaProviderFactory,
+      DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
+    )
 
-    val dropTableStatement = s"DROP TABLE IF EXISTS test.$tableName"
-    statement.execute(dropTableStatement)
-    val createTableStatement =
-      s"CREATE TABLE IF NOT EXISTS test.$tableName (ARCANE_MERGE_KEY VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
-    statement.execute(createTableStatement)
-    connection
-
-  private def insertValues(tableName: String): Unit =
-    val driver          = new TrinoDriver()
-    val connection      = driver.connect(connectionUri, new Properties())
-    val updateStatement = connection.createStatement()
-    for i <- 1 to 10 do
-      val insertCmd =
-        s"insert into test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
-      updateStatement.execute(insertCmd)
-
-  private def withTargetTable(tableName: String)(test: Connection => Task[Assertion]): Future[Assertion] =
-    createTable(tableName)
-    val connection = createTable(s"staged_$tableName")
-    insertValues(s"staged_$tableName")
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
-
-  private def getSystemUnderTest(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(
-    options,
-    TestTargetTableSettings,
-    TestBackfillTableSettings,
-    streamContext,
-    schemaProviderMock,
-    fieldsFilteringServiceMock,
-    TestTablePropertiesSettings,
-    MutableSchemaCache(),
-    schemaProviderFactory,
-    DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
-  )
-
-  it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
-    val mergeServiceClient = getSystemUnderTest(None)
-
+  private def getConnection: Task[Connection] =
     for
-      _ <- mergeServiceClient.applyBatch(batch)
-      rs          = connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}")
-      _           = rs.next()
-      targetCount = rs.getInt(1)
+      driver     <- ZIO.succeed(new TrinoDriver())
+      connection <- ZIO.attemptBlocking(driver.connect(connectionUri, new Properties()))
+    yield connection
 
-    // assert that the statement was actually executed
-    yield targetCount should be(10)
-  }
-
-  it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
-    val mergeServiceClient = getSystemUnderTest(None)
-    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
-
+  private def createTable(tableName: String, connection: Connection): Task[Unit] =
     for
-      _ <- mergeServiceClient.disposeBatch(batch)
-      rs                 = connection.getMetaData.getTables(null, null, "staged_table_a", null)
-      stagingTableExists = rs.next()
+      statement <- ZIO.attemptBlocking(connection.createStatement())
 
-    // assert that the statement was actually executed
-    yield stagingTableExists should be(false)
-  }
+      dropTableStatement = s"DROP TABLE IF EXISTS iceberg.test.$tableName"
+      _ <- ZIO.attemptBlocking(statement.execute(dropTableStatement))
+      createTableStatement =
+        s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
+      _ <- ZIO.attemptBlocking(statement.execute(createTableStatement))
+    yield ()
 
-  it should "should be able to run optimizeTable queries without errors" in withTargetTable("table_a") { connection =>
-    val tableName         = "table_a"
-    val optimizeThreshold = 10
-    val fileSizeThreshold = "1MB"
-    val batchIndex        = 9
-    val request           = Some(JdbcOptimizationRequest(tableName, optimizeThreshold, fileSizeThreshold, batchIndex))
-
-    val mergeServiceClient = getSystemUnderTest(None)
-    for result <- mergeServiceClient.optimizeTable(request)
-    yield result.skipped should be(false)
-  }
-
-  it should "should be able to run expireSnapshots queries without errors" in withTargetTable("table_a") { connection =>
-
-    val tableName          = "table_a"
-    val optimizeThreshold  = 10
-    val retentionThreshold = "8d"
-    val batchIndex         = 9
-    val request = Some(JdbcSnapshotExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex))
-
-    val mergeServiceClient = getSystemUnderTest(None)
-    for result <- mergeServiceClient.expireSnapshots(request)
-    yield result.skipped should be(false)
-  }
-
-  it should "should be able to run expireOrphanFiles queries without errors" in withTargetTable("table_a") {
-    connection =>
-
-      val tableName          = "table_a"
-      val optimizeThreshold  = 10
-      val retentionThreshold = "8d"
-      val batchIndex         = 9
-      val request = Some(JdbcOrphanFilesExpirationRequest(tableName, optimizeThreshold, retentionThreshold, batchIndex))
-
-      val mergeServiceClient = getSystemUnderTest(None)
-      for result <- mergeServiceClient.expireOrphanFiles(request)
-      yield result.skipped should be(false)
-  }
-
-  it should "should be able to perform schema migrations" in withTargetTable("table_a") { connection =>
-    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
-      Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
-      Field("new_column", StringType) :: Nil
-
-    val mergeServiceClient = getSystemUnderTest(None)
+  private def insertValues(tableName: String, connection: Connection): Task[Unit] =
     for
-      result    <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-      newSchema <- mergeServiceClient.getSchema("table_a")
-    yield newSchema should contain theSameElementsAs updatedSchema
-  }
+      updateStatement <- ZIO.attemptBlocking(connection.createStatement())
+      _ <- ZIO.foreach(1 to 10) { i =>
+        val insertCmd =
+          s"insert into iceberg.test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
+        ZIO.attemptBlocking(updateStatement.execute(insertCmd))
+      }
+    yield ()
 
-  it should "read schema once during schema migrations" in withTargetTable("table_a") { connection =>
-    val updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
-      Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
-      Field("new_column", StringType) :: Nil
+  private def setupTable(tableName: String): Task[Unit] =
+    for _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) {
+        connection =>
+          for
+            _ <- createTable(tableName, connection)
+            _ <- createTable(s"staged_$tableName", connection)
+            _ <- insertValues(s"staged_$tableName", connection)
+          yield ()
+      }
+    yield ()
 
-    var callCount = 0
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("JdbcMergeServiceClientTests")(
+    test("applies a batch to target table") {
+      for
+        tableName <- ZIO.succeed("table_a")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
 
-    def schemaProviderFactory(name: String, connection: Connection) =
-      callCount = callCount + 1
-      new JdbcSchemaProvider(name, connection)
+        connection <- getConnection
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        _  <- mergeServiceClient.applyBatch(batch)
+        rs <- ZIO.attemptBlocking(connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}"))
+        _  <- ZIO.attemptBlocking(rs.next())
+      yield assertTrue(rs.getInt(1) == 10)
+    },
+    test("disposes of a batch") {
+      for
+        tableName <- ZIO.succeed("table_disposed")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
 
-    val mergeServiceClient = getSystemUnderTest(Some(schemaProviderFactory))
+        connection <- getConnection
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        _  <- mergeServiceClient.disposeBatch(batch)
+        rs <- ZIO.attemptBlocking(connection.getMetaData.getTables(null, null, s"staged_$tableName", null))
+        stagingTableExists <- ZIO.attemptBlocking(rs.next())
+      yield assertTrue(!stagingTableExists)
+    },
+    test("optimizes a table") {
+      for
+        tableName <- ZIO.succeed("table_optimized")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
 
-    // The schema provider should be called twice, once for the original schema and once for the updated schema
-    for
-      _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a") // First and second calls here
-      _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-      _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-      _ <- mergeServiceClient.migrateSchema(updatedSchema, "table_a")
-      _ <- mergeServiceClient.getSchema("table_a")
-    yield callCount should be(2)
-  }
+        request            = Some(JdbcOptimizationRequest(tableName, 10, "1MB", 9))
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        result <- mergeServiceClient.optimizeTable(request)
+      yield assertTrue(!result.skipped)
+    },
+    test("runs expireSnapshots on a table") {
+      for
+        tableName <- ZIO.succeed("table_snapshot_expire")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
+
+        request            = Some(JdbcSnapshotExpirationRequest(tableName, 10, "8d", 9))
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        result <- mergeServiceClient.expireSnapshots(request)
+      yield assertTrue(!result.skipped)
+    },
+    test("runs expireOrphanFiles on a table") {
+      for
+        tableName <- ZIO.succeed("table_orphan_files_expire")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
+
+        request            = Some(JdbcOrphanFilesExpirationRequest(tableName, 10, "8d", 9))
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        result <- mergeServiceClient.expireOrphanFiles(request)
+      yield assertTrue(!result.skipped)
+    },
+    test("performs schema migrations") {
+      for
+        tableName <- ZIO.succeed("table_schema_migrated")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
+        updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+          Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
+          Field("new_column", StringType) :: Nil
+
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        result <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
+
+        newSchema <- mergeServiceClient.getSchema(tableName)
+      yield assertTrue(newSchema == updatedSchema)
+    },
+    test("reads schema once during schema migrations") {
+      var callCount = 0
+
+      def schemaProviderFactory(name: String, connection: Connection) =
+        callCount = callCount + 1
+        new JdbcSchemaProvider(name, connection)
+
+      for
+        tableName <- ZIO.succeed("table_schema_migrations")
+        batch <- ZIO.succeed(
+          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings)
+        )
+        _ <- setupTable(tableName)
+        updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
+          Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
+          Field("new_column", StringType) :: Nil
+
+        mergeServiceClient = getJdbcMergeServiceClient(Some(schemaProviderFactory))
+        // The schema provider should be called twice, once for the original schema and once for the updated schema
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName) // First and second calls here
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
+        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
+        _ <- mergeServiceClient.getSchema(tableName)
+
+        newSchema <- mergeServiceClient.getSchema(tableName)
+      yield assertTrue(callCount == 2)
+    }
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
