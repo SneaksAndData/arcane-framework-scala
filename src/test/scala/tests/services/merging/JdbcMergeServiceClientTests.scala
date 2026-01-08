@@ -10,27 +10,21 @@ import services.base.SchemaProvider
 import services.caching.schema_cache.MutableSchemaCache
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.maintenance.{
-  JdbcOptimizationRequest,
-  JdbcOrphanFilesExpirationRequest,
-  JdbcSnapshotExpirationRequest
-}
+import services.merging.maintenance.JdbcOptimizationRequest
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import tests.services.connectors.mssql.MsSqlConnectionTests.suite
+import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 
-import com.sneaksanddata.arcane.framework.tests.services.connectors.mssql.MsSqlConnectionTests.suite
 import io.trino.jdbc.TrinoDriver
-import org.scalatest.Assertion
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.easymock.EasyMockSugar
 import org.scalatestplus.easymock.EasyMockSugar.mock
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault}
-import zio.{Runtime, Scope, Task, Unsafe, ZIO}
+import zio.test.TestAspect.timeout
+import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.{Scope, Task, Unsafe, ZIO}
 
 import java.sql.Connection
 import java.util.Properties
-import scala.concurrent.Future
 
 object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private val connectionUri = "jdbc:trino://localhost:8080/iceberg/test?user=test"
@@ -52,83 +46,91 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       */
     override val connectionUrl: String = connectionUri
 
+  private def getJdbcMergeServiceClient(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(
+    options,
+    TestTargetTableSettings,
+    TestBackfillTableSettings,
+    streamContext,
+    schemaProviderMock,
+    fieldsFilteringServiceMock,
+    TestTablePropertiesSettings,
+    MutableSchemaCache(),
+    schemaProviderFactory,
+    DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
+  )
+
   private def getConnection: Task[Connection] =
     for
       driver     <- ZIO.succeed(new TrinoDriver())
       connection <- ZIO.attemptBlocking(driver.connect(connectionUri, new Properties()))
     yield connection
 
-  private def createTable(tableName: String): Task[Connection] =
+  private def createTable(tableName: String, connection: Connection): Task[Unit] =
     for
-      connection <- getConnection
       statement  <- ZIO.attemptBlocking(connection.createStatement())
 
-      dropTableStatement = s"DROP TABLE IF EXISTS test.$tableName"
+      dropTableStatement = s"DROP TABLE IF EXISTS iceberg.test.$tableName"
       _ <- ZIO.attemptBlocking(statement.execute(dropTableStatement))
       createTableStatement =
-        s"CREATE TABLE IF NOT EXISTS test.$tableName (ARCANE_MERGE_KEY VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
+        s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
       _ <- ZIO.attemptBlocking(statement.execute(createTableStatement))
-    yield connection
+    yield ()
 
-  private def insertValues(tableName: String): Task[Unit] =
+  private def insertValues(tableName: String, connection: Connection): Task[Unit] =
     for
-      connection      <- getConnection
       updateStatement <- ZIO.attemptBlocking(connection.createStatement())
       _ <- ZIO.foreach(1 to 10) { i =>
         val insertCmd =
-          s"insert into test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
+          s"insert into iceberg.test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
         ZIO.attemptBlocking(updateStatement.execute(insertCmd))
       }
     yield ()
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("JdbcMergeServiceClientTests")()
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("JdbcMergeServiceClientTests")(
+    test("applies a batch to target table") {
+      for
+        tableName <- ZIO.succeed("table_a")
+        batch <- ZIO.succeed(SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings))
+        connection <- getConnection
+        _ <- createTable(tableName, connection)
+        _ <- createTable(s"staged_$tableName", connection)
+        _ <- insertValues(s"staged_$tableName", connection)
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        _ <- mergeServiceClient.applyBatch(batch)
+        rs <- ZIO.attemptBlocking(connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}"))
+        _           <- ZIO.attemptBlocking(rs.next())
+      yield assertTrue(rs.getInt(1) == 10)
+    },
+    test("disposes of a batch") {
+      for
+        tableName <- ZIO.succeed("table_disposed")
+        batch <- ZIO.succeed(SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings))
+        connection <- getConnection
+        _ <- createTable(tableName, connection)
+        _ <- createTable(s"staged_$tableName", connection)
+        _ <- insertValues(s"staged_$tableName", connection)
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        _ <- mergeServiceClient.disposeBatch(batch)
+        rs <- ZIO.attemptBlocking(connection.getMetaData.getTables(null, null, s"staged_$tableName", null))
+        stagingTableExists           <- ZIO.attemptBlocking(rs.next())
+      yield assertTrue(!stagingTableExists)
+    },
+    test("optimizes a table") {
+      for
+        tableName <- ZIO.succeed("table_optimized")
+        batch <- ZIO.succeed(SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings))
+        connection <- getConnection
+        _ <- createTable(tableName, connection)
+        _ <- createTable(s"staged_$tableName", connection)
+        _ <- insertValues(s"staged_$tableName", connection)
 
-//
-//  private def withTargetTable(tableName: String)(test: Connection => Task[Assertion]): Future[Assertion] =
-//    createTable(tableName)
-//    val connection = createTable(s"staged_$tableName")
-//    insertValues(s"staged_$tableName")
-//    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(test(connection)))
-//
-//  private def getSystemUnderTest(schemaProviderFactory: Option[SchemaProviderFactory]) = new JdbcMergeServiceClient(
-//    options,
-//    TestTargetTableSettings,
-//    TestBackfillTableSettings,
-//    streamContext,
-//    schemaProviderMock,
-//    fieldsFilteringServiceMock,
-//    TestTablePropertiesSettings,
-//    MutableSchemaCache(),
-//    schemaProviderFactory,
-//    DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
-//  )
-//
-//  it should "should be able to apply a batch to target table" in withTargetTable("table_a") { connection =>
-//    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
-//    val mergeServiceClient = getSystemUnderTest(None)
-//
-//    for
-//      _ <- mergeServiceClient.applyBatch(batch)
-//      rs          = connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}")
-//      _           = rs.next()
-//      targetCount = rs.getInt(1)
-//
-//    // assert that the statement was actually executed
-//    yield targetCount should be(10)
-//  }
-//
-//  it should "should be able to dispose a batch" in withTargetTable("table_a") { connection =>
-//    val mergeServiceClient = getSystemUnderTest(None)
-//    val batch = SynapseLinkMergeBatch("test.staged_table_a", schema, "test.table_a", TestTablePropertiesSettings)
-//
-//    for
-//      _ <- mergeServiceClient.disposeBatch(batch)
-//      rs                 = connection.getMetaData.getTables(null, null, "staged_table_a", null)
-//      stagingTableExists = rs.next()
-//
-//    // assert that the statement was actually executed
-//    yield stagingTableExists should be(false)
-//  }
+        request           = Some(JdbcOptimizationRequest(tableName, 10, "1MB", 9))
+        mergeServiceClient = getJdbcMergeServiceClient(None)
+        result <- mergeServiceClient.optimizeTable(request)
+      yield assertTrue(!result.skipped)
+    }
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+
 //
 //  it should "should be able to run optimizeTable queries without errors" in withTargetTable("table_a") { connection =>
 //    val tableName         = "table_a"
