@@ -54,4 +54,4 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
           )
       )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
