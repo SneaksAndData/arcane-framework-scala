@@ -4,7 +4,7 @@ package tests.services.connectors.mssql
 import models.app.StreamContext
 import models.settings.VersionedDataGraphBuilderSettings
 import services.mssql.*
-import services.mssql.base.MsSqlServerFieldsFilteringService
+import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import tests.services.connectors.mssql.util.MsSqlTestServices.*
 import tests.shared.TestStreamLifetimeService
 
@@ -67,7 +67,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "streaming_test"))
         )
         connection <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "streaming_test", None),
             emptyFieldsFilteringService
           )

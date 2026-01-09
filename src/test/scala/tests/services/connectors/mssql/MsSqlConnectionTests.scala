@@ -6,8 +6,8 @@ import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
-import services.mssql.base.MsSqlServerFieldsFilteringService
-import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}
+import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.QueryProvider
 import tests.services.connectors.mssql.util.MsSqlTestServices.*
 
 import org.scalatest.*
@@ -86,7 +86,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("columns_query_test", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "columns_query_test", None),
             emptyFieldsFilteringService
           )
@@ -104,7 +104,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("schema_query_test", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "schema_query_test", None),
             emptyFieldsFilteringService
           )
@@ -136,7 +136,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("backfill_query", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_query", None),
             emptyFieldsFilteringService
           )
@@ -171,7 +171,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "field_selection_rule", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -203,7 +203,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
             ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_no_pk", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -227,7 +227,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_pk", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -243,7 +243,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "extracts_schema_columns", None),
             emptyFieldsFilteringService
           )
@@ -277,7 +277,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_rows"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_rows", None),
             emptyFieldsFilteringService
           )
@@ -294,7 +294,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_columns"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_columns", None),
             emptyFieldsFilteringService
           )
@@ -317,7 +317,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_columns_filtered"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_columns_filtered", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -337,7 +337,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_rows"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_rows", None),
             emptyFieldsFilteringService
           )
@@ -370,7 +370,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_rows_filtered"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_rows_filtered", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -402,7 +402,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_columns"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_columns", None),
             emptyFieldsFilteringService
           )
@@ -419,7 +419,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_deletes"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_deletes", None),
             emptyFieldsFilteringService
           )
@@ -447,7 +447,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_latest_version"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_latest_version", None),
             emptyFieldsFilteringService
           )

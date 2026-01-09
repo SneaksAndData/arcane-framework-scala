@@ -3,6 +3,7 @@ package services.mssql
 
 import models.schemas.MergeKeyField
 
+import com.sneaksanddata.arcane.framework.services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlQuery}
 import zio.{Task, ZIO}
 
 import java.time.format.DateTimeFormatter
@@ -20,7 +21,7 @@ object QueryProvider:
     * @return
     *   A future containing the schema query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlConnection)
+  extension (msSqlConnection: MsSqlReader)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- msSqlConnection.getColumnSummaries
@@ -46,7 +47,7 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlConnection)
+  extension (msSqlConnection: MsSqlReader)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
         columnSummaries <- msSqlConnection.getColumnSummaries
@@ -70,7 +71,7 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlConnection)
+  extension (msSqlConnection: MsSqlReader)
     def getBackfillQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- msSqlConnection.getColumnSummaries

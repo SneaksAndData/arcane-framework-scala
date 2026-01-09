@@ -1,15 +1,16 @@
 package com.sneaksanddata.arcane.framework
-package services.mssql
+package services.mssql.base
 
 import logging.ZIOLogAnnotations.zlogStream
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.{VersionedBatch, closeSafe, executeQuerySafe}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
+import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
+import services.mssql.{MsSqlVersionedBatch, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -46,7 +47,7 @@ case class ConnectionOptions(connectionUrl: String, schemaName: String, tableNam
   * @param connectionOptions
   *   The connection options for the database.
   */
-class MsSqlConnection(
+class MsSqlReader(
     val connectionOptions: ConnectionOptions,
     fieldsFilteringService: MsSqlServerFieldsFilteringService
 ) extends AutoCloseable
@@ -101,7 +102,7 @@ class MsSqlConnection(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
+  def getChanges(latestVersion: Long): Task[MsSqlVersionedBatch] =
     val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
     ZIO.scoped {
       for
@@ -114,7 +115,7 @@ class MsSqlConnection(
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.
         result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-      yield MsSqlConnection.ensureHead((result, version))
+      yield MsSqlReader.ensureHead((result, version))
     }
 
   private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
@@ -190,7 +191,7 @@ class MsSqlConnection(
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query))
     yield resultFactory(statement, resultSet)
 
-object MsSqlConnection:
+object MsSqlReader:
 
   type Environment = ConnectionOptions & MsSqlServerFieldsFilteringService
 
@@ -206,33 +207,25 @@ object MsSqlConnection:
   def apply(
       connectionOptions: ConnectionOptions,
       fieldsFilteringService: MsSqlServerFieldsFilteringService
-  ): MsSqlConnection =
-    new MsSqlConnection(connectionOptions, fieldsFilteringService)
+  ): MsSqlReader =
+    new MsSqlReader(connectionOptions, fieldsFilteringService)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  val layer: ZLayer[Environment, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
+  val layer: ZLayer[Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           connectionOptions      <- ZIO.service[ConnectionOptions]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-        yield MsSqlConnection(connectionOptions, fieldsFilteringService)
+        yield MsSqlReader(connectionOptions, fieldsFilteringService)
       }
     }
-
-  /** Represents a batch of data.
-    */
-  type DataBatch = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]
 
   /** Represents a batch of data that can be used to backfill the data. Since the data is not versioned, the version is
     * always 0, and we don't need to be able to peek the head of the result.
     */
   type BackfillBatch = QueryResult[LazyQueryResult.OutputType]
-
-  /** Represents a versioned batch of data.
-    */
-  type VersionedBatch = (DataBatch, Long)
 
   /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
     * by the query if the result set is being closed without cancelling the statement first. see:
@@ -273,6 +266,6 @@ object MsSqlConnection:
   /** Ensures that the head of the result (if any) saved and cannot be lost This is required to let the head function
     * work properly.
     */
-  private def ensureHead(result: VersionedBatch): VersionedBatch =
+  private def ensureHead(result: MsSqlVersionedBatch): MsSqlVersionedBatch =
     val (queryResult, version) = result
     (queryResult.peekHead, version)

@@ -2,9 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.filters
 
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
-import services.mssql.ColumnSummary
 import services.mssql.SqlDataCell.normalizeName
-import services.mssql.base.MsSqlServerFieldsFilteringService
+import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService}
 
 import zio.{ZIO, ZLayer}
 

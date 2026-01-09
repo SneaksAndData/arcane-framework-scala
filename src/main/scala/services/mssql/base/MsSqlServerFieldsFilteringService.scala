@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
-import services.mssql.ColumnSummary
 import scala.util.Try
 
 /** Trait for server-side filtering of fields in a Microsoft SQL Server database.

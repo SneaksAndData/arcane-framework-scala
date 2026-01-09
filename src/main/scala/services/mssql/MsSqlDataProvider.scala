@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.schemas.DataRow
-import services.mssql.MsSqlConnection.VersionedBatch
-import services.mssql.base.MssqlVersionedDataProvider
-import services.streaming.base.HasVersion
+import services.mssql.{MsSqlBatch, MsSqlVersionedBatch}
+import services.mssql.base.{MsSqlReader, MssqlVersionedDataProvider}
+import services.streaming.base.{BackfillDataProvider, HasVersion, VersionedDataProvider}
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -12,10 +12,19 @@ import zio.{Task, ZIO, ZLayer}
 import java.time.Duration
 import scala.util.{Failure, Try}
 
-given HasVersion[VersionedBatch] with
+private def readDataBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
+                                                                                batch: T
+                                                                              ): ZStream[Any, Throwable, DataRow] =
+  for
+    data <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
+    rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
+    row <- ZStream.fromIterator(rowsList, 1)
+  yield row
+
+given HasVersion[MsSqlVersionedBatch] with
   type VersionType = Option[Long]
 
-  private val partial: PartialFunction[VersionedBatch, Option[Long]] =
+  private val partial: PartialFunction[MsSqlVersionedBatch, Option[Long]] =
     case (queryResult, version: Long) =>
       // If the database response is empty, we can't extract the version from it and return the old version.
       queryResult.read.nextOption() match
@@ -29,21 +38,34 @@ given HasVersion[VersionedBatch] with
             case version :: _ => Try(version.value.asInstanceOf[Long])
           dataVersion.toOption
 
-  extension (result: VersionedBatch)
-    def getLatestVersion: this.VersionType = partial.applyOrElse(result, (_: VersionedBatch) => None)
+  extension (result: MsSqlVersionedBatch)
+    def getLatestVersion: this.VersionType = partial.applyOrElse(result, (_: MsSqlVersionedBatch) => None)
 
 /** A data provider that reads the changes from the Microsoft SQL Server.
-  * @param msSqlConnection
+  * @param reader
   *   The connection to the Microsoft SQL Server.
   */
-class MsSqlDataProvider(msSqlConnection: MsSqlConnection)
-    extends MssqlVersionedDataProvider[Long, VersionedBatch]
-    with MssqlBackfillDataProvider:
+class MsSqlDataProvider(reader: MsSqlReader)
+    extends VersionedDataProvider[Long, MsSqlVersionedBatch]
+    with BackfillDataProvider[DataRow]:
 
-  override def requestChanges(previousVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
-    msSqlConnection.getChanges(previousVersion, lookBackInterval)
+//  override def requestChanges(previousVersion: Option[Long]): Task[MsSqlVersionedBatch] =
+//    msSqlConnection.getChanges(previousVersion, lookBackInterval)
 
-  override def requestBackfill: ZStream[Any, Throwable, DataRow] = msSqlConnection.backfill
+  //override def requestBackfill: ZStream[Any, Throwable, DataRow] = msSqlConnection.backfill
+
+  override def requestChanges(previousVersion: Long): ZStream[Any, Throwable, MsSqlVersionedBatch] = reader.getChanges(previousVersion)
+
+  /** The first version of the data.
+   */
+  override def firstVersion: Task[Long] = ???
+
+  /** Provides the backfill data.
+   *
+   * @return
+   * A task that represents the backfill data.
+   */
+  override def requestBackfill: ZStream[Any, Throwable, DataRow] = reader.backfill
 
 /** The companion object for the MsSqlDataProvider class.
   */
@@ -51,7 +73,7 @@ object MsSqlDataProvider:
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  val layer: ZLayer[MsSqlConnection, Nothing, MsSqlDataProvider] =
+  val layer: ZLayer[MsSqlReader, Nothing, MsSqlDataProvider] =
     ZLayer {
-      for connection <- ZIO.service[MsSqlConnection] yield new MsSqlDataProvider(connection)
+      for connection <- ZIO.service[MsSqlReader] yield new MsSqlDataProvider(connection)
     }

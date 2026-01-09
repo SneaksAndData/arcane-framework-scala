@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.{ArcaneType, DataCell, DataRow}
 import models.settings.VersionedDataGraphBuilderSettings
-import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader.{DataBatch, VersionedBatch}
 import services.mssql.base.QueryResult
 import services.streaming.base.StreamDataProvider
 
@@ -76,15 +76,6 @@ class MsSqlStreamingDataProvider(
 
         case other => other
       }
-
-  private def readDataBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
-      batch: T
-  ): ZStream[Any, Throwable, DataRow] =
-    for
-      data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
-      rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-      row      <- ZStream.fromIterator(rowsList, 1)
-    yield row
 
   private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
     for
