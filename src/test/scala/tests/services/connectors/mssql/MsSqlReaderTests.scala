@@ -29,7 +29,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
 
   private val fieldString = "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
   private val pkString    = "primary key(x)"
-  private val formatter: DateTimeFormatter          = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
     Success(fields)
@@ -117,8 +117,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("QueryProvider generates time-based query") {
       for
         currentTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofHours(-1)), ZoneOffset.UTC))
-        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(currentTime, formatter))
-        formatted <- ZIO.succeed(formatter.format(currentTime))
+        query       <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(currentTime, formatter))
+        formatted   <- ZIO.succeed(formatter.format(currentTime))
       yield assertTrue(
         query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formatted'")
       )
@@ -335,7 +335,14 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC))).runCollect
+        rows <- connector
+          .getChanges(
+            MsSqlChangeVersion(
+              versionNumber = 0,
+              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            )
+          )
+          .runCollect
       yield assertTrue(rows.size == 20)
     },
     test("MsSqlConnection returns correct number of rows on getChanges with filter") {
@@ -368,7 +375,14 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC))).runCollect
+        rows <- connector
+          .getChanges(
+            MsSqlChangeVersion(
+              versionNumber = 0,
+              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            )
+          )
+          .runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection returns correct number of columns on getChanges") {
@@ -400,7 +414,14 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC))).runCollect
+        rows <- connector
+          .getChanges(
+            MsSqlChangeVersion(
+              versionNumber = 0,
+              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            )
+          )
+          .runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection handles deletes") {
@@ -417,15 +438,17 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        nextTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+        nextTime  <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         startTime <- ZIO.succeed(nextTime.minus(Duration.ofDays(1)))
-        version <- connector.getVersion(QueryProvider.getChangeTrackingVersionQuery(startTime, formatter))
-        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = startTime)).runCollect
+        version   <- connector.getVersion(QueryProvider.getChangeTrackingVersionQuery(startTime, formatter))
+        rows      <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = startTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )
-        
-        rowsAfterDelete <- connector.getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = nextTime)).runCollect
+
+        rowsAfterDelete <- connector
+          .getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = nextTime))
+          .runCollect
       yield assertTrue(
         rowsAfterDelete.exists(row =>
           row.contains(DataCell("SYS_CHANGE_OPERATION", StringType, "D")) && row.contains(

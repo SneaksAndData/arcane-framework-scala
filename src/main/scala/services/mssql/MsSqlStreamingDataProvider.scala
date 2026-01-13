@@ -40,16 +40,19 @@ class MsSqlStreamingDataProvider(
       // simply launch backfill if stream context specifies so
       if streamContext.IsBackfilling then dataProvider.requestBackfill
       // in streaming mode, provide a continuous stream of (current, previous) versions
-      else ZStream.unfoldZIO(dataProvider.firstVersion) { version =>
-        for
-          previousVersion <- version
-          currentVersion <- dataProvider.getCurrentVersion(previousVersion)
-          _ <- checkEmpty(previousVersion)
-        yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
-      }.flatMap {
-        // always fetch from previousVersion to ensure data changes that happened during the last iteration get captured
-        case (_, previousVersion) => dataProvider.requestChanges(previousVersion)
-      }
+      else
+        ZStream
+          .unfoldZIO(dataProvider.firstVersion) { version =>
+            for
+              previousVersion <- version
+              currentVersion  <- dataProvider.getCurrentVersion(previousVersion)
+              _               <- checkEmpty(previousVersion)
+            yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
+          }
+          .flatMap {
+            // always fetch from previousVersion to ensure data changes that happened during the last iteration get captured
+            case (_, previousVersion) => dataProvider.requestChanges(previousVersion)
+          }
     }
 
     stream
@@ -57,10 +60,12 @@ class MsSqlStreamingDataProvider(
 
   private def checkEmpty(previousVersion: MsSqlChangeVersion): Task[Unit] =
     for
-      _ <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
+      _         <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
-        zlog(s"No data in the batch, sleeping for the configured interval of ${settings.changeCaptureInterval} seconds") *> ZIO.sleep(
+        zlog(
+          s"No data in the batch, sleeping for the configured interval of ${settings.changeCaptureInterval} seconds"
+        ) *> ZIO.sleep(
           settings.changeCaptureInterval
         )
       }
@@ -68,7 +73,6 @@ class MsSqlStreamingDataProvider(
         zlog(s"Data found in the batch: ${previousVersion.versionNumber}, continuing") *> ZIO.unit
       }
     yield ()
-
 
 object MsSqlStreamingDataProvider:
 

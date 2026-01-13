@@ -12,11 +12,11 @@ import java.time.{LocalDateTime, OffsetDateTime, ZoneOffset}
 case class MsSqlChangeVersion(versionNumber: Long, waterMarkTime: OffsetDateTime)
 
 /** Represents a batch of data.
- */
+  */
 type MsSqlQueryResult = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]
 
 /** Batch type for Microsoft Sql Server is a list of DataRow elements
- */
+  */
 type MsSqlBatch          = DataRow
 type MsSqlVersionedBatch = (DataRow, Long)
 
@@ -47,4 +47,3 @@ extension (row: DataRow)
 
       case other => other
     }
-

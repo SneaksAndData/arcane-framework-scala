@@ -4,7 +4,13 @@ package services.mssql.base
 import logging.ZIOLogAnnotations.zlogStream
 
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
-import services.mssql.{MsSqlChangeVersion, MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
+import services.mssql.{
+  MsSqlChangeVersion,
+  MsSqlQueryResult,
+  QueryProvider,
+  SqlSchema,
+  given_Conversion_SqlDataRow_DataRow
+}
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
@@ -56,7 +62,7 @@ class MsSqlReader(
   private val driver          = new SQLServerDriver()
   private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  implicit val formatter: DateTimeFormatter          = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+  implicit val formatter: DateTimeFormatter                  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   /** Gets the column summaries for the table in the database.
     *
@@ -93,16 +99,14 @@ class MsSqlReader(
       }
     yield stream
 
-
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
-                                                                                  batch: T
-                                                                                ): ZStream[Any, Throwable, DataRow] =
+      batch: T
+  ): ZStream[Any, Throwable, DataRow] =
     for
-      data <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
+      data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
       rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-      row <- ZStream.fromIterator(rowsList, 1)
+      row      <- ZStream.fromIterator(rowsList, 1)
     yield row
-
 
   /** Gets the changes in the database since the given version.
     * @param latestVersion
@@ -110,29 +114,30 @@ class MsSqlReader(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(latestVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] = 
-    ZStream.fromZIO(
-      ZIO.scoped {
+  def getChanges(latestVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] =
+    ZStream
+      .fromZIO(ZIO.scoped {
         for
           changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
-  
+
           // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
           // And the LazyQueryResult will close the statement/result set when it is closed.
           result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
         yield MsSqlReader.ensureHead(result)
-      }).flatMap(batch => unfoldBatch(batch))
+      })
+      .flatMap(batch => unfoldBatch(batch))
 
   def hasChanges(latestVersion: MsSqlChangeVersion): Task[Boolean] =
-      ZIO.scoped {
-        for
-          changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
+    ZIO.scoped {
+      for
+        changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
 
-          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
-          // And the LazyQueryResult will close the statement/result set when it is closed.
-          result <- isEmptyQuery(changesQuery, connection)
-        yield result
-      }
-    
+        // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+        // And the LazyQueryResult will close the statement/result set when it is closed.
+        result <- isEmptyQuery(changesQuery, connection)
+      yield result
+    }
+
   def getVersion(query: String): Task[Long] =
     def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
       resultSet.getMetaData.getColumnType(1) match
@@ -141,7 +146,7 @@ class MsSqlReader(
           throw new IllegalArgumentException(
             s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
           )
-          
+
     ZIO.scoped {
       for
         versionResult <- ZIO.fromAutoCloseable(
@@ -150,7 +155,6 @@ class MsSqlReader(
         version = versionResult.read.getOrElse(Long.MaxValue)
       yield version
     }
-  
 
   /** Closes the connection to the database.
     */

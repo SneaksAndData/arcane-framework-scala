@@ -108,16 +108,16 @@ object QueryProvider:
       yield query
     }
 
-  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, from the lookback point.
-   * @param lookBackRange
-   *   The look back range for the query.
-   * @return
-   *   The change tracking version query for the Microsoft SQL Server database.
-   */
+  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, from the lookback
+    * point.
+    * @param lookBackRange
+    *   The look back range for the query.
+    * @return
+    *   The change tracking version query for the Microsoft SQL Server database.
+    */
   def getChangeTrackingVersionQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
     val formattedTime = formatter.format(startFrom)
     s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
-  
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
