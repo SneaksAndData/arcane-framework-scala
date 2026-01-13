@@ -62,15 +62,15 @@ class MsSqlStreamingDataProvider(
 
   private def checkEmpty(previousVersion: MsSqlChangeVersion): Task[Unit] =
     for
-      _ <- zlog(s"Received versioned batch: $previousVersion")
+      _ <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
-        zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
+        zlog(s"No data in the batch, sleeping for the configured interval of ${settings.changeCaptureInterval} seconds") *> ZIO.sleep(
           settings.changeCaptureInterval
         )
       }
       _ <- ZIO.when(isChanged) {
-        zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
+        zlog(s"Data found in the batch: ${previousVersion.versionNumber}, continuing") *> ZIO.unit
       }
     yield ()
 

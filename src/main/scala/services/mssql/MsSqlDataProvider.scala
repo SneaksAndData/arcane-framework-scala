@@ -26,9 +26,13 @@ class MsSqlDataProvider(reader: MsSqlReader,settings: VersionedDataGraphBuilderS
   
   override def requestChanges(previousVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] = reader.getChanges(previousVersion)
   
-  def hasChanges(previousVersion: MsSqlChangeVersion): Task[Boolean] = ???
+  def hasChanges(previousVersion: MsSqlChangeVersion): Task[Boolean] = reader.hasChanges(previousVersion)
   
-  def getCurrentVersion(previousVersion: MsSqlChangeVersion): Task[MsSqlChangeVersion] = ???
+  def getCurrentVersion(previousVersion: MsSqlChangeVersion): Task[MsSqlChangeVersion] = 
+    for
+      currentTime <- ZIO.succeed(OffsetDateTime.now(ZoneOffset.UTC))
+      version <- reader.getVersion(QueryProvider.getChangeTrackingVersionQuery(currentTime, reader.formatter))
+    yield MsSqlChangeVersion(versionNumber = version, waterMarkTime = currentTime)
 
   /** The first version of the data.
    */
@@ -36,7 +40,7 @@ class MsSqlDataProvider(reader: MsSqlReader,settings: VersionedDataGraphBuilderS
     for
       lookBackTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now().minusSeconds(settings.lookBackInterval.toSeconds), ZoneOffset.UTC))
       version <- reader.getVersion(QueryProvider.getChangeTrackingVersionQuery(lookBackTime, reader.formatter))
-    yield MsSqlChangeVersion(versionNumber = version, commitTime = lookBackTime)
+    yield MsSqlChangeVersion(versionNumber = version, waterMarkTime = lookBackTime)
 
   /** Provides the backfill data.
    *

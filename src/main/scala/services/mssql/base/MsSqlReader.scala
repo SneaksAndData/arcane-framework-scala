@@ -126,6 +126,17 @@ class MsSqlReader(
           result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
         yield MsSqlReader.ensureHead(result)
       }).flatMap(batch => unfoldBatch(batch))
+
+  def hasChanges(latestVersion: MsSqlChangeVersion): Task[Boolean] =
+      ZIO.scoped {
+        for
+          changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
+
+          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+          // And the LazyQueryResult will close the statement/result set when it is closed.
+          result <- isEmptyQuery(changesQuery, connection)
+        yield result
+      }
     
   def getVersion(query: String): Task[Long] =
     def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
@@ -210,6 +221,12 @@ class MsSqlReader(
       statement <- ZIO.attemptBlocking(connection.createStatement())
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query))
     yield resultFactory(statement, resultSet)
+
+  private def isEmptyQuery(query: MsSqlQuery, connection: Connection): Task[Boolean] =
+    for
+      statement <- ZIO.attemptBlocking(connection.createStatement())
+      resultSet <- ZIO.attemptBlocking(statement.executeQuery(query.replaceFirst("SELECT", "SELECT TOP 1")))
+    yield resultSet.next()
 
 object MsSqlReader:
 

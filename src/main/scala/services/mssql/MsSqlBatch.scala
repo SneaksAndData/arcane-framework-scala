@@ -4,14 +4,13 @@ package services.mssql
 import models.schemas.{ArcaneType, DataCell, DataRow}
 import services.mssql.base.{CanPeekHead, QueryResult}
 import services.mssql.query.LazyQueryResult
-import services.streaming.base.HasVersion
 
 import java.nio.ByteBuffer
 import java.sql.Timestamp
 import java.time.{LocalDateTime, OffsetDateTime, ZoneOffset}
 import scala.util.{Failure, Try}
 
-case class MsSqlChangeVersion(versionNumber: Long, commitTime: OffsetDateTime)
+case class MsSqlChangeVersion(versionNumber: Long, waterMarkTime: OffsetDateTime)
 
 /** Represents a batch of data.
  */

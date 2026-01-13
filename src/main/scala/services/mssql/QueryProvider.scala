@@ -116,7 +116,7 @@ object QueryProvider:
    */
   def getChangeTrackingVersionQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
     val formattedTime = formatter.format(startFrom)
-    s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
+    s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
   
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
