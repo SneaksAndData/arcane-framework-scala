@@ -5,12 +5,11 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.{ArcaneType, DataCell, DataRow}
 import models.settings.VersionedDataGraphBuilderSettings
-import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader.{DataBatch, VersionedBatch}
 import services.mssql.base.QueryResult
 import services.streaming.base.StreamDataProvider
 
 import zio.stream.ZStream
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 import java.nio.ByteBuffer
 import java.sql.Timestamp
@@ -42,60 +41,39 @@ class MsSqlStreamingDataProvider(
   /** @inheritdoc
     */
   override def stream: ZStream[Any, Throwable, DataRow] =
-    val stream =
+    val stream = {
+      // simply launch backfill if stream context specifies so
       if streamContext.IsBackfilling then dataProvider.requestBackfill
-      else ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
+      // in streaming mode, provide a continuous stream of (current, previous) versions
+      else ZStream.unfoldZIO(dataProvider.firstVersion) { version =>
+        for
+          previousVersion <- version
+          currentVersion <- dataProvider.getCurrentVersion(previousVersion)
+          _ <- checkEmpty(previousVersion)
+        yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
+      }.flatMap {
+        // always fetch from previousVersion to ensure data changes that happened during the last iteration get captured
+        case (_, previousVersion) => dataProvider.requestChanges(previousVersion)
+      }
+    }
 
     stream
       .map(_.handleSpecialTypes)
 
-  extension (row: DataRow)
-    private def handleSpecialTypes: DataRow =
-      row.map {
-        case DataCell(name, ArcaneType.TimestampType, value) if value != null =>
-          DataCell(
-            name,
-            ArcaneType.TimestampType,
-            LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC)
-          )
-
-        case DataCell(name, ArcaneType.TimestampType, value) if value == null =>
-          DataCell(name, ArcaneType.TimestampType, null)
-
-        case DataCell(name, ArcaneType.ByteArrayType, value) if value != null =>
-          DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
-
-        case DataCell(name, ArcaneType.ByteArrayType, value) if value == null =>
-          DataCell(name, ArcaneType.ByteArrayType, null)
-
-        case DataCell(name, ArcaneType.ShortType, value) =>
-          DataCell(name, ArcaneType.IntType, value.asInstanceOf[Short].toInt)
-
-        case DataCell(name, ArcaneType.DateType, value) =>
-          DataCell(name, ArcaneType.DateType, value.asInstanceOf[java.sql.Date].toLocalDate)
-
-        case other => other
-      }
-
-  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
+  private def checkEmpty(previousVersion: MsSqlChangeVersion): Task[Unit] =
     for
-      versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
-      latestVersion = versionedBatch.getLatestVersion
-      _ <- zlog(s"Received versioned batch: $latestVersion")
-      _ <- maybeSleep(versionedBatch)
-      (queryResult, _) = versionedBatch
-      _ <- zlog(s"Latest version: $latestVersion")
-    yield Some(queryResult, latestVersion)
+      _ <- zlog(s"Received versioned batch: $previousVersion")
+      isChanged <- dataProvider.hasChanges(previousVersion)
+      _ <- ZIO.unless(isChanged) {
+        zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
+          settings.changeCaptureInterval
+        )
+      }
+      _ <- ZIO.when(isChanged) {
+        zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
+      }
+    yield ()
 
-  private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
-    versionedBatch match
-      case (queryResult, _) =>
-        val headOption = queryResult.read.nextOption()
-        if headOption.isEmpty then
-          zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
-            settings.changeCaptureInterval
-          )
-        else zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
 
 object MsSqlStreamingDataProvider:
 

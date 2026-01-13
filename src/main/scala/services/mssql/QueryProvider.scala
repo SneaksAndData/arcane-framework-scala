@@ -3,11 +3,11 @@ package services.mssql
 
 import models.schemas.MergeKeyField
 
-import com.sneaksanddata.arcane.framework.services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlQuery}
+import com.sneaksanddata.arcane.framework.services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlQuery, MsSqlReader}
 import zio.{Task, ZIO}
 
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
+import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
 import scala.io.Source
 
 object QueryProvider:
@@ -108,25 +108,16 @@ object QueryProvider:
       yield query
     }
 
-  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
-    *
-    * @param maybeVersion
-    *   The version to start from.
-    * @param lookBackRange
-    *   The look back range for the query.
-    * @return
-    *   The change tracking version query for the Microsoft SQL Server database.
-    */
-  def getChangeTrackingVersionQuery(maybeVersion: Option[Long], lookBackRange: Duration)(using
-      formatter: DateTimeFormatter
-  ): MsSqlQuery = {
-    maybeVersion match
-      case None =>
-        val lookBackTime  = Instant.now().minusSeconds(lookBackRange.getSeconds)
-        val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
-        s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
-      case Some(version) => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
-  }
+  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, from the lookback point.
+   * @param lookBackRange
+   *   The look back range for the query.
+   * @return
+   *   The change tracking version query for the Microsoft SQL Server database.
+   */
+  def getChangeTrackingVersionQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
+    val formattedTime = formatter.format(startFrom)
+    s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
+  
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)

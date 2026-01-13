@@ -2,7 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
 import logging.ZIOLogAnnotations.zlogStream
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+
+import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, given_CanAdd_ArcaneSchema}
+import services.mssql.{MsSqlChangeVersion, MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
@@ -10,17 +12,19 @@ import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
-import services.mssql.{MsSqlVersionedBatch, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
+import services.streaming.base.HasVersion
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
-import java.sql.{Connection, ResultSet, Statement}
-import java.time.Duration
+import java.nio.ByteBuffer
+import java.sql.{Connection, ResultSet, Statement, Timestamp}
 import java.time.format.DateTimeFormatter
+import java.time.{Duration, LocalDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
+import scala.util.{Failure, Try}
 
 /** Represents a summary of a column in a table. The first element is the name of the column, and the second element is
   * true if the column is a primary key.
@@ -57,7 +61,7 @@ class MsSqlReader(
   private val driver          = new SQLServerDriver()
   private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private implicit val formatter: DateTimeFormatter          = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+  implicit val formatter: DateTimeFormatter          = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   /** Gets the column summaries for the table in the database.
     *
@@ -94,37 +98,53 @@ class MsSqlReader(
       }
     yield stream
 
+
+  private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
+                                                                                  batch: T
+                                                                                ): ZStream[Any, Throwable, DataRow] =
+    for
+      data <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
+      rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
+      row <- ZStream.fromIterator(rowsList, 1)
+    yield row
+
+
   /** Gets the changes in the database since the given version.
-    * @param maybeLatestVersion
-    *   The version to start from.
-    * @param lookBackInterval
-    *   The look back interval for the query.
+    * @param latestVersion
+    *   The version to fetch changes from.
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(latestVersion: Long): Task[MsSqlVersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
+  def getChanges(latestVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] = 
+    ZStream.fromZIO(
+      ZIO.scoped {
+        for
+          changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
+  
+          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+          // And the LazyQueryResult will close the statement/result set when it is closed.
+          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
+        yield MsSqlReader.ensureHead(result)
+      }).flatMap(batch => unfoldBatch(batch))
+    
+  def getVersion(query: String): Task[Long] =
+    def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
+      resultSet.getMetaData.getColumnType(1) match
+        case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
+          )
+          
     ZIO.scoped {
       for
         versionResult <- ZIO.fromAutoCloseable(
           executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         )
         version = versionResult.read.getOrElse(Long.MaxValue)
-        changesQuery <- this.getChangesQuery(version - 1)
-
-        // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
-        // And the LazyQueryResult will close the statement/result set when it is closed.
-        result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-      yield MsSqlReader.ensureHead((result, version))
+      yield version
     }
-
-  private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
-    resultSet.getMetaData.getColumnType(1) match
-      case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
-      case _ =>
-        throw new IllegalArgumentException(
-          s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
-        )
+  
 
   /** Closes the connection to the database.
     */
@@ -266,6 +286,4 @@ object MsSqlReader:
   /** Ensures that the head of the result (if any) saved and cannot be lost This is required to let the head function
     * work properly.
     */
-  private def ensureHead(result: MsSqlVersionedBatch): MsSqlVersionedBatch =
-    val (queryResult, version) = result
-    (queryResult.peekHead, version)
+  private def ensureHead(result: MsSqlQueryResult): MsSqlQueryResult = result.peekHead
