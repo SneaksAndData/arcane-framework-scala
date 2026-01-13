@@ -120,7 +120,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         query       <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(currentTime, formatter))
         formatted   <- ZIO.succeed(formatter.format(currentTime))
       yield assertTrue(
-        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formatted'")
+        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time >= '$formatted'")
       )
     },
     test("QueryProvider generates backfill query") {
@@ -338,7 +338,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         rows <- connector
           .getChanges(
             MsSqlChangeVersion(
-              versionNumber = 0,
+              versionNumber = 1,
               waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
@@ -378,7 +378,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         rows <- connector
           .getChanges(
             MsSqlChangeVersion(
-              versionNumber = 0,
+              versionNumber = 1,
               waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
@@ -417,7 +417,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         rows <- connector
           .getChanges(
             MsSqlChangeVersion(
-              versionNumber = 0,
+              versionNumber = 1,
               waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
