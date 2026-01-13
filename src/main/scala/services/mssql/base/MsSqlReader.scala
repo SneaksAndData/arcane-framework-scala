@@ -3,28 +3,23 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.zlogStream
 
-import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.mssql.{MsSqlChangeVersion, MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
 import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
-import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
-import services.streaming.base.HasVersion
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
-import java.nio.ByteBuffer
-import java.sql.{Connection, ResultSet, Statement, Timestamp}
+import java.sql.{Connection, ResultSet, Statement}
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, LocalDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
-import scala.util.{Failure, Try}
 
 /** Represents a summary of a column in a table. The first element is the name of the column, and the second element is
   * true if the column is a primary key.

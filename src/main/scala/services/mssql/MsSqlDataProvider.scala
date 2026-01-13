@@ -3,16 +3,13 @@ package services.mssql
 
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
-import services.mssql.base.{MsSqlReader, QueryResult}
-import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
-import services.mssql.{MsSqlBatch, MsSqlVersionedBatch}
-import services.streaming.base.{BackfillDataProvider, HasVersion, VersionedDataProvider}
+import services.mssql.base.MsSqlReader
+import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
-import scala.util.{Failure, Try}
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 
 /** A data provider that reads the changes from the Microsoft SQL Server.

@@ -8,7 +8,6 @@ import services.mssql.query.LazyQueryResult
 import java.nio.ByteBuffer
 import java.sql.Timestamp
 import java.time.{LocalDateTime, OffsetDateTime, ZoneOffset}
-import scala.util.{Failure, Try}
 
 case class MsSqlChangeVersion(versionNumber: Long, waterMarkTime: OffsetDateTime)
 

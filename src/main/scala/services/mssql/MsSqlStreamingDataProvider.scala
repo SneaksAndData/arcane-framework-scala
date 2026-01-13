@@ -3,17 +3,12 @@ package services.mssql
 
 import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
-import models.schemas.{ArcaneType, DataCell, DataRow}
+import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
-import services.mssql.base.QueryResult
 import services.streaming.base.StreamDataProvider
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
-
-import java.nio.ByteBuffer
-import java.sql.Timestamp
-import java.time.{LocalDateTime, ZoneOffset}
 
 /** Streaming data provider for Microsoft SQL Server. This provider relies on Change Tracking functionality of SQL
   * Server. For the provider to work correctly, source database must have Change Tracking enabled, and each streamed
