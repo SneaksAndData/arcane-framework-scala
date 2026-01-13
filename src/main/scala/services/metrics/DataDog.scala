@@ -13,7 +13,7 @@ object DataDog {
 
   /** Environment required to run the DataDog metrics layer.
     */
-  type Environment = DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig & StatsdClient
+  type Environment = DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
 
   object UdsPublisher {
 
