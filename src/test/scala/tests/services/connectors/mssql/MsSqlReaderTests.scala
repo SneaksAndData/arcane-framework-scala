@@ -438,10 +438,12 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        nextTime  <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
-        startTime <- ZIO.succeed(nextTime.minus(Duration.ofDays(1)))
-        version   <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
-        rows      <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = startTime)).runCollect
+        nextTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+        startTime    <- ZIO.succeed(nextTime.minus(Duration.ofDays(1)))
+        maybeVersion <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
+        version      <- ZIO.getOrFail(maybeVersion)
+        commitTime   <- connector.getVersionCommitTime(version)
+        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = commitTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )

@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import logging.ZIOLogAnnotations.zlog
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.mssql.base.MsSqlReader
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
