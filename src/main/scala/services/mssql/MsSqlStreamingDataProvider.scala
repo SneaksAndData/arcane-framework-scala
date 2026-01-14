@@ -46,7 +46,7 @@ class MsSqlStreamingDataProvider(
             for
               previousVersion   <- version
               currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
-              hasVersionUpdated <- ZIO.succeed(previousVersion.versionNumber == currentVersion.versionNumber)
+              hasVersionUpdated <- ZIO.succeed(previousVersion.versionNumber != currentVersion.versionNumber)
               _ <- ZIO.when(hasVersionUpdated) {
                 for
                   _ <- zlog(
