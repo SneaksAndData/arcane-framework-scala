@@ -30,11 +30,9 @@ class MsSqlDataProvider(
 
   def getCurrentVersion(previousVersion: MsSqlChangeVersion): Task[MsSqlChangeVersion] =
     for
-      // fetch the earliest commit from previousVersion.waterMarkTime to now
-      // in case there are no commits, stay at previousVersion
-      // in case there is at least one new commit since previousVersion, move the timestamp to latest available version
+      // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
       version <- reader
-        .getVersion(QueryProvider.getVersionFromTimestampQuery(previousVersion.waterMarkTime, reader.formatter))
+        .getVersion(QueryProvider.getCurrentVersionQuery)
         .flatMap {
           case Some(value) =>
             for commitTime <- reader.getVersionCommitTime(value)

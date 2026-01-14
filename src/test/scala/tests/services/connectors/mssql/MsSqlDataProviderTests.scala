@@ -83,7 +83,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        numberRowsToTake = 5
+        numberRowsToTake =
+          5 // if set to 20, will run indefinitely since no elements will be emitted and cancelled will not be called
         provider              <- ZIO.succeed(MsSqlDataProvider(connection, graphSettings, backfillSettings))
         streamingDataProvider <- ZIO.succeed(MsSqlStreamingDataProvider(provider, settings, streamContext))
         lifetimeService       <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))

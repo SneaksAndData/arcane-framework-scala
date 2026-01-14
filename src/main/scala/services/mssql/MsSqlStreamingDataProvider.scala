@@ -44,14 +44,33 @@ class MsSqlStreamingDataProvider(
         ZStream
           .unfoldZIO(dataProvider.firstVersion) { version =>
             for
-              previousVersion <- version
-              currentVersion  <- dataProvider.getCurrentVersion(previousVersion)
-              _               <- checkEmpty(previousVersion)
+              previousVersion   <- version
+              currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
+              hasVersionUpdated <- ZIO.succeed(previousVersion.versionNumber == currentVersion.versionNumber)
+              _ <- ZIO.when(hasVersionUpdated) {
+                for
+                  _ <- zlog(
+                    s"Database change tracking version updated from $previousVersion to $currentVersion, checking if source has changes"
+                  )
+                  _ <- checkEmpty(previousVersion)
+                yield ()
+              }
+              _ <- ZIO.unless(hasVersionUpdated) {
+                for _ <- zlog(
+                    s"Database change tracking version $previousVersion unchanged, no new data is available for streaming. Next check in ${settings.changeCaptureInterval.toSeconds} seconds"
+                  ) *> ZIO.sleep(
+                    settings.changeCaptureInterval
+                  )
+                yield ()
+              }
             yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
           }
           .flatMap {
             // always fetch from previousVersion to ensure data changes that happened during the last iteration get captured
-            case (_, previousVersion) => dataProvider.requestChanges(previousVersion)
+            case (currentVersion, previousVersion) if currentVersion.versionNumber > previousVersion.versionNumber =>
+              dataProvider.requestChanges(previousVersion)
+            // skip emit if the version hasn't changed
+            case _ => ZStream.empty
           }
     }
 
@@ -64,7 +83,7 @@ class MsSqlStreamingDataProvider(
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
         zlog(
-          s"No data in the batch, sleeping for the configured interval of ${settings.changeCaptureInterval} seconds"
+          s"No data in the batch, next check in ${settings.changeCaptureInterval.toSeconds} seconds"
         ) *> ZIO.sleep(
           settings.changeCaptureInterval
         )
