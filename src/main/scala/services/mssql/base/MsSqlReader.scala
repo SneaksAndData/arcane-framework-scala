@@ -1,8 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
-import logging.ZIOLogAnnotations.zlogStream
-
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.mssql.{
   MsSqlChangeVersion,
@@ -23,6 +22,7 @@ import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 import scala.annotation.tailrec
@@ -138,7 +138,7 @@ class MsSqlReader(
       yield result
     }
 
-  def getVersion(query: String): Task[Long] =
+  def getVersion(query: String): Task[Option[Long]] =
     def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
       resultSet.getMetaData.getColumnType(1) match
         case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
@@ -149,11 +149,36 @@ class MsSqlReader(
 
     ZIO.scoped {
       for
+        _ <- zlog(s"Fetching version using query: $query")
         versionResult <- ZIO.fromAutoCloseable(
           executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         )
-        version = versionResult.read.getOrElse(Long.MaxValue)
-      yield version
+        maybeVersion <- ZIO.attemptBlocking(versionResult.read)
+      yield maybeVersion
+    }
+
+  def getVersionCommitTime(version: Long): Task[OffsetDateTime] =
+    def readTime(resultSet: ResultSet): Option[OffsetDateTime] =
+      resultSet.getMetaData.getColumnType(1) match
+        case java.sql.Types.TIMESTAMP =>
+          Option(resultSet.getTimestamp(1)).flatMap(v =>
+            Some(OffsetDateTime.ofInstant(Instant.ofEpochMilli(v.getTime), ZoneOffset.UTC))
+          )
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected TIMESTAMP"
+          )
+
+    ZIO.scoped {
+      for
+        query <- ZIO.succeed(QueryProvider.getVersionCommitTime(version))
+        _     <- zlog(s"Fetching version commit time using query: $query")
+        versionResult <- ZIO.fromAutoCloseable(
+          executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readTime))
+        )
+        maybeVersion <- ZIO.attemptBlocking(versionResult.read)
+        result       <- ZIO.getOrFail(maybeVersion)
+      yield result
     }
 
   /** Closes the connection to the database.

@@ -115,9 +115,22 @@ object QueryProvider:
     * @return
     *   The change tracking version query for the Microsoft SQL Server database.
     */
-  def getChangeTrackingVersionQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
+  def getVersionFromTimestampQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
     val formattedTime = formatter.format(startFrom)
     s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
+
+  /** Retrieve commit time associated with the provided version
+    * @param version
+    * @return
+    */
+  def getVersionCommitTime(version: Long): MsSqlQuery =
+    s"SELECT MIN(commit_time) FROM sys.dm_tran_commit_table WHERE commit_ts = $version"
+
+  /** Return latest change tracking version at the time of a call
+    * @return
+    */
+  def getCurrentVersionQuery: MsSqlQuery =
+    s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)

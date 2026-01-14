@@ -6,6 +6,7 @@ import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.mssql.base.MsSqlReader
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -29,9 +30,18 @@ class MsSqlDataProvider(
 
   def getCurrentVersion(previousVersion: MsSqlChangeVersion): Task[MsSqlChangeVersion] =
     for
-      currentTime <- ZIO.succeed(OffsetDateTime.now(ZoneOffset.UTC))
-      version     <- reader.getVersion(QueryProvider.getChangeTrackingVersionQuery(currentTime, reader.formatter))
-    yield MsSqlChangeVersion(versionNumber = version, waterMarkTime = currentTime)
+      // fetch the earliest commit from previousVersion.waterMarkTime to now
+      // in case there are no commits, stay at previousVersion
+      // in case there is at least one new commit since previousVersion, move the timestamp to latest available version
+      version <- reader
+        .getVersion(QueryProvider.getVersionFromTimestampQuery(previousVersion.waterMarkTime, reader.formatter))
+        .flatMap {
+          case Some(value) =>
+            for commitTime <- reader.getVersionCommitTime(value)
+            yield MsSqlChangeVersion(versionNumber = value, waterMarkTime = commitTime)
+          case None => ZIO.succeed(previousVersion)
+        }
+    yield version
 
   /** The first version of the data.
     */
@@ -40,8 +50,19 @@ class MsSqlDataProvider(
       lookBackTime <- ZIO.succeed(
         OffsetDateTime.ofInstant(Instant.now().minusSeconds(settings.lookBackInterval.toSeconds), ZoneOffset.UTC)
       )
-      version <- reader.getVersion(QueryProvider.getChangeTrackingVersionQuery(lookBackTime, reader.formatter))
-    yield MsSqlChangeVersion(versionNumber = version, waterMarkTime = lookBackTime)
+      version <- reader.getVersion(QueryProvider.getVersionFromTimestampQuery(lookBackTime, reader.formatter))
+      fallbackVersion <-
+        for
+          currentVersion <- reader.getVersion(QueryProvider.getCurrentVersionQuery)
+          _ <- ZIO.when(currentVersion.isEmpty) {
+            for _ <- zlog(
+                "Fallback version not available: CHANGE_TRACKING_CURRENT_VERSION returned NULL. This can happen on a database with no changes. Defaulting to Long.MaxValue"
+              )
+            yield ()
+          }
+        yield currentVersion.getOrElse(Long.MaxValue)
+      commitTime <- reader.getVersionCommitTime(version.getOrElse(fallbackVersion))
+    yield MsSqlChangeVersion(versionNumber = version.getOrElse(fallbackVersion), waterMarkTime = commitTime)
 
   /** Provides the backfill data.
     *

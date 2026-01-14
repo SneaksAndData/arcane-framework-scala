@@ -117,7 +117,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("QueryProvider generates time-based query") {
       for
         currentTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofHours(-1)), ZoneOffset.UTC))
-        query       <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(currentTime, formatter))
+        query       <- ZIO.succeed(QueryProvider.getVersionFromTimestampQuery(currentTime, formatter))
         formatted   <- ZIO.succeed(formatter.format(currentTime))
       yield assertTrue(
         query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time >= '$formatted'")
@@ -440,7 +440,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         nextTime  <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         startTime <- ZIO.succeed(nextTime.minus(Duration.ofDays(1)))
-        version   <- connector.getVersion(QueryProvider.getChangeTrackingVersionQuery(startTime, formatter))
+        version   <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
         rows      <- connector.getChanges(MsSqlChangeVersion(versionNumber = 0, waterMarkTime = startTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
