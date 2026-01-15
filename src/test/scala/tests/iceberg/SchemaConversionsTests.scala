@@ -126,8 +126,7 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
 
       val mergeKeyIndex              = inferMergeKeyIndex(iceberg.columns().getLast)
       val arcaneSchema: ArcaneSchema = implicitly(iceberg)
-      val pure: ArcaneSchema         = arcaneSchema diff Seq(IndexedMergeKeyField(mergeKeyIndex))
-      val iceberg2: Schema           = implicitly(pure)
+      val iceberg2: Schema           = implicitly(arcaneSchema.pure)
 
       (
         iceberg2.columns().size() should be(iceberg.columns().size()),
