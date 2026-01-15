@@ -83,28 +83,28 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
   it should "convert from Iceberg to ArcaneSchema and back" in {
     forAll(
       Seq(
-//        new Schema(
-//          Types.NestedField.optional(0, "level", Types.StringType.get()),
-//          Types.NestedField.optional(1, "event_time", Types.TimestampType.withZone()),
-//          Types.NestedField.optional(2, "call_stack_1", Types.ListType.ofOptional(3, Types.StringType.get())),
-//          Types.NestedField.optional(4, "call_stack_2", Types.ListType.ofOptional(5, Types.StringType.get())),
-//          Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
-//        ),
-//        new Schema(
-//          Types.NestedField.optional(0, "call_stack_1", Types.ListType.ofOptional(1, Types.StringType.get()))
-//        ),
-//        new Schema(
-//          Types.NestedField.optional(0, "level", Types.StringType.get()),
-//          Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
-//          Types.NestedField.optional(3, "call_stack_2", Types.ListType.ofOptional(4, Types.StringType.get()))
-//        ),
-//        new Schema(
-//          Types.NestedField.optional(0, "level", Types.StringType.get()),
-//          Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
-//          Types.NestedField.optional(3, "event_time", Types.TimestampType.withZone()),
-//          Types.NestedField.optional(4, "call_stack_2", Types.ListType.ofOptional(5, Types.StringType.get())),
-//          Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
-//        ),
+        new Schema(
+          Types.NestedField.optional(0, "level", Types.StringType.get()),
+          Types.NestedField.optional(1, "event_time", Types.TimestampType.withZone()),
+          Types.NestedField.optional(2, "call_stack_1", Types.ListType.ofOptional(3, Types.StringType.get())),
+          Types.NestedField.optional(4, "call_stack_2", Types.ListType.ofOptional(5, Types.StringType.get())),
+          Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
+        ),
+        new Schema(
+          Types.NestedField.optional(0, "call_stack_1", Types.ListType.ofOptional(1, Types.StringType.get()))
+        ),
+        new Schema(
+          Types.NestedField.optional(0, "level", Types.StringType.get()),
+          Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
+          Types.NestedField.optional(3, "call_stack_2", Types.ListType.ofOptional(4, Types.StringType.get()))
+        ),
+        new Schema(
+          Types.NestedField.optional(0, "level", Types.StringType.get()),
+          Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
+          Types.NestedField.optional(3, "event_time", Types.TimestampType.withZone()),
+          Types.NestedField.optional(4, "call_stack_2", Types.ListType.ofOptional(5, Types.StringType.get())),
+          Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
+        ),
         new Schema(
           Types.NestedField.optional(0, "level", Types.StringType.get()),
           Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
