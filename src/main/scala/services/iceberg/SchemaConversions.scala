@@ -48,7 +48,7 @@ object SchemaConversions:
     case TimeType                         => Types.TimeType.get()
     case ListType(elementType, elementId) => Types.ListType.ofOptional(elementId, elementType)
     case ObjectType                       => Types.VariantType.get()
-    case StructType(schema)               => schema.asStruct()
+    case StructType(schema)               => schema.pure.asStruct()
 
   implicit def toIcebergSchema(schema: ArcaneSchema): Schema = if schema.isIndexed then
     new Schema(
@@ -174,8 +174,8 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
 @tailrec
 def inferMergeKeyIndex(lastField: NestedField): Int = lastField.`type`() match {
   case t: Types.StructType => inferMergeKeyIndex(t.asSchema().columns().getLast)
-  case t: Types.ListType => t.elementId() + 1
-  case _ => lastField.fieldId() + 1
+  case t: Types.ListType   => t.elementId() + 1
+  case _                   => lastField.fieldId() + 1
 }
 
 given Conversion[Schema, ArcaneSchema] with

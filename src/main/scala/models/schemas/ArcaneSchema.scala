@@ -72,9 +72,23 @@ case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
 /** ArcaneSchema is a type alias for a sequence of fields or structs.
   */
 class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
-  def isIndexed: Boolean = mergeKey match
-    case MergeKeyField           => false
+
+  /** Checks if the schema is composed of indexed fields. It is implied, but not checked for performance reasons, that a
+    * schema either consists of all IndexedField instances, or none.
+    * @return
+    */
+  def isIndexed: Boolean = fields.head match
+    case IndexedField(_, _, _) => true
+    case _                     => false
+
+  /** Returns a pure schema without Arcane metadata
+    * @return
+    */
+  def pure: ArcaneSchema = fields diff fields.filter {
+    case MergeKeyField           => true
     case IndexedMergeKeyField(_) => true
+    case _                       => false
+  }
 
   def mergeKey: ArcaneSchemaField =
     val maybeMergeKey = fields.find {
