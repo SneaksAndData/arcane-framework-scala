@@ -66,8 +66,8 @@ case object MergeKeyField extends ArcaneSchemaField:
   val fieldType: ArcaneType = StringType
 
 case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
-  val name: String          = "ARCANE_MERGE_KEY"
-  val fieldType: ArcaneType = StringType
+  val name: String          = MergeKeyField.name
+  val fieldType: ArcaneType = MergeKeyField.fieldType
 
 /** ArcaneSchema is a type alias for a sequence of fields or structs.
   */

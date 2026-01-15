@@ -29,7 +29,10 @@ class BlobListingParquetSource[PathType <: BlobPath](
     filePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
     scanner  <- ZIO.attempt(ParquetScanner(filePath))
     schema   <- scanner.getIcebergSchema.map(implicitly)
-  yield schema ++ Seq(BlobBatchCommons.versionField)
+  yield schema ++ Seq(BlobBatchCommons.indexedVersionField(schema.mergeKey match {
+    case IndexedMergeKeyField(fieldId) => fieldId + 1
+    case _ => throw new RuntimeException("Unsupported schema: parquet source supplied a non-indexed merge key")
+  }))
 
   /** Gets an empty schema.
     *

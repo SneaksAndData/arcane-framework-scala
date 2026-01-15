@@ -50,8 +50,11 @@ def generate_value(index):
     random.shuffle(alphanum)
     return ''.join(alphanum[:random.randint(1, 10)])
 
+def generate_struct_value():
+    return { f"nested_col_{i}": generate_value(i) for i in range(5) }
+
 def get_parquet_test_data():
-    return { f"col{i}": [generate_value(i) for _ in range(100)] for i in range(10)}
+    return { f"col{i}": [generate_value(i) for _ in range(100)] for i in range(10) if i < 9} | { f"col{i}": [generate_struct_value() for _ in range(100)] for i in [9, 10]}
 
 def get_json_test_data():
     return { "index": random.randint(0, 1000), "body": { f"col{i}": generate_value(i) for i in range(10) } }
