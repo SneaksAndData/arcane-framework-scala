@@ -104,6 +104,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "9.0",
 
     // Metrics
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.5.4",
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.4",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.5.5",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.5",
   )
