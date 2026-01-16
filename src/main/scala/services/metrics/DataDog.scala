@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.metrics
 
-import zio.ZLayer
+import zio.{URLayer, ZLayer}
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.{DatagramSocketConfig, StatsdClient}
+import zio.metrics.connectors.statsd.{DatagramSocketConfig, StatsdClient, statsdUDS}
 import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
 
 /** DataDog metrics configuration and layer setup. This module provides the necessary configurations and layers to
@@ -17,9 +17,11 @@ object DataDog {
 
   object UdsPublisher {
 
+    private val udsLayer: URLayer[DatagramSocketConfig & MetricsConfig, StatsdClient] = statsdUDS
+
     /** Layer that provides the DataDog metrics configuration.
       */
-    val layer: ZLayer[Environment, Nothing, Unit] = statsd.statsdUDS >>> datadog.live
+    val layer: ZLayer[Environment, Nothing, Unit] = udsLayer >>> datadog.live
 
   }
 }

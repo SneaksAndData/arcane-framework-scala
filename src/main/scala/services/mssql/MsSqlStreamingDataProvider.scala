@@ -3,18 +3,12 @@ package services.mssql
 
 import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
-import models.schemas.{ArcaneType, DataCell, DataRow}
+import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
-import services.mssql.MsSqlConnection.{DataBatch, VersionedBatch}
-import services.mssql.base.QueryResult
 import services.streaming.base.StreamDataProvider
 
 import zio.stream.ZStream
-import zio.{ZIO, ZLayer}
-
-import java.nio.ByteBuffer
-import java.sql.Timestamp
-import java.time.{LocalDateTime, ZoneOffset}
+import zio.{Task, ZIO, ZLayer}
 
 /** Streaming data provider for Microsoft SQL Server. This provider relies on Change Tracking functionality of SQL
   * Server. For the provider to work correctly, source database must have Change Tracking enabled, and each streamed
@@ -42,69 +36,62 @@ class MsSqlStreamingDataProvider(
   /** @inheritdoc
     */
   override def stream: ZStream[Any, Throwable, DataRow] =
-    val stream =
+    val stream = {
+      // simply launch backfill if stream context specifies so
       if streamContext.IsBackfilling then dataProvider.requestBackfill
-      else ZStream.unfoldZIO(None)(v => continueStream(v)).flatMap(readDataBatch)
+      // in streaming mode, provide a continuous stream of (current, previous) versions
+      else
+        ZStream
+          .unfoldZIO(dataProvider.firstVersion) { version =>
+            for
+              previousVersion   <- version
+              currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
+              hasVersionUpdated <- ZIO.succeed(previousVersion.versionNumber != currentVersion.versionNumber)
+              _ <- ZIO.when(hasVersionUpdated) {
+                for
+                  _ <- zlog(
+                    s"Database change tracking version updated from $previousVersion to $currentVersion, checking if source has changes"
+                  )
+                  _ <- checkEmpty(previousVersion)
+                yield ()
+              }
+              _ <- ZIO.unless(hasVersionUpdated) {
+                for _ <- zlog(
+                    s"Database change tracking version $previousVersion unchanged, no new data is available for streaming. Next check in ${settings.changeCaptureInterval.toSeconds} seconds"
+                  ) *> ZIO.sleep(
+                    settings.changeCaptureInterval
+                  )
+                yield ()
+              }
+            yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
+          }
+          .flatMap {
+            // always fetch from previousVersion to ensure data changes that happened during the last iteration get captured
+            case (currentVersion, previousVersion) if currentVersion.versionNumber > previousVersion.versionNumber =>
+              dataProvider.requestChanges(previousVersion)
+            // skip emit if the version hasn't changed
+            case _ => ZStream.empty
+          }
+    }
 
     stream
       .map(_.handleSpecialTypes)
 
-  extension (row: DataRow)
-    private def handleSpecialTypes: DataRow =
-      row.map {
-        case DataCell(name, ArcaneType.TimestampType, value) if value != null =>
-          DataCell(
-            name,
-            ArcaneType.TimestampType,
-            LocalDateTime.ofInstant(value.asInstanceOf[Timestamp].toInstant, ZoneOffset.UTC)
-          )
-
-        case DataCell(name, ArcaneType.TimestampType, value) if value == null =>
-          DataCell(name, ArcaneType.TimestampType, null)
-
-        case DataCell(name, ArcaneType.ByteArrayType, value) if value != null =>
-          DataCell(name, ArcaneType.ByteArrayType, ByteBuffer.wrap(value.asInstanceOf[Array[Byte]]))
-
-        case DataCell(name, ArcaneType.ByteArrayType, value) if value == null =>
-          DataCell(name, ArcaneType.ByteArrayType, null)
-
-        case DataCell(name, ArcaneType.ShortType, value) =>
-          DataCell(name, ArcaneType.IntType, value.asInstanceOf[Short].toInt)
-
-        case DataCell(name, ArcaneType.DateType, value) =>
-          DataCell(name, ArcaneType.DateType, value.asInstanceOf[java.sql.Date].toLocalDate)
-
-        case other => other
+  private def checkEmpty(previousVersion: MsSqlChangeVersion): Task[Unit] =
+    for
+      _         <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
+      isChanged <- dataProvider.hasChanges(previousVersion)
+      _ <- ZIO.unless(isChanged) {
+        zlog(
+          s"No data in the batch, next check in ${settings.changeCaptureInterval.toSeconds} seconds"
+        ) *> ZIO.sleep(
+          settings.changeCaptureInterval
+        )
       }
-
-  private def readDataBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
-      batch: T
-  ): ZStream[Any, Throwable, DataRow] =
-    for
-      data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
-      rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
-      row      <- ZStream.fromIterator(rowsList, 1)
-    yield row
-
-  private def continueStream(previousVersion: Option[Long]): ZIO[Any, Throwable, Some[(DataBatch, Option[Long])]] =
-    for
-      versionedBatch <- dataProvider.requestChanges(previousVersion, settings.lookBackInterval)
-      latestVersion = versionedBatch.getLatestVersion
-      _ <- zlog(s"Received versioned batch: $latestVersion")
-      _ <- maybeSleep(versionedBatch)
-      (queryResult, _) = versionedBatch
-      _ <- zlog(s"Latest version: $latestVersion")
-    yield Some(queryResult, latestVersion)
-
-  private def maybeSleep(versionedBatch: VersionedBatch): ZIO[Any, Nothing, Unit] =
-    versionedBatch match
-      case (queryResult, _) =>
-        val headOption = queryResult.read.nextOption()
-        if headOption.isEmpty then
-          zlog("No data in the batch, sleeping for the configured interval.") *> ZIO.sleep(
-            settings.changeCaptureInterval
-          )
-        else zlog("Data found in the batch, continuing without sleep.") *> ZIO.unit
+      _ <- ZIO.when(isChanged) {
+        zlog(s"Data found in the batch: ${previousVersion.versionNumber}, continuing") *> ZIO.unit
+      }
+    yield ()
 
 object MsSqlStreamingDataProvider:
 

@@ -16,7 +16,7 @@ import services.merging.maintenance.{
   JdbcSnapshotExpirationRequest
 }
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
-import tests.services.connectors.mssql.MsSqlConnectionTests.suite
+import tests.services.connectors.mssql.MsSqlReaderTests.suite
 import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
 

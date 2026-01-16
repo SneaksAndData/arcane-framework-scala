@@ -1,13 +1,19 @@
 package com.sneaksanddata.arcane.framework
-package services.mssql
+package services.mssql.base
 
-import logging.ZIOLogAnnotations.zlogStream
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import services.mssql.{
+  MsSqlChangeVersion,
+  MsSqlQueryResult,
+  QueryProvider,
+  SqlSchema,
+  given_Conversion_SqlDataRow_DataRow
+}
 import services.base.SchemaProvider
-import services.mssql.MsSqlConnection.{VersionedBatch, closeSafe, executeQuerySafe}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
-import services.mssql.base.{CanPeekHead, MsSqlServerFieldsFilteringService, QueryResult}
+import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
@@ -16,7 +22,7 @@ import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
-import java.time.Duration
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 import scala.annotation.tailrec
@@ -46,7 +52,7 @@ case class ConnectionOptions(connectionUrl: String, schemaName: String, tableNam
   * @param connectionOptions
   *   The connection options for the database.
   */
-class MsSqlConnection(
+class MsSqlReader(
     val connectionOptions: ConnectionOptions,
     fieldsFilteringService: MsSqlServerFieldsFilteringService
 ) extends AutoCloseable
@@ -56,7 +62,7 @@ class MsSqlConnection(
   private val driver          = new SQLServerDriver()
   private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private implicit val formatter: DateTimeFormatter          = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+  implicit val formatter: DateTimeFormatter                  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   /** Gets the column summaries for the table in the database.
     *
@@ -93,37 +99,87 @@ class MsSqlConnection(
       }
     yield stream
 
+  private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
+      batch: T
+  ): ZStream[Any, Throwable, DataRow] =
+    for
+      data     <- ZStream.acquireReleaseWith(ZIO.succeed(batch))(b => ZIO.succeed(b.close()))
+      rowsList <- ZStream.fromZIO(ZIO.attemptBlocking(data.read))
+      row      <- ZStream.fromIterator(rowsList, 1)
+    yield row
+
   /** Gets the changes in the database since the given version.
-    * @param maybeLatestVersion
-    *   The version to start from.
-    * @param lookBackInterval
-    *   The look back interval for the query.
+    * @param latestVersion
+    *   The version to fetch changes from.
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(maybeLatestVersion: Option[Long], lookBackInterval: Duration): Task[VersionedBatch] =
-    val query = QueryProvider.getChangeTrackingVersionQuery(maybeLatestVersion, lookBackInterval)
+  def getChanges(latestVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] =
+    ZStream
+      .fromZIO(ZIO.scoped {
+        for
+          changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
+
+          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+          // And the LazyQueryResult will close the statement/result set when it is closed.
+          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
+        yield MsSqlReader.ensureHead(result)
+      })
+      .flatMap(batch => unfoldBatch(batch))
+
+  def hasChanges(latestVersion: MsSqlChangeVersion): Task[Boolean] =
     ZIO.scoped {
       for
-        versionResult <- ZIO.fromAutoCloseable(
-          executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
-        )
-        version = versionResult.read.getOrElse(Long.MaxValue)
-        changesQuery <- this.getChangesQuery(version - 1)
+        changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
 
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.
-        result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-      yield MsSqlConnection.ensureHead((result, version))
+        result <- isEmptyQuery(changesQuery, connection)
+      yield result
     }
 
-  private def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
-    resultSet.getMetaData.getColumnType(1) match
-      case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
-      case _ =>
-        throw new IllegalArgumentException(
-          s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
+  def getVersion(query: String): Task[Option[Long]] =
+    def readChangeTrackingVersion(resultSet: ResultSet): Option[Long] =
+      resultSet.getMetaData.getColumnType(1) match
+        case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
+          )
+
+    ZIO.scoped {
+      for
+        _ <- zlog(s"Fetching version using query: $query")
+        versionResult <- ZIO.fromAutoCloseable(
+          executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         )
+        maybeVersion <- ZIO.attemptBlocking(versionResult.read)
+      yield maybeVersion
+    }
+
+  def getVersionCommitTime(version: Long): Task[OffsetDateTime] =
+    def readTime(resultSet: ResultSet): Option[OffsetDateTime] =
+      resultSet.getMetaData.getColumnType(1) match
+        case java.sql.Types.TIMESTAMP =>
+          Option(resultSet.getTimestamp(1)).flatMap(v =>
+            Some(OffsetDateTime.ofInstant(Instant.ofEpochMilli(v.getTime), ZoneOffset.UTC))
+          )
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected TIMESTAMP"
+          )
+
+    ZIO.scoped {
+      for
+        query <- ZIO.succeed(QueryProvider.getVersionCommitTime(version))
+        _     <- zlog(s"Fetching version commit time using query: $query")
+        versionResult <- ZIO.fromAutoCloseable(
+          executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readTime))
+        )
+        maybeVersion <- ZIO.attemptBlocking(versionResult.read)
+        result       <- ZIO.getOrFail(maybeVersion)
+      yield result
+    }
 
   /** Closes the connection to the database.
     */
@@ -190,7 +246,13 @@ class MsSqlConnection(
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query))
     yield resultFactory(statement, resultSet)
 
-object MsSqlConnection:
+  private def isEmptyQuery(query: MsSqlQuery, connection: Connection): Task[Boolean] =
+    for
+      statement <- ZIO.attemptBlocking(connection.createStatement())
+      resultSet <- ZIO.attemptBlocking(statement.executeQuery(query.replaceFirst("SELECT", "SELECT TOP 1")))
+    yield resultSet.next()
+
+object MsSqlReader:
 
   type Environment = ConnectionOptions & MsSqlServerFieldsFilteringService
 
@@ -206,33 +268,25 @@ object MsSqlConnection:
   def apply(
       connectionOptions: ConnectionOptions,
       fieldsFilteringService: MsSqlServerFieldsFilteringService
-  ): MsSqlConnection =
-    new MsSqlConnection(connectionOptions, fieldsFilteringService)
+  ): MsSqlReader =
+    new MsSqlReader(connectionOptions, fieldsFilteringService)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  val layer: ZLayer[Environment, Nothing, MsSqlConnection & SchemaProvider[ArcaneSchema]] =
+  val layer: ZLayer[Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           connectionOptions      <- ZIO.service[ConnectionOptions]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-        yield MsSqlConnection(connectionOptions, fieldsFilteringService)
+        yield MsSqlReader(connectionOptions, fieldsFilteringService)
       }
     }
-
-  /** Represents a batch of data.
-    */
-  type DataBatch = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]
 
   /** Represents a batch of data that can be used to backfill the data. Since the data is not versioned, the version is
     * always 0, and we don't need to be able to peek the head of the result.
     */
   type BackfillBatch = QueryResult[LazyQueryResult.OutputType]
-
-  /** Represents a versioned batch of data.
-    */
-  type VersionedBatch = (DataBatch, Long)
 
   /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
     * by the query if the result set is being closed without cancelling the statement first. see:
@@ -273,6 +327,4 @@ object MsSqlConnection:
   /** Ensures that the head of the result (if any) saved and cannot be lost This is required to let the head function
     * work properly.
     */
-  private def ensureHead(result: VersionedBatch): VersionedBatch =
-    val (queryResult, version) = result
-    (queryResult.peekHead, version)
+  private def ensureHead(result: MsSqlQueryResult): MsSqlQueryResult = result.peekHead

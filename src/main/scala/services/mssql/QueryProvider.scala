@@ -2,11 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.schemas.MergeKeyField
+import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlQuery, MsSqlReader}
 
 import zio.{Task, ZIO}
 
+import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, LocalDateTime, ZoneOffset}
 import scala.io.Source
 
 object QueryProvider:
@@ -20,7 +21,7 @@ object QueryProvider:
     * @return
     *   A future containing the schema query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlConnection)
+  extension (msSqlConnection: MsSqlReader)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- msSqlConnection.getColumnSummaries
@@ -46,7 +47,7 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlConnection)
+  extension (msSqlConnection: MsSqlReader)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
         columnSummaries <- msSqlConnection.getColumnSummaries
@@ -70,7 +71,7 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlConnection)
+  extension (msSqlConnection: MsSqlReader)
     def getBackfillQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- msSqlConnection.getColumnSummaries
@@ -107,25 +108,29 @@ object QueryProvider:
       yield query
     }
 
-  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database.
-    *
-    * @param maybeVersion
-    *   The version to start from.
+  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, from the lookback
+    * point.
     * @param lookBackRange
     *   The look back range for the query.
     * @return
     *   The change tracking version query for the Microsoft SQL Server database.
     */
-  def getChangeTrackingVersionQuery(maybeVersion: Option[Long], lookBackRange: Duration)(using
-      formatter: DateTimeFormatter
-  ): MsSqlQuery = {
-    maybeVersion match
-      case None =>
-        val lookBackTime  = Instant.now().minusSeconds(lookBackRange.getSeconds)
-        val formattedTime = formatter.format(LocalDateTime.ofInstant(lookBackTime, ZoneOffset.UTC))
-        s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time > '$formattedTime'"
-      case Some(version) => s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_ts > $version"
-  }
+  def getVersionFromTimestampQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
+    val formattedTime = formatter.format(startFrom)
+    s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
+
+  /** Retrieve commit time associated with the provided version
+    * @param version
+    * @return
+    */
+  def getVersionCommitTime(version: Long): MsSqlQuery =
+    s"SELECT MIN(commit_time) FROM sys.dm_tran_commit_table WHERE commit_ts = $version"
+
+  /** Return latest change tracking version at the time of a call
+    * @return
+    */
+  def getCurrentVersionQuery: MsSqlQuery =
+    s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)

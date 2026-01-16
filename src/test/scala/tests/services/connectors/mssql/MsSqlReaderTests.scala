@@ -6,8 +6,8 @@ import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
-import services.mssql.base.MsSqlServerFieldsFilteringService
-import services.mssql.{ColumnSummary, ConnectionOptions, MsSqlConnection, QueryProvider}
+import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.{MsSqlChangeVersion, QueryProvider}
 import tests.services.connectors.mssql.util.MsSqlTestServices.*
 
 import org.scalatest.*
@@ -18,16 +18,18 @@ import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
-import java.time.{Duration, LocalDateTime}
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
 import scala.List
 import scala.language.postfixOps
 import scala.util.Success
 
-object MsSqlConnectionTests extends ZIOSpecDefault:
+object MsSqlReaderTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val fieldString = "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
   private val pkString    = "primary key(x)"
+  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
     Success(fields)
@@ -86,7 +88,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("columns_query_test", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "columns_query_test", None),
             emptyFieldsFilteringService
           )
@@ -104,7 +106,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("schema_query_test", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "schema_query_test", None),
             emptyFieldsFilteringService
           )
@@ -112,22 +114,13 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
         query <- QueryProvider.getSchemaQuery(connector)
       yield assertTrue(query.contains("ct.SYS_CHANGE_VERSION") && query.contains("ARCANE_MERGE_KEY"))
     },
-    test("QueryProvider generates time-based query if previous version not provided") {
+    test("QueryProvider generates time-based query") {
       for
-        formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
-        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(None, Duration.ofHours(-1)))
+        currentTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofHours(-1)), ZoneOffset.UTC))
+        query       <- ZIO.succeed(QueryProvider.getVersionFromTimestampQuery(currentTime, formatter))
+        formatted   <- ZIO.succeed(formatter.format(currentTime))
       yield assertTrue(
-        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time > '$formattedTime'")
-      )
-    },
-    test("QueryProvider generates version-based query if previous version is provided") {
-      for
-        formattedTime <- ZIO.succeed(constantFormatter.format(LocalDateTime.now().minus(Duration.ofHours(-1))))
-        query         <- ZIO.succeed(QueryProvider.getChangeTrackingVersionQuery(Some(1), Duration.ofHours(-1)))
-      yield assertTrue(
-        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_ts > 1") && !query.contains(
-          "commit_time"
-        )
+        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time >= '$formatted'")
       )
     },
     test("QueryProvider generates backfill query") {
@@ -136,7 +129,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("backfill_query", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_query", None),
             emptyFieldsFilteringService
           )
@@ -171,7 +164,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "field_selection_rule", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -203,7 +196,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
             ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_no_pk", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -227,7 +220,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_pk", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -243,7 +236,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection, fieldString, pkString))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "extracts_schema_columns", None),
             emptyFieldsFilteringService
           )
@@ -277,7 +270,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_rows"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_rows", None),
             emptyFieldsFilteringService
           )
@@ -294,7 +287,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_columns"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_columns", None),
             emptyFieldsFilteringService
           )
@@ -317,7 +310,7 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_columns_filtered"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "backfill_columns_filtered", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -337,13 +330,20 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_rows"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_rows", None),
             emptyFieldsFilteringService
           )
         )
-        (rows, _) <- connector.getChanges(None, Duration.ofDays(1))
-      yield assertTrue(rows.read.toList.size == 20)
+        rows <- connector
+          .getChanges(
+            MsSqlChangeVersion(
+              versionNumber = 1,
+              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            )
+          )
+          .runCollect
+      yield assertTrue(rows.size == 20)
     },
     test("MsSqlConnection returns correct number of rows on getChanges with filter") {
       for
@@ -370,13 +370,20 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_rows_filtered"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_rows_filtered", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        (rows, _) <- connector.getChanges(None, Duration.ofDays(1))
-      yield zio.test.assert(rows.read.toList.head.map(_.name))(equalTo(expected))
+        rows <- connector
+          .getChanges(
+            MsSqlChangeVersion(
+              versionNumber = 1,
+              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            )
+          )
+          .runCollect
+      yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection returns correct number of columns on getChanges") {
       for
@@ -402,13 +409,20 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_columns"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_columns", None),
             emptyFieldsFilteringService
           )
         )
-        (rows, _) <- connector.getChanges(None, Duration.ofDays(1))
-      yield zio.test.assert(rows.read.toList.head.map(_.name))(equalTo(expected))
+        rows <- connector
+          .getChanges(
+            MsSqlChangeVersion(
+              versionNumber = 1,
+              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            )
+          )
+          .runCollect
+      yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection handles deletes") {
       for
@@ -419,51 +433,30 @@ object MsSqlConnectionTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_deletes"))
         )
         connector <- ZIO.succeed(
-          MsSqlConnection(
+          MsSqlReader(
             ConnectionOptions(connectionUrl, "dbo", "get_changes_deletes", None),
             emptyFieldsFilteringService
           )
         )
-        (rows, version) <- connector.getChanges(None, Duration.ofDays(1))
-        _               <- ZIO.attempt(rows.close())
+        nextTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+        startTime    <- ZIO.succeed(nextTime.minus(Duration.ofDays(1)))
+        maybeVersion <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
+        version      <- ZIO.getOrFail(maybeVersion)
+        commitTime   <- connector.getVersionCommitTime(version)
+        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = commitTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )
-        (rowsAfterDelete, _) <- connector.getChanges(Some(version), Duration.ofDays(1))
+
+        rowsAfterDelete <- connector
+          .getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = nextTime))
+          .runCollect
       yield assertTrue(
-        rowsAfterDelete.read.toList.exists(row =>
+        rowsAfterDelete.exists(row =>
           row.contains(DataCell("SYS_CHANGE_OPERATION", StringType, "D")) && row.contains(
             DataCell("ARCANE_MERGE_KEY", StringType, "913da1f8df6f8fd47593840d533ba0458cc9873996bf310460abb495b34c232a")
           )
         )
       ) // NOTE: the value here is computed manually
-    },
-    test("MsSqlConnection updates latest version when changes received") {
-      for
-        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection =>
-            ZIO
-              .attemptBlocking(createTable("get_latest_version", connection, fieldString, pkString))
-              .flatMap(_ => insertData(connection, "get_latest_version"))
-        )
-        connector <- ZIO.succeed(
-          MsSqlConnection(
-            ConnectionOptions(connectionUrl, "dbo", "get_latest_version", None),
-            emptyFieldsFilteringService
-          )
-        )
-        (_, version0) <- connector.getChanges(None, Duration.ofDays(1))
-        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => updateData(connection, "get_latest_version")
-        )
-        _ <- ZIO.sleep(zio.Duration.fromSeconds(1))
-        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => updateData(connection, "get_latest_version")
-        )
-        _             <- ZIO.sleep(zio.Duration.fromSeconds(1))
-        (_, version1) <- connector.getChanges(Some(version0), Duration.ofDays(1))
-      yield assertTrue(
-        version1 > 0L
-      ) // in fact, this value is not currently used by streaming data provider. We should consider either using it, or removing it entirely.
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

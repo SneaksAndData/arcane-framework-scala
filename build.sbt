@@ -41,8 +41,8 @@ lazy val root = (project in file("."))
     Test / logBuffered := false,
 
     // Framework dependencies
-    libraryDependencies += "dev.zio" %% "zio" % "2.1.23",
-    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.23",
+    libraryDependencies += "dev.zio" %% "zio" % "2.1.24",
+    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.24",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.2.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.33.13",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.1",
@@ -90,8 +90,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-3" % "3.2.19.0" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.23" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.23" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
 
     // Logging and metrics
     // For ZIO
