@@ -10,6 +10,7 @@ import extensions.ZExtensions.*
 import com.sneaksanddata.arcane.framework.services.iceberg.base.BlobScanner
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetReaders
+import org.apache.iceberg.mapping.MappingUtil
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.{Files, Schema}
 import org.apache.parquet.ParquetReadOptions
@@ -27,16 +28,17 @@ import scala.language.implicitConversions
   * @param icebergFile
   *   Iceberg InputFile
   */
-class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile) extends BlobScanner:
+class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile, useNameMapping: Boolean) extends BlobScanner:
   private def getParquetFile: Task[InputFile] = ZIO.succeed(icebergFile).map(implicitly)
   private def getParquetSchema: Task[MessageType] = for
     file        <- getParquetFile
     parquetMeta <- ZIO.attempt(ParquetFileReader.readFooter(file, ParquetReadOptions.builder.build(), file.newStream()))
   yield parquetMeta.getFileMetaData.getSchema
 
-  private def recordIterator: Task[Iterator[GenericRecord]] = for
+  private def recordIterator: Task[Iterator[GenericRecord]] = (for
     icebergSchema <- getParquetSchema
-    rowsIterator <- ZIO.attemptBlocking(
+    nameMapping   <- ZIO.succeed(if useNameMapping then Some(MappingUtil.create(icebergSchema)) else None)
+    iteratorBuilder <- ZIO.attempt(
       Parquet
         .read(icebergFile)
         .project(icebergSchema)
@@ -46,11 +48,11 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile) extends BlobS
             schema
           )
         )
-        .build[GenericRecord]()
-        .iterator()
-        .asScala
     )
-  yield rowsIterator
+  yield nameMapping match {
+    case Some(mapping) => iteratorBuilder.withNameMapping(mapping)
+    case None          => iteratorBuilder
+  }).flatMap(builder => ZIO.attemptBlocking(builder.build[GenericRecord]().iterator().asScala))
 
   /** Reads Parquet file schema and converts it to Iceberg schema
     * @return
@@ -71,5 +73,7 @@ class ParquetScanner(icebergFile: org.apache.iceberg.io.InputFile) extends BlobS
     .map(implicitly)
 
 object ParquetScanner:
-  def apply(path: String): ParquetScanner                          = new ParquetScanner(Files.localInput(path))
-  def apply(file: org.apache.iceberg.io.InputFile): ParquetScanner = new ParquetScanner(file)
+  def apply(path: String, useNameMapping: Boolean): ParquetScanner =
+    new ParquetScanner(Files.localInput(path), useNameMapping)
+  def apply(file: org.apache.iceberg.io.InputFile, useNameMapping: Boolean): ParquetScanner =
+    new ParquetScanner(file, useNameMapping)

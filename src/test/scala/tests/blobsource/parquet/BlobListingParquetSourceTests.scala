@@ -16,23 +16,26 @@ import java.util.Base64
 
 object BlobListingParquetSourceTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobListingParquetSource")(
-    test("getSchema returns correct schema") {
+    test("getSchema returns correct schema with or without name mapping") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
-        schema <- source.getSchema
-      yield assertTrue(schema.size == 10 + 2) && assertTrue(
+        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        sourceMapped <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), true))
+        schema       <- source.getSchema
+        mappedSchema <- sourceMapped.getSchema
+      yield assertTrue(schema.size == 11 + 2) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
       ) && assertTrue(
         schema.exists(f => f.name == BlobBatchCommons.versionField.name)
-      ) // expect 10 fields + ARCANE_MERGE_KEY + versionField
+      ) // expect 11 fields + ARCANE_MERGE_KEY + versionField
+        && assertTrue(schema == mappedSchema)
     },
     test("getChanges return correct rows") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         rows   <- source.getChanges(0).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 12)) && assertTrue(
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 13)) && assertTrue(
         rows
           .map(_._1)
           .forall(row =>

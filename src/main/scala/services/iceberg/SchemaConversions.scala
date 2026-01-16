@@ -2,7 +2,18 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DataCell, DataRow, Field, MergeKeyField}
+import models.schemas.{
+  ArcaneSchema,
+  ArcaneSchemaField,
+  ArcaneType,
+  DataCell,
+  DataRow,
+  Field,
+  IndexedArcaneSchemaField,
+  IndexedField,
+  IndexedMergeKeyField,
+  MergeKeyField
+}
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.data.GenericRecord
@@ -12,6 +23,7 @@ import org.apache.parquet.schema.MessageType
 import org.apache.avro.generic.GenericRecord as AvroGenericRecord
 import org.apache.avro.Schema.Type as AvroType
 import org.apache.avro.Schema as AvroSchema
+import org.apache.iceberg.types.Types.NestedField
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
@@ -36,32 +48,40 @@ object SchemaConversions:
     case TimeType                         => Types.TimeType.get()
     case ListType(elementType, elementId) => Types.ListType.ofOptional(elementId, elementType)
     case ObjectType                       => Types.VariantType.get()
+    case StructType(schema)               => schema.pure.asStruct()
 
-  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = new Schema(
-    schema
-      .foldLeft(Seq[(ArcaneSchemaField, Int, Int)]()) { (agg, e) =>
-        if agg.isEmpty then agg ++ Seq((e, 0, 0))
-        else
-          e.fieldType match {
-            case ListType(elementType, _) =>
-              agg ++ Seq(
-                (
-                  Field(
-                    name = e.name,
-                    fieldType = ListType(elementType = elementType, elementId = agg.last._2 + agg.last._3 + 2)
-                  ),
-                  agg.last._2 + 1 + agg.last._3,
-                  1
+  implicit def toIcebergSchema(schema: ArcaneSchema): Schema = if schema.isIndexed then
+    new Schema(
+      schema.map { case f: IndexedArcaneSchemaField =>
+        Types.NestedField.optional(f.fieldId, f.name, f.fieldType)
+      }.asJava
+    )
+  else
+    new Schema(
+      schema
+        .foldLeft(Seq[(ArcaneSchemaField, Int, Int)]()) { (agg, e) =>
+          if agg.isEmpty then agg ++ Seq((e, 0, 0))
+          else
+            e.fieldType match {
+              case ListType(elementType, _) =>
+                agg ++ Seq(
+                  (
+                    Field(
+                      name = e.name,
+                      fieldType = ListType(elementType = elementType, elementId = agg.last._2 + agg.last._3 + 2)
+                    ),
+                    agg.last._2 + 1 + agg.last._3,
+                    1
+                  )
                 )
-              )
-            case _ => agg ++ Seq((e, agg.last._2 + 1 + agg.last._3, 0))
-          }
-      }
-      .map { (field, index, _) =>
-        Types.NestedField.optional(index, field.name, field.fieldType)
-      }
-      .asJava
-  )
+              case _ => agg ++ Seq((e, agg.last._2 + 1 + agg.last._3, 0))
+            }
+        }
+        .map { (field, index, _) =>
+          Types.NestedField.optional(index, field.name, field.fieldType)
+        }
+        .asJava
+    )
 
   implicit def toIcebergSchemaFromFields(fields: Seq[ArcaneSchemaField]): Schema = toIcebergSchema(fields)
 
@@ -149,10 +169,26 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
     case t: Types.ListType                                => ListType(apply(t.elementType()), t.elementId())
+    case t: Types.StructType                              => StructType(t.asSchema())
+
+@tailrec
+def inferMergeKeyIndex(lastField: NestedField): Int = lastField.`type`() match {
+  case t: Types.StructType => inferMergeKeyIndex(t.asSchema().columns().getLast)
+  case t: Types.ListType   => t.elementId() + 1
+  case _                   => lastField.fieldId() + 1
+}
 
 given Conversion[Schema, ArcaneSchema] with
-  override def apply(icebergSchema: Schema): ArcaneSchema = ArcaneSchema(
-    icebergSchema.columns().asScala.map(nf => Field(name = nf.name(), fieldType = nf.`type`())).toSeq ++ Seq(
-      MergeKeyField
+  override def apply(icebergSchema: Schema): ArcaneSchema = {
+    ArcaneSchema(
+      icebergSchema
+        .columns()
+        .asScala
+        .map { nf =>
+          IndexedField(name = nf.name(), fieldType = nf.`type`(), fieldId = nf.fieldId())
+        }
+        .toSeq ++ Seq(
+        IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
+      )
     )
-  )
+  }
