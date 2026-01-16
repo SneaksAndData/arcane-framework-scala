@@ -12,6 +12,25 @@ import zio.stream.ZStream
   *   The type of the data batch.
   */
 trait VersionedDataProvider[DataVersionType, DataBatchType]:
+  /**
+   * Checks whether the provided watermark from previous iteration has accrued any changes in [previousVersion ... now] interval
+   * @param previousVersion Watermark from the previous change capture iteration
+   * @return
+   */
+  def hasChanges(previousVersion: DataVersionType): Task[Boolean]
+
+  /**
+   * Most recent version of a source dataset, compared. This should return previousVersion in case retrieval of a most recent version failed.
+   * @param previousVersion Watermark from the previous change capture iteration
+   * @return
+   */
+  def getCurrentVersion(previousVersion: DataVersionType): Task[DataVersionType]
+
+  /**
+   * Request a next set of changes from source, that fall into interval from `previousVersion` to `now`
+   * @param previousVersion Watermark from the previous change capture iteration
+   * @return
+   */
   def requestChanges(previousVersion: DataVersionType): ZStream[Any, Throwable, DataBatchType]
 
   /** The first version of the data.

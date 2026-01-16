@@ -19,10 +19,14 @@ object SynapseAzureBlobReaderExtensions:
     *   A Synapse Link blob prefix (date folder)
     * @return
     */
-  private def interpretAsDate(blob: StoredBlob): Option[OffsetDateTime] =
-    val name      = blob.name.replaceAll("/$", "")
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
-    Try(OffsetDateTime.parse(name, formatter)).toOption
+  extension (blob: StoredBlob)
+    private def interpretAsDate: Option[OffsetDateTime] =
+      val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
+      Try(OffsetDateTime.parse(blob.asFolderName, formatter)).toOption
+
+    def asFolderName: String = blob.name.replaceAll("/$", "")
+    
+    def asDate: OffsetDateTime = interpretAsDate.get
 
   /** Read a list of the prefixes, taking optional start time. Lowest precision available is 1 hour
     * @return
@@ -32,7 +36,7 @@ object SynapseAzureBlobReaderExtensions:
     def getEligibleDates(
         storagePath: AdlsStoragePath,
         startFrom: OffsetDateTime
-    ): ZStream[Any, Throwable, (StoredBlob, String)] = for
+    ): ZStream[Any, Throwable, StoredBlob] = for
       _ <- zlogStream("Getting root prefixes starting from %s", startFrom.toString)
       // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
       inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
@@ -42,11 +46,10 @@ object SynapseAzureBlobReaderExtensions:
       prefix <- ZStream.fromIterable(getPrefixesList(startFrom, inProgressDateParsed))
       eligibleBlob <- reader
         .streamPrefixes(storagePath + prefix)
-        .map(blob => (interpretAsDate(blob), blob))
+        .map(blob => (blob.interpretAsDate, blob))
         .collect {
           case (Some(date), blob)
-              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && (!date.isEqual(inProgressDateParsed)) =>
-            (blob, inProgressDate)
+              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && (!date.isEqual(inProgressDateParsed)) => blob
         }
     yield eligibleBlob
 
