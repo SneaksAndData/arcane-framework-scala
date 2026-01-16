@@ -19,7 +19,8 @@ class BlobListingParquetSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
-    primaryKeys: Seq[String]
+    primaryKeys: Seq[String],
+    useNameMapping: Boolean
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
@@ -27,7 +28,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
 
   override def getSchema: Task[SchemaType] = for
     filePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
-    scanner  <- ZIO.attempt(ParquetScanner(filePath))
+    scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
     schema   <- scanner.getIcebergSchema.map(implicitly)
   yield schema ++ Seq(BlobBatchCommons.indexedVersionField(schema.mergeKey match {
     case IndexedMergeKeyField(fieldId) => fieldId + 1
@@ -46,7 +47,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
-    scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile)))
+    scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile, useNameMapping)))
     row <- scanner.getRows.map(
       BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
     )
@@ -57,9 +58,10 @@ object BlobListingParquetSource:
       sourcePath: S3StoragePath,
       s3Reader: S3BlobStorageReader,
       tempPath: String,
-      primaryKeys: Seq[String]
+      primaryKeys: Seq[String],
+      useNameMapping: Boolean
   ): BlobListingParquetSource[S3StoragePath] =
-    new BlobListingParquetSource[S3StoragePath](sourcePath, s3Reader, tempPath, primaryKeys)
+    new BlobListingParquetSource[S3StoragePath](sourcePath, s3Reader, tempPath, primaryKeys, useNameMapping)
 
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
@@ -72,5 +74,11 @@ object BlobListingParquetSource:
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
         S3StoragePath(sourceSettings.sourcePath).toOption
       )
-    yield BlobListingParquetSource(sourcePath, blobReader, sourceSettings.tempStoragePath, sourceSettings.primaryKeys)
+    yield BlobListingParquetSource(
+      sourcePath,
+      blobReader,
+      sourceSettings.tempStoragePath,
+      sourceSettings.primaryKeys,
+      sourceSettings.useNameMapping
+    )
   }
