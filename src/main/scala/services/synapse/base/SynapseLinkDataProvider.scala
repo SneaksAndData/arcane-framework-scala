@@ -31,11 +31,11 @@ class SynapseLinkDataProvider(
   override def firstVersion: Task[SynapseBatchVersion] =
     for  
       startTime <- ZIO.succeed(OffsetDateTime.now())
-      _ <- zlog("Fetching version for the first iteration from {startTime}", startTime.toString)
+      _ <- zlog("Fetching version for the first iteration from %s", startTime.toString)
       result <- synapseReader.getCurrentVersion(SynapseBatchVersion(
     versionNumber = "", waterMarkTime = startTime.minus(settings.lookBackInterval), blob = StoredBlob.empty
   ))
-      _ <- zlog("Retrieved version {firstVersion}", result.versionNumber)
+      _ <- zlog("Retrieved version %s", result.versionNumber)
     yield result
   
   override def hasChanges(previousVersion: SynapseBatchVersion): Task[Boolean] = synapseReader.hasChanges(previousVersion)
