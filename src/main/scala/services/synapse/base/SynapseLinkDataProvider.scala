@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
+import logging.ZIOLogAnnotations.zlog
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.storage.models.base.StoredBlob
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
-import services.synapse.{SynapseBatchVersion, SynapseLinkBatch, SynapseLinkVersionedBatch}
+import services.synapse.{SynapseBatchVersion, SynapseLinkBatch}
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
-import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -22,11 +22,10 @@ class SynapseLinkDataProvider(
 
   private val dateBlobPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
 
-  override def requestChanges(previousVersion: SynapseBatchVersion): ZStream[Any, Throwable, SynapseLinkBatch] =
-    synapseReader.getChanges(OffsetDateTime.parse(previousVersion, dateBlobPattern))
+  override def requestChanges(previousVersion: SynapseBatchVersion): ZStream[Any, Throwable, SynapseLinkBatch] = synapseReader.getChanges(previousVersion)
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
-    case Some(backfillStartDate) => synapseReader.getChanges(backfillStartDate).map(_._1)
+    case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
     case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
   override def firstVersion: Task[SynapseBatchVersion] =

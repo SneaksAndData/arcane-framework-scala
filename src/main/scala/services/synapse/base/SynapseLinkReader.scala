@@ -48,33 +48,29 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .streamPrefixes(storagePath + batchFolderName + entityName + "/")
     .filter(sb => sb.name.endsWith(".csv"))
 
-  private def enrichWithSchema(batchBlob: StoredBlob): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    ZStream
-      .succeed(batchBlob)
-      // exclude folders that do not have model.json in them
-      .filterZIO(datePrefix => hasSchemaFile(datePrefix.name))
-      // since model.json will not have schema definition for entities that were not part of the batch,
-      // we need to filter out such prefixes BEFORE we read the schema
-      // also read CSV files while at it
-      .mapZIO { datePrefix =>
-        getBatchFiles(datePrefix.name)
-          .runCollect // materialize CSV list to avoid double-querying storage
-          .map(chunks => datePrefix -> chunks)
+  private def enrichWithSchema(batchBlob: StoredBlob): ZStream[Any, Throwable, SchemaEnrichedBlob] = {
+   ZStream.fromZIO(for
+      files <- getBatchFiles(batchBlob.name).runCollect // materialize CSV list to avoid double-querying storage
+      dataBlobs <- ZIO.when(files.nonEmpty) {
+          for
+            // getSchema here performs runtime check for model.json for the batch to be parseable and readable
+            // this will hard fail compared to `hasSchemaFile` just filtering invalid batches out.
+            // this allows to separate batch filtering for eligibility for processing, from batch data correctness checks
+            orderedFiles <- SynapseEntitySchemaProvider(reader, (storagePath + batchBlob.name).toHdfsPath, entityName).getSchema.map(schema =>
+              files
+                // we need to emit deletions, which are in files named 1.csv, last
+                // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
+                .sortBy(b => b.name.split("/").last.replace(".csv", "").toInt)(Ordering.Int.reverse)
+                .map(csvBlob => SchemaEnrichedBlob(csvBlob, schema))
+            )
+          yield orderedFiles
       }
-      // here we filter out empty locations (those we cannot read schema for as a result)
-      .filter(_._2.nonEmpty)
-      .mapZIO { case (datePrefix, files) =>
-        SynapseEntitySchemaProvider(reader, (storagePath + datePrefix.name).toHdfsPath, entityName).getSchema
-          // we need to emit deletions, which are in files named 1.csv, last
-          // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
-          .map(schema =>
-            files
-              .sortBy(b => b.name.split("/").last.replace(".csv", "").toInt)(Ordering.Int.reverse)
-              .map(csvBlob => SchemaEnrichedBlob(csvBlob, schema))
-          )
-      }
-      .flatMap(ZStream.fromIterable)
-
+    yield dataBlobs).flatMap {
+     case Some(files) => ZStream.fromIterable(files)
+     case None => ZStream.empty
+   }
+  }
+ 
   /** Select ALL CSV files that correspond to the entity changes
     *
     * Hierarchical listing: First get entity folders under each date folder Select folder matching our entity List that
@@ -106,22 +102,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
       .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName with", e))
       
-  private def isValidSynapseBatch(eligibleDate: StoredBlob): ZIO[Any, Throwable, Boolean] = ZStream
-    .succeed(eligibleDate)
-    // exclude folders that do not have model.json in them
-    .filterZIO(datePrefix => hasSchemaFile(datePrefix.name))
-    // since model.json will not have schema definition for entities that were not part of the batch,
-    // we need to filter out such prefixes BEFORE we read the schema
-    // also read CSV files while at it
-    .mapZIO { datePrefix =>
-      getBatchFiles(datePrefix.name)
-        .runHead // materialize CSV list to avoid double-querying storage
-        .map(maybeBlob => datePrefix -> maybeBlob)
-    }
-    // here we filter out empty locations (those we cannot read schema for as a result)
-    .filter(_._2.nonEmpty)
-    .mapZIO { case (datePrefix, file) => SynapseEntitySchemaProvider(reader, (storagePath + datePrefix.name).toHdfsPath, entityName).getSchema }
-    .runHead.map(_.isDefined)
+  private def isValidSynapseBatch(eligibleDate: StoredBlob): ZIO[Any, Throwable, Boolean] = hasSchemaFile(eligibleDate.name)
 
   /**
    * Get the latest batch folder that is ready for streaming
@@ -158,6 +139,13 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       getTableChanges(fileStream, fileSchema, blob.name)
     }
     .map(convertRow)
+
+  def getData(startFrom: OffsetDateTime): ZStream[Any, Throwable, DataRow] = reader.getEligibleDates(storagePath, startFrom)
+    .filterZIO(isValidSynapseBatch)
+    .map(blob => SynapseBatchVersion(
+      versionNumber = blob.asFolderName, waterMarkTime = blob.asDate, blob = blob
+    ))
+    .flatMap(getChanges)
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125
