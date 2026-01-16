@@ -25,6 +25,7 @@ enum ArcaneType:
   case TimeType
   case ListType(elementType: ArcaneType, elementId: Int)
   case ObjectType
+  case StructType(schema: ArcaneSchema)
 
   override def equals(obj: Any): Boolean = (this, obj) match {
     case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType
@@ -32,11 +33,17 @@ enum ArcaneType:
     case _                            => this.toString == obj.toString
   }
 
-/** A field in the schema definition
+/** A field in the schema definition that will require indexing when converting to Iceberg
   */
 trait ArcaneSchemaField:
   val name: String
   val fieldType: ArcaneType
+
+/** A field in the schema definition that carries index information from the source that can be re-applied when
+  * converting to Iceberg
+  */
+trait IndexedArcaneSchemaField extends ArcaneSchemaField:
+  val fieldId: Int
 
 /** Field is a case class that represents a field in ArcaneSchema
   */
@@ -45,19 +52,49 @@ final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchema
     case Field(n, t) => n.toLowerCase() == name.toLowerCase() && t == fieldType
     case _           => false
 
+/** Field is a case class that represents a field in ArcaneSchema
+  */
+final case class IndexedField(name: String, fieldType: ArcaneType, fieldId: Int) extends IndexedArcaneSchemaField:
+  override def equals(obj: Any): Boolean = obj match
+    case IndexedField(n, t, id) => n.toLowerCase() == name.toLowerCase() && t == fieldType && id == fieldId
+    case _                      => false
+
 /** MergeKeyField represents a field used for batch merges
   */
 case object MergeKeyField extends ArcaneSchemaField:
   val name: String          = "ARCANE_MERGE_KEY"
   val fieldType: ArcaneType = StringType
 
+case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
+  val name: String          = MergeKeyField.name
+  val fieldType: ArcaneType = MergeKeyField.fieldType
+
 /** ArcaneSchema is a type alias for a sequence of fields or structs.
   */
 class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
+
+  /** Checks if the schema is composed of indexed fields. It is implied, but not checked for performance reasons, that a
+    * schema either consists of all IndexedField instances, or none.
+    * @return
+    */
+  def isIndexed: Boolean = fields.head match
+    case IndexedField(_, _, _) => true
+    case _                     => false
+
+  /** Returns a pure schema without Arcane metadata
+    * @return
+    */
+  def pure: ArcaneSchema = fields diff fields.filter {
+    case MergeKeyField           => true
+    case IndexedMergeKeyField(_) => true
+    case _                       => false
+  }
+
   def mergeKey: ArcaneSchemaField =
     val maybeMergeKey = fields.find {
-      case MergeKeyField => true
-      case _             => false
+      case MergeKeyField           => true
+      case IndexedMergeKeyField(_) => true
+      case _                       => false
     }
 
     require(maybeMergeKey.isDefined, "MergeKeyField must be defined for the schema to be usable for merges")
@@ -114,3 +151,7 @@ given CanAdd[ArcaneSchema] with
     def addField(fieldName: String, fieldType: ArcaneType): ArcaneSchema = fieldName match
       case MergeKeyField.name => a :+ MergeKeyField
       case _                  => a :+ Field(fieldName, fieldType)
+
+    def addIndexedField(fieldName: String, fieldType: ArcaneType, fieldId: Int): ArcaneSchema = fieldName match
+      case MergeKeyField.name => a :+ IndexedMergeKeyField(fieldId)
+      case _                  => a :+ IndexedField(fieldName, fieldType, fieldId)

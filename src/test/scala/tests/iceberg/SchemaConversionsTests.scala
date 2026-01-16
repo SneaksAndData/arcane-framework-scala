@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.iceberg
 
 import models.schemas.ArcaneType.{BigDecimalType, ListType, StringType}
-import models.schemas.{ArcaneSchema, MergeKeyField}
-import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
+import models.schemas.{ArcaneSchema, IndexedMergeKeyField, MergeKeyField}
+import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema, inferMergeKeyIndex}
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Types
@@ -33,13 +33,23 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
       Types.NestedField.optional(11, "event_value_double", Types.DoubleType.get()),
       Types.NestedField.optional(12, "event_value_float", Types.FloatType.get()),
       Types.NestedField.optional(13, "event_value_time", Types.TimeType.get()),
-      Types.NestedField.optional(14, "call_stack", Types.ListType.ofOptional(15, Types.StringType.get()))
+      Types.NestedField.optional(14, "call_stack", Types.ListType.ofOptional(15, Types.StringType.get())),
+      Types.NestedField.optional(
+        16,
+        "call_tree",
+        new Schema(
+          Types.NestedField.optional(17, "caller", Types.StringType.get()),
+          Types.NestedField.optional(18, "call_time", Types.TimestampType.withZone())
+        ).asStruct()
+      )
     )
+
+    val mergeKeyIndex = inferMergeKeyIndex(iceberg.columns().getLast)
 
     val arcaneSchema: ArcaneSchema = implicitly(iceberg)
     (
       arcaneSchema.length should be(iceberg.columns().size + 1),
-      arcaneSchema.reverse.head should be(MergeKeyField),
+      arcaneSchema.reverse.head should be(IndexedMergeKeyField(mergeKeyIndex)),
       arcaneSchema
         .find(f => f.name == "event_value_bigdecimal")
         .map(f => f.fieldType == BigDecimalType(16, 4)) should be(Some(true))
@@ -56,10 +66,11 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     )
 
     val arcaneSchema: ArcaneSchema = implicitly(iceberg)
+    val mergeKeyIndex              = inferMergeKeyIndex(iceberg.columns().getLast)
 
     (
       arcaneSchema.length should be(iceberg.columns().size() + 1),
-      arcaneSchema.reverse.head should be(MergeKeyField),
+      arcaneSchema.reverse.head should be(IndexedMergeKeyField(mergeKeyIndex)),
       arcaneSchema.find(f => f.name == "call_stack_1").map(f => f.fieldType == ListType(StringType, 3)) should be(
         Some(true)
       ),
@@ -93,12 +104,29 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
           Types.NestedField.optional(3, "event_time", Types.TimestampType.withZone()),
           Types.NestedField.optional(4, "call_stack_2", Types.ListType.ofOptional(5, Types.StringType.get())),
           Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
+        ),
+        new Schema(
+          Types.NestedField.optional(0, "level", Types.StringType.get()),
+          Types.NestedField.optional(1, "call_stack_1", Types.ListType.ofOptional(2, Types.StringType.get())),
+          Types.NestedField.optional(
+            3,
+            "nested",
+            new Schema(
+              Types.NestedField.optional(4, "nested_level", Types.StringType.get()),
+              Types.NestedField
+                .optional(5, "nested_call_stack_1", Types.ListType.ofOptional(6, Types.StringType.get())),
+              Types.NestedField.optional(7, "nested_call_stack_2", Types.ListType.ofOptional(8, Types.StringType.get()))
+            ).asStruct()
+          ),
+          Types.NestedField.optional(9, "nested_call_stack_2", Types.ListType.ofOptional(10, Types.StringType.get())),
+          Types.NestedField.optional(11, "nested_event_time_2", Types.TimestampType.withZone())
         )
       )
     ) { iceberg =>
+
+      val mergeKeyIndex              = inferMergeKeyIndex(iceberg.columns().getLast)
       val arcaneSchema: ArcaneSchema = implicitly(iceberg)
-      val pure: ArcaneSchema         = arcaneSchema diff Seq(MergeKeyField)
-      val iceberg2: Schema           = implicitly(pure)
+      val iceberg2: Schema           = implicitly(arcaneSchema.pure)
 
       (
         iceberg2.columns().size() should be(iceberg.columns().size()),

@@ -53,7 +53,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("streams rows in backfill mode correctly") {
       for
         path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
+        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, streamSettings, backfillSettings))
         sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillStreamContext))
         rows <- sdp.stream.runCount
@@ -62,7 +62,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes correctly") {
       for
         path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
+        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, streamSettings, backfillSettings))
         sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, changeCaptureStreamContext))
         rows <- sdp.stream.timeout(zio.Duration.fromSeconds(10)).runCount
@@ -72,7 +72,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes respecting lookback interval") {
       for
         path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0")))
+        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, emptyStreamSettings, backfillSettings))
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(dataProvider, emptyStreamSettings, changeCaptureStreamContext)

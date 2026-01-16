@@ -46,7 +46,7 @@ object S3BlobStorageReaderTests extends ZIOSpecDefault {
       for
         path           <- ZIO.succeed(S3StoragePath(s"s3a://$bucket/0.parquet.gzip").get)
         downloadedFile <- storageReader.downloadBlob(path, "/tmp")
-        scanner        <- ZIO.succeed(ParquetScanner(downloadedFile))
+        scanner        <- ZIO.succeed(ParquetScanner(downloadedFile, false))
         rows           <- scanner.getRows.runCollect
       yield assertTrue(rows.size == 100)
     }

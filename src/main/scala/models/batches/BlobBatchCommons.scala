@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.batches
 
 import models.schemas.ArcaneType.LongType
-import models.schemas.{DataCell, DataRow, Field, MergeKeyField}
+import models.schemas.{DataCell, DataRow, Field, IndexedField, MergeKeyField}
 
 import java.security.MessageDigest
 import java.util.Base64
@@ -11,6 +11,11 @@ object BlobBatchCommons:
   val versionField: Field = Field(
     name = "createdon",
     fieldType = LongType
+  )
+  def indexedVersionField(id: Int): IndexedField = IndexedField(
+    name = versionField.name,
+    fieldType = versionField.fieldType,
+    fieldId = id
   )
 
   private def encodeHash(hash: Array[Byte]): String = Base64.getEncoder.encodeToString(hash)
