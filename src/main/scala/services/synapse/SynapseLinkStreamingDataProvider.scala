@@ -46,7 +46,7 @@ class SynapseLinkStreamingDataProvider(
               _ <- zlog("No changes, next check in %s seconds, staying at %s version", settings.changeCaptureInterval.toSeconds.toString, previousVersion.versionNumber) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
             yield ()
           }
-// TODO: re-implement this this to watermarking          
+// TODO: re-implement this when watermarking is integrated          
 //          _ <- ZIO.when(newVersion.isDefined) {
 //            for _ <- ZIO.succeed(
 //                ChronoUnit.SECONDS
@@ -58,10 +58,6 @@ class SynapseLinkStreamingDataProvider(
 //              ) @@ batchDelayInterval
 //            yield ()
 //          }
-        // if we keep staying at previousVersion when no changes have been emitted
-        // stream will list increasing number of date prefixes for a slow changing entity, thus accumulating iterative read cost in Azure
-        // thus, previousVersion is set to be at **most** lookbackVersion, in case there are no changes
-          // TODO: verify lookback hop
         yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
       }
       .flatMap {
@@ -69,7 +65,7 @@ class SynapseLinkStreamingDataProvider(
         case _                  => ZStream.empty
       }
 
-  // TODO: move to extension method
+  // TODO: move to extension method befor implementing watermarking
   private def checkEmpty(previousVersion: SynapseBatchVersion): Task[Unit] =
     for
       _ <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")

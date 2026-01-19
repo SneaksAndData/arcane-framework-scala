@@ -13,6 +13,7 @@ import services.storage.services.azure.AzureBlobStorageReader
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseBatchVersion, SynapseEntitySchemaProvider}
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.{zlog, zlogStream}
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -51,6 +52,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
   private def enrichWithSchema(batchBlob: StoredBlob): ZStream[Any, Throwable, SchemaEnrichedBlob] = {
    ZStream.fromZIO(for
       files <- getBatchFiles(batchBlob.name).runCollect // materialize CSV list to avoid double-querying storage
+      _ <- zlog("Found %s CSV files with changes for entity %s at batch folder %s", files.size.toString, entityName, batchBlob.name)
       dataBlobs <- ZIO.when(files.nonEmpty) {
           for
             // getSchema here performs runtime check for model.json for the batch to be parseable and readable
@@ -66,8 +68,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
           yield orderedFiles
       }
     yield dataBlobs).flatMap {
-     case Some(files) => ZStream.fromIterable(files)
-     case None => ZStream.empty
+     case Some(files) => zlogStream("Starting stream of the following: %s", files.map(_.blob.name).mkString(",")) *> ZStream.fromIterable(files)
+     case None => zlogStream("Batch %s has not changes for the entity %s", batchBlob.name, entityName) *> ZStream.empty
    }
   }
  
@@ -109,13 +111,18 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
    * @param previousVersion Previous valid batch folder
    * @return
    */
-  def getCurrentVersion(previousVersion: SynapseBatchVersion): Task[SynapseBatchVersion] = reader.getEligibleDates(storagePath, previousVersion.waterMarkTime)
-    .runFold(previousVersion){
-      case (agg, synapseBlob) => if agg.versionNumber < synapseBlob.asFolderName then SynapseBatchVersion(versionNumber = synapseBlob.asFolderName, waterMarkTime = synapseBlob.asDate, blob = synapseBlob) else agg 
-    }
+  def getCurrentVersion(previousVersion: SynapseBatchVersion): Task[SynapseBatchVersion] =
+    for
+      synapseBlob <- reader.getCurrentBatch(storagePath).map {
+        // in case of a read failure, fallback to previous version - should never happen, but framework expects this method to always succeed
+        case version if version.interpretAsDate.isDefined => Some(version)
+        case _ => None
+      }
+      version <- ZIO.succeed(synapseBlob.getOrElse(previousVersion.blob))
+    yield SynapseBatchVersion(versionNumber = version.asFolderName, waterMarkTime = version.asDate, blob = version)
 
   /**
-   * Check if the provided batch folder has relevant changes
+   * Check if the provided batch folder has relevant changes - only take a batch that has model.json committed
    * @param latestVersion Watermark to check for changes
    * @return
    */
