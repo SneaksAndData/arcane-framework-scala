@@ -20,8 +20,6 @@ class SynapseLinkDataProvider(
 ) extends VersionedDataProvider[SynapseBatchVersion, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
-  private val dateBlobPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
-
   override def requestChanges(previousVersion: SynapseBatchVersion): ZStream[Any, Throwable, SynapseLinkBatch] = synapseReader.getChanges(previousVersion)
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match

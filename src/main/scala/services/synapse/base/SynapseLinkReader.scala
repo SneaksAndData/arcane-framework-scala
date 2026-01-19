@@ -133,14 +133,16 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     // if the stream is exhausted without hitting `true`, it will return `false`, meaning no batches had any changes
     .runFoldWhile(false)(!_)(_ | _)
     
-
+  // TODO: when watermark comparison is added, getEligibleDates can be skipped if diff(prev, current) <= changeTrackingInterval * 1.5
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
     * deleted records.
     * @param startFrom
     *   Start date to get changes from
     * @return
     */
-  def getChanges(version: SynapseBatchVersion): ZStream[Any, Throwable, DataRow] = getEntityChangeData(version)
+  def getChanges(version: SynapseBatchVersion): ZStream[Any, Throwable, DataRow] = reader.getEligibleDates(storagePath = storagePath, startFrom = version.waterMarkTime)
+    .map(_.asVersion)
+    .flatMap(getEntityChangeData)
     .mapZIO(getFileStream)
     .flatMap { case (fileStream, fileSchema, blob) =>
       getTableChanges(fileStream, fileSchema, blob.name)

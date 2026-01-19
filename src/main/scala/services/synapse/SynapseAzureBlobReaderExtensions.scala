@@ -28,6 +28,8 @@ object SynapseAzureBlobReaderExtensions:
     def asFolderName: String = blob.name.replaceAll("/$", "")
     
     def asDate: OffsetDateTime = interpretAsDate.get
+    
+    def asVersion: SynapseBatchVersion = SynapseBatchVersion(versionNumber = asFolderName, waterMarkTime = asDate, blob = blob)
 
   /** Read a list of the prefixes, taking optional start time. Lowest precision available is 1 hour
     * @return

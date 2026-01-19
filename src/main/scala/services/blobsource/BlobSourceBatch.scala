@@ -4,5 +4,8 @@ package services.blobsource
 import models.schemas.DataRow
 import services.blobsource.readers.BlobSourceReader
 
+import java.time.OffsetDateTime
+
 type BlobSourceBatch          = BlobSourceReader#OutputRow
-type BlobSourceVersionedBatch = (BlobSourceReader#OutputRow, Long)
+
+case class BlobSourceVersion(versionNumber: String, waterMarkTime: OffsetDateTime)

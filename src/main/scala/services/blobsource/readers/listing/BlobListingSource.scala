@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
+import services.blobsource.BlobSourceVersion
 import services.blobsource.readers.BlobSourceReader
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
@@ -9,7 +10,7 @@ import zio.stream.ZSink
 import zio.{Task, ZIO}
 
 import java.security.MessageDigest
-import java.time.{Duration, OffsetDateTime}
+import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 abstract class BlobListingSource[PathType <: BlobPath](
     sourcePath: PathType,
@@ -21,17 +22,24 @@ abstract class BlobListingSource[PathType <: BlobPath](
     */
   protected val mergeKeyHasher: MessageDigest = MessageDigest.getInstance("SHA-256")
 
-  override def getLatestVersion: Task[Long] = reader
+  override def getLatestVersion: Task[BlobSourceVersion] = reader
     .streamPrefixes(sourcePath)
     .map(_.createdOn.getOrElse(0L))
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
+    .map(createdOn => BlobSourceVersion(versionNumber = createdOn.toString, waterMarkTime = OffsetDateTime.ofInstant(Instant.ofEpochMilli(createdOn), ZoneOffset.UTC)))
 
   // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
   // thus they always act like they lookback until beginning of time
-  override def getStartFrom(lookBackInterval: Duration): Task[Long] = ZIO.succeed(
-    OffsetDateTime
-      .now()
-      .minus(lookBackInterval)
-      .toInstant
-      .toEpochMilli / 1000
-  )
+  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceVersion] =  
+    for
+     version <- ZIO.succeed(
+        OffsetDateTime
+          .now()
+          .minus(lookBackInterval)
+          .toInstant
+          .toEpochMilli / 1000
+      )
+    yield BlobSourceVersion(
+      versionNumber = version.toString, OffsetDateTime.ofInstant(Instant.ofEpochMilli(version), ZoneOffset.UTC)
+    )  
+  
