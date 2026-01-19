@@ -5,6 +5,7 @@ import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.blob.ParquetBlobSourceSettings
 import services.base.SchemaProvider
+import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.storage.base.BlobStorageReader
@@ -12,7 +13,6 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
-import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -43,8 +43,8 @@ class BlobListingParquetSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceVersion): ZStream[Any, Throwable, OutputRow] = for
-    sourceFile <- reader.streamPrefixes(sourcePath).filter(_.createdOn.getOrElse(0L) >= startFrom.versionNumber.toLong)
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow] = for
+    sourceFile <- reader.streamPrefixes(sourcePath).filter(_.createdOn.getOrElse(0L) >= startFrom.version.toLong)
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )

@@ -8,8 +8,8 @@ import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 import services.synapse.base.SynapseLinkDataProvider
+import services.synapse.versioning.SynapseWatermark
 
-import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.metrics.Metric
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}

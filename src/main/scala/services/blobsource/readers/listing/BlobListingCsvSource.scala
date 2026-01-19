@@ -4,11 +4,11 @@ package services.blobsource.readers.listing
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.base.SchemaProvider
 import services.blobsource.readers.BlobSourceReader
+import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 
-import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -33,10 +33,10 @@ class BlobListingCsvSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceVersion): ZStream[Any, Throwable, OutputRow] = ???
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow] = ???
 
-  override def getLatestVersion: Task[BlobSourceVersion] = ???
+  override def getLatestVersion: Task[BlobSourceWatermark] = ???
 
-  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceVersion] = ???
+  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceWatermark] = ???
 
-  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = ???
+  override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ???

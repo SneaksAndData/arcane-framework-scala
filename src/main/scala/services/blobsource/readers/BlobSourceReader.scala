@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers
 
-import services.blobsource.BlobSourceVersion
+import models.schemas.DataRow
+import services.blobsource.versioning.BlobSourceWatermark
 
 import zio.Task
 import zio.stream.ZStream
@@ -13,17 +14,17 @@ import java.time.Duration
 trait BlobSourceReader:
   /** Output row type for this reader. Typically DataRow or GenericRecord
     */
-  type OutputRow
+  type OutputRow <: DataRow
 
   /** Change stream for this reader. If startFrom == 0, should behave like a backfill.
     * @param startFrom
     *   Time (Unix) to emit changes from for next iteration
     * @return
     */
-  def getChanges(startFrom: BlobSourceVersion): ZStream[Any, Throwable, OutputRow]
+  def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow]
 
-  def getStartFrom(lookBackInterval: Duration): Task[BlobSourceVersion]
+  def getStartFrom(lookBackInterval: Duration): Task[BlobSourceWatermark]
 
-  def getLatestVersion: Task[BlobSourceVersion]
+  def getLatestVersion: Task[BlobSourceWatermark]
 
-  def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean]
+  def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean]
