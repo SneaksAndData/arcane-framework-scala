@@ -33,7 +33,8 @@ class BlobSourceDataProvider(
 
   override def firstVersion: Task[BlobSourceWatermark] = sourceReader.getStartFrom(settings.lookBackInterval)
 
-  override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = sourceReader.hasChanges(previousVersion)
+  override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
+    sourceReader.hasChanges(previousVersion)
 
   override def getCurrentVersion(previousVersion: BlobSourceWatermark): Task[BlobSourceWatermark] =
     sourceReader.getLatestVersion

@@ -10,14 +10,15 @@ import services.blobsource.providers.BlobSourceDataProvider
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
-
-class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](    dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
-                                    settings: VersionedDataGraphBuilderSettings,
-                                    backfillSettings: BackfillSettings,
-                                    streamContext: StreamContext) extends StreamDataProvider:
+class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](
+    dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
+    settings: VersionedDataGraphBuilderSettings,
+    backfillSettings: BackfillSettings,
+    streamContext: StreamContext
+) extends StreamDataProvider:
 
   type StreamElementType = DataRow
-  
+
   private def nextVersion(version: Task[WatermarkType]) =
     for
       previousVersion   <- version
@@ -35,10 +36,10 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       }
       _ <- ZIO.unless(hasVersionUpdated) {
         for _ <- zlog(
-          "No changes in watermark version, next check in %s seconds, staying at %s version",
-          settings.changeCaptureInterval.toSeconds.toString,
-          previousVersion.version
-        ) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+            "No changes in watermark version, next check in %s seconds, staying at %s version",
+            settings.changeCaptureInterval.toSeconds.toString,
+            previousVersion.version
+          ) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
         yield ()
       }
     yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
@@ -58,7 +59,6 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
         zlog(s"Data found in the batch: ${previousVersion.version}, continuing") *> ZIO.unit
       }
     yield ()
-    
 
   override def stream: ZStream[Any, Throwable, RowType] = if streamContext.IsBackfilling then {
     dataProvider.requestBackfill
@@ -67,5 +67,5 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)
       .flatMap {
         case (current, previous) if current > previous => dataProvider.requestChanges(previous)
-        case _ => ZStream.empty
+        case _                                         => ZStream.empty
       }

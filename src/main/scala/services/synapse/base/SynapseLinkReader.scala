@@ -127,8 +127,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     * @return
     */
   def getCurrentVersion(previousVersion: SynapseWatermark): Task[SynapseWatermark] =
-    for
-      synapseBlob <- reader.getCurrentBatch(storagePath).map {
+    for synapseBlob <- reader.getCurrentBatch(storagePath).map {
         // in case of a read failure, fallback to previous version - should never happen, but framework expects this method to always succeed
         case version if version.interpretAsDate.isDefined => Some(version)
         case _                                            => None
@@ -144,8 +143,9 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     for
       candidates <- reader.getEligibleDates(storagePath, startFrom).runCollect
       allCandidates <- ZIO.when(candidates.isEmpty) {
-        for
-          all <- reader.getEligibleDates(storagePath, OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).runCollect
+        for all <- reader
+            .getEligibleDates(storagePath, OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
+            .runCollect
         yield all
       }
     yield allCandidates.getOrElse(candidates).minBy(_.asDate).asWatermark
@@ -211,8 +211,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     case FloatType            => value.toString.toFloat
     case ShortType            => value.toString.toShort
     case TimeType             => java.sql.Time.valueOf(value.toString)
-    case ListType(_, _) => throw new UnsupportedOperationException(s"Unsupported List type for field $fieldName")
-    case ObjectType => throw new UnsupportedOperationException(s"Unsupported Object type for field $fieldName")
+    case ListType(_, _)       => throw new UnsupportedOperationException(s"Unsupported List type for field $fieldName")
+    case ObjectType    => throw new UnsupportedOperationException(s"Unsupported Object type for field $fieldName")
     case StructType(_) => throw new UnsupportedOperationException(s"Unsupported Struct type for field $fieldName")
 
   private def valueAsOffsetDateTime(value: Any): OffsetDateTime = value match

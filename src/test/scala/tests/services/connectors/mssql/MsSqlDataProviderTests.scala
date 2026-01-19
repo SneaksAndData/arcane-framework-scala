@@ -2,13 +2,13 @@ package com.sneaksanddata.arcane.framework
 package tests.services.connectors.mssql
 
 import models.app.StreamContext
+import models.settings.BackfillBehavior.Overwrite
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.mssql.*
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import tests.services.connectors.mssql.util.MsSqlTestServices.*
 import tests.shared.TestStreamLifetimeService
 
-import com.sneaksanddata.arcane.framework.models.settings.BackfillBehavior.Overwrite
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -85,10 +85,12 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         )
         numberRowsToTake =
           5 // if set to 20, will run indefinitely since no elements will be emitted and cancelled will not be called
-        provider              <- ZIO.succeed(MsSqlDataProvider(connection, graphSettings, backfillSettings))
-        streamingDataProvider <- ZIO.succeed(MsSqlStreamingDataProvider(provider, settings, backfillSettings, streamContext))
-        lifetimeService       <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
-        rows                  <- streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect
+        provider <- ZIO.succeed(MsSqlDataProvider(connection, graphSettings, backfillSettings))
+        streamingDataProvider <- ZIO.succeed(
+          MsSqlStreamingDataProvider(provider, settings, backfillSettings, streamContext)
+        )
+        lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
+        rows            <- streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect
       yield assertTrue(rows.size == numberRowsToTake)
     }
   } @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

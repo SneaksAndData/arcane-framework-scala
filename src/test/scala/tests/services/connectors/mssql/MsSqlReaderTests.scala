@@ -6,11 +6,11 @@ import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
-import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.QueryProvider
+import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.versioning.MsSqlWatermark
 import tests.services.connectors.mssql.util.MsSqlTestServices.*
 
-import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.*
@@ -20,7 +20,7 @@ import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
+import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.List
 import scala.language.postfixOps
 import scala.util.Success
@@ -444,7 +444,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         maybeVersion <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
         version      <- ZIO.getOrFail(maybeVersion)
         commitTime   <- connector.getVersionCommitTime(version)
-        rows <- connector.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)).runCollect
+        rows         <- connector.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )

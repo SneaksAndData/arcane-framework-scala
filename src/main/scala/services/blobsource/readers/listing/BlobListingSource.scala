@@ -39,7 +39,6 @@ abstract class BlobListingSource[PathType <: BlobPath](
           .toEpochMilli / 1000
       )
     yield BlobSourceWatermark.fromEpochSecond(version)
-      
 
   // due to the fact that this is always called by StreamingDataProvider after comparing versions
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files

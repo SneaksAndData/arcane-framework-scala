@@ -8,9 +8,10 @@ import java.time.OffsetDateTime
 
 type SynapseVersionType = String
 
-case class SynapseWatermark(version: SynapseVersionType, timestamp: OffsetDateTime, prefix: String) extends SourceWatermark[SynapseVersionType]:
-  override def compare(that: SourceWatermark[SynapseVersionType]): Int = (version.asDate.toEpochSecond, that.version.asDate.toEpochSecond) match
-    case (x, y) if x < y => -1
-    case (x, y) if x == y => 0
-    case (x, y) if x > y => 1
-  
+case class SynapseWatermark(version: SynapseVersionType, timestamp: OffsetDateTime, prefix: String)
+    extends SourceWatermark[SynapseVersionType]:
+  override def compare(that: SourceWatermark[SynapseVersionType]): Int =
+    (version.asDate.toEpochSecond, that.version.asDate.toEpochSecond) match
+      case (x, y) if x < y  => -1
+      case (x, y) if x == y => 0
+      case (x, y) if x > y  => 1

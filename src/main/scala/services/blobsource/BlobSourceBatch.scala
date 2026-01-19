@@ -7,4 +7,3 @@ import services.blobsource.readers.BlobSourceReader
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 type BlobSourceBatch = BlobSourceReader#OutputRow
-

@@ -3,22 +3,22 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
-import services.mssql.{MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
 import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
+import services.mssql.versioning.MsSqlWatermark
+import services.mssql.{MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
 

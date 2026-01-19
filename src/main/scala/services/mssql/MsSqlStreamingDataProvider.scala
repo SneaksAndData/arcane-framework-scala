@@ -1,15 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
-import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 
-import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
-import zio.stream.ZStream
-import zio.{Task, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 /** Streaming data provider for Microsoft SQL Server. This provider relies on Change Tracking functionality of SQL
   * Server. For the provider to work correctly, source database must have Change Tracking enabled, and each streamed
@@ -23,8 +20,8 @@ import zio.{Task, ZIO, ZLayer}
   * https://learn.microsoft.com/en-us/sql/relational-databases/system-functions/change-tracking-current-version-transact-sql?view=sql-server-ver17
   *
   * the provider assumes that `commit_ts` can be used as watermark value interchangeable with the result from
-  * CHANGE_TRACKING_CURRENT_VERSION(). This enables commit time lookups from `sys.dm_tran_commit_table` that
-  * continues into using CHANGE_TRACKING_CURRENT_VERSION() values that come from the stream output.
+  * CHANGE_TRACKING_CURRENT_VERSION(). This enables commit time lookups from `sys.dm_tran_commit_table` that continues
+  * into using CHANGE_TRACKING_CURRENT_VERSION() values that come from the stream output.
   */
 class MsSqlStreamingDataProvider(
     dataProvider: MsSqlDataProvider,
@@ -60,9 +57,9 @@ object MsSqlStreamingDataProvider:
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        dataProvider  <- ZIO.service[MsSqlDataProvider]
-        settings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-        backfillSettings      <- ZIO.service[BackfillSettings]
-        streamContext <- ZIO.service[StreamContext]
+        dataProvider     <- ZIO.service[MsSqlDataProvider]
+        settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
+        backfillSettings <- ZIO.service[BackfillSettings]
+        streamContext    <- ZIO.service[StreamContext]
       yield MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext)
     }

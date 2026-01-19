@@ -25,15 +25,16 @@ class SynapseLinkStreamingDataProvider(
     streamContext: StreamContext,
     metrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](dataProvider, settings, backfillSettings, streamContext)
-  
-  // TODO: reimplement 
-  //  private val batchDelayInterval = metrics.tagMetric(Metric.gauge("arcane.stream.synapse.processing_lag"))
+
+// TODO: reimplement
+//  private val batchDelayInterval = metrics.tagMetric(Metric.gauge("arcane.stream.synapse.processing_lag"))
 
 object SynapseLinkStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = SynapseLinkDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext & DeclaredMetrics
+  type Environment = SynapseLinkDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext &
+    DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -55,10 +56,10 @@ object SynapseLinkStreamingDataProvider:
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        dataProvider  <- ZIO.service[SynapseLinkDataProvider]
-        settings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-        backfillSettings      <- ZIO.service[BackfillSettings]
-        streamContext <- ZIO.service[StreamContext]
-        metrics       <- ZIO.service[DeclaredMetrics]
+        dataProvider     <- ZIO.service[SynapseLinkDataProvider]
+        settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
+        backfillSettings <- ZIO.service[BackfillSettings]
+        streamContext    <- ZIO.service[StreamContext]
+        metrics          <- ZIO.service[DeclaredMetrics]
       yield SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, metrics)
     }
