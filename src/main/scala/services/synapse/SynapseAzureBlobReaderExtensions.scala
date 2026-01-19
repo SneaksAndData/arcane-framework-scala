@@ -68,7 +68,7 @@ object SynapseAzureBlobReaderExtensions:
       */
     def getCurrentBatch(storagePath: AdlsStoragePath): Task[StoredBlob] =
       for latestBatch <- reader.readBlobContent(storagePath + "Changelog/changelog.info")
-      yield StoredBlob(name = s"$storagePath/$latestBatch", createdOn = None)
+      yield StoredBlob(name = latestBatch, createdOn = None)
 
 private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
   val currentMoment = endDate.plusHours(1)

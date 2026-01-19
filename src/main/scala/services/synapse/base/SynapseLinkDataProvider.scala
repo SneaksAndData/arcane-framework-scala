@@ -10,8 +10,7 @@ import services.synapse.{SynapseBatchVersion, SynapseLinkBatch}
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-import java.time.format.DateTimeFormatter
-import java.time.{OffsetDateTime, ZoneOffset}
+import java.time.OffsetDateTime
 
 class SynapseLinkDataProvider(
     synapseReader: SynapseLinkReader,
@@ -30,15 +29,9 @@ class SynapseLinkDataProvider(
   override def firstVersion: Task[SynapseBatchVersion] =
     for
       startTime <- ZIO.succeed(OffsetDateTime.now())
-      _         <- zlog("Fetching version for the first iteration from %s", startTime.toString)
-      result <- synapseReader.getCurrentVersion(
-        SynapseBatchVersion(
-          versionNumber = "",
-          waterMarkTime = startTime.minus(settings.lookBackInterval),
-          blob = StoredBlob.empty
-        )
-      )
-      _ <- zlog("Retrieved version %s", result.versionNumber)
+      _ <- zlog("Fetching version for the first iteration from %s", startTime.minus(settings.lookBackInterval).toString)
+      result <- synapseReader.getVersion(startTime.minus(settings.lookBackInterval))
+      _      <- zlog("Retrieved version %s", result.versionNumber)
     yield result
 
   override def hasChanges(previousVersion: SynapseBatchVersion): Task[Boolean] =

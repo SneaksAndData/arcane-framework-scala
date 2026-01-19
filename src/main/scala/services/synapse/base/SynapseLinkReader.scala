@@ -82,7 +82,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
           zlogStream("Starting stream of the following: %s", files.map(_.blob.name).mkString(",")) *> ZStream
             .fromIterable(files)
         case None =>
-          zlogStream("Batch %s has not changes for the entity %s", batchBlob.name, entityName) *> ZStream.empty
+          zlogStream("Batch %s has no changes for the entity %s", batchBlob.name, entityName) *> ZStream.empty
       }
   }
 
@@ -137,6 +137,15 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       version <- ZIO.succeed(synapseBlob.getOrElse(previousVersion.blob))
     yield SynapseBatchVersion(versionNumber = version.asFolderName, waterMarkTime = version.asDate, blob = version)
 
+  /** TODO: temporary method that will be removed once watermarking is implemented. Should be replaced with watermark
+    * read and fallback to reading all container in case watermark is not found
+    * @param startFrom
+    * @return
+    */
+  def getVersion(startFrom: OffsetDateTime): Task[SynapseBatchVersion] =
+    for candidates <- reader.getEligibleDates(storagePath, startFrom).runCollect
+    yield candidates.minBy(_.asDate).asVersion
+
   /** Check if the provided batch folder has relevant changes - only take a batch that has model.json committed
     * @param latestVersion
     *   Watermark to check for changes
@@ -152,19 +161,26 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
   // TODO: when watermark comparison is added, getEligibleDates can be skipped if diff(prev, current) <= changeTrackingInterval * 1.5
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
-    * deleted records.
-    *   Start date to get changes from
+    * deleted records. Start date to get changes from
     * @return
     */
   def getChanges(version: SynapseBatchVersion): ZStream[Any, Throwable, DataRow] = reader
     .getEligibleDates(storagePath = storagePath, startFrom = version.waterMarkTime)
     .map(_.asVersion)
-    .flatMap(getEntityChangeData)
-    .mapZIO(getFileStream)
-    .flatMap { case (fileStream, fileSchema, blob) =>
-      getTableChanges(fileStream, fileSchema, blob.name)
-    }
-    .map(convertRow)
+    .flatMap(getChangesForVersion)
+
+  /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
+    * deleted records. Start date to get changes from
+    *
+    * @return
+    */
+  private def getChangesForVersion(version: SynapseBatchVersion): ZStream[Any, Throwable, DataRow] =
+    getEntityChangeData(version)
+      .mapZIO(getFileStream)
+      .flatMap { case (fileStream, fileSchema, blob) =>
+        getTableChanges(fileStream, fileSchema, blob.name)
+      }
+      .map(convertRow)
 
   def getData(startFrom: OffsetDateTime): ZStream[Any, Throwable, DataRow] = reader
     .getEligibleDates(storagePath, startFrom)
@@ -176,7 +192,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
         blob = blob
       )
     )
-    .flatMap(getChanges)
+    .flatMap(getChangesForVersion)
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125
