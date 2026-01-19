@@ -5,12 +5,11 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
-import services.blobsource.readers.BlobSourceReader
-import services.streaming.base.{RowProcessor, StreamDataProvider}
+import services.blobsource.BlobSourceVersion
+import services.streaming.base.StreamDataProvider
 
-import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
-import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
+import zio.{Task, ZIO, ZLayer}
 
 class BlobSourceStreamingDataProvider(
     dataProvider: BlobSourceDataProvider,
@@ -27,14 +26,16 @@ class BlobSourceStreamingDataProvider(
   private def nextVersion(version: Task[BlobSourceVersion]) = for
     previousVersion <- version
     newVersion      <- dataProvider.getCurrentVersion(previousVersion)
-    hasChanged <- ZIO.succeed(newVersion != previousVersion)
+    hasChanged      <- ZIO.succeed(newVersion != previousVersion)
     _ <- ZIO.when(hasChanged) {
       for
         _ <- zlog(
           "Version has updated to %s",
           newVersion.toString
         )
-        _ <- dataProvider.hasChanges(previousVersion) // no-op here, this code will be integrated into generic provider interface
+        _ <- dataProvider.hasChanges(
+          previousVersion
+        ) // no-op here, this code will be integrated into generic provider interface
       yield ()
     }
     _ <- ZIO.unless(hasChanged) {

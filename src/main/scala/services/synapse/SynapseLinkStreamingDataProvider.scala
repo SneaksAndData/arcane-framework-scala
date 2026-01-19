@@ -32,21 +32,28 @@ class SynapseLinkStreamingDataProvider(
     ZStream
       .unfoldZIO(dataProvider.firstVersion) { version =>
         for
-          previousVersion <- version
-          currentVersion      <- dataProvider.getCurrentVersion(previousVersion)
+          previousVersion   <- version
+          currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
           hasVersionUpdated <- ZIO.succeed(previousVersion.versionNumber != currentVersion.versionNumber)
           _ <- ZIO.when(hasVersionUpdated) {
             for
-              _ <- zlog("Batch version updated from %s to %s, checking for changes", previousVersion.versionNumber, currentVersion.versionNumber)
+              _ <- zlog(
+                "Batch version updated from %s to %s, checking for changes",
+                previousVersion.versionNumber,
+                currentVersion.versionNumber
+              )
               _ <- checkEmpty(previousVersion)
             yield ()
           }
           _ <- ZIO.unless(hasVersionUpdated) {
-            for
-              _ <- zlog("No changes, next check in %s seconds, staying at %s version", settings.changeCaptureInterval.toSeconds.toString, previousVersion.versionNumber) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+            for _ <- zlog(
+                "No changes, next check in %s seconds, staying at %s version",
+                settings.changeCaptureInterval.toSeconds.toString,
+                previousVersion.versionNumber
+              ) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
             yield ()
           }
-// TODO: re-implement this when watermarking is integrated          
+// TODO: re-implement this when watermarking is integrated
 //          _ <- ZIO.when(newVersion.isDefined) {
 //            for _ <- ZIO.succeed(
 //                ChronoUnit.SECONDS
@@ -61,14 +68,15 @@ class SynapseLinkStreamingDataProvider(
         yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
       }
       .flatMap {
-        case (currentVersion, previousVersion) if currentVersion.versionNumber > previousVersion.versionNumber => dataProvider.requestChanges(previousVersion)
-        case _                  => ZStream.empty
+        case (currentVersion, previousVersion) if currentVersion.versionNumber > previousVersion.versionNumber =>
+          dataProvider.requestChanges(previousVersion)
+        case _ => ZStream.empty
       }
 
   // TODO: move to extension method befor implementing watermarking
   private def checkEmpty(previousVersion: SynapseBatchVersion): Task[Unit] =
     for
-      _ <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
+      _         <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
         zlog(

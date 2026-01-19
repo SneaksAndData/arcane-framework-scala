@@ -14,4 +14,4 @@ case class SynapseBatchVersion(versionNumber: String, waterMarkTime: OffsetDateT
 
 /** Batch type for Synapse Link is a list of DataRow elements
   */
-type SynapseLinkBatch          = DataRow
+type SynapseLinkBatch = DataRow

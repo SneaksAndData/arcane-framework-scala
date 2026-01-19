@@ -19,9 +19,15 @@ class BlobSourceDataProvider(
     with BackfillDataProvider[BlobSourceBatch]:
 
   override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] = {
-    val backFillStart = backfillSettings.backfillStartDate.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
+    val backFillStart =
+      backfillSettings.backfillStartDate.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
     sourceReader
-      .getChanges(BlobSourceVersion(versionNumber = (backFillStart.toInstant.toEpochMilli / 1000).toString, waterMarkTime = backFillStart))
+      .getChanges(
+        BlobSourceVersion(
+          versionNumber = (backFillStart.toInstant.toEpochMilli / 1000).toString,
+          waterMarkTime = backFillStart
+        )
+      )
   }
 
   override def requestChanges(previousVersion: BlobSourceVersion): ZStream[Any, Throwable, BlobSourceBatch] =
@@ -31,7 +37,8 @@ class BlobSourceDataProvider(
 
   override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = sourceReader.hasChanges(previousVersion)
 
-  override def getCurrentVersion(previousVersion: BlobSourceVersion): Task[BlobSourceVersion] = sourceReader.getLatestVersion
+  override def getCurrentVersion(previousVersion: BlobSourceVersion): Task[BlobSourceVersion] =
+    sourceReader.getLatestVersion
 
 object BlobSourceDataProvider:
   private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader

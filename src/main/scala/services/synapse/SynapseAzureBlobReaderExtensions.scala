@@ -26,10 +26,11 @@ object SynapseAzureBlobReaderExtensions:
       Try(OffsetDateTime.parse(blob.asFolderName, formatter)).toOption
 
     def asFolderName: String = blob.name.replaceAll("/$", "")
-    
+
     def asDate: OffsetDateTime = interpretAsDate.get
-    
-    def asVersion: SynapseBatchVersion = SynapseBatchVersion(versionNumber = asFolderName, waterMarkTime = asDate, blob = blob)
+
+    def asVersion: SynapseBatchVersion =
+      SynapseBatchVersion(versionNumber = asFolderName, waterMarkTime = asDate, blob = blob)
 
   /** Read a list of the prefixes, taking optional start time. Lowest precision available is 1 hour
     * @return
@@ -42,7 +43,11 @@ object SynapseAzureBlobReaderExtensions:
     ): ZStream[Any, Throwable, StoredBlob] = for
       // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
       inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
-      _ <- zlogStream("Searching for Synapse batches from (inclusive) %s to %s (excluding)", startFrom.toString, inProgressDate)
+      _ <- zlogStream(
+        "Searching for Synapse batches from (inclusive) %s to %s (excluding)",
+        startFrom.toString,
+        inProgressDate
+      )
       inProgressDateParsed <- ZStream.succeed(
         OffsetDateTime.parse(inProgressDate, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX"))
       )
@@ -52,18 +57,17 @@ object SynapseAzureBlobReaderExtensions:
         .map(blob => (blob.interpretAsDate, blob))
         .collect {
           case (Some(date), blob)
-            // take dates strictly >= startFrom, < inProgressDate
-              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) => blob
+              // take dates strictly >= startFrom, < inProgressDate
+              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) =>
+            blob
         }
     yield eligibleBlob
 
-    /**
-     * Retrieve current batch in progress as StoredBlob without listing prefixes
-     * @return
-     */
+    /** Retrieve current batch in progress as StoredBlob without listing prefixes
+      * @return
+      */
     def getCurrentBatch(storagePath: AdlsStoragePath): Task[StoredBlob] =
-      for
-        latestBatch <- reader.readBlobContent(storagePath + "Changelog/changelog.info")
+      for latestBatch <- reader.readBlobContent(storagePath + "Changelog/changelog.info")
       yield StoredBlob(name = s"$storagePath/$latestBatch", createdOn = None)
 
 private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =

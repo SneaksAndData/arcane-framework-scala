@@ -20,25 +20,32 @@ class SynapseLinkDataProvider(
 ) extends VersionedDataProvider[SynapseBatchVersion, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
-  override def requestChanges(previousVersion: SynapseBatchVersion): ZStream[Any, Throwable, SynapseLinkBatch] = synapseReader.getChanges(previousVersion)
+  override def requestChanges(previousVersion: SynapseBatchVersion): ZStream[Any, Throwable, SynapseLinkBatch] =
+    synapseReader.getChanges(previousVersion)
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
     case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
     case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
   override def firstVersion: Task[SynapseBatchVersion] =
-    for  
+    for
       startTime <- ZIO.succeed(OffsetDateTime.now())
-      _ <- zlog("Fetching version for the first iteration from %s", startTime.toString)
-      result <- synapseReader.getCurrentVersion(SynapseBatchVersion(
-    versionNumber = "", waterMarkTime = startTime.minus(settings.lookBackInterval), blob = StoredBlob.empty
-  ))
+      _         <- zlog("Fetching version for the first iteration from %s", startTime.toString)
+      result <- synapseReader.getCurrentVersion(
+        SynapseBatchVersion(
+          versionNumber = "",
+          waterMarkTime = startTime.minus(settings.lookBackInterval),
+          blob = StoredBlob.empty
+        )
+      )
       _ <- zlog("Retrieved version %s", result.versionNumber)
     yield result
-  
-  override def hasChanges(previousVersion: SynapseBatchVersion): Task[Boolean] = synapseReader.hasChanges(previousVersion)
-  
-  override def getCurrentVersion(previousVersion: SynapseBatchVersion): Task[SynapseBatchVersion] = synapseReader.getCurrentVersion(previousVersion)
+
+  override def hasChanges(previousVersion: SynapseBatchVersion): Task[Boolean] =
+    synapseReader.hasChanges(previousVersion)
+
+  override def getCurrentVersion(previousVersion: SynapseBatchVersion): Task[SynapseBatchVersion] =
+    synapseReader.getCurrentVersion(previousVersion)
 
 object SynapseLinkDataProvider:
   type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader
