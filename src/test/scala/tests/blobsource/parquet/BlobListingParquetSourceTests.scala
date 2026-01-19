@@ -3,6 +3,7 @@ package tests.blobsource.parquet
 
 import models.batches.BlobBatchCommons
 import models.schemas.MergeKeyField
+import services.blobsource.BlobSourceVersion
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
@@ -34,10 +35,9 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
-        rows   <- source.getChanges(0).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.map(_._1).forall(v => v.size == 13)) && assertTrue(
+        rows   <- source.getChanges(BlobSourceVersion.epoch).runCollect
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 13)) && assertTrue(
         rows
-          .map(_._1)
           .forall(row =>
             val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
               .takeRight(2)

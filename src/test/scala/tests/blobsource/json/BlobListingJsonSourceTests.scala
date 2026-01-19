@@ -8,6 +8,7 @@ import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
 
+import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, Scope, ZIO}
@@ -15,12 +16,11 @@ import zio.{Chunk, Scope, ZIO}
 import java.security.MessageDigest
 import java.util.Base64
 
-def assertValidChunk(rows: Chunk[(DataRow, Long)], expectedSize: Int, expectedFieldCount: Int) = {
+def assertValidChunk(rows: Chunk[DataRow], expectedSize: Int, expectedFieldCount: Int) = {
   assertTrue(rows.size == expectedSize) && assertTrue(
-    rows.map(_._1).forall(v => v.size == expectedFieldCount)
+    rows.forall(v => v.size == expectedFieldCount)
   ) && assertTrue(
     rows
-      .map(_._1)
       .forall(row =>
         val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
           .takeRight(2)
@@ -62,7 +62,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
         source <- ZIO.succeed(
           BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
         )
-        rows <- source.getChanges(0).runCollect
+        rows <- source.getChanges(BlobSourceVersion.epoch).runCollect
       yield assertValidChunk(rows, 50 * 100, 12)
     },
     test("getChanges return correct rows for source with variable number of fields") {
@@ -71,7 +71,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
         source <- ZIO.succeed(
           BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
         )
-        rows <- source.getChanges(0).runCollect
+        rows <- source.getChanges(BlobSourceVersion.epoch).runCollect
       yield assertValidChunk(rows, 50 * 100, 12)
     },
     test("getChanges return correct rows when using array explode") {
@@ -88,7 +88,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Map("/nested_array/value" -> Map())
           )
         )
-        rows <- source.getChanges(0).runCollect
+        rows <- source.getChanges(BlobSourceVersion.epoch).runCollect
       yield assertValidChunk(rows, 50 * 100, 14)
     },
     test("getChanges return correct rows when using array explode for nested arrays") {
@@ -105,7 +105,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Map("/data" -> Map(), "/nested_array/value" -> Map())
           )
         )
-        rows <- source.getChanges(0).runCollect
+        rows <- source.getChanges(BlobSourceVersion.epoch).runCollect
       yield assertValidChunk(rows, 20 * 10 * 50, 14)
     },
     test("getChanges return correct rows when using array explode for nested arrays, when a root is JArray") {
@@ -122,7 +122,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Map("/nested_array/value" -> Map())
           )
         )
-        rows <- source.getChanges(0).runCollect
+        rows <- source.getChanges(BlobSourceVersion.epoch).runCollect
       yield assertValidChunk(rows, 20 * 10 * 50, 14)
     }
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
