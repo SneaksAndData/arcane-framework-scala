@@ -1,40 +1,44 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
+import logging.ZIOLogAnnotations.zlog
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.storage.models.base.StoredBlob
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
-import services.synapse.{SynapseLinkBatch, SynapseLinkVersionedBatch}
+import services.synapse.{SynapseBatchVersion, SynapseLinkBatch}
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-import java.time.format.DateTimeFormatter
-import java.time.{OffsetDateTime, ZoneOffset}
+import java.time.OffsetDateTime
 
 class SynapseLinkDataProvider(
     synapseReader: SynapseLinkReader,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings
-) extends VersionedDataProvider[String, SynapseLinkVersionedBatch]
+) extends VersionedDataProvider[SynapseBatchVersion, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
-  private val dateBlobPattern = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
-
-  override def requestChanges(previousVersion: String): ZStream[Any, Throwable, SynapseLinkVersionedBatch] =
-    synapseReader.getChanges(OffsetDateTime.parse(previousVersion, dateBlobPattern))
+  override def requestChanges(previousVersion: SynapseBatchVersion): ZStream[Any, Throwable, SynapseLinkBatch] =
+    synapseReader.getChanges(previousVersion)
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
-    case Some(backfillStartDate) => synapseReader.getChanges(backfillStartDate).map(_._1)
+    case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
     case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
-  override def firstVersion: Task[String] = ZIO.succeed(
-    OffsetDateTime
-      .now()
-      .minus(settings.lookBackInterval)
-      .format(
-        dateBlobPattern.withZone(ZoneOffset.UTC)
-      )
-  )
+  override def firstVersion: Task[SynapseBatchVersion] =
+    for
+      startTime <- ZIO.succeed(OffsetDateTime.now())
+      _ <- zlog("Fetching version for the first iteration from %s", startTime.minus(settings.lookBackInterval).toString)
+      result <- synapseReader.getVersion(startTime.minus(settings.lookBackInterval))
+      _      <- zlog("Retrieved version %s", result.versionNumber)
+    yield result
+
+  override def hasChanges(previousVersion: SynapseBatchVersion): Task[Boolean] =
+    synapseReader.hasChanges(previousVersion)
+
+  override def getCurrentVersion(previousVersion: SynapseBatchVersion): Task[SynapseBatchVersion] =
+    synapseReader.getCurrentVersion(previousVersion)
 
 object SynapseLinkDataProvider:
   type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader

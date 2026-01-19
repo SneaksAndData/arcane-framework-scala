@@ -6,6 +6,7 @@ import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 
+import zio.Task
 import zio.stream.ZStream
 
 import java.time.OffsetDateTime
@@ -19,10 +20,17 @@ object SynapseAzureBlobReaderExtensions:
     *   A Synapse Link blob prefix (date folder)
     * @return
     */
-  private def interpretAsDate(blob: StoredBlob): Option[OffsetDateTime] =
-    val name      = blob.name.replaceAll("/$", "")
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
-    Try(OffsetDateTime.parse(name, formatter)).toOption
+  extension (blob: StoredBlob)
+    def interpretAsDate: Option[OffsetDateTime] =
+      val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
+      Try(OffsetDateTime.parse(blob.asFolderName, formatter)).toOption
+
+    def asFolderName: String = blob.name.replaceAll("/$", "")
+
+    def asDate: OffsetDateTime = interpretAsDate.get
+
+    def asVersion: SynapseBatchVersion =
+      SynapseBatchVersion(versionNumber = asFolderName, waterMarkTime = asDate, blob = blob)
 
   /** Read a list of the prefixes, taking optional start time. Lowest precision available is 1 hour
     * @return
@@ -32,23 +40,35 @@ object SynapseAzureBlobReaderExtensions:
     def getEligibleDates(
         storagePath: AdlsStoragePath,
         startFrom: OffsetDateTime
-    ): ZStream[Any, Throwable, (StoredBlob, String)] = for
-      _ <- zlogStream("Getting root prefixes starting from %s", startFrom.toString)
+    ): ZStream[Any, Throwable, StoredBlob] = for
       // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
       inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
+      _ <- zlogStream(
+        "Searching for Synapse batches from (inclusive) %s to %s (excluding)",
+        startFrom.toString,
+        inProgressDate
+      )
       inProgressDateParsed <- ZStream.succeed(
         OffsetDateTime.parse(inProgressDate, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX"))
       )
       prefix <- ZStream.fromIterable(getPrefixesList(startFrom, inProgressDateParsed))
       eligibleBlob <- reader
         .streamPrefixes(storagePath + prefix)
-        .map(blob => (interpretAsDate(blob), blob))
+        .map(blob => (blob.interpretAsDate, blob))
         .collect {
           case (Some(date), blob)
-              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && (!date.isEqual(inProgressDateParsed)) =>
-            (blob, inProgressDate)
+              // take dates strictly >= startFrom, < inProgressDate
+              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) =>
+            blob
         }
     yield eligibleBlob
+
+    /** Retrieve current batch in progress as StoredBlob without listing prefixes
+      * @return
+      */
+    def getCurrentBatch(storagePath: AdlsStoragePath): Task[StoredBlob] =
+      for latestBatch <- reader.readBlobContent(storagePath + "Changelog/changelog.info")
+      yield StoredBlob(name = latestBatch, createdOn = None)
 
 private def getPrefixesList(startDate: OffsetDateTime, endDate: OffsetDateTime): Seq[String] =
   val currentMoment = endDate.plusHours(1)

@@ -17,8 +17,7 @@ type MsSqlQueryResult = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[La
 
 /** Batch type for Microsoft Sql Server is a list of DataRow elements
   */
-type MsSqlBatch          = DataRow
-type MsSqlVersionedBatch = (DataRow, Long)
+type MsSqlBatch = DataRow
 
 extension (row: DataRow)
   private def handleSpecialTypes: DataRow =

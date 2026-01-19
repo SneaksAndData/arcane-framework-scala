@@ -2,6 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import services.storage.models.azure.AdlsStoragePath
+import services.storage.models.base.StoredBlob
+import services.synapse.SynapseBatchVersion
 import services.synapse.base.SynapseLinkReader
 import tests.shared.AzureStorageInfo.*
 
@@ -19,7 +21,11 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
-        allRows <- synapseLinkReader.getChanges(OffsetDateTime.now().minus(Duration.ofHours(12))).map(_ => 1).runSum
+        startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
+        allRows <- synapseLinkReader
+          .getChanges(SynapseBatchVersion(versionNumber = "", waterMarkTime = startFrom, blob = StoredBlob.empty))
+          .map(_ => 1)
+          .runSum // OffsetDateTime.now().minus(Duration.ofHours(12))
       // expect 30 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // 1 file skipped as it is the latest one
@@ -40,7 +46,12 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
           AdlsStoragePath(s"abfss://$malformedSchemaContainer@$storageAccount.dfs.core.windows.net/").get
         )
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
-        exit <- synapseLinkReader.getChanges(OffsetDateTime.now().minus(Duration.ofHours(12))).map(_ => 1).runSum.exit
+        startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
+        exit <- synapseLinkReader
+          .getChanges(SynapseBatchVersion(versionNumber = "", waterMarkTime = startFrom, blob = StoredBlob.empty))
+          .map(_ => 1)
+          .runSum
+          .exit
       yield assertTrue(exit.is(_.die).getMessage.startsWith("Unable to parse model.json file under location"))
     }
   ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock

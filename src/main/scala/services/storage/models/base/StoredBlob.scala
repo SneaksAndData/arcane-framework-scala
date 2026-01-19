@@ -36,3 +36,6 @@ case class StoredBlob(
       */
     createdOn: Option[Long]
 )
+
+object StoredBlob:
+  def empty: StoredBlob = new StoredBlob(name = "", createdOn = None)

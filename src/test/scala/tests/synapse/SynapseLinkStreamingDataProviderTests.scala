@@ -80,12 +80,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
-        rows <- provider.stream.map(_ => 1).runSum
+        rows <- provider.stream.runCollect()
       // expect 30 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // 1 file skipped as it is the latest one
       // plus there 1 record to be deleted
-      yield assertTrue(rows == 5 * (7 - 1) + 1 * (7 - 1))
+      yield assertTrue(rows.size == 5 * (7 - 1) + 1 * (7 - 1))
     },
     test("stream correct number of changes") {
       for
