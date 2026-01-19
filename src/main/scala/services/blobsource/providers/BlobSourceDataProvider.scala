@@ -3,11 +3,13 @@ package services.blobsource.providers
 
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.readers.BlobSourceReader
-import services.blobsource.{BlobSourceBatch, BlobSourceVersion, BlobSourceVersionedBatch}
+import services.blobsource.{BlobSourceBatch, BlobSourceVersion}
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
 import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
+
+import java.time.{Instant, OffsetDateTime, ZoneId, ZoneOffset}
 
 class BlobSourceDataProvider(
     sourceReader: BlobSourceReader,
@@ -17,10 +19,9 @@ class BlobSourceDataProvider(
     with BackfillDataProvider[BlobSourceBatch]:
 
   override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] = {
-    val backFillStart = backfillSettings.backfillStartDate.getOrElse( )
+    val backFillStart = backfillSettings.backfillStartDate.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
     sourceReader
-      .getChanges(BlobSourceVersion(versionNumber = backfillSettings.backfillStartDate.map(_.toInstant.toEpochMilli / 1000).getOrElse(0L).toString, waterMarkTime = backfillSettings.backfillStartDate.getOrElse()))
-      .map(_._1)
+      .getChanges(BlobSourceVersion(versionNumber = (backFillStart.toInstant.toEpochMilli / 1000).toString, waterMarkTime = backFillStart))
   }
 
   override def requestChanges(previousVersion: BlobSourceVersion): ZStream[Any, Throwable, BlobSourceBatch] =
@@ -28,7 +29,7 @@ class BlobSourceDataProvider(
 
   override def firstVersion: Task[BlobSourceVersion] = sourceReader.getStartFrom(settings.lookBackInterval)
 
-  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = ???
+  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = sourceReader.hasChanges(previousVersion)
 
   override def getCurrentVersion(previousVersion: BlobSourceVersion): Task[BlobSourceVersion] = sourceReader.getLatestVersion
 

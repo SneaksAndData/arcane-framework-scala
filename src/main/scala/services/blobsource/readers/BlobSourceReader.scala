@@ -25,3 +25,5 @@ trait BlobSourceReader:
   def getStartFrom(lookBackInterval: Duration): Task[BlobSourceVersion]
 
   def getLatestVersion: Task[BlobSourceVersion]
+  
+  def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean]

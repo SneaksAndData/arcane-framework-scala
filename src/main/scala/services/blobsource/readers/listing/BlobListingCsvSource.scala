@@ -8,6 +8,7 @@ import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 
+import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -32,8 +33,10 @@ class BlobListingCsvSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: Long): ZStream[Any, Throwable, (OutputRow, Long)] = ???
+  override def getChanges(startFrom: BlobSourceVersion): ZStream[Any, Throwable, OutputRow] = ???
 
-  override def getStartFrom(lookBackInterval: Duration): Task[Long] = ZIO.succeed(0)
+  override def getLatestVersion: Task[BlobSourceVersion] = ???
 
-  override def getLatestVersion: Task[Long] = ZIO.succeed(0)
+  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceVersion] = ???
+
+  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = ???

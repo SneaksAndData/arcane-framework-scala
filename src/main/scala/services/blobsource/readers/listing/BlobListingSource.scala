@@ -41,5 +41,9 @@ abstract class BlobListingSource[PathType <: BlobPath](
       )
     yield BlobSourceVersion(
       versionNumber = version.toString, OffsetDateTime.ofInstant(Instant.ofEpochMilli(version), ZoneOffset.UTC)
-    )  
+    )
+
+  // due to the fact that this is always called by StreamingDataProvider after comparing versions
+  // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files
+  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = ZIO.succeed(true)
   

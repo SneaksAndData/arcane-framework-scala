@@ -8,6 +8,7 @@ import models.settings.VersionedDataGraphBuilderSettings
 import services.blobsource.readers.BlobSourceReader
 import services.streaming.base.{RowProcessor, StreamDataProvider}
 
+import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
 import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
 
@@ -23,10 +24,20 @@ class BlobSourceStreamingDataProvider(
     *   a ZIO task that emits the version used for the last iteration
     * @return
     */
-  private def nextVersion(version: Task[Long]) = for
+  private def nextVersion(version: Task[BlobSourceVersion]) = for
     previousVersion <- version
-    newVersion      <- dataProvider.nextVersion
-    _ <- ZIO.when(newVersion <= previousVersion) {
+    newVersion      <- dataProvider.getCurrentVersion(previousVersion)
+    hasChanged <- ZIO.succeed(newVersion != previousVersion)
+    _ <- ZIO.when(hasChanged) {
+      for
+        _ <- zlog(
+          "Version has updated to %s",
+          newVersion.toString
+        )
+        _ <- dataProvider.hasChanges(previousVersion) // no-op here, this code will be integrated into generic provider interface
+      yield ()
+    }
+    _ <- ZIO.unless(hasChanged) {
       for
         _ <- zlog(
           "No version updates, next check in %s seconds, current version: %s",
@@ -36,15 +47,7 @@ class BlobSourceStreamingDataProvider(
         _ <- ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
       yield ()
     }
-  yield Some(
-    (newVersion, previousVersion) -> ZIO
-      .succeed(newVersion)
-      .flatMap(v => dataProvider.firstVersion.map(fv => (v, fv)))
-      .map {
-        case (nextVersion, lookbackVersion) if lookbackVersion < nextVersion => nextVersion
-        case (_, lookbackVersion)                                            => lookbackVersion
-      }
-  )
+  yield Some((newVersion, previousVersion) -> ZIO.succeed(newVersion))
 
   /** Returns the stream of elements.
     */
@@ -55,15 +58,11 @@ class BlobSourceStreamingDataProvider(
     ZStream
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)
       .flatMap {
-        case (newVersion, previousVersion) if newVersion > previousVersion =>
+        case (newVersion, previousVersion) if newVersion.versionNumber > previousVersion.versionNumber =>
           dataProvider.requestChanges(previousVersion)
-        // handle unversioned/initial case this way
-        case (newVersion, previousVersion) if newVersion == 0 && newVersion == previousVersion =>
-          dataProvider.requestChanges(previousVersion)
-        case _ =>
-          ZStream.empty
+        case _ => ZStream.empty
       }
-      .map(_._1.asInstanceOf[DataRow])
+      .map(_.asInstanceOf[DataRow])
 
 object BlobSourceStreamingDataProvider:
   private type Environment = BlobSourceDataProvider & VersionedDataGraphBuilderSettings & StreamContext

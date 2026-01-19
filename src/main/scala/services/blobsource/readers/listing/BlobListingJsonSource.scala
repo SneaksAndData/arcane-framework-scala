@@ -12,6 +12,7 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
+import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceVersion
 import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -46,8 +47,8 @@ class BlobListingJsonSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: Long): ZStream[Any, Throwable, (DataRow, Long)] = for
-    sourceFile <- reader.streamPrefixes(sourcePath).filter(_.createdOn.getOrElse(0L) >= startFrom)
+  override def getChanges(startFrom: BlobSourceVersion): ZStream[Any, Throwable, DataRow] = for
+    sourceFile <- reader.streamPrefixes(sourcePath).filter(_.createdOn.getOrElse(0L) >= startFrom.versionNumber.toLong)
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )
@@ -56,7 +57,7 @@ class BlobListingJsonSource[PathType <: BlobPath](
     row <- scanner.getRows.map(
       BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
     )
-  yield (row, sourceFile.createdOn.getOrElse(0L))
+  yield row
 
 object BlobListingJsonSource:
   def apply(
