@@ -153,7 +153,6 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
   // TODO: when watermark comparison is added, getEligibleDates can be skipped if diff(prev, current) <= changeTrackingInterval * 1.5
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
     * deleted records.
-    * @param startFrom
     *   Start date to get changes from
     * @return
     */
