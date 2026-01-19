@@ -9,6 +9,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.base.StreamDataProvider
 import services.synapse.base.SynapseLinkDataProvider
 
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.metrics.Metric
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -34,13 +35,13 @@ class SynapseLinkStreamingDataProvider(
         for
           previousVersion   <- version
           currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
-          hasVersionUpdated <- ZIO.succeed(previousVersion.versionNumber != currentVersion.versionNumber)
+          hasVersionUpdated <- ZIO.succeed(previousVersion.version != currentVersion.version)
           _ <- ZIO.when(hasVersionUpdated) {
             for
               _ <- zlog(
                 "Batch version updated from %s to %s, checking for changes",
-                previousVersion.versionNumber,
-                currentVersion.versionNumber
+                previousVersion.version,
+                currentVersion.version
               )
               _ <- checkEmpty(previousVersion)
             yield ()
@@ -49,7 +50,7 @@ class SynapseLinkStreamingDataProvider(
             for _ <- zlog(
                 "No changes, next check in %s seconds, staying at %s version",
                 settings.changeCaptureInterval.toSeconds.toString,
-                previousVersion.versionNumber
+                previousVersion.version
               ) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
             yield ()
           }
@@ -68,15 +69,15 @@ class SynapseLinkStreamingDataProvider(
         yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
       }
       .flatMap {
-        case (currentVersion, previousVersion) if currentVersion.versionNumber > previousVersion.versionNumber =>
+        case (currentVersion, previousVersion) if currentVersion.version > previousVersion.version =>
           dataProvider.requestChanges(previousVersion)
         case _ => ZStream.empty
       }
 
   // TODO: move to extension method befor implementing watermarking
-  private def checkEmpty(previousVersion: SynapseBatchVersion): Task[Unit] =
+  private def checkEmpty(previousVersion: SynapseWatermark): Task[Unit] =
     for
-      _         <- zlog(s"Received versioned batch: ${previousVersion.versionNumber}")
+      _         <- zlog(s"Received versioned batch: ${previousVersion.version}")
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
         zlog(
@@ -86,7 +87,7 @@ class SynapseLinkStreamingDataProvider(
         )
       }
       _ <- ZIO.when(isChanged) {
-        zlog(s"Data found in the batch: ${previousVersion.versionNumber}, continuing") *> ZIO.unit
+        zlog(s"Data found in the batch: ${previousVersion.version}, continuing") *> ZIO.unit
       }
     yield ()
 

@@ -12,14 +12,15 @@ import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
 import services.synapse.SynapseAzureBlobReaderExtensions.*
-import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseBatchVersion, SynapseEntitySchemaProvider}
+import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException}
 import java.time.format.DateTimeFormatter
-import java.time.{LocalDateTime, OffsetDateTime, ZoneId, ZoneOffset}
+import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneId, ZoneOffset}
 
 final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader)
     extends SchemaProvider[ArcaneSchema]:
@@ -48,15 +49,15 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     .streamPrefixes(storagePath + batchFolderName + entityName + "/")
     .filter(sb => sb.name.endsWith(".csv"))
 
-  private def enrichWithSchema(batchBlob: StoredBlob): ZStream[Any, Throwable, SchemaEnrichedBlob] = {
+  private def enrichWithSchema(prefix: String): ZStream[Any, Throwable, SchemaEnrichedBlob] = {
     ZStream
       .fromZIO(for
-        files <- getBatchFiles(batchBlob.name).runCollect // materialize CSV list to avoid double-querying storage
+        files <- getBatchFiles(prefix).runCollect // materialize CSV list to avoid double-querying storage
         _ <- zlog(
           "Found %s CSV files with changes for entity %s at batch folder %s",
           files.size.toString,
           entityName,
-          batchBlob.name
+          prefix
         )
         dataBlobs <- ZIO.when(files.nonEmpty) {
           for
@@ -65,7 +66,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
             // this allows to separate batch filtering for eligibility for processing, from batch data correctness checks
             orderedFiles <- SynapseEntitySchemaProvider(
               reader,
-              (storagePath + batchBlob.name).toHdfsPath,
+              (storagePath + prefix).toHdfsPath,
               entityName
             ).getSchema.map(schema =>
               files
@@ -82,7 +83,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
           zlogStream("Starting stream of the following: %s", files.map(_.blob.name).mkString(",")) *> ZStream
             .fromIterable(files)
         case None =>
-          zlogStream("Batch %s has no changes for the entity %s", batchBlob.name, entityName) *> ZStream.empty
+          zlogStream("Batch %s has no changes for the entity %s", prefix, entityName) *> ZStream.empty
       }
   }
 
@@ -94,8 +95,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     * @return
     *   A stream of rows for this table
     */
-  private def getEntityChangeData(version: SynapseBatchVersion): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    enrichWithSchema(version.blob)
+  private def getEntityChangeData(version: SynapseWatermark): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    enrichWithSchema(version.prefix)
 
   private def getFileStream(
       seb: SchemaEnrichedBlob
@@ -118,55 +119,52 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
       .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName with", e))
 
-  private def isValidSynapseBatch(eligibleDate: StoredBlob): ZIO[Any, Throwable, Boolean] = hasSchemaFile(
-    eligibleDate.name
-  )
+  private def isValidSynapseBatch(prefix: String): ZIO[Any, Throwable, Boolean] = hasSchemaFile(prefix)
 
   /** Get the latest batch folder that is ready for streaming
     * @param previousVersion
     *   Previous valid batch folder
     * @return
     */
-  def getCurrentVersion(previousVersion: SynapseBatchVersion): Task[SynapseBatchVersion] =
+  def getCurrentVersion(previousVersion: SynapseWatermark): Task[SynapseWatermark] =
     for
       synapseBlob <- reader.getCurrentBatch(storagePath).map {
         // in case of a read failure, fallback to previous version - should never happen, but framework expects this method to always succeed
         case version if version.interpretAsDate.isDefined => Some(version)
         case _                                            => None
       }
-      version <- ZIO.succeed(synapseBlob.getOrElse(previousVersion.blob))
-    yield SynapseBatchVersion(versionNumber = version.asFolderName, waterMarkTime = version.asDate, blob = version)
+    yield synapseBlob.map(_.asWatermark).getOrElse(previousVersion)
 
   /** TODO: temporary method that will be removed once watermarking is implemented. Should be replaced with watermark
     * read and fallback to reading all container in case watermark is not found
     * @param startFrom
     * @return
     */
-  def getVersion(startFrom: OffsetDateTime): Task[SynapseBatchVersion] =
-    for candidates <- reader.getEligibleDates(storagePath, startFrom).runCollect
-    yield candidates.minBy(_.asDate).asVersion
+  def getVersion(startFrom: OffsetDateTime): Task[SynapseWatermark] =
+    for
+      candidates <- reader.getEligibleDates(storagePath, startFrom).runCollect
+      allCandidates <- ZIO.when(candidates.isEmpty) {
+        for
+          all <- reader.getEligibleDates(storagePath, OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).runCollect
+        yield all
+      }
+    yield allCandidates.getOrElse(candidates).minBy(_.asDate).asWatermark
 
   /** Check if the provided batch folder has relevant changes - only take a batch that has model.json committed
     * @param latestVersion
     *   Watermark to check for changes
     * @return
     */
-  def hasChanges(latestVersion: SynapseBatchVersion): Task[Boolean] = ZStream
-    .succeed(latestVersion.blob)
-    .mapZIO(isValidSynapseBatch)
-    // fold booleans while isValidSynapseBatch returns false - meaning no parseable data found in the date string proposed
-    // when it returns true, stop early and return the result
-    // if the stream is exhausted without hitting `true`, it will return `false`, meaning no batches had any changes
-    .runFoldWhile(false)(!_)(_ | _)
+  def hasChanges(latestVersion: SynapseWatermark): Task[Boolean] = isValidSynapseBatch(latestVersion.prefix)
 
   // TODO: when watermark comparison is added, getEligibleDates can be skipped if diff(prev, current) <= changeTrackingInterval * 1.5
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
     * deleted records. Start date to get changes from
     * @return
     */
-  def getChanges(version: SynapseBatchVersion): ZStream[Any, Throwable, DataRow] = reader
-    .getEligibleDates(storagePath = storagePath, startFrom = version.waterMarkTime)
-    .map(_.asVersion)
+  def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, DataRow] = reader
+    .getEligibleDates(storagePath = storagePath, startFrom = version.timestamp)
+    .map(_.asWatermark)
     .flatMap(getChangesForVersion)
 
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
@@ -174,7 +172,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     *
     * @return
     */
-  private def getChangesForVersion(version: SynapseBatchVersion): ZStream[Any, Throwable, DataRow] =
+  private def getChangesForVersion(version: SynapseWatermark): ZStream[Any, Throwable, DataRow] =
     getEntityChangeData(version)
       .mapZIO(getFileStream)
       .flatMap { case (fileStream, fileSchema, blob) =>
@@ -184,14 +182,8 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
 
   def getData(startFrom: OffsetDateTime): ZStream[Any, Throwable, DataRow] = reader
     .getEligibleDates(storagePath, startFrom)
-    .filterZIO(isValidSynapseBatch)
-    .map(blob =>
-      SynapseBatchVersion(
-        versionNumber = blob.asFolderName,
-        waterMarkTime = blob.asDate,
-        blob = blob
-      )
-    )
+    .map(_.asWatermark)
+    .filterZIO(wm => isValidSynapseBatch(wm.prefix))
     .flatMap(getChangesForVersion)
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
