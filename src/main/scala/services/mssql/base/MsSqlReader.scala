@@ -3,13 +3,7 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
-import services.mssql.{
-  MsSqlChangeVersion,
-  MsSqlQueryResult,
-  QueryProvider,
-  SqlSchema,
-  given_Conversion_SqlDataRow_DataRow
-}
+import services.mssql.{MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
@@ -18,6 +12,7 @@ import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -114,11 +109,11 @@ class MsSqlReader(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(latestVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] =
+  def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
     ZStream
       .fromZIO(ZIO.scoped {
         for
-          changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
+          changesQuery <- this.getChangesQuery(latestVersion - 1)
 
           // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
           // And the LazyQueryResult will close the statement/result set when it is closed.
@@ -127,10 +122,10 @@ class MsSqlReader(
       })
       .flatMap(batch => unfoldBatch(batch))
 
-  def hasChanges(latestVersion: MsSqlChangeVersion): Task[Boolean] =
+  def hasChanges(latestVersion: MsSqlWatermark): Task[Boolean] =
     ZIO.scoped {
       for
-        changesQuery <- this.getChangesQuery(latestVersion.versionNumber - 1)
+        changesQuery <- this.getChangesQuery(latestVersion - 1)
 
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.

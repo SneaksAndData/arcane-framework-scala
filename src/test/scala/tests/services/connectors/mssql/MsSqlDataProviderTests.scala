@@ -86,7 +86,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         numberRowsToTake =
           5 // if set to 20, will run indefinitely since no elements will be emitted and cancelled will not be called
         provider              <- ZIO.succeed(MsSqlDataProvider(connection, graphSettings, backfillSettings))
-        streamingDataProvider <- ZIO.succeed(MsSqlStreamingDataProvider(provider, settings, streamContext))
+        streamingDataProvider <- ZIO.succeed(MsSqlStreamingDataProvider(provider, settings, backfillSettings, streamContext))
         lifetimeService       <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
         rows                  <- streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect
       yield assertTrue(rows.size == numberRowsToTake)

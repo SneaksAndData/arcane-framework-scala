@@ -76,6 +76,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
             graphSettings,
+            backfillSettings,
             backfillStreamContext,
             DeclaredMetrics(NullDimensionsProvider)
           )
@@ -98,6 +99,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
             graphSettings,
+            backfillSettings,
             changeCaptureStreamContext,
             DeclaredMetrics(NullDimensionsProvider)
           )
@@ -119,6 +121,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
             graphSettings,
+            backfillSettings,
             changeCaptureStreamContext,
             DeclaredMetrics(NullDimensionsProvider)
           )

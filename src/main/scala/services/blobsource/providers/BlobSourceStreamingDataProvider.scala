@@ -5,10 +5,10 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.blobsource.BlobSourceBatch
 import services.blobsource.versioning.BlobSourceWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 
-import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceBatch
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 

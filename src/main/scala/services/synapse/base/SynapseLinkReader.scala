@@ -211,6 +211,9 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     case FloatType            => value.toString.toFloat
     case ShortType            => value.toString.toShort
     case TimeType             => java.sql.Time.valueOf(value.toString)
+    case ListType(_, _) => throw new UnsupportedOperationException(s"Unsupported List type for field $fieldName")
+    case ObjectType => throw new UnsupportedOperationException(s"Unsupported Object type for field $fieldName")
+    case StructType(_) => throw new UnsupportedOperationException(s"Unsupported Struct type for field $fieldName")
 
   private def valueAsOffsetDateTime(value: Any): OffsetDateTime = value match
     case timestampValue: String if timestampValue.endsWith("Z") => OffsetDateTime.parse(timestampValue)

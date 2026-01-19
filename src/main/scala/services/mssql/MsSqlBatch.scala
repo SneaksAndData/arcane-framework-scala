@@ -9,8 +9,6 @@ import java.nio.ByteBuffer
 import java.sql.Timestamp
 import java.time.{LocalDateTime, OffsetDateTime, ZoneOffset}
 
-case class MsSqlChangeVersion(versionNumber: Long, waterMarkTime: OffsetDateTime)
-
 /** Represents a batch of data.
   */
 type MsSqlQueryResult = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]

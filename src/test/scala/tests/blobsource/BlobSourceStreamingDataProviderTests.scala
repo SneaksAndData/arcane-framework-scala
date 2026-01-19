@@ -55,7 +55,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, streamSettings, backfillSettings))
-        sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillStreamContext))
+        sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillSettings, backfillStreamContext))
         rows <- sdp.stream.runCount
       yield assertTrue(rows == 50 * 100)
     },
@@ -64,7 +64,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, streamSettings, backfillSettings))
-        sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, changeCaptureStreamContext))
+        sdp  <- ZIO.succeed(BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillSettings, changeCaptureStreamContext))
         rows <- sdp.stream.timeout(zio.Duration.fromSeconds(10)).runCount
       // since no new files are added to the storage, emitted amount should be equal to backfill run and do not increase
       yield assertTrue(rows == 50 * 100)
@@ -75,7 +75,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, emptyStreamSettings, backfillSettings))
         sdp <- ZIO.succeed(
-          BlobSourceStreamingDataProvider(dataProvider, emptyStreamSettings, changeCaptureStreamContext)
+          BlobSourceStreamingDataProvider(dataProvider, emptyStreamSettings, backfillSettings, changeCaptureStreamContext)
         )
         rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount
       yield assertTrue(rows == 0)

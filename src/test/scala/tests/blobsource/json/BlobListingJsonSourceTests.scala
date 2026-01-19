@@ -8,7 +8,7 @@ import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
 
-import com.sneaksanddata.arcane.framework.services.blobsource.BlobSourceWatermark
+import com.sneaksanddata.arcane.framework.services.blobsource.versioning.BlobSourceWatermark
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, Scope, ZIO}

@@ -1,14 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.providers.BlobSourceDataProvider
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
-import zio.{Task, ZIO}
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](    dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
@@ -61,7 +61,6 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
     
 
   override def stream: ZStream[Any, Throwable, RowType] = if streamContext.IsBackfilling then {
-    // pending https://github.com/SneaksAndData/arcane-framework-scala/issues/181 to avoid asInstanceOf
     dataProvider.requestBackfill
   } else
     ZStream
