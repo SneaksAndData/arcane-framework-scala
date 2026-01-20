@@ -6,6 +6,7 @@ import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.Task
 import zio.stream.ZStream
 
@@ -29,8 +30,8 @@ object SynapseAzureBlobReaderExtensions:
 
     def asDate: OffsetDateTime = interpretAsDate.get
 
-    def asVersion: SynapseBatchVersion =
-      SynapseBatchVersion(versionNumber = asFolderName, waterMarkTime = asDate, blob = blob)
+    def asWatermark: SynapseWatermark =
+      SynapseWatermark(version = asFolderName, timestamp = asDate, prefix = blob.name)
 
   /** Read a list of the prefixes, taking optional start time. Lowest precision available is 1 hour
     * @return

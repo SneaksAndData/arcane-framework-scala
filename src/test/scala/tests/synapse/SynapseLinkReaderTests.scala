@@ -3,9 +3,9 @@ package tests.synapse
 
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
-import services.synapse.SynapseBatchVersion
 import services.synapse.base.SynapseLinkReader
 import tests.shared.AzureStorageInfo.*
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -23,7 +23,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
-          .getChanges(SynapseBatchVersion(versionNumber = "", waterMarkTime = startFrom, blob = StoredBlob.empty))
+          .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
           .map(_ => 1)
           .runSum // OffsetDateTime.now().minus(Duration.ofHours(12))
       // expect 30 rows, since each file has 5 rows
@@ -48,7 +48,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader
-          .getChanges(SynapseBatchVersion(versionNumber = "", waterMarkTime = startFrom, blob = StoredBlob.empty))
+          .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
           .map(_ => 1)
           .runSum
           .exit

@@ -2,12 +2,13 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.providers
 
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
-import services.blobsource.{BlobSourceBatch, BlobSourceVersion}
+import services.blobsource.versioning.BlobSourceWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
-import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
+import zio.{Task, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneId, ZoneOffset}
 
@@ -15,7 +16,7 @@ class BlobSourceDataProvider(
     sourceReader: BlobSourceReader,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings
-) extends VersionedDataProvider[BlobSourceVersion, BlobSourceBatch]
+) extends VersionedDataProvider[BlobSourceWatermark, BlobSourceBatch]
     with BackfillDataProvider[BlobSourceBatch]:
 
   override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] = {
@@ -23,21 +24,19 @@ class BlobSourceDataProvider(
       backfillSettings.backfillStartDate.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
     sourceReader
       .getChanges(
-        BlobSourceVersion(
-          versionNumber = (backFillStart.toInstant.toEpochMilli / 1000).toString,
-          waterMarkTime = backFillStart
-        )
+        BlobSourceWatermark.fromEpochSecond(backFillStart.toInstant.toEpochMilli / 1000)
       )
   }
 
-  override def requestChanges(previousVersion: BlobSourceVersion): ZStream[Any, Throwable, BlobSourceBatch] =
+  override def requestChanges(previousVersion: BlobSourceWatermark): ZStream[Any, Throwable, BlobSourceBatch] =
     sourceReader.getChanges(previousVersion)
 
-  override def firstVersion: Task[BlobSourceVersion] = sourceReader.getStartFrom(settings.lookBackInterval)
+  override def firstVersion: Task[BlobSourceWatermark] = sourceReader.getStartFrom(settings.lookBackInterval)
 
-  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = sourceReader.hasChanges(previousVersion)
+  override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
+    sourceReader.hasChanges(previousVersion)
 
-  override def getCurrentVersion(previousVersion: BlobSourceVersion): Task[BlobSourceVersion] =
+  override def getCurrentVersion(previousVersion: BlobSourceWatermark): Task[BlobSourceWatermark] =
     sourceReader.getLatestVersion
 
 object BlobSourceDataProvider:

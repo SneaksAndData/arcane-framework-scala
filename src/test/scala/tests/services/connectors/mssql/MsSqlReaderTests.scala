@@ -6,8 +6,9 @@ import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
 import models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
+import services.mssql.QueryProvider
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
-import services.mssql.{MsSqlChangeVersion, QueryProvider}
+import services.mssql.versioning.MsSqlWatermark
 import tests.services.connectors.mssql.util.MsSqlTestServices.*
 
 import org.scalatest.*
@@ -19,7 +20,7 @@ import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
+import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.List
 import scala.language.postfixOps
 import scala.util.Success
@@ -337,9 +338,9 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         rows <- connector
           .getChanges(
-            MsSqlChangeVersion(
-              versionNumber = 1,
-              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            MsSqlWatermark(
+              version = "1",
+              timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
           .runCollect
@@ -377,9 +378,9 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         rows <- connector
           .getChanges(
-            MsSqlChangeVersion(
-              versionNumber = 1,
-              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            MsSqlWatermark(
+              version = "1",
+              timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
           .runCollect
@@ -416,9 +417,9 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         rows <- connector
           .getChanges(
-            MsSqlChangeVersion(
-              versionNumber = 1,
-              waterMarkTime = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            MsSqlWatermark(
+              version = "1",
+              timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
           .runCollect
@@ -443,13 +444,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         maybeVersion <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
         version      <- ZIO.getOrFail(maybeVersion)
         commitTime   <- connector.getVersionCommitTime(version)
-        rows <- connector.getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = commitTime)).runCollect
+        rows         <- connector.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )
 
         rowsAfterDelete <- connector
-          .getChanges(MsSqlChangeVersion(versionNumber = version, waterMarkTime = nextTime))
+          .getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, nextTime))
           .runCollect
       yield assertTrue(
         rowsAfterDelete.exists(row =>

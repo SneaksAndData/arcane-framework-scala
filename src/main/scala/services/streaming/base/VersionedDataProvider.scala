@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import com.sneaksanddata.arcane.framework.models.schemas.DataRow
 import zio.Task
 import zio.stream.ZStream
 
@@ -11,7 +12,7 @@ import zio.stream.ZStream
   * @tparam DataBatchType
   *   The type of the data batch.
   */
-trait VersionedDataProvider[DataVersionType, DataBatchType]:
+trait VersionedDataProvider[DataVersionType <: SourceWatermark[String], DataBatchType <: DataRow]:
   /** Checks whether the provided watermark from previous iteration has accrued any changes in [previousVersion ... now]
     * interval
     * @param previousVersion

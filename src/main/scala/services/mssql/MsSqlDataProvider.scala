@@ -5,6 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.mssql.base.MsSqlReader
+import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
 import zio.stream.ZStream
@@ -20,15 +21,15 @@ class MsSqlDataProvider(
     reader: MsSqlReader,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings
-) extends VersionedDataProvider[MsSqlChangeVersion, DataRow]
+) extends VersionedDataProvider[MsSqlWatermark, DataRow]
     with BackfillDataProvider[DataRow]:
 
-  override def requestChanges(previousVersion: MsSqlChangeVersion): ZStream[Any, Throwable, DataRow] =
+  override def requestChanges(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
     reader.getChanges(previousVersion)
 
-  def hasChanges(previousVersion: MsSqlChangeVersion): Task[Boolean] = reader.hasChanges(previousVersion)
+  def hasChanges(previousVersion: MsSqlWatermark): Task[Boolean] = reader.hasChanges(previousVersion)
 
-  def getCurrentVersion(previousVersion: MsSqlChangeVersion): Task[MsSqlChangeVersion] =
+  def getCurrentVersion(previousVersion: MsSqlWatermark): Task[MsSqlWatermark] =
     for
       // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
       version <- reader
@@ -36,14 +37,14 @@ class MsSqlDataProvider(
         .flatMap {
           case Some(value) =>
             for commitTime <- reader.getVersionCommitTime(value)
-            yield MsSqlChangeVersion(versionNumber = value, waterMarkTime = commitTime)
+            yield MsSqlWatermark.fromChangeTrackingVersion(value, commitTime)
           case None => ZIO.succeed(previousVersion)
         }
     yield version
 
   /** The first version of the data.
     */
-  override def firstVersion: Task[MsSqlChangeVersion] =
+  override def firstVersion: Task[MsSqlWatermark] =
     for
       lookBackTime <- ZIO.succeed(
         OffsetDateTime.ofInstant(Instant.now().minusSeconds(settings.lookBackInterval.toSeconds), ZoneOffset.UTC)
@@ -60,7 +61,7 @@ class MsSqlDataProvider(
           }
         yield currentVersion.getOrElse(Long.MaxValue)
       commitTime <- reader.getVersionCommitTime(version.getOrElse(fallbackVersion))
-    yield MsSqlChangeVersion(versionNumber = version.getOrElse(fallbackVersion), waterMarkTime = commitTime)
+    yield MsSqlWatermark.fromChangeTrackingVersion(version.getOrElse(fallbackVersion), commitTime)
 
   /** Provides the backfill data.
     *

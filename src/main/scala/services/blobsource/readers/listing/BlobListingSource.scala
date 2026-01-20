@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
-import services.blobsource.BlobSourceVersion
 import services.blobsource.readers.BlobSourceReader
+import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
 
@@ -22,20 +22,15 @@ abstract class BlobListingSource[PathType <: BlobPath](
     */
   protected val mergeKeyHasher: MessageDigest = MessageDigest.getInstance("SHA-256")
 
-  override def getLatestVersion: Task[BlobSourceVersion] = reader
+  override def getLatestVersion: Task[BlobSourceWatermark] = reader
     .streamPrefixes(sourcePath)
     .map(_.createdOn.getOrElse(0L))
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
-    .map(createdOn =>
-      BlobSourceVersion(
-        versionNumber = createdOn.toString,
-        waterMarkTime = OffsetDateTime.ofInstant(Instant.ofEpochMilli(createdOn), ZoneOffset.UTC)
-      )
-    )
+    .map(BlobSourceWatermark.fromEpochSecond)
 
   // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
   // thus they always act like they lookback until beginning of time
-  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceVersion] =
+  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceWatermark] =
     for version <- ZIO.succeed(
         OffsetDateTime
           .now()
@@ -43,11 +38,8 @@ abstract class BlobListingSource[PathType <: BlobPath](
           .toInstant
           .toEpochMilli / 1000
       )
-    yield BlobSourceVersion(
-      versionNumber = version.toString,
-      OffsetDateTime.ofInstant(Instant.ofEpochMilli(version), ZoneOffset.UTC)
-    )
+    yield BlobSourceWatermark.fromEpochSecond(version)
 
   // due to the fact that this is always called by StreamingDataProvider after comparing versions
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files
-  override def hasChanges(previousVersion: BlobSourceVersion): Task[Boolean] = ZIO.succeed(true)
+  override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ZIO.succeed(true)
