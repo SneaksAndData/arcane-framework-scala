@@ -4,8 +4,6 @@ package models.schemas
 import models.schemas.ArcaneType.StringType
 import services.streaming.base.{JsonWatermark, MetadataEnrichedRowStreamElement, SourceWatermark}
 
-import upickle.ReadWriter
-
 /** Represents a row of data.
   */
 type DataRow = List[DataCell]
@@ -24,7 +22,14 @@ case class DataCell(name: String, Type: ArcaneType, value: Any)
 /** Companion object for [[DataCell]].
   */
 object DataCell:
+  private val watermarkCellName = "watermark"
+
   def apply(name: String, Type: ArcaneType, value: Any): DataCell = new DataCell(name, Type, value)
+  def watermark(value: String): DataCell = new DataCell(
+    watermarkCellName,
+    StringType,
+    value
+  )
 
   /** Extension method to get the schema of a DataRow.
     */
@@ -35,6 +40,18 @@ object DataCell:
         case (schema, cell)                                    => schema ++ Seq(Field(cell.name, cell.Type))
       }
 
+  /** Checks if the cell holds a watermark
+    */
+  extension (cell: DataCell) def isWatermark: Boolean = cell.name == watermarkCellName
+
+  /** Checks if the row contains a watermark cell
+    */
+  extension (row: DataRow) def isWatermark: Boolean = row.size == 1 && row.head.isWatermark
+
+  /** Checks if the row contains a watermark cell
+   */
+  extension (row: DataRow) def getWatermark: Option[String] = row.find(_.isWatermark).map(_.value.toString) 
+
 given NamedCell[DataCell] with
   extension (field: DataCell) def name: String = field.name
 
@@ -43,12 +60,8 @@ given MetadataEnrichedRowStreamElement[DataRow] with
   extension (a: DataRow) def toDataRow: DataRow   = a
   extension (a: DataRow) def fromDataRow: DataRow = a
 
-case object JsonWatermarkRow:
+object JsonWatermarkRow:
   def apply(watermark: JsonWatermark): DataRow =
     List(
-      DataCell(
-        name = "watermark",
-        Type = StringType,
-        value = watermark.toJson
-      )
+      DataCell.watermark(watermark.toJson)
     )

@@ -69,14 +69,23 @@ class StagingProcessor(
       onBatchStaged: OnBatchStaged
   ): Task[StagedVersionedBatch & MergeableBatch] =
     for
-      table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+      // check if watermark row has been emitted and pass it down the pipeline
+      maybeWatermark <- ZIO.succeed(rows.par.find(_.isWatermark).flatMap(_.getWatermark))
+      // avoid failure by trying to commit watermark row if present
+      filteredRows <- ZIO.when(maybeWatermark.isDefined) {
+        for
+          filtered <- ZIO.filterPar(rows)(r => ZIO.succeed(!r.isWatermark))
+        yield filtered
+      }
+      table <- catalogWriter.write(filteredRows.getOrElse(rows), stagingDataSettings.newStagingTableName, arcaneSchema)
       batch = onBatchStaged(
         table,
         icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
         targetTableSettings.targetTableFullName,
-        tablePropertiesSettings
+        tablePropertiesSettings,
+        maybeWatermark
       )
     yield batch
 
