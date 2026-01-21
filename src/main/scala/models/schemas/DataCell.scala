@@ -1,7 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.schemas
 
-import services.streaming.base.MetadataEnrichedRowStreamElement
+import models.schemas.ArcaneType.StringType
+import services.streaming.base.{JsonWatermark, MetadataEnrichedRowStreamElement, SourceWatermark}
+
+import upickle.ReadWriter
 
 /** Represents a row of data.
   */
@@ -39,3 +42,13 @@ given MetadataEnrichedRowStreamElement[DataRow] with
   extension (a: DataRow) def isDataRow: Boolean   = a.isInstanceOf[DataRow]
   extension (a: DataRow) def toDataRow: DataRow   = a
   extension (a: DataRow) def fromDataRow: DataRow = a
+
+case object JsonWatermarkRow:
+  def apply(watermark: JsonWatermark): DataRow =
+    List(
+      DataCell(
+        name = "watermark",
+        Type = StringType,
+        value = watermark.toJson
+      )
+    )

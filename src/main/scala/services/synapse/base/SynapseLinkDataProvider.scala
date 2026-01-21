@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
 import logging.ZIOLogAnnotations.zlog
+import models.schemas.JsonWatermarkRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import services.synapse.SynapseLinkBatch
@@ -20,7 +21,7 @@ class SynapseLinkDataProvider(
     with BackfillDataProvider[SynapseLinkBatch]:
 
   override def requestChanges(previousVersion: SynapseWatermark): ZStream[Any, Throwable, SynapseLinkBatch] =
-    synapseReader.getChanges(previousVersion)
+    synapseReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(previousVersion)))
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
     case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
