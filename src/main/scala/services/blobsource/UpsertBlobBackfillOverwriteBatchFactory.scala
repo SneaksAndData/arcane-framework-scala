@@ -38,7 +38,8 @@ class UpsertBlobBackfillOverwriteBatchFactory(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
-      tablePropertiesSettings
+      tablePropertiesSettings,
+      None // TODO: requires watermark to be provided
     )
 
 /** The companion object for the BlobSourceBackfillOverwriteBatchFactory class.

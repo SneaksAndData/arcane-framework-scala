@@ -19,10 +19,11 @@ class SynapseHookManager extends DefaultHookManager:
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): StagedVersionedBatch & MergeableBatch =
     val batchName = table.name().split('.').last
-    SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
+    SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
 
 object SynapseHookManager:
   /** The required environment for the DefaultHookManager.

@@ -17,10 +17,11 @@ class UpsertBlobHookManager extends DefaultHookManager:
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): StagedVersionedBatch & MergeableBatch =
     val batchName = table.name().split('.').last
-    UpsertBlobMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
+    UpsertBlobMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
 
 object UpsertBlobHookManager:
   /** The required environment for the DefaultHookManager.

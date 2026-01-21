@@ -34,7 +34,8 @@ class SynapseBackfillOverwriteBatchFactory(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
-      tablePropertiesSettings
+      tablePropertiesSettings,
+      None // TODO: requires watermark read
     )
 
 /** The companion object for the SynapseBackfillOverwriteBatchFactory class.

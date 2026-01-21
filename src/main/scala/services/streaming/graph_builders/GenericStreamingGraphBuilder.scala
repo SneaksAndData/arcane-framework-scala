@@ -8,7 +8,7 @@ import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -24,6 +24,7 @@ class GenericStreamingGraphBuilder(
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
     disposeBatchProcessor: DisposeBatchProcessor,
+    watermarkProcessor: WatermarkProcessor,
     sourceBufferingSettings: SourceBufferingSettings
 ) extends StreamingGraphBuilder
     with BackfillSubStream:
@@ -41,6 +42,7 @@ class GenericStreamingGraphBuilder(
       .via(groupTransformer.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
       .via(mergeProcessor.process)
+      .via(watermarkProcessor.process)
       .via(disposeBatchProcessor.process)
 
 object GenericStreamingGraphBuilder:
@@ -63,7 +65,7 @@ object GenericStreamingGraphBuilder:
   /** The environment required for the GenericStreamingGraphBuilder.
     */
   type Environment = StreamDataProvider & GenericGroupingTransformer & FieldFilteringTransformer & StagingProcessor &
-    MergeBatchProcessor & DisposeBatchProcessor & StreamLifetimeService & SourceBufferingSettings
+    MergeBatchProcessor & DisposeBatchProcessor & StreamLifetimeService & WatermarkProcessor & SourceBufferingSettings
 
   /** Creates a new GenericStreamingGraphBuilder.
     * @param streamDataProvider
@@ -88,7 +90,8 @@ object GenericStreamingGraphBuilder:
       stagingProcessor: StagingProcessor,
       mergeProcessor: MergeBatchProcessor,
       disposeBatchProcessor: DisposeBatchProcessor,
-      sourceBufferingSettings: SourceBufferingSettings
+      sourceBufferingSettings: SourceBufferingSettings,
+      watermarkProcessor: WatermarkProcessor
   ): GenericStreamingGraphBuilder =
     new GenericStreamingGraphBuilder(
       streamDataProvider,
@@ -97,6 +100,7 @@ object GenericStreamingGraphBuilder:
       stagingProcessor,
       mergeProcessor,
       disposeBatchProcessor,
+      watermarkProcessor,
       sourceBufferingSettings
     )
 
@@ -112,6 +116,7 @@ object GenericStreamingGraphBuilder:
         stagingProcessor        <- ZIO.service[StagingProcessor]
         mergeProcessor          <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor   <- ZIO.service[DisposeBatchProcessor]
+        watermarkProcessor   <- ZIO.service[WatermarkProcessor]
         sourceBufferingSettings <- ZIO.service[SourceBufferingSettings]
       yield GenericStreamingGraphBuilder(
         streamDataProvider,
@@ -120,7 +125,8 @@ object GenericStreamingGraphBuilder:
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
-        sourceBufferingSettings
+        sourceBufferingSettings,
+        watermarkProcessor,
       )
     }
 
@@ -138,6 +144,7 @@ object GenericStreamingGraphBuilder:
         stagingProcessor        <- ZIO.service[StagingProcessor]
         mergeProcessor          <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor   <- ZIO.service[DisposeBatchProcessor]
+        watermarkProcessor   <- ZIO.service[WatermarkProcessor]
         sourceBufferingSettings <- ZIO.service[SourceBufferingSettings]
       yield GenericStreamingGraphBuilder(
         streamDataProvider,
@@ -146,6 +153,7 @@ object GenericStreamingGraphBuilder:
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
-        sourceBufferingSettings
+        sourceBufferingSettings,
+        watermarkProcessor
       )
     }
