@@ -108,7 +108,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       // expect 5 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // lookback is 3 hours which should only capture 1 file
-      yield assertTrue(rows == 5 + 1)
+      // one row should be watermark
+      yield assertTrue(rows == 5 + 1 + 1)
     },
     test("stream changes in the correct order") {
       for
@@ -126,7 +127,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
-        rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCollect
+        rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(2)).runCollect
       // delete must ALWAYS come last, otherwise there is a risk of re-inserting the same row
       yield assertTrue(rows.toList.zipWithIndex.filter(r => isDelete(r._1)).head._2 == 5) &&
         assertTrue(
