@@ -16,7 +16,7 @@ import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
@@ -77,10 +77,11 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           EasyMock.anyString(),
           EasyMock.anyObject(),
           EasyMock.anyString(),
+          EasyMock.anyObject(),
           EasyMock.anyObject()
         )
         .andReturn(
-          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings)
+          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings, None)
         )
         .times(streamRepeatCount)
 
@@ -137,7 +138,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         }),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
-        ArcaneDimensionsProvider.layer
+        ArcaneDimensionsProvider.layer,
+        WatermarkProcessor.layer
       )
 
     // Act

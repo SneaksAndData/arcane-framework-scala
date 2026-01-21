@@ -87,7 +87,8 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      TestTablePropertiesSettings
+      TestTablePropertiesSettings,
+      Some("1234")
     )
 
     val expected =
@@ -121,7 +122,8 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)")),
+      Some("1234")
     )
 
     val expected =
@@ -155,7 +157,8 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)"))
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)")),
+      None
     )
 
     val expected =
@@ -197,7 +200,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     )
     forAll(mergeKeyStatements) { (partitionSpec, expectation) =>
       val tablePropertiesSettings = CustomTablePropertiesSettings(partitionSpec)
-      val batch = SynapseLinkMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings)
+      val batch = SynapseLinkMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings, None)
       val expected = Using(Source.fromURL(getClass.getResource(s"/$expectation.sql"))) {
         _.getLines().mkString("\n")
       }.get

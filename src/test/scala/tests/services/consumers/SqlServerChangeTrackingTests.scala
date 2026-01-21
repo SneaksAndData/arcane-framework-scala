@@ -76,7 +76,8 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      TestTablePropertiesSettings
+      TestTablePropertiesSettings,
+      Some("1234")
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
@@ -101,7 +102,8 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
         )
       ),
       "test.table_a",
-      CustomTablePropertiesSettings(Seq("bucket(colA, 32)"))
+      CustomTablePropertiesSettings(Seq("bucket(colA, 32)")),
+      Some("1234")
     )
 
     val expected =
@@ -133,7 +135,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     forAll(mergeKeyStatements) { (partitionSpec, expectation) =>
       val tablePropertiesSettings = CustomTablePropertiesSettings(partitionSpec)
       val batch =
-        SqlServerChangeTrackingMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings)
+        SqlServerChangeTrackingMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings, None)
       val expected = Using(Source.fromURL(getClass.getResource(s"/$expectation.sql"))) {
         _.getLines().mkString("\n")
       }.get
