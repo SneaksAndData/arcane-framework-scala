@@ -73,8 +73,7 @@ class StagingProcessor(
       maybeWatermark <- ZIO.succeed(rows.par.find(_.isWatermark).flatMap(_.getWatermark))
       // avoid failure by trying to commit watermark row if present
       filteredRows <- ZIO.when(maybeWatermark.isDefined) {
-        for
-          filtered <- ZIO.filterPar(rows)(r => ZIO.succeed(!r.isWatermark))
+        for filtered <- ZIO.filterPar(rows)(r => ZIO.succeed(!r.isWatermark))
         yield filtered
       }
       table <- catalogWriter.write(filteredRows.getOrElse(rows), stagingDataSettings.newStagingTableName, arcaneSchema)

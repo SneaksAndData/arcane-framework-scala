@@ -3,7 +3,11 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
-import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.batches.{
+  SqlServerChangeTrackingMergeBatch,
+  StagedBackfillOverwriteBatch,
+  SynapseLinkBackfillOverwriteBatch
+}
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
@@ -11,11 +15,20 @@ import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
-import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
+import services.streaming.base.{
+  BackfillOverwriteBatchFactory,
+  BackfillStreamingOverwriteDataProvider,
+  HookManager,
+  StreamDataProvider
+}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
@@ -56,7 +69,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       mock[HookManager],
       new BackfillOverwriteBatchFactory {
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None))
+          ZIO.succeed(
+            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+          )
       }
     )
 
@@ -88,7 +103,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       mock[HookManager],
       new BackfillOverwriteBatchFactory:
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None))
+          ZIO.succeed(
+            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+          )
     )
 
     // Act
@@ -162,7 +179,13 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           EasyMock.anyObject()
         )
         .andReturn(
-          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings, None)
+          SqlServerChangeTrackingMergeBatch(
+            "test",
+            ArcaneSchema(Seq(MergeKeyField)),
+            "test",
+            TablePropertiesSettings,
+            None
+          )
         )
         .times(streamRepeatCount)
     }
@@ -194,7 +217,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(new BackfillOverwriteBatchFactory {
           override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-            ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None))
+            ZIO.succeed(
+              SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+            )
         }),
         ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
         ZLayer.succeed(disposeServiceClient),

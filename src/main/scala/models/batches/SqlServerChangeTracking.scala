@@ -75,7 +75,7 @@ class SqlServerChangeTrackingBackfillBatch(
   override val batchQuery: OverwriteQuery =
     SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
-  override val completedWatermarkValue: Option[String] = watermarkValue  
+  override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SqlServerChangeTrackingBackfillBatch:
   /** */
@@ -86,7 +86,13 @@ object SqlServerChangeTrackingBackfillBatch:
       tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): StagedBackfillOverwriteBatch =
-    new SqlServerChangeTrackingBackfillBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
+    new SqlServerChangeTrackingBackfillBatch(
+      batchName,
+      batchSchema,
+      targetName,
+      tablePropertiesSettings,
+      watermarkValue
+    )
 
 class SqlServerChangeTrackingMergeBatch(
     batchName: String,
@@ -116,7 +122,7 @@ class SqlServerChangeTrackingMergeBatch(
       columns = schema.map(f => f.name)
     )
 
-  override val completedWatermarkValue: Option[String] = watermarkValue 
+  override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SqlServerChangeTrackingMergeBatch:
   def apply(

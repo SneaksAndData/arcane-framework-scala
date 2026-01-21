@@ -129,7 +129,14 @@ object SynapseLinkMergeBatch:
       tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): SynapseLinkMergeBatch =
-    new SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name, watermarkValue)
+    new SynapseLinkMergeBatch(
+      batchName,
+      batchSchema,
+      targetName,
+      tablePropertiesSettings,
+      batchSchema.mergeKey.name,
+      watermarkValue
+    )
 
 class SynapseLinkBackfillMergeBatch(
     batchName: String,

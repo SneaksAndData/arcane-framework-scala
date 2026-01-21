@@ -62,9 +62,9 @@ class UpsertBlobBackfillOverwriteBatch(
   override def reduceExpr: String = s"""SELECT * FROM $name""".stripMargin
 
   override val batchQuery: OverwriteQuery = UpsertBlobBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
-  /**
-   * Serialized watermark value that is supplied if the batch is completed
-   */
+
+  /** Serialized watermark value that is supplied if the batch is completed
+    */
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object UpsertBlobBackfillOverwriteBatch:
@@ -102,7 +102,7 @@ class UpsertBlobMergeBatch(
        | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${BlobBatchCommons.versionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
 
-  override val completedWatermarkValue: Option[String] = watermarkValue     
+  override val completedWatermarkValue: Option[String] = watermarkValue
 
   override val batchQuery: MergeQuery =
     UpsertBlobMergeQuery(
@@ -121,7 +121,14 @@ object UpsertBlobMergeBatch:
       tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): UpsertBlobMergeBatch =
-    new UpsertBlobMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name, watermarkValue)
+    new UpsertBlobMergeBatch(
+      batchName,
+      batchSchema,
+      targetName,
+      tablePropertiesSettings,
+      batchSchema.mergeKey.name,
+      watermarkValue
+    )
 
 class UpsertBlobBackfillMergeBatch(
     batchName: String,

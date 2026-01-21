@@ -49,8 +49,8 @@ object DataCell:
   extension (row: DataRow) def isWatermark: Boolean = row.size == 1 && row.head.isWatermark
 
   /** Checks if the row contains a watermark cell
-   */
-  extension (row: DataRow) def getWatermark: Option[String] = row.find(_.isWatermark).map(_.value.toString) 
+    */
+  extension (row: DataRow) def getWatermark: Option[String] = row.find(_.isWatermark).map(_.value.toString)
 
 given NamedCell[DataCell] with
   extension (field: DataCell) def name: String = field.name

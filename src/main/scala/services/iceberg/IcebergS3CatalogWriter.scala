@@ -200,21 +200,20 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
     table        <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
     updatedTable <- appendData(data, schema, false, table)
   yield updatedTable
-  
+
   override def comment(tableName: String, text: String): Task[Unit] = for
     tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
     catalog <- getCatalog
-    table <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
-    _ <- ZIO.attemptBlocking(table.updateProperties().set("comment", text).commit())
+    table   <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
+    _       <- ZIO.attemptBlocking(table.updateProperties().set("comment", text).commit())
   yield ()
 
   override def getProperty(tableName: String, propertyName: String): Task[String] = for
-    tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
-    catalog <- getCatalog
-    table <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
+    tableId    <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
+    catalog    <- getCatalog
+    table      <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
     properties <- ZIO.attemptBlocking(table.properties())
   yield properties.get(propertyName)
-
 
 object IcebergS3CatalogWriter:
 

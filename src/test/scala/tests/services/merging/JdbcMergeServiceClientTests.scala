@@ -107,7 +107,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_a")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
 
@@ -122,7 +128,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_disposed")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
 
@@ -137,7 +149,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_optimized")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
 
@@ -150,7 +168,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_snapshot_expire")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
 
@@ -163,7 +187,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_orphan_files_expire")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
 
@@ -176,7 +206,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_schema_migrated")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
         updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
@@ -199,7 +235,13 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("table_schema_migrations")
         batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(s"test.staged_$tableName", schema, s"test.$tableName", TestTablePropertiesSettings, None)
+          SynapseLinkMergeBatch(
+            s"test.staged_$tableName",
+            schema,
+            s"test.$tableName",
+            TestTablePropertiesSettings,
+            None
+          )
         )
         _ <- setupTable(tableName)
         updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::

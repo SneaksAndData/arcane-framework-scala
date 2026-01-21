@@ -30,9 +30,8 @@ trait StagedBatch:
     */
   val batchQuery: Query
 
-  /**
-   * Serialized watermark value that is supplied if the batch is completed
-   */
+  /** Serialized watermark value that is supplied if the batch is completed
+    */
   val completedWatermarkValue: Option[String]
 
   /** Query that aggregates transactions in the batch to enable merge or overwrite
