@@ -8,7 +8,7 @@ import models.batches.{
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, Field, MergeKeyField}
 import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
@@ -30,11 +30,12 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.services.streaming.processors.utils.TestIndexedStagedBatches
+import services.streaming.processors.transformers.{FieldFilteringTransformer, IndexedStagedBatches, StagingProcessor}
+import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
@@ -56,7 +57,28 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
     val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
     expecting {
-      streamingGraphBuilder.produce(EasyMock.anyObject()).andReturn(ZStream.range(0, streamRepeatCount)).times(1)
+      streamingGraphBuilder
+        .produce(EasyMock.anyObject())
+        .andReturn(
+          ZStream.fromIterable(
+            Seq(
+              TestIndexedStagedBatches(
+                groupedBySchema = Seq(
+                  TestStageVersionedBatch(
+                    "test",
+                    ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                    "target_test",
+                    TestTablePropertiesSettings,
+                    "col0",
+                    Some("123")
+                  )
+                ),
+                batchIndex = 1
+              )
+            )
+          )
+        )
+        .times(1)
     }
 
     replay(streamingGraphBuilder)
@@ -88,7 +110,26 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
 
     expecting {
-      streamingGraphBuilder.produce(EasyMock.anyObject()).andReturn(ZStream.repeat(Chunk.empty)).times(1)
+      streamingGraphBuilder
+        .produce(EasyMock.anyObject())
+        .andReturn(
+          ZStream.repeat(
+            TestIndexedStagedBatches(
+              groupedBySchema = Seq(
+                TestStageVersionedBatch(
+                  "test",
+                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                  "target_test",
+                  TestTablePropertiesSettings,
+                  "col0",
+                  Some("123")
+                )
+              ),
+              batchIndex = 1
+            )
+          )
+        )
+        .times(1)
     }
 
     replay(streamingGraphBuilder)
