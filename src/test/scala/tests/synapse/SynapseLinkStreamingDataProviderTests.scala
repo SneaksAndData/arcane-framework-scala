@@ -109,7 +109,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // 1 file skipped as it is the latest one
       // plus there 1 record to be deleted
-      yield assertTrue(rows.size == 5 * (7 - 1) + 1 * (7 - 1))
+      // plus final row must be watermark row
+      yield assertTrue((rows.size == 5 * (7 - 1) + 1 * (7 - 1) + 1) && rows.last.isWatermark)
     },
     test("stream correct number of changes") {
       for
