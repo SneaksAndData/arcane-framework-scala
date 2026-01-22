@@ -67,9 +67,10 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
-      (watermark: Option[String]) => ZIO.succeed(
-        SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-      )
+      (watermark: Option[String]) =>
+        ZIO.succeed(
+          SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
+        )
     )
 
     // Act
@@ -98,9 +99,10 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
-      (watermark: Option[String]) => ZIO.succeed(
-        SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-      )
+      (watermark: Option[String]) =>
+        ZIO.succeed(
+          SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
+        )
     )
 
     // Act

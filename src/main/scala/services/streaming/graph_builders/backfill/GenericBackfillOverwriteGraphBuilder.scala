@@ -50,7 +50,8 @@ object GenericBackfillOverwriteGraphBuilder:
 
   /** The environment required for the GenericBackfillGraphBuilder.
     */
-  type Environment = StreamDataProvider & BackfillStreamingOverwriteDataProvider & BackfillApplyBatchProcessor & BackfillOverwriteWatermarkProcessor
+  type Environment = StreamDataProvider & BackfillStreamingOverwriteDataProvider & BackfillApplyBatchProcessor &
+    BackfillOverwriteWatermarkProcessor
 
   /** Creates a new GenericBackfillGraphBuilder.
     * @param streamDataProvider
@@ -84,6 +85,6 @@ object GenericBackfillOverwriteGraphBuilder:
       for
         streamDataProvider <- ZIO.service[BackfillStreamingOverwriteDataProvider]
         mergeProcessor     <- ZIO.service[BackfillApplyBatchProcessor]
-        watermarkProcessor     <- ZIO.service[BackfillOverwriteWatermarkProcessor]
+        watermarkProcessor <- ZIO.service[BackfillOverwriteWatermarkProcessor]
       yield GenericBackfillOverwriteGraphBuilder(streamDataProvider, mergeProcessor, watermarkProcessor)
     }

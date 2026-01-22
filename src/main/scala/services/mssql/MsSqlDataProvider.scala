@@ -68,7 +68,9 @@ class MsSqlDataProvider(
     * @return
     *   A task that represents the backfill data.
     */
-  override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream.fromZIO(getCurrentVersion(MsSqlWatermark.epoch)).flatMap(watermark => reader.backfill.concat(ZStream.succeed(JsonWatermarkRow(watermark))))
+  override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
+    .fromZIO(getCurrentVersion(MsSqlWatermark.epoch))
+    .flatMap(watermark => reader.backfill.concat(ZStream.succeed(JsonWatermarkRow(watermark))))
 
 /** The companion object for the MsSqlDataProvider class.
   */

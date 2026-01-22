@@ -18,10 +18,9 @@ class BackfillOverwriteWatermarkProcessor(
 ) extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillOverwriteBatch
-  
+
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batch =>
-    for
-      _ <- batch.applyWatermark(icebergS3CatalogWriter, targetTableSettings.targetTableFullName)
+    for _ <- batch.applyWatermark(icebergS3CatalogWriter, targetTableSettings.targetTableFullName)
     yield batch
   }
 
