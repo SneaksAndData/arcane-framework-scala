@@ -7,12 +7,8 @@ import services.app.base.StreamLifetimeService
 import services.streaming.base.*
 import services.streaming.graph_builders.GenericGraphBuilderFactory
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.{CustomTestBackfillTableSettings, TestSourceBufferingSettings}
 
@@ -63,7 +59,8 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
           ZLayer.succeed(TestSourceBufferingSettings),
-          ZLayer.succeed(mock[WatermarkProcessor])
+          ZLayer.succeed(mock[WatermarkProcessor]),
+          ZLayer.succeed(mock[BackfillOverwriteWatermarkProcessor])
         )
 
       val getResolvedClassName = service.map(_.getClass.getName.split('.').last)
