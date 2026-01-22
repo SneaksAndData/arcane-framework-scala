@@ -8,8 +8,8 @@ import models.batches.{
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, Field, MergeKeyField}
-import models.settings.{BufferingStrategy, SourceBufferingSettings}
+import models.schemas.ArcaneType.StringType
+import models.schemas.*
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
@@ -30,14 +30,11 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
-import services.streaming.processors.transformers.{FieldFilteringTransformer, IndexedStagedBatches, StagingProcessor}
+import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -46,7 +43,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.{should, shouldBe, shouldEqual}
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
-import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
+import zio.{Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
 class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
