@@ -33,7 +33,7 @@ object JsonWatermark:
   def apply(value: String)(implicit rw: ReadWriter[JsonWatermark]): JsonWatermark = upickle.read(value)
 
 object OffsetDateTimeRW {
-  private val formatter = DateTimeFormatter.ISO_INSTANT
+  private val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
   implicit val rw: ReadWriter[OffsetDateTime] = readwriter[String].bimap[OffsetDateTime](
     offsetDateTime => formatter.format(offsetDateTime),

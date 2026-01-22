@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.schemas
 
 import models.schemas.ArcaneType.StringType
-import services.streaming.base.{JsonWatermark, MetadataEnrichedRowStreamElement, SourceWatermark}
+import services.streaming.base.{JsonWatermark, MetadataEnrichedRowStreamElement}
 
 /** Represents a row of data.
   */
