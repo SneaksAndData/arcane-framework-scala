@@ -47,13 +47,17 @@ class StagingProcessor(
           // avoid failure by trying to commit watermark row if present
           filteredElements <- ZIO.when(maybeWatermark.isDefined) {
             for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
-              yield filtered
+            yield filtered
           }
           groupedBySchema <-
-            (if stagingDataSettings.isUnifiedSchema then ZIO.succeed(Map(elements.head.schema -> filteredElements.getOrElse(elements)))
+            (if stagingDataSettings.isUnifiedSchema then
+               ZIO.succeed(Map(elements.head.schema -> filteredElements.getOrElse(elements)))
              else
                ZIO.succeed(
-                 filteredElements.getOrElse(elements).toArray.par
+                 filteredElements
+                   .getOrElse(elements)
+                   .toArray
+                   .par
                    .map(r => r.schema -> r)
                    .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
                      (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),

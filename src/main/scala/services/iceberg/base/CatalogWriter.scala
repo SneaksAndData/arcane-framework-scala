@@ -91,11 +91,13 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
     */
   def getProperty(tableName: String, propertyName: String): Task[String]
 
-  /**
-   * Creates a new table in the Iceberg catalog, using the provided schema
-   * @param name Name for the table, excluding schema (namespace) name
-   * @param schema Schema for the table
-   * @param replace If true, will replace the table if it exists              
-   * @return
-   */
+  /** Creates a new table in the Iceberg catalog, using the provided schema
+    * @param name
+    *   Name for the table, excluding schema (namespace) name
+    * @param schema
+    *   Schema for the table
+    * @param replace
+    *   If true, will replace the table if it exists
+    * @return
+    */
   def createTable(name: String, schema: Schema, replace: Boolean): Task[Table]

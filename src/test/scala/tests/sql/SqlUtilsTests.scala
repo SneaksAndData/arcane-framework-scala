@@ -3,7 +3,6 @@ package tests.sql
 
 import utils.SqlUtils.*
 
-import io.trino.jdbc.TrinoResultSet
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should

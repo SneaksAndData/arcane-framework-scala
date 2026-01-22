@@ -22,8 +22,8 @@ case class SynapseWatermark(version: SynapseVersionType, timestamp: OffsetDateTi
       case (x, y) if x > y  => 1
 
   override def toJson: String = upickle.write(this)
-  
+
 object SynapseWatermark:
   implicit val rw: ReadWriter[SynapseWatermark] = macroRW
-  
+
   def fromJson(value: String): SynapseWatermark = upickle.read(value)

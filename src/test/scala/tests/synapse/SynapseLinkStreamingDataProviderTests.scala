@@ -71,7 +71,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultSettings)
 
   class TestDynamicTargetTableSettings(name: String) extends TargetTableSettings:
-    override val targetTableFullName: String = name
+    override val targetTableFullName: String                   = name
     override val maintenanceSettings: TableMaintenanceSettings = EmptyTestTableMaintenanceSettings
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
@@ -81,14 +81,15 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       targetName <- ZIO.succeed(tableName)
       // prepare target table metadata
       watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _ <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      azPrefixes <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-      _ <- writer.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
+      _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
+      azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
+      _             <- writer.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
     yield ()
 
-
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
-    test("streams rows in backfill mode correctly") { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
+    test(
+      "streams rows in backfill mode correctly"
+    ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
       for
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -116,7 +117,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, writer, new TestDynamicTargetTableSettings("target_table_stream"), graphSettings, backfillSettings)
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            writer,
+            new TestDynamicTargetTableSettings("target_table_stream"),
+            graphSettings,
+            backfillSettings
+          )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
@@ -141,7 +148,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, writer, new TestDynamicTargetTableSettings("target_table_stream_ordered"), graphSettings, backfillSettings)
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            writer,
+            new TestDynamicTargetTableSettings("target_table_stream_ordered"),
+            graphSettings,
+            backfillSettings
+          )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(

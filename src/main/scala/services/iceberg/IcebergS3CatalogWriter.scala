@@ -114,18 +114,17 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
     )
     replacedRef <- ZIO.when(replace) {
       for
-        _ <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
-        newRef <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId)) 
+        _      <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
+        newRef <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
       yield newRef
     }
     tableRef <- ZIO.unless(replace) {
-      for
-        newRef <- ZIO.attemptBlocking(tableBuilder.create())
-      yield newRef 
+      for newRef <- ZIO.attemptBlocking(tableBuilder.create())
+      yield newRef
     }
   yield replacedRef match
     case Some(ref) => ref
-    case None => tableRef.get
+    case None      => tableRef.get
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -220,9 +219,11 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
   yield ()
 
   override def getProperty(tableName: String, propertyName: String): Task[String] = for
-    tableId    <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
-    catalog    <- getCatalog
-    table      <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId)).orDieWith(e => Throwable(s"Unable to load target table $tableName to read its properties", e))
+    tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
+    catalog <- getCatalog
+    table <- ZIO
+      .attemptBlocking(catalog.loadTable(getSessionContext, tableId))
+      .orDieWith(e => Throwable(s"Unable to load target table $tableName to read its properties", e))
     properties <- ZIO.attemptBlocking(table.properties())
   yield properties.get(propertyName)
 

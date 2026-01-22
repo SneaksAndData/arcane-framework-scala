@@ -39,12 +39,15 @@ class SynapseLinkDataProvider(
       fallback <- ZIO.when(watermark.isEmpty) {
         for
           startTime <- ZIO.succeed(OffsetDateTime.now())
-          _ <- zlog("Fetching version for the first iteration using legacy lookbackInterval, from %s", startTime.minus(settings.lookBackInterval).toString)
+          _ <- zlog(
+            "Fetching version for the first iteration using legacy lookbackInterval, from %s",
+            startTime.minus(settings.lookBackInterval).toString
+          )
           result <- synapseReader.getVersion(startTime.minus(settings.lookBackInterval))
           _      <- zlog("Retrieved version %s", result.version)
         yield result
       }
-    // assume fallback is only there if we have no watermark  
+    // assume fallback is only there if we have no watermark
     yield fallback match {
       // if fallback is computed, return it
       case Some(value) => value
@@ -59,14 +62,21 @@ class SynapseLinkDataProvider(
     synapseReader.getCurrentVersion(previousVersion)
 
 object SynapseLinkDataProvider:
-  type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & IcebergS3CatalogWriter & TargetTableSettings
+  type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & IcebergS3CatalogWriter &
+    TargetTableSettings
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
-      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
       icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
-      targetTableSettings <- ZIO.service[TargetTableSettings]
-      backfillSettings  <- ZIO.service[BackfillSettings]
-      synapseReader     <- ZIO.service[SynapseLinkReader]
-    yield SynapseLinkDataProvider(synapseReader, icebergS3CatalogWriter, targetTableSettings, versionedSettings, backfillSettings)
+      targetTableSettings    <- ZIO.service[TargetTableSettings]
+      backfillSettings       <- ZIO.service[BackfillSettings]
+      synapseReader          <- ZIO.service[SynapseLinkReader]
+    yield SynapseLinkDataProvider(
+      synapseReader,
+      icebergS3CatalogWriter,
+      targetTableSettings,
+      versionedSettings,
+      backfillSettings
+    )
   }
