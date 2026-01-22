@@ -19,7 +19,11 @@ import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, Stre
 import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
@@ -140,10 +144,17 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
           EasyMock.anyString(),
           EasyMock.anyObject(),
           EasyMock.eq(TestTargetTableSettings.targetTableFullName),
+          EasyMock.anyObject(),
           EasyMock.anyObject()
         )
         .andReturn(
-          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings)
+          SqlServerChangeTrackingMergeBatch(
+            "test",
+            ArcaneSchema(Seq(MergeKeyField)),
+            "test",
+            TablePropertiesSettings,
+            None
+          )
         )
         .times(streamRepeatCount)
     }
@@ -175,7 +186,9 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(new BackfillOverwriteBatchFactory {
           override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-            ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
+            ZIO.succeed(
+              SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+            )
         }),
         ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
         ZLayer.succeed(disposeServiceClient),
@@ -190,7 +203,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         }),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
-        ZLayer.succeed(TestSourceBufferingSettings)
+        ZLayer.succeed(TestSourceBufferingSettings),
+        WatermarkProcessor.layer
       )
 
     // Act

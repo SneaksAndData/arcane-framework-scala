@@ -51,7 +51,8 @@ class UpsertBlobBackfillOverwriteBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings
+    tablePropertiesSettings: TablePropertiesSettings,
+    watermarkValue: Option[String]
 ) extends StagedBackfillOverwriteBatch:
 
   override val name: String            = batchName
@@ -62,18 +63,24 @@ class UpsertBlobBackfillOverwriteBatch(
 
   override val batchQuery: OverwriteQuery = UpsertBlobBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
+  /** Serialized watermark value that is supplied if the batch is completed
+    */
+  override val completedWatermarkValue: Option[String] = watermarkValue
+
 object UpsertBlobBackfillOverwriteBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): UpsertBlobBackfillOverwriteBatch =
     new UpsertBlobBackfillOverwriteBatch(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName,
-      tablePropertiesSettings
+      tablePropertiesSettings,
+      watermarkValue
     )
 
 class UpsertBlobMergeBatch(
@@ -81,7 +88,8 @@ class UpsertBlobMergeBatch(
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    mergeKey: String,
+    watermarkValue: Option[String]
 ) extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String            = batchName
@@ -93,6 +101,8 @@ class UpsertBlobMergeBatch(
     s"""SELECT * FROM (
        | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${BlobBatchCommons.versionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
+
+  override val completedWatermarkValue: Option[String] = watermarkValue
 
   override val batchQuery: MergeQuery =
     UpsertBlobMergeQuery(
@@ -108,16 +118,25 @@ object UpsertBlobMergeBatch:
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): UpsertBlobMergeBatch =
-    new UpsertBlobMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
+    new UpsertBlobMergeBatch(
+      batchName,
+      batchSchema,
+      targetName,
+      tablePropertiesSettings,
+      batchSchema.mergeKey.name,
+      watermarkValue
+    )
 
 class UpsertBlobBackfillMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    mergeKey: String,
+    watermarkValue: Option[String]
 ) extends StagedBackfillMergeBatch
     with MergeableBatch:
 
@@ -135,17 +154,21 @@ class UpsertBlobBackfillMergeBatch(
     columns = schema.map(f => f.name)
   )
 
+  override val completedWatermarkValue: Option[String] = watermarkValue
+
 object UpsertBlobBackfillMergeBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): UpsertBlobBackfillMergeBatch =
     new UpsertBlobBackfillMergeBatch(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName,
       tablePropertiesSettings,
-      batchSchema.mergeKey.name
+      batchSchema.mergeKey.name,
+      watermarkValue
     )

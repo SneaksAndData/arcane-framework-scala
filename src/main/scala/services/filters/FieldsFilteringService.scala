@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.filters
 
-import models.schemas.{ArcaneSchema, DataRow}
+import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.FieldsFilteringService.isValid
 
@@ -16,32 +16,34 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
     "The field selection rule must not exclude essential fields: " + fieldSelectionRule.essentialFields.mkString(", ")
   )
 
-  /** Filters the fields of an ArcaneSchema.
+  /** Applies field filter to the DataRow instance.
     *
     * @param row
     *   The data to filter.
     * @return
     *   The filtered data/schema.
     */
-  def filter(row: DataRow): DataRow = (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
-    case (false, includeFields: FieldSelectionRule.IncludeFields) =>
-      row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
-    case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
-      row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
-    case _ => row
+  def filter(row: DataRow): DataRow = if row.isWatermark then row
+  else
+    (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
+      case (false, includeFields: FieldSelectionRule.IncludeFields) =>
+        row.filter(rowCell => includeFields.fields.exists(f => rowCell.name.toLowerCase().equalsIgnoreCase(f)))
+      case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
+        row.filter(rowCell => !excludeFields.fields.exists(f => rowCell.name.toLowerCase().equalsIgnoreCase(f)))
+      case _ => row
 
-  /** Filters the fields of an ArcaneSchema.
-    * @param row
+  /** Applies field filter to the ArcaneSchema instance.
+    * @param schema
     *   The data to filter.
     * @return
     *   The filtered data/schema.
     */
-  def filter(row: ArcaneSchema): ArcaneSchema = (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
+  def filter(schema: ArcaneSchema): ArcaneSchema = (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
     case (false, includeFields: FieldSelectionRule.IncludeFields) =>
-      row.filter(entry => includeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
+      schema.filter(field => includeFields.fields.exists(f => field.name.toLowerCase().equalsIgnoreCase(f)))
     case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
-      row.filter(entry => !excludeFields.fields.exists(f => entry.name.toLowerCase().equalsIgnoreCase(f)))
-    case _ => row
+      schema.filter(field => !excludeFields.fields.exists(f => field.name.toLowerCase().equalsIgnoreCase(f)))
+    case _ => schema
 
 object FieldsFilteringService:
 

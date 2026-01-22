@@ -61,7 +61,8 @@ class SqlServerChangeTrackingBackfillBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings
+    tablePropertiesSettings: TablePropertiesSettings,
+    watermarkValue: Option[String]
 ) extends StagedBackfillOverwriteBatch:
 
   override val name: String            = batchName
@@ -74,22 +75,32 @@ class SqlServerChangeTrackingBackfillBatch(
   override val batchQuery: OverwriteQuery =
     SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
+  override val completedWatermarkValue: Option[String] = watermarkValue
+
 object SqlServerChangeTrackingBackfillBatch:
   /** */
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): StagedBackfillOverwriteBatch =
-    new SqlServerChangeTrackingBackfillBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
+    new SqlServerChangeTrackingBackfillBatch(
+      batchName,
+      batchSchema,
+      targetName,
+      tablePropertiesSettings,
+      watermarkValue
+    )
 
 class SqlServerChangeTrackingMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    mergeKey: String,
+    watermarkValue: Option[String]
 ) extends StagedVersionedBatch
     with MergeableBatch:
 
@@ -111,17 +122,21 @@ class SqlServerChangeTrackingMergeBatch(
       columns = schema.map(f => f.name)
     )
 
+  override val completedWatermarkValue: Option[String] = watermarkValue
+
 object SqlServerChangeTrackingMergeBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): SqlServerChangeTrackingMergeBatch =
     new SqlServerChangeTrackingMergeBatch(
       batchName,
       batchSchema,
       targetName,
       tablePropertiesSettings,
-      batchSchema.mergeKey.name
+      batchSchema.mergeKey.name,
+      watermarkValue
     )

@@ -2,21 +2,25 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import models.app.StreamContext
-import models.schemas.{DataRow, MergeKeyField}
+import models.schemas.ArcaneType.StringType
+import models.schemas.{ArcaneSchema, DataRow, Field, MergeKeyField}
 import models.settings.BackfillBehavior.Overwrite
-import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.*
+import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
+import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
-import tests.shared.NullDimensionsProvider
+import tests.shared.IcebergCatalogInfo.defaultSettings
+import tests.shared.{EmptyTestTableMaintenanceSettings, NullDimensionsProvider, TestTargetTableSettings}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, ZIO}
+import zio.{Scope, Task, ZIO}
 
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
+import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"
@@ -64,13 +68,32 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
+  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultSettings)
+
+  class TestDynamicTargetTableSettings(name: String) extends TargetTableSettings:
+    override val targetTableFullName: String                   = name
+    override val maintenanceSettings: TableMaintenanceSettings = EmptyTestTableMaintenanceSettings
+
+  private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
+
+  private def prepareWatermark(tableName: String): Task[Unit] =
+    for
+      targetName <- ZIO.succeed(tableName)
+      // prepare target table metadata
+      watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
+      _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
+      azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
+      _             <- writer.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
+    yield ()
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
-    test("streams rows in backfill mode correctly") {
+    test(
+      "streams rows in backfill mode correctly"
+    ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
       for
-        path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings)
+          SynapseLinkDataProvider(synapseLinkReader, writer, TestTargetTableSettings, graphSettings, backfillSettings)
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
@@ -90,10 +113,17 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream correct number of changes") {
       for
-        path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        _ <- prepareWatermark("target_table_stream")
+
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings)
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            writer,
+            new TestDynamicTargetTableSettings("target_table_stream"),
+            graphSettings,
+            backfillSettings
+          )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
@@ -108,14 +138,23 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       // expect 5 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // lookback is 3 hours which should only capture 1 file
-      yield assertTrue(rows == 5 + 1)
+      // one row should be watermark
+      yield assertTrue(rows == 5 + 1 + 1)
     },
     test("stream changes in the correct order") {
       for
-        path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        // prepare target table metadata
+        _ <- prepareWatermark("target_table_stream_ordered")
+
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, graphSettings, backfillSettings)
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            writer,
+            new TestDynamicTargetTableSettings("target_table_stream_ordered"),
+            graphSettings,
+            backfillSettings
+          )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
@@ -126,7 +165,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
-        rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCollect
+        rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(2)).runCollect
       // delete must ALWAYS come last, otherwise there is a risk of re-inserting the same row
       yield assertTrue(rows.toList.zipWithIndex.filter(r => isDelete(r._1)).head._2 == 5) &&
         assertTrue(

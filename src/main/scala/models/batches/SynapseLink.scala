@@ -61,7 +61,8 @@ class SynapseLinkBackfillOverwriteBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings
+    tablePropertiesSettings: TablePropertiesSettings,
+    watermarkValue: Option[String]
 ) extends StagedBackfillOverwriteBatch:
 
   override val name: String            = batchName
@@ -72,18 +73,22 @@ class SynapseLinkBackfillOverwriteBatch(
 
   override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
 
+  override val completedWatermarkValue: Option[String] = watermarkValue
+
 object SynapseLinkBackfillOverwriteBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): SynapseLinkBackfillOverwriteBatch =
     new SynapseLinkBackfillOverwriteBatch(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName,
-      tablePropertiesSettings
+      tablePropertiesSettings,
+      watermarkValue
     )
 
 class SynapseLinkMergeBatch(
@@ -91,7 +96,8 @@ class SynapseLinkMergeBatch(
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    mergeKey: String,
+    watermarkValue: Option[String]
 ) extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String            = batchName
@@ -113,21 +119,32 @@ class SynapseLinkMergeBatch(
       columns = schema.map(f => f.name)
     )
 
+  override val completedWatermarkValue: Option[String] = watermarkValue
+
 object SynapseLinkMergeBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): SynapseLinkMergeBatch =
-    new SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, batchSchema.mergeKey.name)
+    new SynapseLinkMergeBatch(
+      batchName,
+      batchSchema,
+      targetName,
+      tablePropertiesSettings,
+      batchSchema.mergeKey.name,
+      watermarkValue
+    )
 
 class SynapseLinkBackfillMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    mergeKey: String,
+    watermarkValue: Option[String]
 ) extends StagedBackfillMergeBatch
     with MergeableBatch:
 
@@ -144,18 +161,21 @@ class SynapseLinkBackfillMergeBatch(
     mergeKey = mergeKey,
     columns = schema.map(f => f.name)
   )
+  override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SynapseLinkBackfillMergeBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings
+      tablePropertiesSettings: TablePropertiesSettings,
+      watermarkValue: Option[String]
   ): SynapseLinkBackfillMergeBatch =
     new SynapseLinkBackfillMergeBatch(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName,
       tablePropertiesSettings,
-      batchSchema.mergeKey.name
+      batchSchema.mergeKey.name,
+      watermarkValue
     )

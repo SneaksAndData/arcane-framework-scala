@@ -33,7 +33,8 @@ class MsSqlBackfillOverwriteBatchFactory(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
-      tablePropertiesSettings
+      tablePropertiesSettings,
+      None // TODO: watermark must be extract before firing this
     )
 
 /** The companion object for the MsSqlBackfillBatchFactory class.

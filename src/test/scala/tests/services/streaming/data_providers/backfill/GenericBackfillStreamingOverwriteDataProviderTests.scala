@@ -24,7 +24,11 @@ import services.streaming.base.{
 import services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
@@ -65,7 +69,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       mock[HookManager],
       new BackfillOverwriteBatchFactory {
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
+          ZIO.succeed(
+            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+          )
       }
     )
 
@@ -97,7 +103,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       mock[HookManager],
       new BackfillOverwriteBatchFactory:
         override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
+          ZIO.succeed(
+            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+          )
     )
 
     // Act
@@ -167,10 +175,17 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           EasyMock.anyString(),
           EasyMock.anyObject(),
           EasyMock.eq(TestBackfillTableSettings.backfillTableFullName),
+          EasyMock.anyObject(),
           EasyMock.anyObject()
         )
         .andReturn(
-          SqlServerChangeTrackingMergeBatch("test", ArcaneSchema(Seq(MergeKeyField)), "test", TablePropertiesSettings)
+          SqlServerChangeTrackingMergeBatch(
+            "test",
+            ArcaneSchema(Seq(MergeKeyField)),
+            "test",
+            TablePropertiesSettings,
+            None
+          )
         )
         .times(streamRepeatCount)
     }
@@ -202,7 +217,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(new BackfillOverwriteBatchFactory {
           override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-            ZIO.succeed(SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings))
+            ZIO.succeed(
+              SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+            )
         }),
         ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
         ZLayer.succeed(disposeServiceClient),
@@ -217,7 +234,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         }),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
-        ArcaneDimensionsProvider.layer
+        ArcaneDimensionsProvider.layer,
+        WatermarkProcessor.layer
       )
 
     // Act

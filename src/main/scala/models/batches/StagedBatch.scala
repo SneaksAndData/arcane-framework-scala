@@ -4,6 +4,8 @@ package models.batches
 import models.queries.*
 import models.schemas.ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.services.streaming.base.SourceWatermark
+
 trait MergeableBatch:
 
   /** Name of the target table in the linked Catalog that holds batch data
@@ -27,6 +29,10 @@ trait StagedBatch:
   /** Query to be used to process this batch
     */
   val batchQuery: Query
+
+  /** Serialized watermark value that is supplied if the batch is completed
+    */
+  val completedWatermarkValue: Option[String]
 
   /** Query that aggregates transactions in the batch to enable merge or overwrite
     * @return

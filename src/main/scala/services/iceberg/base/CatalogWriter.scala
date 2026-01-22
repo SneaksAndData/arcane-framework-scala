@@ -3,6 +3,7 @@ package services.iceberg.base
 
 import models.schemas.DataRow
 
+import org.apache.iceberg.{Schema, Table}
 import zio.Task
 
 /** CatalogFileIO marks a class that holds implementation of a filesystem used by the catalog
@@ -71,3 +72,32 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
     *   Reference to the updated table
     */
   def append(data: Iterable[DataRow], name: String, schema: SchemaImpl): Task[TableImpl]
+
+  /** Adds or updates a comment on the table
+    *
+    * @param tableName
+    *   Name of the table
+    * @param text
+    *   Comment text
+    * @return
+    */
+  def comment(tableName: String, text: String): Task[Unit]
+
+  /** Reads a specified table property
+    *
+    * @param tableName
+    *   Name of the table
+    * @return
+    */
+  def getProperty(tableName: String, propertyName: String): Task[String]
+
+  /** Creates a new table in the Iceberg catalog, using the provided schema
+    * @param name
+    *   Name for the table, excluding schema (namespace) name
+    * @param schema
+    *   Schema for the table
+    * @param replace
+    *   If true, will replace the table if it exists
+    * @return
+    */
+  def createTable(name: String, schema: Schema, replace: Boolean): Task[Table]

@@ -25,12 +25,12 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
     .takeWhile(_ < 3)
     .map { i =>
       val schema = ArcaneSchema(Seq(MergeKeyField))
-      SynapseLinkBackfillOverwriteBatch("intermediate-table", schema, "target", TablePropertiesSettings)
+      SynapseLinkBackfillOverwriteBatch("intermediate-table", schema, "target", TablePropertiesSettings, None)
     }
     .concat {
       LazyList.from(0).takeWhile(_ < 3).map { i =>
         val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
-        SynapseLinkBackfillOverwriteBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings)
+        SynapseLinkBackfillOverwriteBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings, None)
       }
     }
 

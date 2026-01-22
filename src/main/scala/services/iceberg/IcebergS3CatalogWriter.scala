@@ -97,24 +97,34 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
     }
   yield selected
 
-  private def createTable(name: String, schema: Schema): Task[Table] = for
+  def createTable(name: String, schema: Schema, replace: Boolean): Task[Table] = for
     tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
     catalog <- getCatalog
-    tableRef <- ZIO.attemptBlocking(
+    tableBuilder <- ZIO.attempt(
       icebergCatalogSettings.stagingLocation match
         case Some(newLocation) =>
           catalog
             .buildTable(getSessionContext, tableId, schema)
             .withLocation(newLocation + "/" + name)
             .withPartitionSpec(PartitionSpec.unpartitioned())
-            .create()
         case None =>
           catalog
             .buildTable(getSessionContext, tableId, schema)
             .withPartitionSpec(PartitionSpec.unpartitioned())
-            .create()
     )
-  yield tableRef
+    replacedRef <- ZIO.when(replace) {
+      for
+        _      <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
+        newRef <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
+      yield newRef
+    }
+    tableRef <- ZIO.unless(replace) {
+      for newRef <- ZIO.attemptBlocking(tableBuilder.create())
+      yield newRef
+    }
+  yield replacedRef match
+    case Some(ref) => ref
+    case None      => tableRef.get
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -172,7 +182,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
 
   override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
     for
-      _       <- createTable(name, schema)
+      _       <- createTable(name, schema, false)
       _       <- zlog("Created a staging table %s, waiting for it to be created", name)
       catalog <- getCatalog
       _ <- ZIO
@@ -200,6 +210,22 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergCatalogSettings)
     table        <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
     updatedTable <- appendData(data, schema, false, table)
   yield updatedTable
+
+  override def comment(tableName: String, text: String): Task[Unit] = for
+    tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
+    catalog <- getCatalog
+    table   <- ZIO.attemptBlocking(catalog.loadTable(getSessionContext, tableId))
+    _       <- ZIO.attemptBlocking(table.updateProperties().set("comment", text).commit())
+  yield ()
+
+  override def getProperty(tableName: String, propertyName: String): Task[String] = for
+    tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
+    catalog <- getCatalog
+    table <- ZIO
+      .attemptBlocking(catalog.loadTable(getSessionContext, tableId))
+      .orDieWith(e => Throwable(s"Unable to load target table $tableName to read its properties", e))
+    properties <- ZIO.attemptBlocking(table.properties())
+  yield properties.get(propertyName)
 
 object IcebergS3CatalogWriter:
 
