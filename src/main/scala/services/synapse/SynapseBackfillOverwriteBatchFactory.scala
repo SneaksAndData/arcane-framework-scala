@@ -28,14 +28,14 @@ class SynapseBackfillOverwriteBatchFactory(
 
   /** @inheritdoc
     */
-  def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
+  def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
     for schema <- jdbcMergeServiceClient.getSchema(backfillSettings.backfillTableFullName)
     yield SynapseLinkBackfillOverwriteBatch(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
       tablePropertiesSettings,
-      None // TODO: requires watermark read
+      watermark
     )
 
 /** The companion object for the SynapseBackfillOverwriteBatchFactory class.

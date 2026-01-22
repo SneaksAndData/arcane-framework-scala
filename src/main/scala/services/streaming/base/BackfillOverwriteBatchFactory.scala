@@ -17,4 +17,4 @@ trait BackfillOverwriteBatchFactory:
     * @return
     *   A task that represents the backfill batch.
     */
-  def createBackfillBatch: Task[StagedBackfillOverwriteBatch]
+  def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch]

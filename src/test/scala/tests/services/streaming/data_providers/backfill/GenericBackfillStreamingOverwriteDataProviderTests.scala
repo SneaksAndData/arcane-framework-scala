@@ -8,8 +8,8 @@ import models.batches.{
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import models.settings.{BufferingStrategy, SourceBufferingSettings}
+import models.schemas.ArcaneType.StringType
+import models.schemas.*
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
@@ -31,12 +31,10 @@ import services.streaming.processors.batch_processors.streaming.{
 }
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.services.streaming.processors.utils.TestIndexedStagedBatches
+import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -45,7 +43,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.{should, shouldBe, shouldEqual}
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
-import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
+import zio.{Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
 class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -56,7 +54,28 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
     val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
     expecting {
-      streamingGraphBuilder.produce(EasyMock.anyObject()).andReturn(ZStream.range(0, streamRepeatCount)).times(1)
+      streamingGraphBuilder
+        .produce(EasyMock.anyObject())
+        .andReturn(
+          ZStream.fromIterable(
+            Seq(
+              TestIndexedStagedBatches(
+                groupedBySchema = Seq(
+                  TestStageVersionedBatch(
+                    "test",
+                    ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                    "target_test",
+                    TestTablePropertiesSettings,
+                    "col0",
+                    Some("123")
+                  )
+                ),
+                batchIndex = 1
+              )
+            )
+          )
+        )
+        .times(1)
     }
 
     replay(streamingGraphBuilder)
@@ -67,12 +86,10 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
-      new BackfillOverwriteBatchFactory {
-        override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(
-            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
-          )
-      }
+      (watermark: Option[String]) =>
+        ZIO.succeed(
+          SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
+        )
     )
 
     // Act
@@ -90,7 +107,26 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
 
     expecting {
-      streamingGraphBuilder.produce(EasyMock.anyObject()).andReturn(ZStream.repeat(Chunk.empty)).times(1)
+      streamingGraphBuilder
+        .produce(EasyMock.anyObject())
+        .andReturn(
+          ZStream.repeat(
+            TestIndexedStagedBatches(
+              groupedBySchema = Seq(
+                TestStageVersionedBatch(
+                  "test",
+                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                  "target_test",
+                  TestTablePropertiesSettings,
+                  "col0",
+                  Some("123")
+                )
+              ),
+              batchIndex = 1
+            )
+          )
+        )
+        .times(1)
     }
 
     replay(streamingGraphBuilder)
@@ -101,11 +137,10 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       TestBackfillTableSettings,
       lifetimeService,
       mock[HookManager],
-      new BackfillOverwriteBatchFactory:
-        override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
-          ZIO.succeed(
-            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
-          )
+      (watermark: Option[String]) =>
+        ZIO.succeed(
+          SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
+        )
     )
 
     // Act
@@ -216,9 +251,9 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         // Mocks
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(new BackfillOverwriteBatchFactory {
-          override def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
+          override def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
             ZIO.succeed(
-              SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, None)
+              SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
             )
         }),
         ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),

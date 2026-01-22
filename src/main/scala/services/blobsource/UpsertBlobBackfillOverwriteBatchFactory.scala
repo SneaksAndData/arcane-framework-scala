@@ -32,14 +32,14 @@ class UpsertBlobBackfillOverwriteBatchFactory(
 
   /** @inheritdoc
     */
-  def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
+  def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
     for schema <- jdbcMergeServiceClient.getSchema(backfillSettings.backfillTableFullName)
     yield UpsertBlobBackfillOverwriteBatch(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
       tablePropertiesSettings,
-      None // TODO: requires watermark to be provided
+      watermark
     )
 
 /** The companion object for the BlobSourceBackfillOverwriteBatchFactory class.

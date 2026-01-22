@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import logging.ZIOLogAnnotations.zlog
-import models.schemas.DataRow
+import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
@@ -68,7 +68,9 @@ class MsSqlDataProvider(
     * @return
     *   A task that represents the backfill data.
     */
-  override def requestBackfill: ZStream[Any, Throwable, DataRow] = reader.backfill
+  override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
+    .fromZIO(getCurrentVersion(MsSqlWatermark.epoch))
+    .flatMap(watermark => reader.backfill.concat(ZStream.succeed(JsonWatermarkRow(watermark))))
 
 /** The companion object for the MsSqlDataProvider class.
   */

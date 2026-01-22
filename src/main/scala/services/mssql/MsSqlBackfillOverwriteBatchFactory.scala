@@ -27,14 +27,14 @@ class MsSqlBackfillOverwriteBatchFactory(
 
   /** @inheritdoc
     */
-  def createBackfillBatch: Task[StagedBackfillOverwriteBatch] =
+  def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
     for schema <- jdbcMergeServiceClient.getSchema(backfillSettings.backfillTableFullName)
     yield SqlServerChangeTrackingBackfillBatch(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
       tablePropertiesSettings,
-      None // TODO: watermark must be extract before firing this
+      watermark
     )
 
 /** The companion object for the MsSqlBackfillBatchFactory class.

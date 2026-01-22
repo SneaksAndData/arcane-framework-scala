@@ -28,8 +28,11 @@ class SynapseLinkDataProvider(
     synapseReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(previousVersion)))
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
-    case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
-    case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
+    case Some(backfillStartDate) =>
+      ZStream
+        .fromZIO(getCurrentVersion(SynapseWatermark.epoch))
+        .flatMap(version => synapseReader.getData(backfillStartDate).concat(ZStream.succeed(JsonWatermarkRow(version))))
+    case None => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
   override def firstVersion: Task[SynapseWatermark] =
     for
