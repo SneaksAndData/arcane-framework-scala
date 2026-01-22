@@ -6,12 +6,7 @@ import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
 import models.settings.{BackfillSettings, TablePropertiesSettings}
 import services.app.base.StreamLifetimeService
-import services.streaming.base.{
-  BackfillOverwriteBatchFactory,
-  BackfillStreamingOverwriteDataProvider,
-  BackfillSubStream,
-  HookManager
-}
+import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, BackfillSubStream, HookManager, StagedBatchProcessor}
 import services.streaming.processors.transformers.StagingProcessor
 
 import org.apache.iceberg.Table
@@ -45,18 +40,18 @@ class GenericBackfillStreamingOverwriteDataProvider(
   def requestBackfill: Task[BatchType] =
     for
       _ <- zlog(s"Starting backfill process")
-      _ <- streamingGraphBuilder
+      lastBatchSet <- streamingGraphBuilder
         .produce(BackfillHookManager(baseHookManager, backfillTableSettings))
         .via(streamLifetimeGuard)
-        .runDrain
+        .runLast // ensure watermark is emitted at the end
       _ <- zlog("Backfill process completed")
 
       backfillBatch <-
         if lifetimeService.cancelled then ZIO.unit
-        else backfillBatchFactory.createBackfillBatch
+        else backfillBatchFactory.createBackfillBatch(lastBatchSet.flatMap(batchSet => batchSet.groupedBySchema.find(batch => batch.completedWatermarkValue.isDefined).flatMap(_.completedWatermarkValue)))
     yield backfillBatch
 
-  private def streamLifetimeGuard = ZPipeline.takeUntil(_ => lifetimeService.cancelled)
+  private def streamLifetimeGuard = ZPipeline[BackfillSubStream#ProcessedBatch].takeUntil(_ => lifetimeService.cancelled)
 
 /** The companion object for the GenericBackfillStreamingOverwriteDataProvider class.
   */

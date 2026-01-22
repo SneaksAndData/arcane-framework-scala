@@ -27,3 +27,9 @@ object SynapseWatermark:
   implicit val rw: ReadWriter[SynapseWatermark] = macroRW
 
   def fromJson(value: String): SynapseWatermark = upickle.read(value)
+
+  /** EPOCH watermark is used as a "null" watermark
+    */
+  val epoch: SynapseWatermark =
+    val start = OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)
+    SynapseWatermark(version = "", timestamp = start, prefix = "")
