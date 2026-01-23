@@ -25,8 +25,6 @@ class BlobListingParquetSource[PathType <: BlobPath](
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
-  override type OutputRow = DataRow
-
   override def getSchema: Task[SchemaType] = for
     filePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
     scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))

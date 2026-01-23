@@ -22,8 +22,6 @@ class BlobListingCsvSource[PathType <: BlobPath](
 ) extends BlobSourceReader
     with SchemaProvider[ArcaneSchema]:
 
-  override type OutputRow = DataRow
-
   override def getSchema: Task[SchemaType] = ???
 
   /** Gets an empty schema.

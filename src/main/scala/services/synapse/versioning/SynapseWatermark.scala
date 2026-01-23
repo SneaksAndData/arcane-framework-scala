@@ -5,7 +5,6 @@ import services.streaming.base.OffsetDateTimeRW.*
 import services.streaming.base.{JsonWatermark, SourceWatermark}
 import services.synapse.versioning.SynapseVersionExtensions.*
 
-import upickle.core.Visitor
 import upickle.default.*
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
