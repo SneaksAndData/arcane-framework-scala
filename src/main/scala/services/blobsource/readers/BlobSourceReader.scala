@@ -14,7 +14,7 @@ import java.time.Duration
 trait BlobSourceReader:
   /** Output row type for this reader. Typically DataRow or GenericRecord
     */
-  type OutputRow <: DataRow
+  type OutputRow = DataRow
 
   /** Change stream for this reader. If startFrom == 0, should behave like a backfill.
     * @param startFrom

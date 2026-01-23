@@ -28,8 +28,6 @@ class BlobListingJsonSource[PathType <: BlobPath](
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
-  override type OutputRow = DataRow
-
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
     schema <- ZIO
