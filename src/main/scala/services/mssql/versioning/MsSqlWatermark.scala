@@ -35,6 +35,6 @@ object MsSqlWatermark:
     * @return
     */
   def epoch: MsSqlWatermark = new MsSqlWatermark(
-    version = "0",
+    version = "1",
     timestamp = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
   )

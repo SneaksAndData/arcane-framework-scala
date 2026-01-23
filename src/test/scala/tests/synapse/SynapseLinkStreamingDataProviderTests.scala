@@ -14,7 +14,12 @@ import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultSettings
-import tests.shared.{EmptyTestTableMaintenanceSettings, NullDimensionsProvider, TestTargetTableSettings}
+import tests.shared.{
+  EmptyTestTableMaintenanceSettings,
+  NullDimensionsProvider,
+  TestDynamicTargetTableSettings,
+  TestTargetTableSettings
+}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -69,10 +74,6 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     .map(_._1)
 
   private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultSettings)
-
-  class TestDynamicTargetTableSettings(name: String) extends TargetTableSettings:
-    override val targetTableFullName: String                   = name
-    override val maintenanceSettings: TableMaintenanceSettings = EmptyTestTableMaintenanceSettings
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
 

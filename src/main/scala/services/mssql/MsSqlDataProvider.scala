@@ -4,11 +4,11 @@ package services.mssql
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.{BackfillSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import services.iceberg.IcebergS3CatalogWriter
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
-import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -64,8 +64,8 @@ class MsSqlDataProvider(
               currentVersion <- reader.getVersion(QueryProvider.getCurrentVersionQuery)
               _ <- ZIO.when(currentVersion.isEmpty) {
                 for _ <- zlog(
-                  "Fallback version not available: CHANGE_TRACKING_CURRENT_VERSION returned NULL. This can happen on a database with no changes. Defaulting to Long.MaxValue"
-                )
+                    "Fallback version not available: CHANGE_TRACKING_CURRENT_VERSION returned NULL. This can happen on a database with no changes. Defaulting to Long.MaxValue"
+                  )
                 yield ()
               }
             yield currentVersion.getOrElse(Long.MaxValue)
@@ -79,7 +79,6 @@ class MsSqlDataProvider(
       // if no fallback, get value from watermark and fail if it is empty
       case None => watermark.get
     }
-    
 
   /** Provides the backfill data.
     *
@@ -99,10 +98,16 @@ object MsSqlDataProvider:
   val layer =
     ZLayer {
       for
-        reader        <- ZIO.service[MsSqlReader]
-        versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+        reader                 <- ZIO.service[MsSqlReader]
+        versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
         icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
         targetTableSettings    <- ZIO.service[TargetTableSettings]
-        backfillSettings  <- ZIO.service[BackfillSettings]
-      yield new MsSqlDataProvider(reader, icebergS3CatalogWriter, targetTableSettings, versionedSettings, backfillSettings)
+        backfillSettings       <- ZIO.service[BackfillSettings]
+      yield new MsSqlDataProvider(
+        reader,
+        icebergS3CatalogWriter,
+        targetTableSettings,
+        versionedSettings,
+        backfillSettings
+      )
     }
