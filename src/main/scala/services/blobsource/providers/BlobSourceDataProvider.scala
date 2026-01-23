@@ -32,8 +32,8 @@ class BlobSourceDataProvider(
     sourceReader
       .getChanges(
         BlobSourceWatermark.fromEpochSecond(backFillStart.toInstant.toEpochMilli / 1000)
-      ).concat(ZStream.succeed(JsonWatermarkRow(watermark)))
-
+      )
+      .concat(ZStream.succeed(JsonWatermarkRow(watermark)))
 
   override def requestChanges(previousVersion: BlobSourceWatermark): ZStream[Any, Throwable, BlobSourceBatch] =
     sourceReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(previousVersion)))
@@ -61,14 +61,21 @@ class BlobSourceDataProvider(
     sourceReader.getLatestVersion
 
 object BlobSourceDataProvider:
-  private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader & IcebergS3CatalogWriter & TargetTableSettings
+  private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader &
+    IcebergS3CatalogWriter & TargetTableSettings
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
-      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
       icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
       targetTableSettings    <- ZIO.service[TargetTableSettings]
-      backfillSettings  <- ZIO.service[BackfillSettings]
-      blobSource        <- ZIO.service[BlobSourceReader]
-    yield BlobSourceDataProvider(blobSource, icebergS3CatalogWriter, targetTableSettings, versionedSettings, backfillSettings)
+      backfillSettings       <- ZIO.service[BackfillSettings]
+      blobSource             <- ZIO.service[BlobSourceReader]
+    yield BlobSourceDataProvider(
+      blobSource,
+      icebergS3CatalogWriter,
+      targetTableSettings,
+      versionedSettings,
+      backfillSettings
+    )
   }

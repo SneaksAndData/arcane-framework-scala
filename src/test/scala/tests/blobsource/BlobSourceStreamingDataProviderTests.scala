@@ -13,8 +13,8 @@ import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_S
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultSettings
 import tests.shared.S3StorageInfo.*
+import tests.shared.TestDynamicTargetTableSettings
 
-import com.sneaksanddata.arcane.framework.tests.shared.TestDynamicTargetTableSettings
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
@@ -62,18 +62,25 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       targetName <- ZIO.succeed(tableName)
       // prepare target table metadata
       watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _ <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      _ <- writer.comment(targetName, value.toJson)
+      _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
+      _             <- writer.comment(targetName, value.toJson)
     yield ()
-
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {
       for
-        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
-        _ <- prepareWatermark("test", BlobSourceWatermark.epoch)
-        dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, writer, new TestDynamicTargetTableSettings("test"), streamSettings, backfillSettings))
+        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        _      <- prepareWatermark("test", BlobSourceWatermark.epoch)
+        dataProvider <- ZIO.succeed(
+          BlobSourceDataProvider(
+            source,
+            writer,
+            new TestDynamicTargetTableSettings("test"),
+            streamSettings,
+            backfillSettings
+          )
+        )
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillSettings, backfillStreamContext)
         )
@@ -82,10 +89,18 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream changes correctly") {
       for
-        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
-        _ <- prepareWatermark("test", BlobSourceWatermark.epoch)
-        dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, writer, new TestDynamicTargetTableSettings("test"), streamSettings, backfillSettings))
+        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        _      <- prepareWatermark("test", BlobSourceWatermark.epoch)
+        dataProvider <- ZIO.succeed(
+          BlobSourceDataProvider(
+            source,
+            writer,
+            new TestDynamicTargetTableSettings("test"),
+            streamSettings,
+            backfillSettings
+          )
+        )
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillSettings, changeCaptureStreamContext)
         )
@@ -95,10 +110,18 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream changes respecting watermark") {
       for
-        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
         _ <- prepareWatermark("test", BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond))
-        dataProvider <- ZIO.succeed(BlobSourceDataProvider(source, writer, new TestDynamicTargetTableSettings("test"), emptyStreamSettings, backfillSettings))
+        dataProvider <- ZIO.succeed(
+          BlobSourceDataProvider(
+            source,
+            writer,
+            new TestDynamicTargetTableSettings("test"),
+            emptyStreamSettings,
+            backfillSettings
+          )
+        )
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(
             dataProvider,

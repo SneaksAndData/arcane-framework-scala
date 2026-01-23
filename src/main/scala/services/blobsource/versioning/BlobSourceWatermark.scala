@@ -24,7 +24,7 @@ object BlobSourceWatermark:
   implicit val rw: ReadWriter[BlobSourceWatermark] = macroRW
 
   def fromJson(value: String): BlobSourceWatermark = upickle.read(value)
-  
+
   val epoch: BlobSourceWatermark =
     val start = OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)
     BlobSourceWatermark(version = start.toEpochSecond.toString, timestamp = start)
