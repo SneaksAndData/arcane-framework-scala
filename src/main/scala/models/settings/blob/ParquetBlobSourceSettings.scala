@@ -12,3 +12,8 @@ trait ParquetBlobSourceSettings extends BlobSourceSettings:
     * doesn't assign field identifiers.
     */
   val useNameMapping: Boolean
+
+  /** Optional schema for the source. If provided, must contain base64-encoded bytes of an empty parquet file with the
+    * matching schema. If not provided, schema will be inferred from a random file in the bucket.
+    */
+  val sourceSchema: Option[String]

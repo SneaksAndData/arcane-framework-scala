@@ -16,20 +16,42 @@ import services.storage.services.s3.S3BlobStorageReader
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.util.Base64
+
 class BlobListingParquetSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
     primaryKeys: Seq[String],
-    useNameMapping: Boolean
+    useNameMapping: Boolean,
+    sourceSchema: Option[String]
 ) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
     with SchemaProvider[ArcaneSchema]:
 
   override def getSchema: Task[SchemaType] = for
-    filePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
-    scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
-    schema   <- scanner.getIcebergSchema.map(implicitly)
-  yield schema ++ Seq(BlobBatchCommons.indexedVersionField(schema.mergeKey match {
+    preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
+      for
+        schemaBytes <- ZIO.attempt(Base64.getDecoder.decode(sourceSchema.get))
+        scanner     <- ZIO.attempt(ParquetScanner(schemaBytes, useNameMapping))
+        schema      <- scanner.getIcebergSchema.map(implicitly)
+      yield schema
+    }
+    runtimeSchema <- preconfiguredSchema match
+      case Some(schema) => ZIO.succeed(schema)
+      case None =>
+        for
+          maybeFilePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
+          schema <- maybeFilePath match
+            case Some(filePath) =>
+              ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema.map(implicitly))
+            case None =>
+              ZIO.fail(
+                new RuntimeException(
+                  s"Unable to locate schema for $sourcePath - stream will terminate. Please check if bucket is not empty when stream starts, or provide `sourceSchema` value to avoid automatic inference"
+                )
+              )
+        yield schema
+  yield runtimeSchema ++ Seq(BlobBatchCommons.indexedVersionField(runtimeSchema.mergeKey match {
     case IndexedMergeKeyField(fieldId) => fieldId + 1
     case _ => throw new RuntimeException("Unsupported schema: parquet source supplied a non-indexed merge key")
   }))
@@ -58,9 +80,17 @@ object BlobListingParquetSource:
       s3Reader: S3BlobStorageReader,
       tempPath: String,
       primaryKeys: Seq[String],
-      useNameMapping: Boolean
+      useNameMapping: Boolean,
+      sourceSchema: Option[String]
   ): BlobListingParquetSource[S3StoragePath] =
-    new BlobListingParquetSource[S3StoragePath](sourcePath, s3Reader, tempPath, primaryKeys, useNameMapping)
+    new BlobListingParquetSource[S3StoragePath](
+      sourcePath,
+      s3Reader,
+      tempPath,
+      primaryKeys,
+      useNameMapping,
+      sourceSchema
+    )
 
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
@@ -78,6 +108,7 @@ object BlobListingParquetSource:
       blobReader,
       sourceSettings.tempStoragePath,
       sourceSettings.primaryKeys,
-      sourceSettings.useNameMapping
+      sourceSettings.useNameMapping,
+      sourceSettings.sourceSchema
     )
   }

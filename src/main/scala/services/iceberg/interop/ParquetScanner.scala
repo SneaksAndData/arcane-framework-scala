@@ -1,15 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg.interop
 
-import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{ArcaneSchema, DataRow}
-import services.iceberg.{given_Conversion_GenericRecord_DataRow, given_Conversion_MessageType_Schema}
+import logging.ZIOLogAnnotations.zlog
+import models.schemas.DataRow
+import services.iceberg.base.BlobScanner
 import services.iceberg.interop.given
-import extensions.ZExtensions.*
+import services.iceberg.{given_Conversion_GenericRecord_DataRow, given_Conversion_MessageType_Schema}
 
-import com.sneaksanddata.arcane.framework.services.iceberg.base.BlobScanner
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetReaders
+import org.apache.iceberg.inmemory.InMemoryInputFile
 import org.apache.iceberg.mapping.MappingUtil
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.{Files, Schema}
@@ -77,3 +77,5 @@ object ParquetScanner:
     new ParquetScanner(Files.localInput(path), useNameMapping)
   def apply(file: org.apache.iceberg.io.InputFile, useNameMapping: Boolean): ParquetScanner =
     new ParquetScanner(file, useNameMapping)
+  def apply(content: Array[Byte], useNameMapping: Boolean): ParquetScanner =
+    new ParquetScanner(InMemoryInputFile(content), useNameMapping)

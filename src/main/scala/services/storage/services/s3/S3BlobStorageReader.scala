@@ -147,8 +147,13 @@ final class S3BlobStorageReader(
     * @return
     *   A path to the downloaded blob.
     */
-  override def downloadRandomBlob(rootPath: S3StoragePath, localPath: String): Task[String] = for
+  override def downloadRandomBlob(rootPath: S3StoragePath, localPath: String): Task[Option[String]] = for
     response <- ZIO.attemptBlocking(s3Client.listObjectsV2(preBuildListObjectsV2Request(rootPath, 1).build()))
-    blob     <- ZIO.succeed(response.contents().asScala.toList.head)
-    result   <- downloadBlob(S3StoragePath(bucket = rootPath.bucket, objectKey = blob.key()), localPath)
+    blob     <- ZIO.succeed(response.contents().asScala.toList.headOption)
+    result <- blob match
+      case Some(existingBlob) =>
+        downloadBlob(S3StoragePath(bucket = rootPath.bucket, objectKey = existingBlob.key()), localPath).map(v =>
+          Some(v)
+        )
+      case None => ZIO.succeed(Option.empty[String])
   yield result

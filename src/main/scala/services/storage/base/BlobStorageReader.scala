@@ -3,12 +3,10 @@ package services.storage.base
 
 import services.storage.models.base.{BlobPath, StoredBlob}
 
-import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import zio.Task
 import zio.stream.ZStream
 
-import java.io.{BufferedReader, ByteArrayInputStream, Reader}
-import scala.concurrent.Future
+import java.io.BufferedReader
 
 /** A trait that defines the interface for reading from a blob storage.
   *
@@ -60,7 +58,7 @@ trait BlobStorageReader[PathType <: BlobPath]:
     * @return
     *   A path to the downloaded blob.
     */
-  def downloadRandomBlob(rootPath: PathType, localPath: String): Task[String]
+  def downloadRandomBlob(rootPath: PathType, localPath: String): Task[Option[String]]
 
   /** Reads blob content as a string
     * @param blobPath
