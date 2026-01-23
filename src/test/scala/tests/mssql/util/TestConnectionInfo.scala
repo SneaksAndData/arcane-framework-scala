@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package tests.services.connectors.mssql.util
+package tests.mssql.util
+
+import services.mssql.base.ConnectionOptions
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
 import zio.{Task, ZIO}
 
 import java.sql.Connection

@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package tests.services.connectors.mssql
+package tests.mssql
 
 import models.schemas.ArcaneType.*
 import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
@@ -9,7 +9,7 @@ import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
-import tests.services.connectors.mssql.util.MsSqlTestServices.*
+import tests.mssql.util.MsSqlTestServices.*
 
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
