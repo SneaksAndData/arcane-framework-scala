@@ -28,7 +28,7 @@ import zio.{Scope, Task, ZIO}
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
-  private val tableName = "dimensionattributelevelvalue"
+  private val sourceTableName = "dimensionattributelevelvalue"
   private val graphSettings = new VersionedDataGraphBuilderSettings {
     override val lookBackInterval: Duration      = Duration.ofHours(3)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
@@ -92,7 +92,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       "streams rows in backfill mode correctly"
     ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
       for
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(synapseLinkReader, writer, TestTargetTableSettings, graphSettings, backfillSettings)
         )
@@ -115,14 +115,15 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream correct number of changes") {
       for
-        _ <- prepareWatermark("target_table_stream")
+        tableName <- ZIO.succeed("target_table_stream")
+        _         <- prepareWatermark("target_table_stream")
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
             writer,
-            new TestDynamicTargetTableSettings("target_table_stream"),
+            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )
@@ -145,15 +146,16 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream changes in the correct order") {
       for
+        tableName <- ZIO.succeed("target_table_stream_ordered")
         // prepare target table metadata
-        _ <- prepareWatermark("target_table_stream_ordered")
+        _ <- prepareWatermark(tableName)
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
             writer,
-            new TestDynamicTargetTableSettings("target_table_stream_ordered"),
+            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )

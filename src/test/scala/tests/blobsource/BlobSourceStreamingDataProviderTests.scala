@@ -77,7 +77,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           BlobSourceDataProvider(
             source,
             writer,
-            new TestDynamicTargetTableSettings("test"),
+            new TestDynamicTargetTableSettings("demo.test.test"),
             streamSettings,
             backfillSettings
           )
@@ -103,7 +103,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           BlobSourceDataProvider(
             source,
             writer,
-            new TestDynamicTargetTableSettings("test"),
+            new TestDynamicTargetTableSettings("demo.test.test"),
             streamSettings,
             backfillSettings
           )
@@ -130,7 +130,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           BlobSourceDataProvider(
             source,
             writer,
-            new TestDynamicTargetTableSettings("test"),
+            new TestDynamicTargetTableSettings("demo.test.test"),
             emptyStreamSettings,
             backfillSettings
           )

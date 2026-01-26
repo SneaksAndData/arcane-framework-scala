@@ -40,7 +40,7 @@ class BlobSourceDataProvider(
 
   override def firstVersion: Task[BlobSourceWatermark] =
     for
-      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableFullName, "comment")
+      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableNameParts.Name, "comment")
       _ <- zlog("Current watermark value on %s is '%s'", targetTableSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(BlobSourceWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {

@@ -20,7 +20,11 @@ class BackfillOverwriteWatermarkProcessor(
   override type BatchType = StagedBackfillOverwriteBatch
 
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batch =>
-    for _ <- batch.applyWatermark(icebergS3CatalogWriter, targetTableSettings.targetTableFullName, declaredMetrics)
+    for _ <- batch.applyWatermark(
+        icebergS3CatalogWriter,
+        targetTableSettings.targetTableNameParts.Name,
+        declaredMetrics
+      )
     yield batch
   }
 
