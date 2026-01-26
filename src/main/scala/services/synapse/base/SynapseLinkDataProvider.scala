@@ -36,7 +36,7 @@ class SynapseLinkDataProvider(
 
   override def firstVersion: Task[SynapseWatermark] =
     for
-      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableFullName, "comment")
+      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableNameParts.Name, "comment")
       _ <- zlog("Current watermark value on %s is '%s'", targetTableSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(SynapseWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {

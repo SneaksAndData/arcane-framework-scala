@@ -50,7 +50,7 @@ class MsSqlDataProvider(
     */
   override def firstVersion: Task[MsSqlWatermark] =
     for
-      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableFullName, "comment")
+      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableNameParts.Name, "comment")
       _ <- zlog("Current watermark value on %s is '%s'", targetTableSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(MsSqlWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {

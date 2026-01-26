@@ -104,7 +104,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           MsSqlDataProvider(
             connection,
             writer,
-            new TestDynamicTargetTableSettings(tableName),
+            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )
