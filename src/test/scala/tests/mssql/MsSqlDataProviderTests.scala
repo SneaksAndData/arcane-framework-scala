@@ -12,8 +12,9 @@ import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSql
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
 import tests.shared.IcebergCatalogInfo.defaultSettings
-import tests.shared.{TestDynamicTargetTableSettings, TestStreamLifetimeService}
+import tests.shared.{NullDimensionsProvider, TestDynamicTargetTableSettings, TestStreamLifetimeService}
 
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -110,7 +111,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         )
         _ <- prepareWatermark(tableName, provider)
         streamingDataProvider <- ZIO.succeed(
-          MsSqlStreamingDataProvider(provider, settings, backfillSettings, streamContext)
+          MsSqlStreamingDataProvider(provider, settings, backfillSettings, streamContext, DeclaredMetrics(NullDimensionsProvider))
         )
         lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
         rows            <- streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect

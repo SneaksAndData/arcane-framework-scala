@@ -3,6 +3,7 @@ package services.mssql
 
 import models.app.StreamContext
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import services.metrics.DeclaredMetrics
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 
@@ -27,14 +28,15 @@ class MsSqlStreamingDataProvider(
     dataProvider: MsSqlDataProvider,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings,
-    streamContext: StreamContext
-) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](dataProvider, settings, backfillSettings, streamContext)
+    streamContext: StreamContext,
+    declaredMetrics: DeclaredMetrics
+) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 
 object MsSqlStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = MsSqlDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext
+  type Environment = MsSqlDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext & DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -48,9 +50,10 @@ object MsSqlStreamingDataProvider:
       dataProvider: MsSqlDataProvider,
       settings: VersionedDataGraphBuilderSettings,
       backfillSettings: BackfillSettings,
-      streamContext: StreamContext
+      streamContext: StreamContext,
+      declaredMetrics: DeclaredMetrics
   ): MsSqlStreamingDataProvider =
-    new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext)
+    new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
@@ -61,5 +64,6 @@ object MsSqlStreamingDataProvider:
         settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
         streamContext    <- ZIO.service[StreamContext]
-      yield MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext)
+        declaredMetrics    <- ZIO.service[DeclaredMetrics]
+      yield MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }

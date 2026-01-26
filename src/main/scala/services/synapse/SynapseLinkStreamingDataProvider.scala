@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
@@ -10,24 +9,15 @@ import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 import services.synapse.base.SynapseLinkDataProvider
 import services.synapse.versioning.SynapseWatermark
 
-import zio.metrics.Metric
-import zio.stream.ZStream
-import zio.{Task, ZIO, ZLayer}
-
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import zio.{ZIO, ZLayer}
 
 class SynapseLinkStreamingDataProvider(
     dataProvider: SynapseLinkDataProvider,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings,
     streamContext: StreamContext,
-    metrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](dataProvider, settings, backfillSettings, streamContext)
-
-// TODO: reimplement
-//  private val batchDelayInterval = metrics.tagMetric(Metric.gauge("arcane.stream.synapse.processing_lag"))
+    declaredMetrics: DeclaredMetrics
+) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 
 object SynapseLinkStreamingDataProvider:
 
@@ -47,9 +37,9 @@ object SynapseLinkStreamingDataProvider:
       settings: VersionedDataGraphBuilderSettings,
       backfillSettings: BackfillSettings,
       streamContext: StreamContext,
-      metrics: DeclaredMetrics
+      declaredMetrics: DeclaredMetrics
   ): SynapseLinkStreamingDataProvider =
-    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, metrics)
+    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
@@ -60,6 +50,6 @@ object SynapseLinkStreamingDataProvider:
         settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
         streamContext    <- ZIO.service[StreamContext]
-        metrics          <- ZIO.service[DeclaredMetrics]
-      yield SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, metrics)
+        declaredMetrics          <- ZIO.service[DeclaredMetrics]
+      yield SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }
