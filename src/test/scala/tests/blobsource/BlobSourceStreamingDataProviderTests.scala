@@ -70,7 +70,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("streams rows in backfill mode correctly") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _      <- prepareWatermark("test", BlobSourceWatermark.epoch)
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
@@ -90,7 +90,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes correctly") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _      <- prepareWatermark("test", BlobSourceWatermark.epoch)
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
@@ -111,7 +111,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes respecting watermark") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false))
+        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _ <- prepareWatermark("test", BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond))
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
