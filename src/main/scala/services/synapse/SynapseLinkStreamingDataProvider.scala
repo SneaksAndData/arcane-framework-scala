@@ -17,7 +17,13 @@ class SynapseLinkStreamingDataProvider(
     backfillSettings: BackfillSettings,
     streamContext: StreamContext,
     declaredMetrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](
+      dataProvider,
+      settings,
+      backfillSettings,
+      streamContext,
+      declaredMetrics
+    )
 
 object SynapseLinkStreamingDataProvider:
 
@@ -50,6 +56,6 @@ object SynapseLinkStreamingDataProvider:
         settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
         streamContext    <- ZIO.service[StreamContext]
-        declaredMetrics          <- ZIO.service[DeclaredMetrics]
+        declaredMetrics  <- ZIO.service[DeclaredMetrics]
       yield SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }

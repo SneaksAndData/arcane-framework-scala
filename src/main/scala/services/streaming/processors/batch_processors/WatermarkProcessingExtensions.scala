@@ -15,7 +15,11 @@ import java.time.{Duration, OffsetDateTime}
 
 object WatermarkProcessingExtensions:
   extension (batch: StagedBatch)
-    def applyWatermark(writer: IcebergS3CatalogWriter, targetName: String, declaredMetrics: DeclaredMetrics): ZIO[Any, Throwable, Unit] =
+    def applyWatermark(
+        writer: IcebergS3CatalogWriter,
+        targetName: String,
+        declaredMetrics: DeclaredMetrics
+    ): ZIO[Any, Throwable, Unit] =
       for _ <- ZIO.when(batch.completedWatermarkValue.isDefined) {
           for
             watermark <- ZIO.attempt(batch.completedWatermarkValue.get)
@@ -27,7 +31,9 @@ object WatermarkProcessingExtensions:
             previousWatermark <- writer.getProperty(targetName, "comment")
             _                 <- writer.comment(targetName, watermark)
             _                 <- zlog(s"Updated watermark from $previousWatermark to $watermark")
-            _ <- ZIO.attempt(TimestampOnlyWatermark.fromJson(watermark).age.toDouble) @@ declaredMetrics.appliedWatermarkAge
+            _ <- ZIO.attempt(
+              TimestampOnlyWatermark.fromJson(watermark).age.toDouble
+            ) @@ declaredMetrics.appliedWatermarkAge
           yield ()
         }
       yield ()

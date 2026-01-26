@@ -30,13 +30,20 @@ class MsSqlStreamingDataProvider(
     backfillSettings: BackfillSettings,
     streamContext: StreamContext,
     declaredMetrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](
+      dataProvider,
+      settings,
+      backfillSettings,
+      streamContext,
+      declaredMetrics
+    )
 
 object MsSqlStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = MsSqlDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext & DeclaredMetrics
+  type Environment = MsSqlDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext &
+    DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -64,6 +71,6 @@ object MsSqlStreamingDataProvider:
         settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
         streamContext    <- ZIO.service[StreamContext]
-        declaredMetrics    <- ZIO.service[DeclaredMetrics]
+        declaredMetrics  <- ZIO.service[DeclaredMetrics]
       yield MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }

@@ -74,7 +74,7 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
   val targetAnalyzeDuration: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.target.analyze_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
-  
+
   val appliedWatermarkAge: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.watermark.applied_age")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)

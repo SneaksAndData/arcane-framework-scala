@@ -47,6 +47,6 @@ object BlobSourceStreamingDataProvider:
         settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
         streamContext    <- ZIO.service[StreamContext]
-        declaredMetrics    <- ZIO.service[DeclaredMetrics]
+        declaredMetrics  <- ZIO.service[DeclaredMetrics]
       yield BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }

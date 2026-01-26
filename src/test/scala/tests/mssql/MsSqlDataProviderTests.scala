@@ -7,6 +7,7 @@ import models.schemas.{ArcaneSchema, Field}
 import models.settings.BackfillBehavior.Overwrite
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import services.metrics.DeclaredMetrics
 import services.mssql.*
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
@@ -14,7 +15,6 @@ import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnec
 import tests.shared.IcebergCatalogInfo.defaultSettings
 import tests.shared.{NullDimensionsProvider, TestDynamicTargetTableSettings, TestStreamLifetimeService}
 
-import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -111,7 +111,13 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         )
         _ <- prepareWatermark(tableName, provider)
         streamingDataProvider <- ZIO.succeed(
-          MsSqlStreamingDataProvider(provider, settings, backfillSettings, streamContext, DeclaredMetrics(NullDimensionsProvider))
+          MsSqlStreamingDataProvider(
+            provider,
+            settings,
+            backfillSettings,
+            streamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
         )
         lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
         rows            <- streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect
