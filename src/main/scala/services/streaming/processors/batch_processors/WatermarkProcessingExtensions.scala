@@ -4,12 +4,22 @@ package services.streaming.processors.batch_processors
 import logging.ZIOLogAnnotations.zlog
 import models.batches.StagedBatch
 import services.iceberg.IcebergS3CatalogWriter
+import services.metrics.DeclaredMetrics
+import services.streaming.base.OffsetDateTimeRW.rw
+import services.streaming.base.{JsonWatermark, SourceWatermark, TimestampOnlyWatermark}
 
+import upickle.default.*
 import zio.ZIO
+
+import java.time.{Duration, OffsetDateTime}
 
 object WatermarkProcessingExtensions:
   extension (batch: StagedBatch)
-    def applyWatermark(writer: IcebergS3CatalogWriter, targetName: String): ZIO[Any, Throwable, Unit] =
+    def applyWatermark(
+        writer: IcebergS3CatalogWriter,
+        targetName: String,
+        declaredMetrics: DeclaredMetrics
+    ): ZIO[Any, Throwable, Unit] =
       for _ <- ZIO.when(batch.completedWatermarkValue.isDefined) {
           for
             watermark <- ZIO.attempt(batch.completedWatermarkValue.get)
@@ -21,6 +31,9 @@ object WatermarkProcessingExtensions:
             previousWatermark <- writer.getProperty(targetName, "comment")
             _                 <- writer.comment(targetName, watermark)
             _                 <- zlog(s"Updated watermark from $previousWatermark to $watermark")
+            _ <- ZIO.attempt(
+              TimestampOnlyWatermark.fromJson(watermark).age.toDouble
+            ) @@ declaredMetrics.appliedWatermarkAge
           yield ()
         }
       yield ()

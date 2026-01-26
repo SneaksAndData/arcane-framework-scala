@@ -10,10 +10,11 @@ import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamin
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.TestDynamicTargetTableSettings
+import tests.shared.{NullDimensionsProvider, TestDynamicTargetTableSettings}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -82,7 +83,13 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           )
         )
         sdp <- ZIO.succeed(
-          BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillSettings, backfillStreamContext)
+          BlobSourceStreamingDataProvider(
+            dataProvider,
+            streamSettings,
+            backfillSettings,
+            backfillStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
         )
         rows <- sdp.stream.runCollect
       yield assertTrue(rows.size == 50 * 100 + 1 && rows.last.isWatermark) // watermark must be present at the end
@@ -102,7 +109,13 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           )
         )
         sdp <- ZIO.succeed(
-          BlobSourceStreamingDataProvider(dataProvider, streamSettings, backfillSettings, changeCaptureStreamContext)
+          BlobSourceStreamingDataProvider(
+            dataProvider,
+            streamSettings,
+            backfillSettings,
+            changeCaptureStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
         )
         rows <- sdp.stream.filter(!_.isWatermark).timeout(zio.Duration.fromSeconds(10)).runCount
       // since no new files are added to the storage, emitted amount should be equal to backfill run and do not increase
@@ -127,7 +140,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             dataProvider,
             emptyStreamSettings,
             backfillSettings,
-            changeCaptureStreamContext
+            changeCaptureStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
           )
         )
         rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount

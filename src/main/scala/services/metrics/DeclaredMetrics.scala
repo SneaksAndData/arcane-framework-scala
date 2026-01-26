@@ -75,6 +75,14 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     .gauge(s"$metricsNamespace.target.analyze_duration")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
+  val appliedWatermarkAge: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.watermark.applied_age")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  val streamingWatermarkAge: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.watermark.streaming_age")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
   def tagMetric[Type, In, Out](metric: Metric[Type, In, Out]): Metric[Type, In, Out] =
     metric.tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 

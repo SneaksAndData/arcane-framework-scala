@@ -7,6 +7,7 @@ import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.BlobSourceBatch
 import services.blobsource.versioning.BlobSourceWatermark
+import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 
 import zio.stream.ZStream
@@ -16,25 +17,28 @@ class BlobSourceStreamingDataProvider(
     dataProvider: BlobSourceDataProvider,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings,
-    streamContext: StreamContext
+    streamContext: StreamContext,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[BlobSourceWatermark, BlobSourceBatch](
       dataProvider,
       settings,
       backfillSettings,
-      streamContext
+      streamContext,
+      declaredMetrics
     )
 
 object BlobSourceStreamingDataProvider:
   private type Environment = BlobSourceDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings &
-    StreamContext
+    StreamContext & DeclaredMetrics
 
   def apply(
       dataProvider: BlobSourceDataProvider,
       settings: VersionedDataGraphBuilderSettings,
       backfillSettings: BackfillSettings,
-      streamContext: StreamContext
+      streamContext: StreamContext,
+      declaredMetrics: DeclaredMetrics
   ): BlobSourceStreamingDataProvider =
-    new BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext)
+    new BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
@@ -43,5 +47,6 @@ object BlobSourceStreamingDataProvider:
         settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
         streamContext    <- ZIO.service[StreamContext]
-      yield BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext)
+        declaredMetrics  <- ZIO.service[DeclaredMetrics]
+      yield BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }

@@ -7,6 +7,7 @@ import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.providers.BlobSourceDataProvider
 
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -14,7 +15,8 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
     dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings,
-    streamContext: StreamContext
+    streamContext: StreamContext,
+    declaredMetrics: DeclaredMetrics
 ) extends StreamDataProvider:
 
   type StreamElementType = DataRow
@@ -58,6 +60,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       _ <- ZIO.when(isChanged) {
         zlog(s"Data found in the batch: ${previousVersion.version}, continuing") *> ZIO.unit
       }
+      _ <- ZIO.succeed(previousVersion.age.toDouble) @@ declaredMetrics.streamingWatermarkAge
     yield ()
 
   override def stream: ZStream[Any, Throwable, RowType] = if streamContext.IsBackfilling then {
