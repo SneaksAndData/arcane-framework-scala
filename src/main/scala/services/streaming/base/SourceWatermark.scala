@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import upickle.ReadWriter
-import upickle.default._
+import upickle.default.*
 
-import java.time.OffsetDateTime
+import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 
 /** A token used to track source data versions when streaming changes. Watermarks are stored in the target table
@@ -23,6 +23,12 @@ trait SourceWatermark[VersionType <: String] extends Ordered[SourceWatermark[Ver
   /** Current source update/commit time associated with this watermark
     */
   val timestamp: OffsetDateTime
+
+  /**
+   * Age of this watermark at the current moment of time
+   * @return
+   */
+  def age: Long = Duration.between(timestamp, OffsetDateTime.now()).toSeconds
 
 /** Json-serializable watermark
   */

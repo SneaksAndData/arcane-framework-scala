@@ -17,7 +17,7 @@ class WatermarkProcessor(
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batchesSet =>
     for _ <- ZIO.foreach(batchesSet.groupedBySchema) { batch =>
-        batch.applyWatermark(icebergS3CatalogWriter, targetTableSettings.targetTableFullName)
+        batch.applyWatermark(icebergS3CatalogWriter, targetTableSettings.targetTableFullName, declaredMetrics)
       }
     yield batchesSet
   }
