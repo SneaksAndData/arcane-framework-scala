@@ -28,8 +28,11 @@ class MsSqlDataProvider(
 ) extends VersionedDataProvider[MsSqlWatermark, DataRow]
     with BackfillDataProvider[DataRow]:
 
-  override def requestChanges(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
-    reader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(previousVersion)))
+  override def requestChanges(
+      previousVersion: MsSqlWatermark,
+      nextVersion: MsSqlWatermark
+  ): ZStream[Any, Throwable, DataRow] =
+    reader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   def hasChanges(previousVersion: MsSqlWatermark): Task[Boolean] = reader.hasChanges(previousVersion)
 

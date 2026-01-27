@@ -24,8 +24,11 @@ class SynapseLinkDataProvider(
 ) extends VersionedDataProvider[SynapseWatermark, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
-  override def requestChanges(previousVersion: SynapseWatermark): ZStream[Any, Throwable, SynapseLinkBatch] =
-    synapseReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(previousVersion)))
+  override def requestChanges(
+      previousVersion: SynapseWatermark,
+      nextVersion: SynapseWatermark
+  ): ZStream[Any, Throwable, SynapseLinkBatch] =
+    synapseReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
     case Some(backfillStartDate) =>
