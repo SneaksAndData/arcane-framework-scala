@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import com.sneaksanddata.arcane.framework.models.schemas.DataRow
+import models.schemas.DataRow
+
 import zio.Task
 import zio.stream.ZStream
 
@@ -34,7 +35,10 @@ trait VersionedDataProvider[DataVersionType <: SourceWatermark[String], DataBatc
     *   Watermark from the previous change capture iteration
     * @return
     */
-  def requestChanges(previousVersion: DataVersionType): ZStream[Any, Throwable, DataBatchType]
+  def requestChanges(
+      previousVersion: DataVersionType,
+      nextVersion: DataVersionType
+  ): ZStream[Any, Throwable, DataBatchType]
 
   /** The first version of the data.
     */

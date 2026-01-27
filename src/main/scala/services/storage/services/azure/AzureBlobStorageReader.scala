@@ -46,7 +46,7 @@ final class AzureBlobStorageReader(
       case (None, None)             => new BlobServiceClientBuilder().credential(defaultCredential)
 
     builder
-      .endpoint(endpoint.getOrElse("https://$accountName.blob.core.windows.net/"))
+      .endpoint(endpoint.getOrElse(s"https://$accountName.blob.core.windows.net/"))
       .retryOptions(
         RequestRetryOptions(
           RetryPolicyType.EXPONENTIAL,

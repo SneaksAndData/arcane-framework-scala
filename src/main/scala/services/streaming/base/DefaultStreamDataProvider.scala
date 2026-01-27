@@ -5,9 +5,8 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
-import services.blobsource.providers.BlobSourceDataProvider
+import services.metrics.DeclaredMetrics
 
-import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -69,6 +68,6 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
     ZStream
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)
       .flatMap {
-        case (current, previous) if current > previous => dataProvider.requestChanges(previous)
+        case (current, previous) if current > previous => dataProvider.requestChanges(previous, current)
         case _                                         => ZStream.empty
       }

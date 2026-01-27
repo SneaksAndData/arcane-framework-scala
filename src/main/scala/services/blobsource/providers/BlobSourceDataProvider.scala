@@ -35,8 +35,11 @@ class BlobSourceDataProvider(
       )
       .concat(ZStream.succeed(JsonWatermarkRow(watermark)))
 
-  override def requestChanges(previousVersion: BlobSourceWatermark): ZStream[Any, Throwable, BlobSourceBatch] =
-    sourceReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(previousVersion)))
+  override def requestChanges(
+      previousVersion: BlobSourceWatermark,
+      nextVersion: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceBatch] =
+    sourceReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   override def firstVersion: Task[BlobSourceWatermark] =
     for
