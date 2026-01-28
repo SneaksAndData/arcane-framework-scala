@@ -7,9 +7,9 @@ import models.settings.{BackfillSettings, IcebergSinkSettings, SinkSettings, Ver
 import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
+import com.sneaksanddata.arcane.framework.services.iceberg.base.TablePropertyManager
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -18,7 +18,7 @@ import scala.util.Try
 
 class BlobSourceDataProvider(
                               sourceReader: BlobSourceReader,
-                              propertyManager: IcebergTablePropertyManager,
+                              propertyManager: TablePropertyManager,
                               sinkSettings: SinkSettings,
                               settings: VersionedDataGraphBuilderSettings,
                               backfillSettings: BackfillSettings
@@ -70,12 +70,12 @@ class BlobSourceDataProvider(
 
 object BlobSourceDataProvider:
   private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader &
-    IcebergTablePropertyManager & SinkSettings
+    TablePropertyManager & SinkSettings
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-      propertyManager <- ZIO.service[IcebergTablePropertyManager]
+      propertyManager <- ZIO.service[TablePropertyManager]
       sinkSettings    <- ZIO.service[SinkSettings]
       backfillSettings       <- ZIO.service[BackfillSettings]
       blobSource             <- ZIO.service[BlobSourceReader]

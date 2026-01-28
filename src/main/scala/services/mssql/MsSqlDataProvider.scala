@@ -4,7 +4,7 @@ package services.mssql
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import services.iceberg.base.TablePropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
@@ -21,7 +21,7 @@ import scala.util.Try
   */
 class MsSqlDataProvider(
                          reader: MsSqlReader,
-                         propertyManager: IcebergTablePropertyManager,
+                         propertyManager: TablePropertyManager,
                          sinkSettings: SinkSettings,
                          settings: VersionedDataGraphBuilderSettings,
                          backfillSettings: BackfillSettings
@@ -103,7 +103,7 @@ object MsSqlDataProvider:
       for
         reader                 <- ZIO.service[MsSqlReader]
         versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-        propertyManager <- ZIO.service[IcebergTablePropertyManager]
+        propertyManager <- ZIO.service[TablePropertyManager]
         sinkSettings    <- ZIO.service[SinkSettings]
         backfillSettings       <- ZIO.service[BackfillSettings]
       yield new MsSqlDataProvider(

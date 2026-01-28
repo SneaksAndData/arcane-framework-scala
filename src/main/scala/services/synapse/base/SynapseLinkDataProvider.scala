@@ -4,7 +4,7 @@ package services.synapse.base
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
 import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.base.TablePropertyManager
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import services.synapse.SynapseLinkBatch
 import services.synapse.versioning.SynapseWatermark
@@ -17,8 +17,8 @@ import scala.util.Try
 
 class SynapseLinkDataProvider(
                                synapseReader: SynapseLinkReader,
-                               icebergS3CatalogWriter: IcebergS3CatalogWriter,
-                               targetTableSettings: SinkSettings,
+                               propertyManager: TablePropertyManager,
+                               sinkSettings: SinkSettings,
                                settings: VersionedDataGraphBuilderSettings,
                                backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[SynapseWatermark, SynapseLinkBatch]
@@ -39,8 +39,8 @@ class SynapseLinkDataProvider(
 
   override def firstVersion: Task[SynapseWatermark] =
     for
-      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", targetTableSettings.targetTableFullName, watermarkString)
+      watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
+      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(SynapseWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {
         for
@@ -68,20 +68,20 @@ class SynapseLinkDataProvider(
     synapseReader.getCurrentVersion(previousVersion)
 
 object SynapseLinkDataProvider:
-  type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & IcebergS3CatalogWriter &
+  type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & TablePropertyManager &
     SinkSettings
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
       versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-      icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
-      targetTableSettings    <- ZIO.service[SinkSettings]
+      propertyManager <- ZIO.service[TablePropertyManager]
+      sinkSettings    <- ZIO.service[SinkSettings]
       backfillSettings       <- ZIO.service[BackfillSettings]
       synapseReader          <- ZIO.service[SynapseLinkReader]
     yield SynapseLinkDataProvider(
       synapseReader,
-      icebergS3CatalogWriter,
-      targetTableSettings,
+      propertyManager,
+      sinkSettings,
       versionedSettings,
       backfillSettings
     )
