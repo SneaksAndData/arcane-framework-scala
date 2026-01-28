@@ -10,7 +10,13 @@ import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
-import services.mssql.{MsSqlQueryResult, QueryProvider, SqlSchema, given_Conversion_SqlDataRow_DataRow}
+import services.mssql.{
+  MsSqlQueryResult,
+  QueryProvider,
+  SqlSchema,
+  given_Conversion_SqlDataRow_DataRow,
+  handleSpecialTypes
+}
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -89,7 +95,7 @@ class MsSqlReader(
             columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
             row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
             hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-          yield Some((row, hasNextRow))
+          yield Some((row.handleSpecialTypes, hasNextRow))
         else ZIO.succeed(None)
       }
     yield stream
@@ -121,6 +127,7 @@ class MsSqlReader(
         yield MsSqlReader.ensureHead(result)
       })
       .flatMap(batch => unfoldBatch(batch))
+      .map(_.handleSpecialTypes)
 
   def hasChanges(latestVersion: MsSqlWatermark): Task[Boolean] =
     ZIO.scoped {
