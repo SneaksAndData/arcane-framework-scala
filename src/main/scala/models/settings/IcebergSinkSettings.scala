@@ -1,4 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
-sealed trait IcebergSinkSettings extends IcebergCatalogSettings
+/**
+ * Connection settings for the Iceberg Catalog associated with the sink
+ */
+trait IcebergSinkSettings extends IcebergCatalogSettings

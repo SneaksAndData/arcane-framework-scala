@@ -3,14 +3,15 @@ package tests.shared
 
 import services.iceberg.IcebergCatalogCredential
 import services.iceberg.base.S3CatalogFileIO
-import com.sneaksanddata.arcane.framework.models.settings.IcebergStagingSettings
+
+import com.sneaksanddata.arcane.framework.models.settings.{IcebergSinkSettings, IcebergStagingSettings}
 
 object IcebergCatalogInfo:
   val defaultNamespace  = "test"
   val defaultWarehouse  = "demo"
   val defaultCatalogUri = "http://localhost:20001/catalog"
 
-  val defaultSettings: IcebergStagingSettings = new IcebergStagingSettings:
+  val defaultStagingSettings: IcebergStagingSettings = new IcebergStagingSettings:
     override val namespace: String                         = defaultNamespace
     override val warehouse: String                         = defaultWarehouse
     override val catalogUri: String                        = defaultCatalogUri
@@ -18,3 +19,9 @@ object IcebergCatalogInfo:
     override val s3CatalogFileIO: S3CatalogFileIO          = S3CatalogFileIO
     override val stagingLocation: Option[String]           = None
     override val maxRowsPerFile: Option[Int]               = Some(1000)
+
+  val defaultSinkSettings: IcebergSinkSettings = new IcebergSinkSettings:
+    override val namespace: String = defaultNamespace
+    override val warehouse: String = defaultWarehouse
+    override val catalogUri: String = defaultCatalogUri
+    override val additionalProperties: Map[String, String] = S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties

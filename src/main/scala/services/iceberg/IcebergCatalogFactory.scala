@@ -18,7 +18,7 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
 final class IcebergCatalogFactory(icebergCatalogSettings: IcebergCatalogSettings) extends CatalogFactory:
-  
+
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,

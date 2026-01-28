@@ -9,10 +9,10 @@ import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBu
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
-import tests.shared.IcebergCatalogInfo.defaultSettings
+import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
 import tests.shared.S3StorageInfo.*
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings}
 
@@ -56,7 +56,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     override def streamKind: String = "units"
   }
 
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultSettings)
+  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private def prepareWatermark(tableName: String, value: BlobSourceWatermark): Task[Unit] =
     for
@@ -64,7 +65,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       // prepare target table metadata
       watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
       _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      _             <- writer.comment(targetName, value.toJson)
+      _             <- propertyManager.comment(targetName, value.toJson)
     yield ()
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
@@ -76,7 +77,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            writer,
+            propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             streamSettings,
             backfillSettings
@@ -102,7 +103,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            writer,
+            propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             streamSettings,
             backfillSettings
@@ -129,7 +130,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            writer,
+            propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             emptyStreamSettings,
             backfillSettings

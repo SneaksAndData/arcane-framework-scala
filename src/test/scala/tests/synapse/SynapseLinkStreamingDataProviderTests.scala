@@ -6,21 +6,17 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, DataRow, Field, MergeKeyField}
 import models.settings.BackfillBehavior.Overwrite
 import models.settings.*
-import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
-import tests.shared.IcebergCatalogInfo.defaultSettings
-import tests.shared.{
-  EmptyTestTableMaintenanceSettings,
-  NullDimensionsProvider,
-  TestDynamicSinkSettings,
-  TestSinkSettings$
-}
+import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
+import tests.shared.{EmptyTestTableMaintenanceSettings, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings$}
 
+import com.sneaksanddata.arcane.framework.tests.mssql.MsSqlDataProviderTests.backfillSettings
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
@@ -73,7 +69,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultSettings)
+  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
 
@@ -84,7 +81,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
       _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
       azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-      _             <- writer.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
+      _             <- propertyManager.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
     yield ()
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
@@ -94,7 +91,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       for
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, writer, TestSinkSettings$, graphSettings, backfillSettings)
+          SynapseLinkDataProvider(synapseLinkReader, propertyManager, TestSinkSettings$, graphSettings, backfillSettings)
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
@@ -122,7 +119,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            writer,
+            propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
@@ -154,7 +151,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            writer,
+            propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
