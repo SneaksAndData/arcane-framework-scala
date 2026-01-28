@@ -28,12 +28,17 @@ class BlobSourceDataProvider(
   override def requestBackfill: ZStream[Any, Throwable, BlobSourceBatch] =
     val backFillStart =
       backfillSettings.backfillStartDate.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
-    val watermark = BlobSourceWatermark.fromEpochSecond(backFillStart.toInstant.toEpochMilli / 1000)
-    sourceReader
-      .getChanges(
-        BlobSourceWatermark.fromEpochSecond(backFillStart.toInstant.toEpochMilli / 1000)
+
+    val startWatermark = BlobSourceWatermark.fromEpochSecond(backFillStart.toInstant.toEpochMilli / 1000)
+    ZStream
+      .fromZIO(getCurrentVersion(startWatermark))
+      .flatMap(watermark =>
+        sourceReader
+          .getChanges(
+            startWatermark
+          )
+          .concat(ZStream.succeed(JsonWatermarkRow(watermark)))
       )
-      .concat(ZStream.succeed(JsonWatermarkRow(watermark)))
 
   override def requestChanges(
       previousVersion: BlobSourceWatermark,
