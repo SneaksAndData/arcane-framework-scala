@@ -168,7 +168,10 @@ class MsSqlReader(
       for
         callTime <- ZIO.succeed(OffsetDateTime.now())
         query    <- ZIO.succeed(QueryProvider.getVersionCommitTime(version))
-        _        <- zlog("Fetching version commit time using query: %s", query)
+        _ <- zlog(
+          "Fetching version commit time using query: %s. Will default to now() if this version is not fully accounted for yet",
+          query
+        )
         versionResult <- ZIO.fromAutoCloseable(
           executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readTime))
         )
