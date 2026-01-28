@@ -64,16 +64,16 @@ type SchemaProviderFactory = (String, Connection) => SchemaProvider[ArcaneSchema
   *   The options for the consumer.
   */
 class JdbcMergeServiceClient(
-                              options: JdbcMergeServiceClientSettings,
-                              targetTableSettings: SinkSettings,
-                              backfillTableSettings: BackfillSettings,
-                              streamContext: StreamContext,
-                              schemaProvider: SchemaProvider[ArcaneSchema],
-                              fieldsFilteringService: FieldsFilteringService,
-                              tablePropertiesSettings: TablePropertiesSettings,
-                              schemaProviderCache: SchemaCache,
-                              maybeSchemaProviderFactory: Option[SchemaProviderFactory],
-                              declaredMetrics: DeclaredMetrics
+    options: JdbcMergeServiceClientSettings,
+    targetTableSettings: SinkSettings,
+    backfillTableSettings: BackfillSettings,
+    streamContext: StreamContext,
+    schemaProvider: SchemaProvider[ArcaneSchema],
+    fieldsFilteringService: FieldsFilteringService,
+    tablePropertiesSettings: TablePropertiesSettings,
+    schemaProviderCache: SchemaCache,
+    maybeSchemaProviderFactory: Option[SchemaProviderFactory],
+    declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -322,16 +322,16 @@ object JdbcMergeServiceClient:
     *   The initialized JdbcConsumer instance
     */
   def apply(
-             options: JdbcMergeServiceClientSettings,
-             targetTableSettings: SinkSettings,
-             backfillTableSettings: BackfillSettings,
-             streamContext: StreamContext,
-             schemaProvider: SchemaProvider[ArcaneSchema],
-             fieldsFilteringService: FieldsFilteringService,
-             tablePropertiesSettings: TablePropertiesSettings,
-             schemaProviderManager: SchemaCache,
-             maybeSchemaProviderFactory: Option[SchemaProviderFactory],
-             declaredMetrics: DeclaredMetrics
+      options: JdbcMergeServiceClientSettings,
+      targetTableSettings: SinkSettings,
+      backfillTableSettings: BackfillSettings,
+      streamContext: StreamContext,
+      schemaProvider: SchemaProvider[ArcaneSchema],
+      fieldsFilteringService: FieldsFilteringService,
+      tablePropertiesSettings: TablePropertiesSettings,
+      schemaProviderManager: SchemaCache,
+      maybeSchemaProviderFactory: Option[SchemaProviderFactory],
+      declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,

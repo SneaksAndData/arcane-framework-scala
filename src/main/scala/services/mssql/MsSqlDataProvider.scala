@@ -20,11 +20,11 @@ import scala.util.Try
   *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-                         reader: MsSqlReader,
-                         propertyManager: TablePropertyManager,
-                         sinkSettings: SinkSettings,
-                         settings: VersionedDataGraphBuilderSettings,
-                         backfillSettings: BackfillSettings
+    reader: MsSqlReader,
+    propertyManager: TablePropertyManager,
+    sinkSettings: SinkSettings,
+    settings: VersionedDataGraphBuilderSettings,
+    backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[MsSqlWatermark, DataRow]
     with BackfillDataProvider[DataRow]:
 
@@ -54,7 +54,7 @@ class MsSqlDataProvider(
   override def firstVersion: Task[MsSqlWatermark] =
     for
       watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
+      _         <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(MsSqlWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {
         for
@@ -101,11 +101,11 @@ object MsSqlDataProvider:
   val layer =
     ZLayer {
       for
-        reader                 <- ZIO.service[MsSqlReader]
-        versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-        propertyManager <- ZIO.service[TablePropertyManager]
-        sinkSettings    <- ZIO.service[SinkSettings]
-        backfillSettings       <- ZIO.service[BackfillSettings]
+        reader            <- ZIO.service[MsSqlReader]
+        versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+        propertyManager   <- ZIO.service[TablePropertyManager]
+        sinkSettings      <- ZIO.service[SinkSettings]
+        backfillSettings  <- ZIO.service[BackfillSettings]
       yield new MsSqlDataProvider(
         reader,
         propertyManager,

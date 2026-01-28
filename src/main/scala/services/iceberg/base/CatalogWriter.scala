@@ -34,13 +34,13 @@ trait S3CatalogFileIO extends CatalogFileIO:
   /** S3 region to use with this IO implementation
     */
   val region: String
-  
+
   val properties: Map[String, String] = Map(
     CatalogProperties.FILE_IO_IMPL       -> implClass,
     S3FileIOProperties.ENDPOINT          -> endpoint,
     S3FileIOProperties.PATH_STYLE_ACCESS -> pathStyleEnabled,
     S3FileIOProperties.ACCESS_KEY_ID     -> accessKeyId,
-    S3FileIOProperties.SECRET_ACCESS_KEY -> secretAccessKey,
+    S3FileIOProperties.SECRET_ACCESS_KEY -> secretAccessKey
   )
 
 /** Singleton for S3CatalogFileIO

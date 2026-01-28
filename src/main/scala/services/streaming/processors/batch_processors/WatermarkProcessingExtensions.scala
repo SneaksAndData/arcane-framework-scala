@@ -17,9 +17,9 @@ import java.time.{Duration, OffsetDateTime}
 object WatermarkProcessingExtensions:
   extension (batch: StagedBatch)
     def applyWatermark(
-                        propertyManager: TablePropertyManager,
-                        targetName: String,
-                        declaredMetrics: DeclaredMetrics
+        propertyManager: TablePropertyManager,
+        targetName: String,
+        declaredMetrics: DeclaredMetrics
     ): ZIO[Any, Throwable, Unit] =
       for _ <- ZIO.when(batch.completedWatermarkValue.isDefined) {
           for

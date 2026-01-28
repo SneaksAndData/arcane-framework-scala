@@ -20,10 +20,10 @@ import zio.{Task, ZIO, ZLayer}
   *   The table properties settings.
   */
 class SynapseBackfillOverwriteBatchFactory(
-                                            jdbcMergeServiceClient: JdbcMergeServiceClient,
-                                            backfillSettings: BackfillSettings,
-                                            targetTableSettings: SinkSettings,
-                                            tablePropertiesSettings: TablePropertiesSettings
+    jdbcMergeServiceClient: JdbcMergeServiceClient,
+    backfillSettings: BackfillSettings,
+    targetTableSettings: SinkSettings,
+    tablePropertiesSettings: TablePropertiesSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
@@ -60,10 +60,10 @@ object SynapseBackfillOverwriteBatchFactory:
     *   The SynapseBackfillOverwriteBatchFactory instance.
     */
   def apply(
-             jdbcMergeServiceClient: JdbcMergeServiceClient,
-             backfillSettings: BackfillSettings,
-             targetTableSettings: SinkSettings,
-             tablePropertiesSettings: TablePropertiesSettings
+      jdbcMergeServiceClient: JdbcMergeServiceClient,
+      backfillSettings: BackfillSettings,
+      targetTableSettings: SinkSettings,
+      tablePropertiesSettings: TablePropertiesSettings
   ): SynapseBackfillOverwriteBatchFactory =
     new SynapseBackfillOverwriteBatchFactory(
       jdbcMergeServiceClient,

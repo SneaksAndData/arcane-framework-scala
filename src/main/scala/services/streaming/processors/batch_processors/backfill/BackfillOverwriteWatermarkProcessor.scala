@@ -12,9 +12,9 @@ import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 class BackfillOverwriteWatermarkProcessor(
-                                           propertyManager: TablePropertyManager,
-                                           targetTableSettings: SinkSettings,
-                                           declaredMetrics: DeclaredMetrics
+    propertyManager: TablePropertyManager,
+    targetTableSettings: SinkSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillOverwriteBatch
@@ -30,9 +30,9 @@ class BackfillOverwriteWatermarkProcessor(
 
 object BackfillOverwriteWatermarkProcessor:
   def apply(
-             propertyManager: TablePropertyManager,
-             targetTableSettings: SinkSettings,
-             declaredMetrics: DeclaredMetrics
+      propertyManager: TablePropertyManager,
+      targetTableSettings: SinkSettings,
+      declaredMetrics: DeclaredMetrics
   ): BackfillOverwriteWatermarkProcessor =
     new BackfillOverwriteWatermarkProcessor(propertyManager, targetTableSettings, declaredMetrics)
 

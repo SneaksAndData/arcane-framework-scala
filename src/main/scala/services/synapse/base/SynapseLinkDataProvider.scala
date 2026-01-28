@@ -16,11 +16,11 @@ import java.time.OffsetDateTime
 import scala.util.Try
 
 class SynapseLinkDataProvider(
-                               synapseReader: SynapseLinkReader,
-                               propertyManager: TablePropertyManager,
-                               sinkSettings: SinkSettings,
-                               settings: VersionedDataGraphBuilderSettings,
-                               backfillSettings: BackfillSettings
+    synapseReader: SynapseLinkReader,
+    propertyManager: TablePropertyManager,
+    sinkSettings: SinkSettings,
+    settings: VersionedDataGraphBuilderSettings,
+    backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[SynapseWatermark, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
@@ -40,7 +40,7 @@ class SynapseLinkDataProvider(
   override def firstVersion: Task[SynapseWatermark] =
     for
       watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
+      _         <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(SynapseWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {
         for
@@ -73,11 +73,11 @@ object SynapseLinkDataProvider:
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
-      versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-      propertyManager <- ZIO.service[TablePropertyManager]
-      sinkSettings    <- ZIO.service[SinkSettings]
-      backfillSettings       <- ZIO.service[BackfillSettings]
-      synapseReader          <- ZIO.service[SynapseLinkReader]
+      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      propertyManager   <- ZIO.service[TablePropertyManager]
+      sinkSettings      <- ZIO.service[SinkSettings]
+      backfillSettings  <- ZIO.service[BackfillSettings]
+      synapseReader     <- ZIO.service[SynapseLinkReader]
     yield SynapseLinkDataProvider(
       synapseReader,
       propertyManager,

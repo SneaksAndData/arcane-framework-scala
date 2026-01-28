@@ -14,7 +14,12 @@ import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
-import tests.shared.{EmptyTestTableMaintenanceSettings, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings$}
+import tests.shared.{
+  EmptyTestTableMaintenanceSettings,
+  NullDimensionsProvider,
+  TestDynamicSinkSettings,
+  TestSinkSettings$
+}
 
 import com.sneaksanddata.arcane.framework.tests.mssql.MsSqlDataProviderTests.backfillSettings
 import zio.test.*
@@ -69,7 +74,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
+    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
+  )
   private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
@@ -91,7 +98,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       for
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, propertyManager, TestSinkSettings$, graphSettings, backfillSettings)
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            propertyManager,
+            TestSinkSettings$,
+            graphSettings,
+            backfillSettings
+          )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(

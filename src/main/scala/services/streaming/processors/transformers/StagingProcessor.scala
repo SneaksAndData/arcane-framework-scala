@@ -23,12 +23,12 @@ import scala.collection.parallel.CollectionConverters.*
 trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 
 class StagingProcessor(
-                        stagingDataSettings: StagingDataSettings,
-                        tablePropertiesSettings: TablePropertiesSettings,
-                        targetTableSettings: SinkSettings,
-                        icebergCatalogSettings: IcebergStagingSettings,
-                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-                        declaredMetrics: DeclaredMetrics
+    stagingDataSettings: StagingDataSettings,
+    tablePropertiesSettings: TablePropertiesSettings,
+    targetTableSettings: SinkSettings,
+    icebergCatalogSettings: IcebergStagingSettings,
+    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+    declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
@@ -96,12 +96,12 @@ class StagingProcessor(
 object StagingProcessor:
 
   def apply(
-             stagingDataSettings: StagingDataSettings,
-             tablePropertiesSettings: TablePropertiesSettings,
-             targetTableSettings: SinkSettings,
-             icebergCatalogSettings: IcebergStagingSettings,
-             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-             declaredMetrics: DeclaredMetrics
+      stagingDataSettings: StagingDataSettings,
+      tablePropertiesSettings: TablePropertiesSettings,
+      targetTableSettings: SinkSettings,
+      icebergCatalogSettings: IcebergStagingSettings,
+      catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+      declaredMetrics: DeclaredMetrics
   ): StagingProcessor =
     new StagingProcessor(
       stagingDataSettings,

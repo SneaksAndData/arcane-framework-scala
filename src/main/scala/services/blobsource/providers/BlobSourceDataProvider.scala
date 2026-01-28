@@ -17,11 +17,11 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.util.Try
 
 class BlobSourceDataProvider(
-                              sourceReader: BlobSourceReader,
-                              propertyManager: TablePropertyManager,
-                              sinkSettings: SinkSettings,
-                              settings: VersionedDataGraphBuilderSettings,
-                              backfillSettings: BackfillSettings
+    sourceReader: BlobSourceReader,
+    propertyManager: TablePropertyManager,
+    sinkSettings: SinkSettings,
+    settings: VersionedDataGraphBuilderSettings,
+    backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[BlobSourceWatermark, BlobSourceBatch]
     with BackfillDataProvider[BlobSourceBatch]:
 
@@ -49,7 +49,7 @@ class BlobSourceDataProvider(
   override def firstVersion: Task[BlobSourceWatermark] =
     for
       watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
+      _         <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(BlobSourceWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {
         sourceReader.getStartFrom(settings.lookBackInterval)
@@ -74,11 +74,11 @@ object BlobSourceDataProvider:
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
-      versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-      propertyManager <- ZIO.service[TablePropertyManager]
-      sinkSettings    <- ZIO.service[SinkSettings]
-      backfillSettings       <- ZIO.service[BackfillSettings]
-      blobSource             <- ZIO.service[BlobSourceReader]
+      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      propertyManager   <- ZIO.service[TablePropertyManager]
+      sinkSettings      <- ZIO.service[SinkSettings]
+      backfillSettings  <- ZIO.service[BackfillSettings]
+      blobSource        <- ZIO.service[BlobSourceReader]
     yield BlobSourceDataProvider(
       blobSource,
       propertyManager,

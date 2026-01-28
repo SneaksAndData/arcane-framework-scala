@@ -56,7 +56,9 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     override def streamKind: String = "units"
   }
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
+    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
+  )
   private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private def prepareWatermark(tableName: String, value: BlobSourceWatermark): Task[Unit] =

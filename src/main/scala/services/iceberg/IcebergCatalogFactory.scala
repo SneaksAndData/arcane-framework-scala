@@ -22,9 +22,9 @@ final class IcebergCatalogFactory(icebergCatalogSettings: IcebergCatalogSettings
   private val catalogProperties: Map[String, String] =
     Map(
       CatalogProperties.WAREHOUSE_LOCATION -> icebergCatalogSettings.warehouse,
-      CatalogProperties.URI -> icebergCatalogSettings.catalogUri,
-      "rest-metrics-reporting-enabled" -> "false",
-      "view-endpoints-supported" -> "false"
+      CatalogProperties.URI                -> icebergCatalogSettings.catalogUri,
+      "rest-metrics-reporting-enabled"     -> "false",
+      "view-endpoints-supported"           -> "false"
     ) ++ icebergCatalogSettings.additionalProperties
 
   private val maxCatalogLifetime =
@@ -52,7 +52,7 @@ final class IcebergCatalogFactory(icebergCatalogSettings: IcebergCatalogSettings
       )
     )
     name <- ZIO.succeed(java.util.UUID.randomUUID().toString)
-    _ <- zlog("Creating new Iceberg RESTSessionCatalog instance with id %s", name)
+    _    <- zlog("Creating new Iceberg RESTSessionCatalog instance with id %s", name)
     _ <- ZIO.attemptBlocking(
       result.initialize(name, (catalogProperties ++ Map("header.X-Arcane-Runner-Identifier" -> name)).asJava)
     )

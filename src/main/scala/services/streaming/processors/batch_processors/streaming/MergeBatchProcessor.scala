@@ -15,10 +15,10 @@ import zio.{ZIO, ZLayer}
 /** Processor that merges data into a target table.
   */
 class MergeBatchProcessor(
-                           mergeServiceClient: MergeServiceClient,
-                           tableManager: JdbcTableManager,
-                           targetTableSettings: SinkSettings,
-                           declaredMetrics: DeclaredMetrics
+    mergeServiceClient: MergeServiceClient,
+    tableManager: JdbcTableManager,
+    targetTableSettings: SinkSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
 
   /** Processes the incoming data.
@@ -71,10 +71,10 @@ object MergeBatchProcessor:
     *   The initialized MergeProcessor instance
     */
   def apply(
-             mergeServiceClient: MergeServiceClient,
-             tableManager: JdbcTableManager,
-             targetTableSettings: SinkSettings,
-             declaredMetrics: DeclaredMetrics
+      mergeServiceClient: MergeServiceClient,
+      tableManager: JdbcTableManager,
+      targetTableSettings: SinkSettings,
+      declaredMetrics: DeclaredMetrics
   ): MergeBatchProcessor =
     new MergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings, declaredMetrics)
 

@@ -52,7 +52,9 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
+    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
+  )
   private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private def prepareWatermark(tableName: String, provider: MsSqlDataProvider): Task[Unit] =

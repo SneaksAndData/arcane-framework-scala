@@ -11,9 +11,9 @@ import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 class WatermarkProcessor(
-                          propertyManager: TablePropertyManager,
-                          targetTableSettings: SinkSettings,
-                          declaredMetrics: DeclaredMetrics
+    propertyManager: TablePropertyManager,
+    targetTableSettings: SinkSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batchesSet =>
     for _ <- ZIO.foreach(batchesSet.groupedBySchema) { batch =>
@@ -24,9 +24,9 @@ class WatermarkProcessor(
 
 object WatermarkProcessor:
   def apply(
-             propertyManager: TablePropertyManager,
-             targetTableSettings: SinkSettings,
-             declaredMetrics: DeclaredMetrics
+      propertyManager: TablePropertyManager,
+      targetTableSettings: SinkSettings,
+      declaredMetrics: DeclaredMetrics
   ): WatermarkProcessor =
     new WatermarkProcessor(propertyManager, targetTableSettings, declaredMetrics)
 

@@ -35,7 +35,7 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
 
   private val maxRowsPerFile = icebergCatalogSettings.maxRowsPerFile.getOrElse(10000)
   private val catalogFactory = new IcebergCatalogFactory(icebergCatalogSettings)
-  
+
   def createTable(name: String, schema: Schema, replace: Boolean): Task[Table] = for
     tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
     catalog <- catalogFactory.getCatalog
@@ -127,7 +127,8 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
       _ <- ZIO
         .sleep(zio.Duration.fromSeconds(1))
         .repeatUntil(_ =>
-          catalog.tableExists(catalogFactory.getSessionContext, TableIdentifier.of(icebergCatalogSettings.namespace, name))
+          catalog
+            .tableExists(catalogFactory.getSessionContext, TableIdentifier.of(icebergCatalogSettings.namespace, name))
         )
       _ <- zlog("Staging table %s created, appending data", name)
       table <- ZIO.attemptBlocking(

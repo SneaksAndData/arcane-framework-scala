@@ -12,9 +12,8 @@ trait SinkSettings:
     */
   val maintenanceSettings: TableMaintenanceSettings
 
-  /**
-   * Settings for Iceberg Catalog instance associated with the sink
-   */
+  /** Settings for Iceberg Catalog instance associated with the sink
+    */
   val icebergSinkSettings: IcebergSinkSettings
 
   /** Retrieve names for each component of a target table name

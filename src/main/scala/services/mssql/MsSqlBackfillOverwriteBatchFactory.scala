@@ -19,10 +19,10 @@ import zio.{Task, ZIO, ZLayer}
   *   The table properties settings.
   */
 class MsSqlBackfillOverwriteBatchFactory(
-                                          jdbcMergeServiceClient: JdbcMergeServiceClient,
-                                          backfillSettings: BackfillSettings,
-                                          targetTableSettings: SinkSettings,
-                                          tablePropertiesSettings: TablePropertiesSettings
+    jdbcMergeServiceClient: JdbcMergeServiceClient,
+    backfillSettings: BackfillSettings,
+    targetTableSettings: SinkSettings,
+    tablePropertiesSettings: TablePropertiesSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
@@ -58,10 +58,10 @@ object MsSqlBackfillOverwriteBatchFactory:
     *   The MsSqlBackfillBatchFactory instance.
     */
   def apply(
-             jdbcMergeServiceClient: JdbcMergeServiceClient,
-             backfillSettings: BackfillSettings,
-             targetTableSettings: SinkSettings,
-             tablePropertiesSettings: TablePropertiesSettings
+      jdbcMergeServiceClient: JdbcMergeServiceClient,
+      backfillSettings: BackfillSettings,
+      targetTableSettings: SinkSettings,
+      tablePropertiesSettings: TablePropertiesSettings
   ): MsSqlBackfillOverwriteBatchFactory =
     new MsSqlBackfillOverwriteBatchFactory(
       jdbcMergeServiceClient,
