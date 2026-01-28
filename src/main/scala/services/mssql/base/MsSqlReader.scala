@@ -144,7 +144,7 @@ class MsSqlReader(
 
     ZIO.scoped {
       for
-        _ <- zlog(s"Fetching version using query: $query")
+        _ <- zlog("Fetching version using query: %s", query)
         versionResult <- ZIO.fromAutoCloseable(
           executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readChangeTrackingVersion))
         )
@@ -166,14 +166,18 @@ class MsSqlReader(
 
     ZIO.scoped {
       for
-        query <- ZIO.succeed(QueryProvider.getVersionCommitTime(version))
-        _     <- zlog(s"Fetching version commit time using query: $query")
+        callTime <- ZIO.succeed(OffsetDateTime.now())
+        query    <- ZIO.succeed(QueryProvider.getVersionCommitTime(version))
+        _ <- zlog(
+          "Fetching version commit time using query: %s. Will default to now() if this version is not fully accounted for yet",
+          query
+        )
         versionResult <- ZIO.fromAutoCloseable(
           executeQuery(query, connection, (st, rs) => ScalarQueryResult.apply(st, rs, readTime))
         )
-        maybeVersion <- ZIO.attemptBlocking(versionResult.read)
-        result       <- ZIO.getOrFail(maybeVersion)
-      yield result
+        result <- ZIO.attemptBlocking(versionResult.read)
+      // since sys.dm_tran_commit_table can be behind latest version, we fallback to call time to avoid reporting huge delays
+      yield result.getOrElse(callTime)
     }
 
   /** Closes the connection to the database.
