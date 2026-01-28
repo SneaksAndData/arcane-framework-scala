@@ -17,5 +17,3 @@ trait IcebergStagingSettings extends IcebergCatalogSettings:
   /** Optional max rows per file. Default value is set by catalog writer
     */
   val maxRowsPerFile: Option[Int]
-
-  override val additionalProperties: Map[String, String] = s3CatalogFileIO.properties

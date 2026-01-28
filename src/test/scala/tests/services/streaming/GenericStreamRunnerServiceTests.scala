@@ -130,7 +130,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
-        ZLayer.succeed(TestSinkSettings$),
+        ZLayer.succeed(TestSinkSettings),
         ZLayer.succeed(defaultStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 

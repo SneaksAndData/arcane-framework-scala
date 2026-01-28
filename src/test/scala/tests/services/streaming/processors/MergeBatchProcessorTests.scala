@@ -12,7 +12,7 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.{
   NullDimensionsProvider,
   TablePropertiesSettings,
-  TestSinkSettings$,
+  TestSinkSettings,
   TestSinkSettingsWithMaintenance$
 }
 
@@ -96,7 +96,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(tableManager)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettings$, declaredMetrics)
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettings, declaredMetrics)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect

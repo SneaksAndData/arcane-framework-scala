@@ -18,7 +18,7 @@ import tests.shared.{
   EmptyTestTableMaintenanceSettings,
   NullDimensionsProvider,
   TestDynamicSinkSettings,
-  TestSinkSettings$
+  TestSinkSettings
 }
 
 import com.sneaksanddata.arcane.framework.tests.mssql.MsSqlDataProviderTests.backfillSettings
@@ -101,7 +101,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkDataProvider(
             synapseLinkReader,
             propertyManager,
-            TestSinkSettings$,
+            TestSinkSettings,
             graphSettings,
             backfillSettings
           )

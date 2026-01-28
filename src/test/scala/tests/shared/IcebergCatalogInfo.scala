@@ -22,8 +22,7 @@ object IcebergCatalogInfo:
     override val maxRowsPerFile: Option[Int]      = Some(1000)
 
   val defaultSinkSettings: IcebergSinkSettings = new IcebergSinkSettings:
-    override val namespace: String  = defaultNamespace
-    override val warehouse: String  = defaultWarehouse
-    override val catalogUri: String = defaultCatalogUri
-    override val additionalProperties: Map[String, String] =
-      S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties
+    override val namespace: String                         = defaultNamespace
+    override val warehouse: String                         = defaultWarehouse
+    override val catalogUri: String                        = defaultCatalogUri
+    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties

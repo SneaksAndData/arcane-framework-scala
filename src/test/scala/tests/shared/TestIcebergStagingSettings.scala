@@ -4,7 +4,7 @@ package tests.shared
 import services.iceberg.base.S3CatalogFileIO
 import com.sneaksanddata.arcane.framework.models.settings.IcebergStagingSettings
 
-object TestIcebergStagingSettings$$ extends IcebergStagingSettings:
+object TestIcebergStagingSettings extends IcebergStagingSettings:
   /** The namespace of the catalog.
     */
   override val namespace: String = "namespace"
@@ -26,3 +26,5 @@ object TestIcebergStagingSettings$$ extends IcebergStagingSettings:
   override val stagingLocation: Option[String] = None
 
   override val maxRowsPerFile: Option[Int] = None
+
+  override val additionalProperties: Map[String, String] = S3CatalogFileIO.properties

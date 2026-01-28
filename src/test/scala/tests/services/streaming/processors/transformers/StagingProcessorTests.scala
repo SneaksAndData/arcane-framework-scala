@@ -16,7 +16,7 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
 import tests.shared.{
   NullDimensionsProvider,
-  TestIcebergStagingSettings$$,
+  TestIcebergStagingSettings,
   TestStagingDataSettings,
   TestTablePropertiesSettings,
   TestSinkSettingsWithMaintenance$
@@ -61,7 +61,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       TestStagingDataSettings,
       TestTablePropertiesSettings,
       TestSinkSettingsWithMaintenance$,
-      TestIcebergStagingSettings$$,
+      TestIcebergStagingSettings,
       catalogWriterService,
       DeclaredMetrics(NullDimensionsProvider)
     )

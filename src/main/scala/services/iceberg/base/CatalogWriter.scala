@@ -35,7 +35,7 @@ trait S3CatalogFileIO extends CatalogFileIO:
     */
   val region: String
 
-  val properties: Map[String, String] = Map(
+  def properties: Map[String, String] = Map(
     CatalogProperties.FILE_IO_IMPL       -> implClass,
     S3FileIOProperties.ENDPOINT          -> endpoint,
     S3FileIOProperties.PATH_STYLE_ACCESS -> pathStyleEnabled,

@@ -143,7 +143,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
           EasyMock.anyString(),
           EasyMock.anyString(),
           EasyMock.anyObject(),
-          EasyMock.eq(TestSinkSettings$.targetTableFullName),
+          EasyMock.eq(TestSinkSettings.targetTableFullName),
           EasyMock.anyObject(),
           EasyMock.anyObject()
         )
@@ -178,7 +178,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
-        ZLayer.succeed(TestSinkSettings$),
+        ZLayer.succeed(TestSinkSettings),
         ZLayer.succeed(defaultStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
