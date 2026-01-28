@@ -3,7 +3,7 @@ package models.settings
 
 /** Settings for the target table
   */
-trait TargetTableSettings:
+trait SinkSettings:
   /** The name of the target table
     */
   val targetTableFullName: String
@@ -11,6 +11,11 @@ trait TargetTableSettings:
   /** The maintenance settings for the target table
     */
   val maintenanceSettings: TableMaintenanceSettings
+
+  /**
+   * Settings for Iceberg Catalog instance associated with the sink
+   */
+  val icebergSinkSettings: IcebergSinkSettings
 
   /** Retrieve names for each component of a target table name
     * @return

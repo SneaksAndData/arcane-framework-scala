@@ -3,7 +3,7 @@ package services.synapse.base
 
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
-import models.settings.{BackfillSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
 import services.iceberg.IcebergS3CatalogWriter
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import services.synapse.SynapseLinkBatch
@@ -16,11 +16,11 @@ import java.time.OffsetDateTime
 import scala.util.Try
 
 class SynapseLinkDataProvider(
-    synapseReader: SynapseLinkReader,
-    icebergS3CatalogWriter: IcebergS3CatalogWriter,
-    targetTableSettings: TargetTableSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings
+                               synapseReader: SynapseLinkReader,
+                               icebergS3CatalogWriter: IcebergS3CatalogWriter,
+                               targetTableSettings: SinkSettings,
+                               settings: VersionedDataGraphBuilderSettings,
+                               backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[SynapseWatermark, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
@@ -69,13 +69,13 @@ class SynapseLinkDataProvider(
 
 object SynapseLinkDataProvider:
   type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & IcebergS3CatalogWriter &
-    TargetTableSettings
+    SinkSettings
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
       versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
       icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
-      targetTableSettings    <- ZIO.service[TargetTableSettings]
+      targetTableSettings    <- ZIO.service[SinkSettings]
       backfillSettings       <- ZIO.service[BackfillSettings]
       synapseReader          <- ZIO.service[SynapseLinkReader]
     yield SynapseLinkDataProvider(

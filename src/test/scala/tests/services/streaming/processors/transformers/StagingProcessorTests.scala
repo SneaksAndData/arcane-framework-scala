@@ -4,7 +4,7 @@ package tests.services.streaming.processors.transformers
 import models.*
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
-import models.settings.IcebergCatalogSettings
+import models.settings.IcebergStagingSettings
 import services.base.DimensionsProvider
 import services.iceberg.IcebergS3CatalogWriter
 import services.iceberg.base.CatalogWriter
@@ -16,10 +16,10 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
 import tests.shared.{
   NullDimensionsProvider,
-  TestIcebergCatalogSettings,
+  TestIcebergStagingSettings$$,
   TestStagingDataSettings,
   TestTablePropertiesSettings,
-  TestTargetTableSettingsWithMaintenance
+  TestSinkSettingsWithMaintenance$
 }
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -53,15 +53,15 @@ object StagingProcessorTests extends ZIOSpecDefault:
     )
   )
   private val hookManager = SynapseHookManager()
-  private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergCatalogSettings] =
+  private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergStagingSettings] =
     ZLayer.succeed(defaultSettings)
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(
       TestStagingDataSettings,
       TestTablePropertiesSettings,
-      TestTargetTableSettingsWithMaintenance,
-      TestIcebergCatalogSettings,
+      TestSinkSettingsWithMaintenance$,
+      TestIcebergStagingSettings$$,
       catalogWriterService,
       DeclaredMetrics(NullDimensionsProvider)
     )

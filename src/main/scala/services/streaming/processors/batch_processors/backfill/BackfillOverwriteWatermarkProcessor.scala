@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.backfill
 
 import models.batches.StagedBackfillOverwriteBatch
-import models.settings.TargetTableSettings
+import models.settings.SinkSettings
 import services.iceberg.IcebergS3CatalogWriter
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -12,9 +12,9 @@ import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 class BackfillOverwriteWatermarkProcessor(
-    icebergS3CatalogWriter: IcebergS3CatalogWriter,
-    targetTableSettings: TargetTableSettings,
-    declaredMetrics: DeclaredMetrics
+                                           icebergS3CatalogWriter: IcebergS3CatalogWriter,
+                                           targetTableSettings: SinkSettings,
+                                           declaredMetrics: DeclaredMetrics
 ) extends StreamingBatchProcessor:
 
   override type BatchType = StagedBackfillOverwriteBatch
@@ -30,15 +30,15 @@ class BackfillOverwriteWatermarkProcessor(
 
 object BackfillOverwriteWatermarkProcessor:
   def apply(
-      icebergS3CatalogWriter: IcebergS3CatalogWriter,
-      targetTableSettings: TargetTableSettings,
-      declaredMetrics: DeclaredMetrics
+             icebergS3CatalogWriter: IcebergS3CatalogWriter,
+             targetTableSettings: SinkSettings,
+             declaredMetrics: DeclaredMetrics
   ): BackfillOverwriteWatermarkProcessor =
     new BackfillOverwriteWatermarkProcessor(icebergS3CatalogWriter, targetTableSettings, declaredMetrics)
 
   /** The required environment for the BackfillOverwriteWatermarkProcessor.
     */
-  type Environment = IcebergS3CatalogWriter & TargetTableSettings & DeclaredMetrics
+  type Environment = IcebergS3CatalogWriter & SinkSettings & DeclaredMetrics
 
   /** The ZLayer that creates the BackfillOverwriteWatermarkProcessor.
     */
@@ -46,7 +46,7 @@ object BackfillOverwriteWatermarkProcessor:
     ZLayer {
       for
         iceberg             <- ZIO.service[IcebergS3CatalogWriter]
-        targetTableSettings <- ZIO.service[TargetTableSettings]
+        targetTableSettings <- ZIO.service[SinkSettings]
         declaredMetrics     <- ZIO.service[DeclaredMetrics]
       yield BackfillOverwriteWatermarkProcessor(iceberg, targetTableSettings, declaredMetrics)
     }

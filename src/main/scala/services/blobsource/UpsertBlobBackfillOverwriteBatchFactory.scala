@@ -6,7 +6,7 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch,
   UpsertBlobBackfillOverwriteBatch
 }
-import models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
 
@@ -24,10 +24,10 @@ import zio.{Task, ZIO, ZLayer}
   *   The table properties settings.
   */
 class UpsertBlobBackfillOverwriteBatchFactory(
-    jdbcMergeServiceClient: JdbcMergeServiceClient,
-    backfillSettings: BackfillSettings,
-    targetTableSettings: TargetTableSettings,
-    tablePropertiesSettings: TablePropertiesSettings
+                                               jdbcMergeServiceClient: JdbcMergeServiceClient,
+                                               backfillSettings: BackfillSettings,
+                                               targetTableSettings: SinkSettings,
+                                               tablePropertiesSettings: TablePropertiesSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
@@ -48,7 +48,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
 
   /** The environment required for the BlobSourceBackfillOverwriteBatchFactory.
     */
-  type Environment = JdbcMergeServiceClient & BackfillSettings & TargetTableSettings & TablePropertiesSettings
+  type Environment = JdbcMergeServiceClient & BackfillSettings & SinkSettings & TablePropertiesSettings
 
   /** Creates a new BlobSourceBackfillOverwriteBatchFactory.
     *
@@ -64,10 +64,10 @@ object UpsertBlobBackfillOverwriteBatchFactory:
     *   The SynapseBackfillOverwriteBatchFactory instance.
     */
   def apply(
-      jdbcMergeServiceClient: JdbcMergeServiceClient,
-      backfillSettings: BackfillSettings,
-      targetTableSettings: TargetTableSettings,
-      tablePropertiesSettings: TablePropertiesSettings
+             jdbcMergeServiceClient: JdbcMergeServiceClient,
+             backfillSettings: BackfillSettings,
+             targetTableSettings: SinkSettings,
+             tablePropertiesSettings: TablePropertiesSettings
   ): UpsertBlobBackfillOverwriteBatchFactory =
     new UpsertBlobBackfillOverwriteBatchFactory(
       jdbcMergeServiceClient,
@@ -83,7 +83,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
       for
         mergeServiceClient      <- ZIO.service[JdbcMergeServiceClient]
         backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[TargetTableSettings]
+        targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
       yield UpsertBlobBackfillOverwriteBatchFactory(
         mergeServiceClient,

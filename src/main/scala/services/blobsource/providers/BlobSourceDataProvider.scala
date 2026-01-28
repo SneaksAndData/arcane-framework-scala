@@ -3,11 +3,11 @@ package services.blobsource.providers
 
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
-import models.settings.{BackfillSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import models.settings.{BackfillSettings, IcebergSinkSettings, SinkSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
 import zio.stream.ZStream
@@ -17,11 +17,11 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.util.Try
 
 class BlobSourceDataProvider(
-    sourceReader: BlobSourceReader,
-    icebergS3CatalogWriter: IcebergS3CatalogWriter,
-    targetTableSettings: TargetTableSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings
+                              sourceReader: BlobSourceReader,
+                              propertyManager: IcebergTablePropertyManager,
+                              sinkSettings: SinkSettings,
+                              settings: VersionedDataGraphBuilderSettings,
+                              backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[BlobSourceWatermark, BlobSourceBatch]
     with BackfillDataProvider[BlobSourceBatch]:
 
@@ -48,8 +48,8 @@ class BlobSourceDataProvider(
 
   override def firstVersion: Task[BlobSourceWatermark] =
     for
-      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", targetTableSettings.targetTableFullName, watermarkString)
+      watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
+      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(BlobSourceWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {
         sourceReader.getStartFrom(settings.lookBackInterval)
@@ -70,19 +70,19 @@ class BlobSourceDataProvider(
 
 object BlobSourceDataProvider:
   private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader &
-    IcebergS3CatalogWriter & TargetTableSettings
+    IcebergTablePropertyManager & SinkSettings
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-      icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
-      targetTableSettings    <- ZIO.service[TargetTableSettings]
+      propertyManager <- ZIO.service[IcebergTablePropertyManager]
+      sinkSettings    <- ZIO.service[SinkSettings]
       backfillSettings       <- ZIO.service[BackfillSettings]
       blobSource             <- ZIO.service[BlobSourceReader]
     yield BlobSourceDataProvider(
       blobSource,
-      icebergS3CatalogWriter,
-      targetTableSettings,
+      propertyManager,
+      sinkSettings,
       versionedSettings,
       backfillSettings
     )

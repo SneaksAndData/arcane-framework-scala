@@ -17,7 +17,7 @@ import services.merging.maintenance.{
 }
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import tests.services.merging.JdbcMergeServiceClientTests.test
-import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestTargetTableSettings}
+import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestSinkSettings$}
 
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar
@@ -52,7 +52,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private def getJdbcMergeServiceClient(schemaProviderFactory: Option[SchemaProviderFactory]) =
     new JdbcMergeServiceClient(
       options,
-      TestTargetTableSettings,
+      TestSinkSettings$,
       TestBackfillTableSettings,
       streamContext,
       schemaProviderMock,

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.synapse
 
 import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
-import models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
 
@@ -20,10 +20,10 @@ import zio.{Task, ZIO, ZLayer}
   *   The table properties settings.
   */
 class SynapseBackfillOverwriteBatchFactory(
-    jdbcMergeServiceClient: JdbcMergeServiceClient,
-    backfillSettings: BackfillSettings,
-    targetTableSettings: TargetTableSettings,
-    tablePropertiesSettings: TablePropertiesSettings
+                                            jdbcMergeServiceClient: JdbcMergeServiceClient,
+                                            backfillSettings: BackfillSettings,
+                                            targetTableSettings: SinkSettings,
+                                            tablePropertiesSettings: TablePropertiesSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
@@ -44,7 +44,7 @@ object SynapseBackfillOverwriteBatchFactory:
 
   /** The environment required for the SynapseBackfillOverwriteBatchFactory.
     */
-  type Environment = JdbcMergeServiceClient & BackfillSettings & TargetTableSettings & TablePropertiesSettings
+  type Environment = JdbcMergeServiceClient & BackfillSettings & SinkSettings & TablePropertiesSettings
 
   /** Creates a new SynapseBackfillOverwriteBatchFactory.
     *
@@ -60,10 +60,10 @@ object SynapseBackfillOverwriteBatchFactory:
     *   The SynapseBackfillOverwriteBatchFactory instance.
     */
   def apply(
-      jdbcMergeServiceClient: JdbcMergeServiceClient,
-      backfillSettings: BackfillSettings,
-      targetTableSettings: TargetTableSettings,
-      tablePropertiesSettings: TablePropertiesSettings
+             jdbcMergeServiceClient: JdbcMergeServiceClient,
+             backfillSettings: BackfillSettings,
+             targetTableSettings: SinkSettings,
+             tablePropertiesSettings: TablePropertiesSettings
   ): SynapseBackfillOverwriteBatchFactory =
     new SynapseBackfillOverwriteBatchFactory(
       jdbcMergeServiceClient,
@@ -79,7 +79,7 @@ object SynapseBackfillOverwriteBatchFactory:
       for
         mergeServiceClient      <- ZIO.service[JdbcMergeServiceClient]
         backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[TargetTableSettings]
+        targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
       yield SynapseBackfillOverwriteBatchFactory(
         mergeServiceClient,

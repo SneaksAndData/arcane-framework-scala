@@ -3,7 +3,8 @@ package services.iceberg.base
 
 import models.schemas.DataRow
 
-import org.apache.iceberg.{Schema, Table}
+import org.apache.iceberg.aws.s3.S3FileIOProperties
+import org.apache.iceberg.{CatalogProperties, Schema, Table}
 import zio.Task
 
 /** CatalogFileIO marks a class that holds implementation of a filesystem used by the catalog
@@ -33,6 +34,14 @@ trait S3CatalogFileIO extends CatalogFileIO:
   /** S3 region to use with this IO implementation
     */
   val region: String
+  
+  val properties: Map[String, String] = Map(
+    CatalogProperties.FILE_IO_IMPL       -> implClass,
+    S3FileIOProperties.ENDPOINT          -> endpoint,
+    S3FileIOProperties.PATH_STYLE_ACCESS -> pathStyleEnabled,
+    S3FileIOProperties.ACCESS_KEY_ID     -> accessKeyId,
+    S3FileIOProperties.SECRET_ACCESS_KEY -> secretAccessKey,
+  )
 
 /** Singleton for S3CatalogFileIO
   */
@@ -72,24 +81,6 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
     *   Reference to the updated table
     */
   def append(data: Iterable[DataRow], name: String, schema: SchemaImpl): Task[TableImpl]
-
-  /** Adds or updates a comment on the table
-    *
-    * @param tableName
-    *   Name of the table
-    * @param text
-    *   Comment text
-    * @return
-    */
-  def comment(tableName: String, text: String): Task[Unit]
-
-  /** Reads a specified table property
-    *
-    * @param tableName
-    *   Name of the table
-    * @return
-    */
-  def getProperty(tableName: String, propertyName: String): Task[String]
 
   /** Creates a new table in the Iceberg catalog, using the provided schema
     * @param name

@@ -3,8 +3,8 @@ package services.mssql
 
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.{DataRow, JsonWatermarkRow}
-import models.settings.{BackfillSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
-import services.iceberg.IcebergS3CatalogWriter
+import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
@@ -20,11 +20,11 @@ import scala.util.Try
   *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-    reader: MsSqlReader,
-    icebergS3CatalogWriter: IcebergS3CatalogWriter,
-    targetTableSettings: TargetTableSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings
+                         reader: MsSqlReader,
+                         propertyManager: IcebergTablePropertyManager,
+                         sinkSettings: SinkSettings,
+                         settings: VersionedDataGraphBuilderSettings,
+                         backfillSettings: BackfillSettings
 ) extends VersionedDataProvider[MsSqlWatermark, DataRow]
     with BackfillDataProvider[DataRow]:
 
@@ -53,8 +53,8 @@ class MsSqlDataProvider(
     */
   override def firstVersion: Task[MsSqlWatermark] =
     for
-      watermarkString <- icebergS3CatalogWriter.getProperty(targetTableSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", targetTableSettings.targetTableFullName, watermarkString)
+      watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
+      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
       watermark <- ZIO.attempt(Try(MsSqlWatermark.fromJson(watermarkString)).toOption)
       fallback <- ZIO.when(watermark.isEmpty) {
         for
@@ -103,13 +103,13 @@ object MsSqlDataProvider:
       for
         reader                 <- ZIO.service[MsSqlReader]
         versionedSettings      <- ZIO.service[VersionedDataGraphBuilderSettings]
-        icebergS3CatalogWriter <- ZIO.service[IcebergS3CatalogWriter]
-        targetTableSettings    <- ZIO.service[TargetTableSettings]
+        propertyManager <- ZIO.service[IcebergTablePropertyManager]
+        sinkSettings    <- ZIO.service[SinkSettings]
         backfillSettings       <- ZIO.service[BackfillSettings]
       yield new MsSqlDataProvider(
         reader,
-        icebergS3CatalogWriter,
-        targetTableSettings,
+        propertyManager,
+        sinkSettings,
         versionedSettings,
         backfillSettings
       )

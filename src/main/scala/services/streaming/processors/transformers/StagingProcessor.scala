@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.{IcebergCatalogSettings, StagingDataSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{IcebergStagingSettings, StagingDataSettings, TablePropertiesSettings, SinkSettings}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
@@ -23,12 +23,12 @@ import scala.collection.parallel.CollectionConverters.*
 trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 
 class StagingProcessor(
-    stagingDataSettings: StagingDataSettings,
-    tablePropertiesSettings: TablePropertiesSettings,
-    targetTableSettings: TargetTableSettings,
-    icebergCatalogSettings: IcebergCatalogSettings,
-    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-    declaredMetrics: DeclaredMetrics
+                        stagingDataSettings: StagingDataSettings,
+                        tablePropertiesSettings: TablePropertiesSettings,
+                        targetTableSettings: SinkSettings,
+                        icebergCatalogSettings: IcebergStagingSettings,
+                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+                        declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
@@ -96,12 +96,12 @@ class StagingProcessor(
 object StagingProcessor:
 
   def apply(
-      stagingDataSettings: StagingDataSettings,
-      tablePropertiesSettings: TablePropertiesSettings,
-      targetTableSettings: TargetTableSettings,
-      icebergCatalogSettings: IcebergCatalogSettings,
-      catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-      declaredMetrics: DeclaredMetrics
+             stagingDataSettings: StagingDataSettings,
+             tablePropertiesSettings: TablePropertiesSettings,
+             targetTableSettings: SinkSettings,
+             icebergCatalogSettings: IcebergStagingSettings,
+             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+             declaredMetrics: DeclaredMetrics
   ): StagingProcessor =
     new StagingProcessor(
       stagingDataSettings,
@@ -112,7 +112,7 @@ object StagingProcessor:
       declaredMetrics
     )
 
-  type Environment = StagingDataSettings & TablePropertiesSettings & TargetTableSettings & IcebergCatalogSettings &
+  type Environment = StagingDataSettings & TablePropertiesSettings & SinkSettings & IcebergStagingSettings &
     CatalogWriter[RESTCatalog, Table, Schema] & DeclaredMetrics
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
@@ -120,8 +120,8 @@ object StagingProcessor:
       for
         stagingDataSettings     <- ZIO.service[StagingDataSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-        targetTableSettings     <- ZIO.service[TargetTableSettings]
-        icebergCatalogSettings  <- ZIO.service[IcebergCatalogSettings]
+        targetTableSettings     <- ZIO.service[SinkSettings]
+        icebergCatalogSettings  <- ZIO.service[IcebergStagingSettings]
         catalogWriter           <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         declaredMetrics         <- ZIO.service[DeclaredMetrics]
       yield StagingProcessor(

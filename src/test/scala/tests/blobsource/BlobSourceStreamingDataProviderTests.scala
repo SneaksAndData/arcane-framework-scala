@@ -14,7 +14,7 @@ import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.{NullDimensionsProvider, TestDynamicTargetTableSettings}
+import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -77,7 +77,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           BlobSourceDataProvider(
             source,
             writer,
-            new TestDynamicTargetTableSettings("demo.test.test"),
+            new TestDynamicSinkSettings("demo.test.test"),
             streamSettings,
             backfillSettings
           )
@@ -103,7 +103,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           BlobSourceDataProvider(
             source,
             writer,
-            new TestDynamicTargetTableSettings("demo.test.test"),
+            new TestDynamicSinkSettings("demo.test.test"),
             streamSettings,
             backfillSettings
           )
@@ -130,7 +130,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           BlobSourceDataProvider(
             source,
             writer,
-            new TestDynamicTargetTableSettings("demo.test.test"),
+            new TestDynamicSinkSettings("demo.test.test"),
             emptyStreamSettings,
             backfillSettings
           )

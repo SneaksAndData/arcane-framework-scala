@@ -17,8 +17,8 @@ import tests.shared.IcebergCatalogInfo.defaultSettings
 import tests.shared.{
   EmptyTestTableMaintenanceSettings,
   NullDimensionsProvider,
-  TestDynamicTargetTableSettings,
-  TestTargetTableSettings
+  TestDynamicSinkSettings,
+  TestSinkSettings$
 }
 
 import zio.test.*
@@ -94,7 +94,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       for
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(synapseLinkReader, writer, TestTargetTableSettings, graphSettings, backfillSettings)
+          SynapseLinkDataProvider(synapseLinkReader, writer, TestSinkSettings$, graphSettings, backfillSettings)
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
@@ -123,7 +123,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkDataProvider(
             synapseLinkReader,
             writer,
-            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
+            new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )
@@ -155,7 +155,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkDataProvider(
             synapseLinkReader,
             writer,
-            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
+            new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )

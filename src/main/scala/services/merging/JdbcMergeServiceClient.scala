@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
 import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.BackfillBehavior.Overwrite
-import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, SinkSettings}
 import services.base.*
 import services.filters.FieldsFilteringService
 import services.iceberg.SchemaConversions
@@ -64,16 +64,16 @@ type SchemaProviderFactory = (String, Connection) => SchemaProvider[ArcaneSchema
   *   The options for the consumer.
   */
 class JdbcMergeServiceClient(
-    options: JdbcMergeServiceClientSettings,
-    targetTableSettings: TargetTableSettings,
-    backfillTableSettings: BackfillSettings,
-    streamContext: StreamContext,
-    schemaProvider: SchemaProvider[ArcaneSchema],
-    fieldsFilteringService: FieldsFilteringService,
-    tablePropertiesSettings: TablePropertiesSettings,
-    schemaProviderCache: SchemaCache,
-    maybeSchemaProviderFactory: Option[SchemaProviderFactory],
-    declaredMetrics: DeclaredMetrics
+                              options: JdbcMergeServiceClientSettings,
+                              targetTableSettings: SinkSettings,
+                              backfillTableSettings: BackfillSettings,
+                              streamContext: StreamContext,
+                              schemaProvider: SchemaProvider[ArcaneSchema],
+                              fieldsFilteringService: FieldsFilteringService,
+                              tablePropertiesSettings: TablePropertiesSettings,
+                              schemaProviderCache: SchemaCache,
+                              maybeSchemaProviderFactory: Option[SchemaProviderFactory],
+                              declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -312,7 +312,7 @@ object JdbcMergeServiceClient:
 
   /** The environment type for the JdbcConsumer.
     */
-  private type Environment = JdbcMergeServiceClientSettings & TargetTableSettings & SchemaProvider[ArcaneSchema] &
+  private type Environment = JdbcMergeServiceClientSettings & SinkSettings & SchemaProvider[ArcaneSchema] &
     FieldsFilteringService & TablePropertiesSettings & StreamContext & BackfillSettings & SchemaCache & DeclaredMetrics
 
   /** Factory method to create JdbcConsumer.
@@ -322,16 +322,16 @@ object JdbcMergeServiceClient:
     *   The initialized JdbcConsumer instance
     */
   def apply(
-      options: JdbcMergeServiceClientSettings,
-      targetTableSettings: TargetTableSettings,
-      backfillTableSettings: BackfillSettings,
-      streamContext: StreamContext,
-      schemaProvider: SchemaProvider[ArcaneSchema],
-      fieldsFilteringService: FieldsFilteringService,
-      tablePropertiesSettings: TablePropertiesSettings,
-      schemaProviderManager: SchemaCache,
-      maybeSchemaProviderFactory: Option[SchemaProviderFactory],
-      declaredMetrics: DeclaredMetrics
+             options: JdbcMergeServiceClientSettings,
+             targetTableSettings: SinkSettings,
+             backfillTableSettings: BackfillSettings,
+             streamContext: StreamContext,
+             schemaProvider: SchemaProvider[ArcaneSchema],
+             fieldsFilteringService: FieldsFilteringService,
+             tablePropertiesSettings: TablePropertiesSettings,
+             schemaProviderManager: SchemaCache,
+             maybeSchemaProviderFactory: Option[SchemaProviderFactory],
+             declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
@@ -353,7 +353,7 @@ object JdbcMergeServiceClient:
       ZIO.fromAutoCloseable {
         for
           connectionOptions       <- ZIO.service[JdbcMergeServiceClientSettings]
-          targetTableSettings     <- ZIO.service[TargetTableSettings]
+          targetTableSettings     <- ZIO.service[SinkSettings]
           backfillTableSettings   <- ZIO.service[BackfillSettings]
           schemaProvider          <- ZIO.service[SchemaProvider[ArcaneSchema]]
           fieldsFilteringService  <- ZIO.service[FieldsFilteringService]

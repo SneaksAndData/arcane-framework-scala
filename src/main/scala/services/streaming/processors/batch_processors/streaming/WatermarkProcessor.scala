@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
-import models.settings.TargetTableSettings
+import models.settings.SinkSettings
 import services.iceberg.IcebergS3CatalogWriter
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -11,9 +11,9 @@ import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 class WatermarkProcessor(
-    icebergS3CatalogWriter: IcebergS3CatalogWriter,
-    targetTableSettings: TargetTableSettings,
-    declaredMetrics: DeclaredMetrics
+                          icebergS3CatalogWriter: IcebergS3CatalogWriter,
+                          targetTableSettings: SinkSettings,
+                          declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batchesSet =>
     for _ <- ZIO.foreach(batchesSet.groupedBySchema) { batch =>
@@ -24,15 +24,15 @@ class WatermarkProcessor(
 
 object WatermarkProcessor:
   def apply(
-      icebergS3CatalogWriter: IcebergS3CatalogWriter,
-      targetTableSettings: TargetTableSettings,
-      declaredMetrics: DeclaredMetrics
+             icebergS3CatalogWriter: IcebergS3CatalogWriter,
+             targetTableSettings: SinkSettings,
+             declaredMetrics: DeclaredMetrics
   ): WatermarkProcessor =
     new WatermarkProcessor(icebergS3CatalogWriter, targetTableSettings, declaredMetrics)
 
   /** The required environment for the WatermarkProcessor.
     */
-  type Environment = IcebergS3CatalogWriter & TargetTableSettings & DeclaredMetrics
+  type Environment = IcebergS3CatalogWriter & SinkSettings & DeclaredMetrics
 
   /** The ZLayer that creates the WatermarkProcessor.
     */
@@ -40,7 +40,7 @@ object WatermarkProcessor:
     ZLayer {
       for
         iceberg             <- ZIO.service[IcebergS3CatalogWriter]
-        targetTableSettings <- ZIO.service[TargetTableSettings]
+        targetTableSettings <- ZIO.service[SinkSettings]
         declaredMetrics     <- ZIO.service[DeclaredMetrics]
       yield WatermarkProcessor(iceberg, targetTableSettings, declaredMetrics)
     }

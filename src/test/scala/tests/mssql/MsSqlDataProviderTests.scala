@@ -13,7 +13,7 @@ import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSql
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
 import tests.shared.IcebergCatalogInfo.defaultSettings
-import tests.shared.{NullDimensionsProvider, TestDynamicTargetTableSettings, TestStreamLifetimeService}
+import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestStreamLifetimeService}
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -104,7 +104,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           MsSqlDataProvider(
             connection,
             writer,
-            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
+            new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )
