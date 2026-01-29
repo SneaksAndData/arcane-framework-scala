@@ -8,6 +8,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.base.OffsetDateTimeRW.rw
 import services.streaming.base.{JsonWatermark, SourceWatermark, TimestampOnlyWatermark}
 
+import com.sneaksanddata.arcane.framework.services.iceberg.base.TablePropertyManager
 import upickle.default.*
 import zio.ZIO
 
@@ -16,7 +17,7 @@ import java.time.{Duration, OffsetDateTime}
 object WatermarkProcessingExtensions:
   extension (batch: StagedBatch)
     def applyWatermark(
-        writer: IcebergS3CatalogWriter,
+        propertyManager: TablePropertyManager,
         targetName: String,
         declaredMetrics: DeclaredMetrics
     ): ZIO[Any, Throwable, Unit] =
@@ -28,8 +29,8 @@ object WatermarkProcessingExtensions:
               batch.name,
               watermark
             )
-            previousWatermark <- writer.getProperty(targetName, "comment")
-            _                 <- writer.comment(targetName, watermark)
+            previousWatermark <- propertyManager.getProperty(targetName, "comment")
+            _                 <- propertyManager.comment(targetName, watermark)
             _                 <- zlog(s"Updated watermark from $previousWatermark to $watermark")
             _ <- ZIO.attempt(
               TimestampOnlyWatermark.fromJson(watermark).age.toDouble

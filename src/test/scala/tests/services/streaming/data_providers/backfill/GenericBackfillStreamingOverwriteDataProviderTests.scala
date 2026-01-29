@@ -12,7 +12,7 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.*
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{
@@ -244,8 +244,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
-        ZLayer.succeed(TestTargetTableSettings),
-        ZLayer.succeed(defaultSettings),
+        ZLayer.succeed(TestSinkSettings),
+        ZLayer.succeed(defaultStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
@@ -270,7 +270,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
-        WatermarkProcessor.layer
+        WatermarkProcessor.layer,
+        IcebergTablePropertyManager.layer
       )
 
     // Act

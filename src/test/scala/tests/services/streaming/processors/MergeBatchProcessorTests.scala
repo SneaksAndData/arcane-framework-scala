@@ -12,8 +12,8 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.{
   NullDimensionsProvider,
   TablePropertiesSettings,
-  TestTargetTableSettings,
-  TestTargetTableSettingsWithMaintenance
+  TestSinkSettings,
+  TestSinkSettingsWithMaintenance$
 }
 
 import org.easymock.EasyMock
@@ -64,7 +64,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(tableManager)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettingsWithMaintenance, declaredMetrics)
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettingsWithMaintenance$, declaredMetrics)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
@@ -96,7 +96,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(tableManager)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestTargetTableSettings, declaredMetrics)
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettings, declaredMetrics)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect

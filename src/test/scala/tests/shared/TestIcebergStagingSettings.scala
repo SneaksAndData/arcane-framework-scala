@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import services.iceberg.base.S3CatalogFileIO
-import com.sneaksanddata.arcane.framework.models.settings.IcebergCatalogSettings
+import com.sneaksanddata.arcane.framework.models.settings.IcebergStagingSettings
 
-object TestIcebergCatalogSettings extends IcebergCatalogSettings:
+object TestIcebergStagingSettings extends IcebergStagingSettings:
   /** The namespace of the catalog.
     */
   override val namespace: String = "namespace"
@@ -17,10 +17,6 @@ object TestIcebergCatalogSettings extends IcebergCatalogSettings:
     */
   override val catalogUri: String = "http://localhost:8080"
 
-  /** The catalog additional properties.
-    */
-  override val additionalProperties: Map[String, String] = Map()
-
   /** The catalog S3 properties.
     */
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
@@ -30,3 +26,5 @@ object TestIcebergCatalogSettings extends IcebergCatalogSettings:
   override val stagingLocation: Option[String] = None
 
   override val maxRowsPerFile: Option[Int] = None
+
+  override val additionalProperties: Map[String, String] = S3CatalogFileIO.properties

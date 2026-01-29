@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.batches.{SqlServerChangeTrackingBackfillBatch, StagedBackfillOverwriteBatch}
-import models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
 import services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.streaming.base.BackfillOverwriteBatchFactory
 
@@ -21,7 +21,7 @@ import zio.{Task, ZIO, ZLayer}
 class MsSqlBackfillOverwriteBatchFactory(
     jdbcMergeServiceClient: JdbcMergeServiceClient,
     backfillSettings: BackfillSettings,
-    targetTableSettings: TargetTableSettings,
+    targetTableSettings: SinkSettings,
     tablePropertiesSettings: TablePropertiesSettings
 ) extends BackfillOverwriteBatchFactory:
 
@@ -43,7 +43,7 @@ object MsSqlBackfillOverwriteBatchFactory:
 
   /** The environment required for the MsSqlBackfillBatchFactory.
     */
-  type Environment = JdbcMergeServiceClient & BackfillSettings & TargetTableSettings & TablePropertiesSettings
+  type Environment = JdbcMergeServiceClient & BackfillSettings & SinkSettings & TablePropertiesSettings
 
   /** Creates a new MsSqlBackfillBatchFactory.
     * @param jdbcMergeServiceClient
@@ -60,7 +60,7 @@ object MsSqlBackfillOverwriteBatchFactory:
   def apply(
       jdbcMergeServiceClient: JdbcMergeServiceClient,
       backfillSettings: BackfillSettings,
-      targetTableSettings: TargetTableSettings,
+      targetTableSettings: SinkSettings,
       tablePropertiesSettings: TablePropertiesSettings
   ): MsSqlBackfillOverwriteBatchFactory =
     new MsSqlBackfillOverwriteBatchFactory(
@@ -77,7 +77,7 @@ object MsSqlBackfillOverwriteBatchFactory:
       for
         mergeServiceClient      <- ZIO.service[JdbcMergeServiceClient]
         backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[TargetTableSettings]
+        targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
       yield MsSqlBackfillOverwriteBatchFactory(
         mergeServiceClient,

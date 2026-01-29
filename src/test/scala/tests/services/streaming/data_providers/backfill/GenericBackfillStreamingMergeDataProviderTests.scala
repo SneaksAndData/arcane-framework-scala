@@ -12,7 +12,7 @@ import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
@@ -143,7 +143,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
           EasyMock.anyString(),
           EasyMock.anyString(),
           EasyMock.anyObject(),
-          EasyMock.eq(TestTargetTableSettings.targetTableFullName),
+          EasyMock.eq(TestSinkSettings.targetTableFullName),
           EasyMock.anyObject(),
           EasyMock.anyObject()
         )
@@ -178,8 +178,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
-        ZLayer.succeed(TestTargetTableSettings),
-        ZLayer.succeed(defaultSettings),
+        ZLayer.succeed(TestSinkSettings),
+        ZLayer.succeed(defaultStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
@@ -204,7 +204,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         ZLayer.succeed(TestSourceBufferingSettings),
-        WatermarkProcessor.layer
+        WatermarkProcessor.layer,
+        IcebergTablePropertyManager.layer
       )
 
     // Act

@@ -6,7 +6,7 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch,
   UpsertBlobBackfillOverwriteBatch
 }
-import models.settings.{BackfillSettings, TablePropertiesSettings, TargetTableSettings}
+import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
 
@@ -26,7 +26,7 @@ import zio.{Task, ZIO, ZLayer}
 class UpsertBlobBackfillOverwriteBatchFactory(
     jdbcMergeServiceClient: JdbcMergeServiceClient,
     backfillSettings: BackfillSettings,
-    targetTableSettings: TargetTableSettings,
+    targetTableSettings: SinkSettings,
     tablePropertiesSettings: TablePropertiesSettings
 ) extends BackfillOverwriteBatchFactory:
 
@@ -48,7 +48,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
 
   /** The environment required for the BlobSourceBackfillOverwriteBatchFactory.
     */
-  type Environment = JdbcMergeServiceClient & BackfillSettings & TargetTableSettings & TablePropertiesSettings
+  type Environment = JdbcMergeServiceClient & BackfillSettings & SinkSettings & TablePropertiesSettings
 
   /** Creates a new BlobSourceBackfillOverwriteBatchFactory.
     *
@@ -66,7 +66,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
   def apply(
       jdbcMergeServiceClient: JdbcMergeServiceClient,
       backfillSettings: BackfillSettings,
-      targetTableSettings: TargetTableSettings,
+      targetTableSettings: SinkSettings,
       tablePropertiesSettings: TablePropertiesSettings
   ): UpsertBlobBackfillOverwriteBatchFactory =
     new UpsertBlobBackfillOverwriteBatchFactory(
@@ -83,7 +83,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
       for
         mergeServiceClient      <- ZIO.service[JdbcMergeServiceClient]
         backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[TargetTableSettings]
+        targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
       yield UpsertBlobBackfillOverwriteBatchFactory(
         mergeServiceClient,

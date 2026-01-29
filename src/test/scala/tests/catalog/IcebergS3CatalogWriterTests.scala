@@ -21,7 +21,7 @@ import scala.language.postfixOps
 object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
   private val schema =
     Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
-  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(defaultSettings)
+  private val writer: CatalogWriter[RESTCatalog, Table, Schema] = IcebergS3CatalogWriter(defaultStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("IcebergS3CatalogWriter")(
     test("creates a table when provided schema and rows") {
