@@ -46,6 +46,12 @@ trait StagedBatch:
     */
   def disposeExpr: String = s"DROP TABLE $name"
 
+  /**
+   * Check if current batch is an empty batch - batch without schema or name is empty and should be discarded 
+   * @return
+   */
+  def isEmpty: Boolean = name.isBlank || schema.isEmpty
+
 /** Common trait for StagedBatch that performs a backfill operation on the table.
   */
 trait StagedBackfillBatch extends StagedBatch with MergeableBatch

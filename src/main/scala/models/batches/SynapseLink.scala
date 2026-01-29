@@ -12,7 +12,7 @@ import models.queries.{
   WhenNotMatchedInsert
 }
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{TablePropertiesSettings, EmptyTablePropertiesSettings}
 
 object MatchedAppendOnlyDelete:
   def apply(): WhenMatchedDelete = new WhenMatchedDelete {
@@ -122,6 +122,7 @@ class SynapseLinkMergeBatch(
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SynapseLinkMergeBatch:
+  def empty(watermarkValue: Option[String]): SynapseLinkMergeBatch = new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

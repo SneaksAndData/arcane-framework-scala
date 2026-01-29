@@ -1,18 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models.batches
 
-import models.queries.{
-  MergeQuery,
-  MergeQueryCommons,
-  OnSegment,
-  OverwriteQuery,
-  OverwriteReplaceQuery,
-  WhenMatchedDelete,
-  WhenMatchedUpdate,
-  WhenNotMatchedInsert
-}
+import models.queries.{MergeQuery, MergeQueryCommons, OnSegment, OverwriteQuery, OverwriteReplaceQuery, WhenMatchedDelete, WhenMatchedUpdate, WhenNotMatchedInsert}
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{TableFormat, TablePropertiesSettings, EmptyTablePropertiesSettings}
 
 object MatchedUpdate {
   def apply(cols: Seq[String]): WhenMatchedUpdate = new WhenMatchedUpdate {
@@ -114,6 +105,8 @@ class UpsertBlobMergeBatch(
     )
 
 object UpsertBlobMergeBatch:
+  def empty(watermarkValue: Option[String]): UpsertBlobMergeBatch = new UpsertBlobMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
+  
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
@@ -128,7 +121,7 @@ object UpsertBlobMergeBatch:
       tablePropertiesSettings,
       batchSchema.mergeKey.name,
       watermarkValue
-    )
+    ) 
 
 class UpsertBlobBackfillMergeBatch(
     batchName: String,

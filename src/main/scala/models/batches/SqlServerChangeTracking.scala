@@ -12,7 +12,7 @@ import models.queries.{
   WhenNotMatchedInsert
 }
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{TablePropertiesSettings, EmptyTablePropertiesSettings}
 
 object WhenMatchedDelete:
   def apply(): WhenMatchedDelete = new WhenMatchedDelete {
@@ -125,6 +125,7 @@ class SqlServerChangeTrackingMergeBatch(
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SqlServerChangeTrackingMergeBatch:
+  def empty(watermarkValue: Option[String]): SqlServerChangeTrackingMergeBatch = new SqlServerChangeTrackingMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

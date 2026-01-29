@@ -144,7 +144,7 @@ private class BackfillHookManager(base: HookManager, backfillTableSettings: Back
   /** @inheritdoc
     */
   def onBatchStaged(
-      table: Table,
+      table: Option[Table],
       namespace: String,
       warehouse: String,
       batchSchema: ArcaneSchema,

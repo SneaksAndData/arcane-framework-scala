@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
+import models.settings.TableFormat.PARQUET
+
 /** Data file format for Iceberg tables
   */
 enum TableFormat:
@@ -75,3 +77,17 @@ object TablePropertiesSettings:
     "bucket"   -> ",",
     "truncate" -> ","
   )
+
+
+/**
+ * Empty settings to be used with no-op batches
+ */
+case object EmptyTablePropertiesSettings extends TablePropertiesSettings:
+  
+  override val partitionExpressions: Array[String] = Array.empty
+  
+  override val format: TableFormat = PARQUET
+  
+  override val sortedBy: Array[String] = Array.empty
+  
+  override val parquetBloomFilterColumns: Array[String] = Array.empty
