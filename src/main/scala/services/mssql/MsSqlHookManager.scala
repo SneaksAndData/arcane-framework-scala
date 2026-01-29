@@ -26,7 +26,6 @@ class MsSqlHookManager extends DefaultHookManager:
       val batchName = staged.name().split('.').last
       SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
     case None => SqlServerChangeTrackingMergeBatch.empty(watermarkValue)
-    
 
 object MsSqlHookManager:
   /** The required environment for the DefaultHookManager.

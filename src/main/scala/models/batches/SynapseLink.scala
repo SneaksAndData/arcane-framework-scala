@@ -122,7 +122,8 @@ class SynapseLinkMergeBatch(
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SynapseLinkMergeBatch:
-  def empty(watermarkValue: Option[String]): SynapseLinkMergeBatch = new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
+  def empty(watermarkValue: Option[String]): SynapseLinkMergeBatch =
+    new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

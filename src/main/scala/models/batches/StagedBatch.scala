@@ -4,8 +4,6 @@ package models.batches
 import models.queries.*
 import models.schemas.ArcaneSchema
 
-import com.sneaksanddata.arcane.framework.services.streaming.base.SourceWatermark
-
 trait MergeableBatch:
 
   /** Name of the target table in the linked Catalog that holds batch data
@@ -46,10 +44,9 @@ trait StagedBatch:
     */
   def disposeExpr: String = s"DROP TABLE $name"
 
-  /**
-   * Check if current batch is an empty batch - batch without schema or name is empty and should be discarded 
-   * @return
-   */
+  /** Check if current batch is an empty batch - batch without schema or name is empty and should be discarded
+    * @return
+    */
   def isEmpty: Boolean = name.isBlank || schema.isEmpty
 
 /** Common trait for StagedBatch that performs a backfill operation on the table.

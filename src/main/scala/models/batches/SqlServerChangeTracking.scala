@@ -125,7 +125,14 @@ class SqlServerChangeTrackingMergeBatch(
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SqlServerChangeTrackingMergeBatch:
-  def empty(watermarkValue: Option[String]): SqlServerChangeTrackingMergeBatch = new SqlServerChangeTrackingMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
+  def empty(watermarkValue: Option[String]): SqlServerChangeTrackingMergeBatch = new SqlServerChangeTrackingMergeBatch(
+    "",
+    ArcaneSchema.empty(),
+    "",
+    EmptyTablePropertiesSettings,
+    "",
+    watermarkValue
+  )
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

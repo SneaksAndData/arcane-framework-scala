@@ -33,8 +33,15 @@ trait RowGroupTransformer:
 
   type OnStagingTablesComplete = (Iterable[StagedVersionedBatch & MergeableBatch], Long, Chunk[Any]) => OutgoingElement
   type OnBatchStaged =
-    (Option[Table], String, String, ArcaneSchema, String, TablePropertiesSettings, Option[String]) => StagedVersionedBatch &
-      MergeableBatch
+    (
+        Option[Table],
+        String,
+        String,
+        ArcaneSchema,
+        String,
+        TablePropertiesSettings,
+        Option[String]
+    ) => StagedVersionedBatch & MergeableBatch
 
   type IncomingElement = DataRow
 

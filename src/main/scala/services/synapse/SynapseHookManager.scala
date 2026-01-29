@@ -25,7 +25,7 @@ class SynapseHookManager extends DefaultHookManager:
     case Some(staged) =>
       val batchName = staged.name().split('.').last
       SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
-    case None =>  SynapseLinkMergeBatch.empty(watermarkValue) 
+    case None => SynapseLinkMergeBatch.empty(watermarkValue)
 
 object SynapseHookManager:
   /** The required environment for the DefaultHookManager.

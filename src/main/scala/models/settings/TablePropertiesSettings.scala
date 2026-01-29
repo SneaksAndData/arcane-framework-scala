@@ -78,16 +78,14 @@ object TablePropertiesSettings:
     "truncate" -> ","
   )
 
-
-/**
- * Empty settings to be used with no-op batches
- */
+/** Empty settings to be used with no-op batches
+  */
 case object EmptyTablePropertiesSettings extends TablePropertiesSettings:
-  
+
   override val partitionExpressions: Array[String] = Array.empty
-  
+
   override val format: TableFormat = PARQUET
-  
+
   override val sortedBy: Array[String] = Array.empty
-  
+
   override val parquetBloomFilterColumns: Array[String] = Array.empty

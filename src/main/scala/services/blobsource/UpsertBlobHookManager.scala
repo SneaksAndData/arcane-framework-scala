@@ -23,8 +23,7 @@ class UpsertBlobHookManager extends DefaultHookManager:
     case Some(staged) =>
       val batchName = staged.name().split('.').last
       UpsertBlobMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
-    case None => UpsertBlobMergeBatch.empty(watermarkValue)    
-    
+    case None => UpsertBlobMergeBatch.empty(watermarkValue)
 
 object UpsertBlobHookManager:
   /** The required environment for the DefaultHookManager.

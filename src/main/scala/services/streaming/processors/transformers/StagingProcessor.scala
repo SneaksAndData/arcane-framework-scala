@@ -66,8 +66,14 @@ class StagingProcessor(
                )
             ).gaugeDuration(declaredMetrics.batchTransformDuration)
 
-          _ <- ZIO.when(filteredElements.nonEmpty)(zlog("Batch of size %s is ready for staging", filteredElements.size.toString))
-          _ <- ZIO.when(filteredElements.isEmpty)(zlog("Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur"))
+          _ <- ZIO.when(filteredElements.nonEmpty)(
+            zlog("Batch of size %s is ready for staging", filteredElements.size.toString)
+          )
+          _ <- ZIO.when(filteredElements.isEmpty)(
+            zlog(
+              "Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur"
+            )
+          )
 
           applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
             writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
