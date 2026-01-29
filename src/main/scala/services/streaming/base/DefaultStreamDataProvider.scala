@@ -25,16 +25,11 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       previousVersion   <- version
       currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
       hasVersionUpdated <- ZIO.succeed(currentVersion > previousVersion)
-      _ <- ZIO.when(hasVersionUpdated) {
-        for
-          _ <- zlog(
-            "Watermark version updated from %s to %s, checking for changes",
-            previousVersion.version,
-            currentVersion.version
-          )
-          _ <- checkEmpty(previousVersion)
-        yield ()
-      }
+      _ <- ZIO.when(hasVersionUpdated)(zlog(
+        "Watermark version updated from %s to %s",
+        previousVersion.version,
+        currentVersion.version
+      ))
       _ <- ZIO.unless(hasVersionUpdated) {
         for _ <- zlog(
             "No changes in watermark version, next check in %s seconds, staying at %s version",
@@ -45,22 +40,22 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       }
     yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
 
-  private def checkEmpty(previousVersion: WatermarkType): Task[Unit] =
+  private def hasChanges(previousVersion: WatermarkType): Task[Boolean] =
     for
-      _         <- zlog(s"Received versioned batch: ${previousVersion.version}")
+      _         <- zlog("Checking watermark value %s for changes", previousVersion.version)
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
         zlog(
-          s"No data in the batch, next check in ${settings.changeCaptureInterval.toSeconds} seconds"
+          s"No changes found between watermark value %s and current moment, next check in ${settings.changeCaptureInterval.toSeconds} seconds", previousVersion.version
         ) *> ZIO.sleep(
           settings.changeCaptureInterval
         )
       }
       _ <- ZIO.when(isChanged) {
-        zlog(s"Data found in the batch: ${previousVersion.version}, continuing") *> ZIO.unit
+        zlog(s"Source data has changed between watermark value %s and current moment, streaming", previousVersion.version) *> ZIO.unit
       }
       _ <- ZIO.succeed(previousVersion.age.toDouble) @@ declaredMetrics.streamingWatermarkAge
-    yield ()
+    yield isChanged
 
   override def stream: ZStream[Any, Throwable, RowType] = if streamContext.IsBackfilling then {
     dataProvider.requestBackfill
@@ -68,6 +63,6 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
     ZStream
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)
       .flatMap {
-        case (current, previous) if current > previous => dataProvider.requestChanges(previous, current)
+        case (current, previous) if current > previous => ZStream.whenZIO(hasChanges(previous))(dataProvider.requestChanges(previous, current))
         case _                                         => ZStream.empty
       }
