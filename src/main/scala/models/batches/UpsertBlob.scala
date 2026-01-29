@@ -31,6 +31,10 @@ object NotMatchedInsert {
 }
 
 object UpsertBlobMergeQuery:
+  def empty: MergeQuery = MergeQuery("", "")
+    ++ OnSegment(Map(), "", Seq.empty)
+    ++ NotMatchedInsert(Seq.empty)
+
   def apply(
       targetName: String,
       sourceQuery: String,
@@ -105,13 +109,15 @@ class UpsertBlobMergeBatch(
   override val completedWatermarkValue: Option[String] = watermarkValue
 
   override val batchQuery: MergeQuery =
-    UpsertBlobMergeQuery(
-      targetName = targetName,
-      sourceQuery = reduceExpr,
-      partitionFields = tablePropertiesSettings.partitionFields,
-      mergeKey = mergeKey,
-      columns = schema.map(f => f.name)
-    )
+    if schema.isEmpty then UpsertBlobMergeQuery.empty
+    else
+      UpsertBlobMergeQuery(
+        targetName = targetName,
+        sourceQuery = reduceExpr,
+        partitionFields = tablePropertiesSettings.partitionFields,
+        mergeKey = mergeKey,
+        columns = schema.map(f => f.name)
+      )
 
 object UpsertBlobMergeBatch:
   def empty(watermarkValue: Option[String]): UpsertBlobMergeBatch =
