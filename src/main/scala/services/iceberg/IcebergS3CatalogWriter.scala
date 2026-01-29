@@ -105,7 +105,9 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
       maxRowsPerFile.toString
     )
     chunks     <- ZIO.succeed(data.grouped(maxRowsPerFile))
-    appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
+    appendTran <- ZIO.attemptBlocking(tbl.newTransaction()).orDieWith {
+      e => new Throwable("Unable to create a new staging table transaction", e)
+    }
     files      <- ZIO.collectAllPar(chunks.map(chunk => chunkToFile(chunk, schema, tbl)).toArray)
     _          <- zlog("Created %s files to append for table %s", files.length.toString, tbl.name())
     appendFilesOp <-
