@@ -6,14 +6,14 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.BackfillBehavior.Overwrite
 import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBuilderSettings}
-import services.iceberg.{IcebergS3CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
-import tests.shared.IcebergCatalogInfo.defaultSettings
-import tests.shared.{NullDimensionsProvider, TestDynamicTargetTableSettings, TestStreamLifetimeService}
+import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
+import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestStreamLifetimeService}
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -52,12 +52,15 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultSettings)
+  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
+    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
+  )
+  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private def prepareWatermark(tableName: String, provider: MsSqlDataProvider): Task[Unit] =
     for
       _ <- writer.createTable(tableName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      _ <- writer.comment(tableName, MsSqlWatermark.epoch.toJson)
+      _ <- propertyManager.comment(tableName, MsSqlWatermark.epoch.toJson)
     yield ()
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
@@ -103,8 +106,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         provider <- ZIO.succeed(
           MsSqlDataProvider(
             connection,
-            writer,
-            new TestDynamicTargetTableSettings(s"demo.test.$tableName"),
+            propertyManager,
+            new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )

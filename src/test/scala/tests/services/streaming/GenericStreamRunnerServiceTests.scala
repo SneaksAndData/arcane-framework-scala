@@ -10,7 +10,7 @@ import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
@@ -130,8 +130,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
-        ZLayer.succeed(TestTargetTableSettings),
-        ZLayer.succeed(defaultSettings),
+        ZLayer.succeed(TestSinkSettings),
+        ZLayer.succeed(defaultStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
@@ -149,7 +149,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
-        WatermarkProcessor.layer
+        WatermarkProcessor.layer,
+        IcebergTablePropertyManager.layer
       )
 
     // Act

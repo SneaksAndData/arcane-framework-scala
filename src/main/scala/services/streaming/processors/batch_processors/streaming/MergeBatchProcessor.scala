@@ -17,7 +17,7 @@ import zio.{ZIO, ZLayer}
 class MergeBatchProcessor(
     mergeServiceClient: MergeServiceClient,
     tableManager: JdbcTableManager,
-    targetTableSettings: TargetTableSettings,
+    targetTableSettings: SinkSettings,
     declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
 
@@ -73,14 +73,14 @@ object MergeBatchProcessor:
   def apply(
       mergeServiceClient: MergeServiceClient,
       tableManager: JdbcTableManager,
-      targetTableSettings: TargetTableSettings,
+      targetTableSettings: SinkSettings,
       declaredMetrics: DeclaredMetrics
   ): MergeBatchProcessor =
     new MergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings, declaredMetrics)
 
   /** The required environment for the MergeBatchProcessor.
     */
-  type Environment = MergeServiceClient & TargetTableSettings & JdbcTableManager & DeclaredMetrics
+  type Environment = MergeServiceClient & SinkSettings & JdbcTableManager & DeclaredMetrics
 
   /** The ZLayer that creates the MergeProcessor.
     */
@@ -88,7 +88,7 @@ object MergeBatchProcessor:
     ZLayer {
       for
         jdbcConsumer        <- ZIO.service[MergeServiceClient]
-        targetTableSettings <- ZIO.service[TargetTableSettings]
+        targetTableSettings <- ZIO.service[SinkSettings]
         tableManager        <- ZIO.service[JdbcTableManager]
         declaredMetrics     <- ZIO.service[DeclaredMetrics]
       yield MergeBatchProcessor(jdbcConsumer, tableManager, targetTableSettings, declaredMetrics)

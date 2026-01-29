@@ -1,9 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
-import services.iceberg.base.S3CatalogFileIO
-
-/** Represents the settings of an Iceberg catalog.
+/** Connection information for Iceberg REST Catalog
   */
 trait IcebergCatalogSettings:
   /** The namespace (schema) of the catalog.
@@ -21,15 +19,3 @@ trait IcebergCatalogSettings:
   /** The catalog additional properties.
     */
   val additionalProperties: Map[String, String]
-
-  /** The catalog S3 properties.
-    */
-  val s3CatalogFileIO: S3CatalogFileIO
-
-  /** Optional data location override for the table
-    */
-  val stagingLocation: Option[String]
-
-  /** Optional max rows per file. Default value is set by catalog writer
-    */
-  val maxRowsPerFile: Option[Int]
