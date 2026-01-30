@@ -39,11 +39,6 @@ class StagingProcessor(
   ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
     ZPipeline[Chunk[IncomingElement]]()
       .filter(_.nonEmpty)
-      // IMPORTANT NOTE
-      // Currently this does not handle the case when a batch consists of a watermark only
-      // if such a batch is received, stream will fail when trying to infer schema for the batch, since Watermark schema does not carry a merge key
-      // Ideally we should skip stage and merge in case we receive a single-watermark batch. However, the only way this could happen is by ZIO deciding to separate watermark from other elements, which is unlikely (assumption)
-      // This should be addressed later by handling the watermark-only batch, if needed.
       .mapZIO(elements =>
         (for
           _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)
@@ -70,7 +65,16 @@ class StagingProcessor(
                    )
                )
             ).gaugeDuration(declaredMetrics.batchTransformDuration)
-          _ <- zlog("Batch of size %s is ready for staging", elements.size.toString)
+
+          _ <- ZIO.when(filteredElements.getOrElse(elements).nonEmpty)(
+            zlog("Batch of size %s is ready for staging", filteredElements.getOrElse(elements).size.toString)
+          )
+          _ <- ZIO.when(filteredElements.getOrElse(elements).isEmpty)(
+            zlog(
+              "Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur"
+            )
+          )
+
           applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
             writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
           )
@@ -86,7 +90,7 @@ class StagingProcessor(
       watermarkValue: Option[String]
   ): Task[StagedVersionedBatch & MergeableBatch] =
     for
-      table <- catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema)
+      table <- ZIO.when(rows.nonEmpty)(catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema))
       batch = onBatchStaged(
         table,
         icebergCatalogSettings.namespace,

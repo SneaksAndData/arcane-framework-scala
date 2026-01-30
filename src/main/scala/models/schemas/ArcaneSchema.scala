@@ -90,6 +90,9 @@ class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField
     case _                       => false
   }
 
+  /** Retrieve a field used as a merge key. Schemas without a merge key cannot be used by MergeProcessor
+    * @return
+    */
   def mergeKey: ArcaneSchemaField =
     val maybeMergeKey = fields.find {
       case MergeKeyField           => true

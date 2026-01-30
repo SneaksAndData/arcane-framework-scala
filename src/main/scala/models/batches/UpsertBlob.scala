@@ -12,7 +12,7 @@ import models.queries.{
   WhenNotMatchedInsert
 }
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{TableFormat, TablePropertiesSettings, EmptyTablePropertiesSettings}
 
 object MatchedUpdate {
   def apply(cols: Seq[String]): WhenMatchedUpdate = new WhenMatchedUpdate {
@@ -31,6 +31,10 @@ object NotMatchedInsert {
 }
 
 object UpsertBlobMergeQuery:
+  def empty: MergeQuery = MergeQuery("", "")
+    ++ OnSegment(Map(), "", Seq.empty)
+    ++ NotMatchedInsert(Seq.empty)
+
   def apply(
       targetName: String,
       sourceQuery: String,
@@ -105,15 +109,20 @@ class UpsertBlobMergeBatch(
   override val completedWatermarkValue: Option[String] = watermarkValue
 
   override val batchQuery: MergeQuery =
-    UpsertBlobMergeQuery(
-      targetName = targetName,
-      sourceQuery = reduceExpr,
-      partitionFields = tablePropertiesSettings.partitionFields,
-      mergeKey = mergeKey,
-      columns = schema.map(f => f.name)
-    )
+    if schema.isEmpty then UpsertBlobMergeQuery.empty
+    else
+      UpsertBlobMergeQuery(
+        targetName = targetName,
+        sourceQuery = reduceExpr,
+        partitionFields = tablePropertiesSettings.partitionFields,
+        mergeKey = mergeKey,
+        columns = schema.map(f => f.name)
+      )
 
 object UpsertBlobMergeBatch:
+  def empty(watermarkValue: Option[String]): UpsertBlobMergeBatch =
+    new UpsertBlobMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
+
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

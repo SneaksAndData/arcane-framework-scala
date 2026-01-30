@@ -12,7 +12,7 @@ import models.queries.{
   WhenNotMatchedInsert
 }
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{TablePropertiesSettings, EmptyTablePropertiesSettings}
 
 object MatchedAppendOnlyDelete:
   def apply(): WhenMatchedDelete = new WhenMatchedDelete {
@@ -40,6 +40,10 @@ object NotMatchedAppendOnlyInsert {
 }
 
 object SynapseLinkMergeQuery:
+  def empty: MergeQuery = MergeQuery("", "")
+    ++ OnSegment(Map(), "", Seq.empty)
+    ++ NotMatchedAppendOnlyInsert(Seq.empty)
+
   def apply(
       targetName: String,
       sourceQuery: String,
@@ -111,17 +115,21 @@ class SynapseLinkMergeBatch(
        |)""".stripMargin
 
   override val batchQuery: MergeQuery =
-    SynapseLinkMergeQuery(
-      targetName = targetName,
-      sourceQuery = reduceExpr,
-      partitionFields = tablePropertiesSettings.partitionFields,
-      mergeKey = mergeKey,
-      columns = schema.map(f => f.name)
-    )
+    if schema.isEmpty then SynapseLinkMergeQuery.empty
+    else
+      SynapseLinkMergeQuery(
+        targetName = targetName,
+        sourceQuery = reduceExpr,
+        partitionFields = tablePropertiesSettings.partitionFields,
+        mergeKey = mergeKey,
+        columns = schema.map(f => f.name)
+      )
 
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SynapseLinkMergeBatch:
+  def empty(watermarkValue: Option[String]): SynapseLinkMergeBatch =
+    new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

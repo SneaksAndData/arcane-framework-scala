@@ -25,7 +25,7 @@ trait HookManager:
   /** Converts the batch to a format that can be consumed by the next processor.
     */
   def onBatchStaged(
-      table: Table,
+      table: Option[Table],
       namespace: String,
       warehouse: String,
       batchSchema: ArcaneSchema,

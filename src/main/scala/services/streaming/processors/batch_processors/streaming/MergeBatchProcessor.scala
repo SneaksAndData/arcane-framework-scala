@@ -31,10 +31,10 @@ class MergeBatchProcessor(
       (for
         _ <- zlog("Applying batch set with index %s", batchesSet.batchIndex.toString)
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
-          tableManager.migrateSchema(batch.schema, batch.targetTableName)
+          ZIO.unless(batch.isEmpty)(tableManager.migrateSchema(batch.schema, batch.targetTableName))
         )
         _ <- ZIO
-          .foreach(batchesSet.groupedBySchema)(batch => mergeServiceClient.applyBatch(batch))
+          .foreach(batchesSet.groupedBySchema)(batch => ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch)))
 
         _ <- tableManager.optimizeTable(
           batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)

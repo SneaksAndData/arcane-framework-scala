@@ -12,7 +12,7 @@ import models.queries.{
   WhenNotMatchedInsert
 }
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 
 object WhenMatchedDelete:
   def apply(): WhenMatchedDelete = new WhenMatchedDelete {
@@ -40,6 +40,10 @@ object WhenNotMatchedInsert {
 }
 
 object SqlServerChangeTrackingMergeQuery:
+  def empty: MergeQuery = MergeQuery("", "")
+    ++ OnSegment(Map(), "", Seq.empty)
+    ++ WhenNotMatchedInsert(Seq.empty)
+
   def apply(
       targetName: String,
       sourceQuery: String,
@@ -114,17 +118,27 @@ class SqlServerChangeTrackingMergeBatch(
      |)""".stripMargin
 
   override val batchQuery: MergeQuery =
-    SqlServerChangeTrackingMergeQuery(
-      targetName = targetName,
-      sourceQuery = reduceExpr,
-      partitionFields = tablePropertiesSettings.partitionFields,
-      mergeKey = mergeKey,
-      columns = schema.map(f => f.name)
-    )
+    if schema.isEmpty then SqlServerChangeTrackingMergeQuery.empty
+    else
+      SqlServerChangeTrackingMergeQuery(
+        targetName = targetName,
+        sourceQuery = reduceExpr,
+        partitionFields = tablePropertiesSettings.partitionFields,
+        mergeKey = mergeKey,
+        columns = schema.map(f => f.name)
+      )
 
   override val completedWatermarkValue: Option[String] = watermarkValue
 
 object SqlServerChangeTrackingMergeBatch:
+  def empty(watermarkValue: Option[String]): SqlServerChangeTrackingMergeBatch = new SqlServerChangeTrackingMergeBatch(
+    "",
+    ArcaneSchema.empty(),
+    "",
+    EmptyTablePropertiesSettings,
+    "",
+    watermarkValue
+  )
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

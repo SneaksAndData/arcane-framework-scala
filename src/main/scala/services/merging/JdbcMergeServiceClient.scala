@@ -95,8 +95,12 @@ class JdbcMergeServiceClient(
   /** @inheritdoc
     */
   override def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
-    executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
-      .gaugeDuration(declaredMetrics.batchDisposeDuration)
+    ZIO
+      .unless(batch.isEmpty)(
+        executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
+          .gaugeDuration(declaredMetrics.batchDisposeDuration)
+      )
+      .map(_.getOrElse(new BatchDisposeResult))
 
   /** @inheritdoc
     */

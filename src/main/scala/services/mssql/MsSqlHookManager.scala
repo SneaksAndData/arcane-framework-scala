@@ -14,16 +14,18 @@ class MsSqlHookManager extends DefaultHookManager:
   /** Converts the batch to a format that can be consumed by the next processor.
     */
   def onBatchStaged(
-      table: Table,
+      table: Option[Table],
       namespace: String,
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
       tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
-  ): StagedVersionedBatch & MergeableBatch =
-    val batchName = table.name().split('.').last
-    SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
+  ): StagedVersionedBatch & MergeableBatch = table match
+    case Some(staged) =>
+      val batchName = staged.name().split('.').last
+      SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
+    case None => SqlServerChangeTrackingMergeBatch.empty(watermarkValue)
 
 object MsSqlHookManager:
   /** The required environment for the DefaultHookManager.
