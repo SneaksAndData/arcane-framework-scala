@@ -27,7 +27,7 @@ given SqlExpressionConvertable[JdbcOrphanFilesExpirationRequest] with
   /** @inheritdoc
     */
   extension (request: JdbcOrphanFilesExpirationRequest)
-    def toSqlExpression: String =
+    def BtoSqlExpression: String =
       s"ALTER TABLE ${request.tableName} execute remove_orphan_files(retention_threshold => '${request.retentionThreshold}')"
 
   /** @inheritdoc
