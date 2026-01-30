@@ -51,7 +51,9 @@ class StagingProcessor(
           }
           groupedBySchema <-
             (if stagingDataSettings.isUnifiedSchema then
-               ZIO.succeed(Map(elements.head.schema -> filteredElements.getOrElse(elements)))
+               ZIO.succeed(
+                 Map(filteredElements.getOrElse(elements).head.schema -> filteredElements.getOrElse(elements))
+               )
              else
                ZIO.succeed(
                  filteredElements
