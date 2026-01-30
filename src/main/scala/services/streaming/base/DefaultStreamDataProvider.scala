@@ -27,7 +27,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       hasVersionUpdated <- ZIO.succeed(currentVersion > previousVersion)
       _ <- ZIO.when(hasVersionUpdated)(
         zlog(
-          "Watermark version updated from %s to %s",
+          "Watermark version changed from %s to %s",
           previousVersion.version,
           currentVersion.version
         )
@@ -44,11 +44,11 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
 
   private def hasChanges(previousVersion: WatermarkType): Task[Boolean] =
     for
-      _         <- zlog("Checking watermark value %s for changes", previousVersion.version)
+      _         <- zlog("Checking watermark value %s for data changes", previousVersion.version)
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
         zlog(
-          s"No changes found between watermark value %s and current moment, next check in ${settings.changeCaptureInterval.toSeconds} seconds",
+          s"No changes in source data found between watermark value %s and current moment, next check in ${settings.changeCaptureInterval.toSeconds} seconds",
           previousVersion.version
         ) *> ZIO.sleep(
           settings.changeCaptureInterval
