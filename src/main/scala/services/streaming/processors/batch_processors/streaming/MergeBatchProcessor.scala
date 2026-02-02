@@ -36,24 +36,28 @@ class MergeBatchProcessor(
         _ <- ZIO
           .foreach(batchesSet.groupedBySchema)(batch => ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch)))
 
-        _ <- tableManager.optimizeTable(
-          batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)
-        )
-        _ <- tableManager.expireSnapshots(
-          batchesSet.getSnapshotExpirationRequest(
-            targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings
-          )
-        )
-        _ <- tableManager.expireOrphanFiles(
-          batchesSet.getOrphanFileExpirationRequest(
-            targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings
-          )
-        )
-        _ <- tableManager.analyzeTable(
-          batchesSet.getAnalyzeRequest(
-            targetTableSettings.maintenanceSettings.targetAnalyzeSettings
-          )
-        )
+        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty || batchesSet.groupedBySchema.head.isEmpty) {
+          for
+            _ <- tableManager.optimizeTable(
+              batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)
+            )
+            _ <- tableManager.expireSnapshots(
+              batchesSet.getSnapshotExpirationRequest(
+                targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings
+              )
+            )
+            _ <- tableManager.expireOrphanFiles(
+              batchesSet.getOrphanFileExpirationRequest(
+                targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings
+              )
+            )
+            _ <- tableManager.analyzeTable(
+              batchesSet.getAnalyzeRequest(
+                targetTableSettings.maintenanceSettings.targetAnalyzeSettings
+              )
+            )
+          yield ()
+        }
       yield batchesSet).gaugeDuration(declaredMetrics.batchMergeStageDuration)
     )
 
