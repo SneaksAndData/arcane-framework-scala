@@ -36,7 +36,7 @@ class MergeBatchProcessor(
         _ <- ZIO
           .foreach(batchesSet.groupedBySchema)(batch => ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch)))
 
-        _ <- ZIO.unless(batchesSet.groupedBySchema.head.isEmpty) {
+        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty || batchesSet.groupedBySchema.head.isEmpty) {
           for
             _ <- tableManager.optimizeTable(
               batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)
