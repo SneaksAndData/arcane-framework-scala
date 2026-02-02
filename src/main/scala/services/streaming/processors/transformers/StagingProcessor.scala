@@ -52,7 +52,13 @@ class StagingProcessor(
           groupedBySchema <-
             (if stagingDataSettings.isUnifiedSchema then
                ZIO.succeed(
-                 Map(filteredElements.getOrElse(elements).head.schema -> filteredElements.getOrElse(elements))
+                 Map(
+                   filteredElements
+                     .getOrElse(elements)
+                     .headOption
+                     .map(_.schema)
+                     .getOrElse(ArcaneSchema.empty()) -> filteredElements.getOrElse(elements)
+                 )
                )
              else
                ZIO.succeed(
