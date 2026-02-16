@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.app
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.settings.StagingDataSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.base.TableManager
@@ -52,7 +52,7 @@ class GenericStreamRunnerService(
 
   /** Logs the results of the stream.
     */
-  private def logResults = ZSink.foreach(result => zlog(s"Processing completed: $result"))
+  private def logResults = ZSink.foreach(result => zlog("Processing completed: %s", result.toString))
 
 /** The companion object for the StreamRunnerServiceImpl class.
   */

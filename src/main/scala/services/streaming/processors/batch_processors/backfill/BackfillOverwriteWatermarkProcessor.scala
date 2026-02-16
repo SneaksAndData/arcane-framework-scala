@@ -23,7 +23,8 @@ class BackfillOverwriteWatermarkProcessor(
     for _ <- batch.applyWatermark(
         propertyManager,
         targetTableSettings.targetTableNameParts.Name,
-        declaredMetrics
+        declaredMetrics,
+        "BackfillOverwriteWatermarkProcessor"
       )
     yield batch
   }
