@@ -13,10 +13,8 @@ type BlobSourceVersionType = String
 case class BlobSourceWatermark(version: BlobSourceVersionType, timestamp: OffsetDateTime)
     extends SourceWatermark[BlobSourceVersionType]
     with JsonWatermark:
-  override def compare(that: SourceWatermark[BlobSourceVersionType]): Int = (version.toLong, that.version.toLong) match
-    case (x, y) if x < y  => -1
-    case (x, y) if x == y => 0
-    case (x, y) if x > y  => 1
+  override def compare(that: SourceWatermark[BlobSourceVersionType]): Int =
+    Ordering[Long].compare(version.toLong, that.version.toLong)
 
   override def toJson: String = upickle.write(this)
 
