@@ -64,7 +64,9 @@ class BlobListingParquetSource[PathType <: BlobPath](
   override def empty: SchemaType = ArcaneSchema.empty()
 
   override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow] = for
-    sourceFile <- reader.streamPrefixes(sourcePath).filter(_.createdOn.getOrElse(0L) >= startFrom.version.toLong)
+    sourceFile <- reader
+      .streamPrefixes(sourcePath)
+      .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
     downloadedFile <- ZStream.fromZIO(
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
     )

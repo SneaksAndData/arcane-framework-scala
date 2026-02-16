@@ -12,10 +12,8 @@ type MsSqlVersionType = String
 case class MsSqlWatermark(version: MsSqlVersionType, timestamp: OffsetDateTime)
     extends SourceWatermark[MsSqlVersionType]
     with JsonWatermark:
-  override def compare(that: SourceWatermark[MsSqlVersionType]): Int = (version.toLong, that.version.toLong) match
-    case (x, y) if x < y  => -1
-    case (x, y) if x == y => 0
-    case (x, y) if x > y  => 1
+  override def compare(that: SourceWatermark[MsSqlVersionType]): Int =
+    Ordering[Long].compare(version.toLong, that.version.toLong)
 
   override def toJson: String = upickle.write(this)
 
