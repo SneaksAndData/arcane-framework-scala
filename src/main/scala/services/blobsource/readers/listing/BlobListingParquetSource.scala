@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
+import logging.ZIOLogAnnotations.zlog
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.blob.ParquetBlobSourceSettings
@@ -40,6 +41,9 @@ class BlobListingParquetSource[PathType <: BlobPath](
       case Some(schema) => ZIO.succeed(schema)
       case None =>
         for
+          _ <- zlog(
+            "No sourceSchema provided for the stream, will try to infer from source data. It is advised to avoid reliance on automatic schema resolution, as this can cause data corruption or stream failure if source is empty"
+          )
           maybeFilePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
           schema <- maybeFilePath match
             case Some(filePath) =>
