@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.batches.StagedBatch
 import services.iceberg.base.TablePropertyManager
 import services.metrics.DeclaredMetrics
@@ -14,18 +14,25 @@ object WatermarkProcessingExtensions:
     def applyWatermark(
         propertyManager: TablePropertyManager,
         targetName: String,
-        declaredMetrics: DeclaredMetrics
+        declaredMetrics: DeclaredMetrics,
+        stageName: String
     ): ZIO[Any, Throwable, Unit] =
       for _ <- ZIO.when(batch.completedWatermarkValue.isDefined) {
           for
             watermark <- ZIO.attempt(batch.completedWatermarkValue.get)
             _ <- zlog(
               "Changes associated with watermark %s has finished streaming, will update target",
+              Seq(getAnnotation("processor", stageName)),
               watermark
             )
             previousWatermark <- propertyManager.getProperty(targetName, "comment")
             _                 <- propertyManager.comment(targetName, watermark)
-            _                 <- zlog(s"Updated watermark from $previousWatermark to $watermark")
+            _ <- zlog(
+              "Updated watermark from %s to %s",
+              Seq(getAnnotation("processor", stageName)),
+              previousWatermark,
+              watermark
+            )
             _ <- ZIO.attempt(
               TimestampOnlyWatermark.fromJson(watermark).age.toDouble
             ) @@ declaredMetrics.appliedWatermarkAge

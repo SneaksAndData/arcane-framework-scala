@@ -50,14 +50,16 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
             )
           )
         )
-        result <- writer.write(data = rows, name = UUID.randomUUID().toString, schema = schema).map { tbl =>
-          tbl.currentSnapshot().summary()
-        }
+        result <- writer
+          .write(data = rows, name = UUID.randomUUID().toString, schema = schema, logAnnotations = Seq())
+          .map { tbl =>
+            tbl.currentSnapshot().summary()
+          }
       yield assertTrue(result.asScala.getOrElse("total-records", "0").toInt == rows.size)
     },
     test("creates an empty table") {
       for result <- writer
-          .write(data = Seq(), name = UUID.randomUUID().toString, schema = schema)
+          .write(data = Seq(), name = UUID.randomUUID().toString, schema = schema, logAnnotations = Seq())
           .map(tbl => tbl.history().asScala)
       yield assertTrue(result.nonEmpty)
     },
@@ -73,7 +75,9 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
             )
           )
         )
-        result <- writer.write(data = rows, name = tblName, schema = schema).flatMap(_ => writer.delete(tblName))
+        result <- writer
+          .write(data = rows, name = tblName, schema = schema, logAnnotations = Seq())
+          .flatMap(_ => writer.delete(tblName))
       yield assertTrue(result)
     },
     test("creates a table and then append rows to it") {
@@ -98,8 +102,8 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
           )
         )
         result <- writer
-          .write(data = initialData, name = tblName, schema = schema)
-          .flatMap(_ => writer.append(appendData, tblName, schema))
+          .write(data = initialData, name = tblName, schema = schema, logAnnotations = Seq())
+          .flatMap(_ => writer.append(appendData, tblName, schema, logAnnotations = Seq()))
           .map { tbl =>
             tbl.currentSnapshot().summary()
           }
@@ -118,7 +122,7 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
           )
         )
         result <- writer
-          .write(data = rows, name = tblName, schema = schema)
+          .write(data = rows, name = tblName, schema = schema, logAnnotations = Seq())
           .map(tbl => tbl.currentSnapshot().summary().asScala.get("added-records"))
       yield assertTrue(result.getOrElse("0").toInt == 20000)
     }

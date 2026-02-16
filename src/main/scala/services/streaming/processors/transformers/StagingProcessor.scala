@@ -1,15 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.{IcebergStagingSettings, StagingDataSettings, TablePropertiesSettings, SinkSettings}
+import models.settings.{IcebergStagingSettings, SinkSettings, StagingDataSettings, TablePropertiesSettings}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
-import services.metrics.DeclaredMetrics._
+import services.metrics.DeclaredMetrics.*
 import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
 import utils.CollectionUtils.*
 
@@ -41,7 +41,11 @@ class StagingProcessor(
       .filter(_.nonEmpty)
       .mapZIO(elements =>
         (for
-          _ <- zlog("Started preparing a batch of size %s for staging", elements.size.toString)
+          _ <- zlog(
+            "Started preparing a batch of size %s for staging",
+            Seq(getAnnotation("processor", "StagingProcessor")),
+            elements.size.toString
+          )
           // check if watermark row has been emitted and pass it down the pipeline
           maybeWatermark <- ZIO.attempt(elements.par.find(_.isWatermark).flatMap(_.getWatermark))
           // avoid failure by trying to commit watermark row if present
@@ -75,11 +79,16 @@ class StagingProcessor(
             ).gaugeDuration(declaredMetrics.batchTransformDuration)
 
           _ <- ZIO.when((maybeWatermark.isDefined && filteredElements.exists(_.nonEmpty)) || maybeWatermark.isEmpty)(
-            zlog("Batch of size %s is ready for staging", filteredElements.getOrElse(elements).size.toString)
+            zlog(
+              "Batch of size %s is ready for staging",
+              Seq(getAnnotation("processor", "StagingProcessor")),
+              filteredElements.getOrElse(elements).size.toString
+            )
           )
           _ <- ZIO.when(maybeWatermark.isDefined && !filteredElements.exists(_.nonEmpty))(
             zlog(
-              "Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur"
+              "Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur",
+              Seq(getAnnotation("processor", "StagingProcessor"))
             )
           )
 
@@ -98,7 +107,14 @@ class StagingProcessor(
       watermarkValue: Option[String]
   ): Task[StagedVersionedBatch & MergeableBatch] =
     for
-      table <- ZIO.when(rows.nonEmpty)(catalogWriter.write(rows, stagingDataSettings.newStagingTableName, arcaneSchema))
+      table <- ZIO.when(rows.nonEmpty)(
+        catalogWriter.write(
+          rows,
+          stagingDataSettings.newStagingTableName,
+          arcaneSchema,
+          Seq(getAnnotation("processor", "StagingProcessor"))
+        )
+      )
       batch = onBatchStaged(
         table,
         icebergCatalogSettings.namespace,

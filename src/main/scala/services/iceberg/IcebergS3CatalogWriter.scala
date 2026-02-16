@@ -17,6 +17,7 @@ import org.apache.iceberg.rest.auth.OAuth2Properties
 import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
 import org.apache.iceberg.*
 import zio.*
+import zio.logging.LogAnnotation
 
 import java.time.Instant
 import java.util.UUID
@@ -97,9 +98,16 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
     }
   yield writer.toDataFile
 
-  private def appendData(data: Iterable[DataRow], schema: Schema, isTargetEmpty: Boolean, tbl: Table): Task[Table] = for
+  private def appendData(
+      data: Iterable[DataRow],
+      schema: Schema,
+      isTargetEmpty: Boolean,
+      tbl: Table,
+      logAnnotations: Seq[(LogAnnotation[String], String)]
+  ): Task[Table] = for
     _ <- zlog(
       "Preparing fast append of %s rows into table %s, max rows per file %s",
+      logAnnotations,
       data.size.toString,
       tbl.name(),
       maxRowsPerFile.toString
@@ -107,22 +115,27 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
     chunks     <- ZIO.succeed(data.grouped(maxRowsPerFile))
     appendTran <- ZIO.attemptBlocking(tbl.newTransaction())
     files      <- ZIO.collectAllPar(chunks.map(chunk => chunkToFile(chunk, schema, tbl)).toArray)
-    _          <- zlog("Created %s files to append for table %s", files.length.toString, tbl.name())
+    _          <- zlog("Created %s files to append for table %s", logAnnotations, files.length.toString, tbl.name())
     appendFilesOp <-
       if isTargetEmpty then ZIO.attempt(appendTran.newFastAppend()) else ZIO.attempt(appendTran.newAppend())
-    _ <- zlog("Committing data files into table %s", tbl.name())
+    _ <- zlog("Committing data files into table %s", logAnnotations, tbl.name())
     filesToCommit <- ZIO.foldLeft(files)(appendFilesOp) { case (agg, dataFile) =>
       ZIO.attempt(agg.appendFile(dataFile))
     }
     _ <- ZIO.attemptBlocking(filesToCommit.commit())
     _ <- ZIO.attemptBlocking(appendTran.commitTransaction())
-    _ <- zlog("Fast append transaction successfully applied to table %s", tbl.name())
+    _ <- zlog("Fast append transaction successfully applied to table %s", logAnnotations, tbl.name())
   yield tbl
 
-  override def write(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] =
+  override def write(
+      data: Iterable[DataRow],
+      name: String,
+      schema: Schema,
+      logAnnotations: Seq[(LogAnnotation[String], String)]
+  ): Task[Table] =
     for
       _       <- createTable(name, schema, false)
-      _       <- zlog("Created a staging table %s, waiting for it to be created", name)
+      _       <- zlog("Created a staging table %s, waiting for commit", logAnnotations, name)
       catalog <- catalogFactory.getCatalog
       _ <- ZIO
         .sleep(zio.Duration.fromSeconds(1))
@@ -130,12 +143,12 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
           catalog
             .tableExists(catalogFactory.getSessionContext, TableIdentifier.of(icebergCatalogSettings.namespace, name))
         )
-      _ <- zlog("Staging table %s created, appending data", name)
+      _ <- zlog("Staging table %s created, appending data", logAnnotations, name)
       table <- ZIO.attemptBlocking(
         catalog.loadTable(catalogFactory.getSessionContext, TableIdentifier.of(icebergCatalogSettings.namespace, name))
       )
-      updatedTable <- appendData(data, schema, false, table)
-      _            <- zlog("Staging table %s ready for merge", name)
+      updatedTable <- appendData(data, schema, false, table, logAnnotations)
+      _            <- zlog("Staging table %s ready for merge", logAnnotations, name)
     yield updatedTable
 
   override def delete(tableName: String): Task[Boolean] = for
@@ -144,11 +157,16 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
     result  <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
   yield result
 
-  def append(data: Iterable[DataRow], name: String, schema: Schema): Task[Table] = for
+  def append(
+      data: Iterable[DataRow],
+      name: String,
+      schema: Schema,
+      logAnnotations: Seq[(LogAnnotation[String], String)]
+  ): Task[Table] = for
     tableId      <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
     catalog      <- catalogFactory.getCatalog
     table        <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
-    updatedTable <- appendData(data, schema, false, table)
+    updatedTable <- appendData(data, schema, false, table, logAnnotations)
   yield updatedTable
 
 object IcebergS3CatalogWriter:

@@ -22,11 +22,19 @@ class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient, streamCo
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
       if streamContext.IsBackfilling then
-        for _ <- zlog(s"Running in backfill mode. Skipping dispose of batch set with index ${batchesSet.batchIndex}")
+        for _ <- zlog(
+            "Running in backfill mode. Skipping dispose of batch set with index %s",
+            Seq(getAnnotation("processor", "DisposeBatchProcessor")),
+            batchesSet.batchIndex.toString
+          )
         yield batchesSet
       else
         for
-          _ <- zlog(s"Disposing batch set with index ${batchesSet.batchIndex}")
+          _ <- zlog(
+            "Disposing batch set with index %s",
+            Seq(getAnnotation("processor", "DisposeBatchProcessor")),
+            batchesSet.batchIndex.toString
+          )
           _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => disposeServiceClient.disposeBatch(batch))
         yield batchesSet
     )

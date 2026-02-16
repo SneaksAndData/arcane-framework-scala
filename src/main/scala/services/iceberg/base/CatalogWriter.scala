@@ -5,6 +5,7 @@ import models.schemas.DataRow
 
 import org.apache.iceberg.aws.s3.S3FileIOProperties
 import org.apache.iceberg.{CatalogProperties, Schema, Table}
+import zio.logging.LogAnnotation
 import zio.Task
 
 /** CatalogFileIO marks a class that holds implementation of a filesystem used by the catalog
@@ -59,10 +60,17 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
     *   Rows to append to the table
     * @param name
     *   Name for the table in the catalog
+    * @param logAnnotations
+    *   Annotations to pass for all log messages
     * @return
     *   Reference to the created table
     */
-  def write(data: Iterable[DataRow], name: String, schema: SchemaImpl): Task[TableImpl]
+  def write(
+      data: Iterable[DataRow],
+      name: String,
+      schema: SchemaImpl,
+      logAnnotations: Seq[(LogAnnotation[String], String)]
+  ): Task[TableImpl]
 
   /** Deletes the specified table from the catalog
     * @param tableName
@@ -80,7 +88,12 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
     * @return
     *   Reference to the updated table
     */
-  def append(data: Iterable[DataRow], name: String, schema: SchemaImpl): Task[TableImpl]
+  def append(
+      data: Iterable[DataRow],
+      name: String,
+      schema: SchemaImpl,
+      logAnnotations: Seq[(LogAnnotation[String], String)]
+  ): Task[TableImpl]
 
   /** Creates a new table in the Iceberg catalog, using the provided schema
     * @param name
