@@ -160,7 +160,7 @@ class JdbcMergeServiceClient(
         resultSet  <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
         tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
         _ <- ZIO.foreachDiscard(tableNames)(tableName => {
-          zlog("Found lost staging table: " + tableName) *> dropTable(tableName)
+          zlog("Found lost staging table: %s", tableName) *> dropTable(tableName)
         })
       yield ()
     }
@@ -169,7 +169,11 @@ class JdbcMergeServiceClient(
     */
   def createTargetTable: Task[Unit] =
     for
-      _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
+      _ <- zlog(
+        "Creating target table %s",
+        Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)),
+        targetTableSettings.targetTableFullName
+      )
       schema: ArcaneSchema <- schemaProvider.getSchema
       created <- createTable(
         targetTableSettings.targetTableFullName,
@@ -184,7 +188,7 @@ class JdbcMergeServiceClient(
     if streamContext.IsBackfilling && backfillTableSettings.backfillBehavior == Overwrite then
       for
         _ <- zlog(
-          "Creating backfill table",
+          "Creating backfill table %s",
           Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName))
         )
         schema: ArcaneSchema <- schemaProvider.getSchema
@@ -202,7 +206,7 @@ class JdbcMergeServiceClient(
         statement <- ZIO.fromAutoCloseable(
           ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)))
         )
-        _ <- zlog("Creating table: " + name)
+        _ <- zlog("Creating table %s", name)
         _ <- ZIO.attemptBlocking(statement.execute())
       yield ()
     }
@@ -212,7 +216,7 @@ class JdbcMergeServiceClient(
     ZIO.scoped {
       for
         statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-        _         <- zlog("Dropping table: " + tableName)
+        _         <- zlog("Dropping table: %s", tableName)
         _         <- ZIO.attemptBlocking(statement.execute())
       yield ()
     }
@@ -229,7 +233,13 @@ class JdbcMergeServiceClient(
             generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
           ZIO.scoped {
             for
-              _         <- zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+              _ <- zlog(
+                "Adding column to table %s, field %s type %s, query: %s",
+                targetTableName,
+                field.name,
+                field.fieldType.toString,
+                query
+              )
               statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
               _         <- ZIO.attemptBlocking(statement.execute())
             yield ()
