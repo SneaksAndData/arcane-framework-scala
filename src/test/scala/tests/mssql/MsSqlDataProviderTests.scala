@@ -27,7 +27,6 @@ import scala.util.Success
 
 object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val graphSettings = new VersionedDataGraphBuilderSettings {
-    override val lookBackInterval: Duration      = Duration.ofHours(3)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
   }
   private val backfillSettings = new BackfillSettings {
@@ -42,7 +41,6 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val pkString    = "primary key(x)"
 
   private val settings = new VersionedDataGraphBuilderSettings {
-    override val lookBackInterval: Duration      = Duration.ofHours(1)
     override val changeCaptureInterval: Duration = Duration.ofMillis(1)
   }
 

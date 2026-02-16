@@ -4,8 +4,8 @@ package tests.synapse
 import models.app.StreamContext
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, DataRow, Field, MergeKeyField}
-import models.settings.BackfillBehavior.Overwrite
 import models.settings.*
+import models.settings.BackfillBehavior.Overwrite
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
@@ -13,15 +13,9 @@ import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
-import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
-import tests.shared.{
-  EmptyTestTableMaintenanceSettings,
-  NullDimensionsProvider,
-  TestDynamicSinkSettings,
-  TestSinkSettings
-}
+import tests.shared.IcebergCatalogInfo.defaultStagingSettings
+import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
-import com.sneaksanddata.arcane.framework.tests.mssql.MsSqlDataProviderTests.backfillSettings
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
@@ -31,7 +25,6 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
   private val graphSettings = new VersionedDataGraphBuilderSettings {
-    override val lookBackInterval: Duration      = Duration.ofHours(3)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
   }
   private val backfillSettings = new BackfillSettings {
@@ -150,7 +143,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCount
       // expect 5 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
-      // lookback is 3 hours which should only capture 1 file
+      // watermark is 3 hours back which should only capture 1 file
       // one row should be watermark
       yield assertTrue(rows == 5 + 1 + 1)
     },

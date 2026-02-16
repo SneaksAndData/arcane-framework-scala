@@ -54,34 +54,16 @@ class MsSqlDataProvider(
   override def firstVersion: Task[MsSqlWatermark] =
     for
       watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _         <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
-      watermark <- ZIO.attempt(Try(MsSqlWatermark.fromJson(watermarkString)).toOption)
-      fallback <- ZIO.when(watermark.isEmpty) {
-        for
-          lookBackTime <- ZIO.succeed(
-            OffsetDateTime.ofInstant(Instant.now().minusSeconds(settings.lookBackInterval.toSeconds), ZoneOffset.UTC)
+      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
+      watermark <- ZIO
+        .attempt(MsSqlWatermark.fromJson(watermarkString))
+        .orDieWith(e =>
+          new Throwable(
+            s"Target contains invalid watermark: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
+            e
           )
-          version <- reader.getVersion(QueryProvider.getVersionFromTimestampQuery(lookBackTime, reader.formatter))
-          fallbackVersion <-
-            for
-              currentVersion <- reader.getVersion(QueryProvider.getCurrentVersionQuery)
-              _ <- ZIO.when(currentVersion.isEmpty) {
-                for _ <- zlog(
-                    "Fallback version not available: CHANGE_TRACKING_CURRENT_VERSION returned NULL. This can happen on a database with no changes. Defaulting to Long.MaxValue"
-                  )
-                yield ()
-              }
-            yield currentVersion.getOrElse(Long.MaxValue)
-          commitTime <- reader.getVersionCommitTime(version.getOrElse(fallbackVersion))
-        yield MsSqlWatermark.fromChangeTrackingVersion(version.getOrElse(fallbackVersion), commitTime)
-      }
-    // assume fallback is only there if we have no watermark
-    yield fallback match {
-      // if fallback is computed, return it
-      case Some(value) => value
-      // if no fallback, get value from watermark and fail if it is empty
-      case None => watermark.get
-    }
+        )
+    yield watermark
 
   /** Provides the backfill data.
     *

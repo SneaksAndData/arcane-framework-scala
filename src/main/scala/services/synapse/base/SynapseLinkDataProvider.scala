@@ -40,26 +40,16 @@ class SynapseLinkDataProvider(
   override def firstVersion: Task[SynapseWatermark] =
     for
       watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _         <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
-      watermark <- ZIO.attempt(Try(SynapseWatermark.fromJson(watermarkString)).toOption)
-      fallback <- ZIO.when(watermark.isEmpty) {
-        for
-          startTime <- ZIO.succeed(OffsetDateTime.now())
-          _ <- zlog(
-            "Fetching version for the first iteration using legacy lookbackInterval, from %s",
-            startTime.minus(settings.lookBackInterval).toString
+      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
+      watermark <- ZIO
+        .attempt(SynapseWatermark.fromJson(watermarkString))
+        .orDieWith(e =>
+          new Throwable(
+            s"Target contains invalid watermark: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
+            e
           )
-          result <- synapseReader.getVersion(startTime.minus(settings.lookBackInterval))
-          _      <- zlog("Retrieved version %s", result.version)
-        yield result
-      }
-    // assume fallback is only there if we have no watermark
-    yield fallback match {
-      // if fallback is computed, return it
-      case Some(value) => value
-      // if no fallback, get value from watermark and fail if it is empty
-      case None => watermark.get
-    }
+        )
+    yield watermark
 
   override def hasChanges(previousVersion: SynapseWatermark): Task[Boolean] =
     synapseReader.hasChanges(previousVersion)
