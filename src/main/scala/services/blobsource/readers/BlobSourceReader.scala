@@ -23,8 +23,6 @@ trait BlobSourceReader:
     */
   def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow]
 
-  def getStartFrom(lookBackInterval: Duration): Task[BlobSourceWatermark]
-
   def getLatestVersion: Task[BlobSourceWatermark]
 
   def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean]

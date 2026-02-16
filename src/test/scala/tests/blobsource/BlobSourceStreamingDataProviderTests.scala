@@ -24,12 +24,10 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   private val streamSettings = new VersionedDataGraphBuilderSettings {
-    override val lookBackInterval: Duration      = Duration.ofHours(3)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
   }
 
   private val emptyStreamSettings = new VersionedDataGraphBuilderSettings {
-    override val lookBackInterval: Duration      = Duration.ofSeconds(1)
     override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
   }
 

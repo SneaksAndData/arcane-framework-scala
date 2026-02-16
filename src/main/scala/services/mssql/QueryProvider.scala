@@ -108,10 +108,8 @@ object QueryProvider:
       yield query
     }
 
-  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, from the lookback
-    * point.
-    * @param lookBackRange
-    *   The look back range for the query.
+  /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, based on the
+    * provided startFrom timestamp point. The look back range for the query.
     * @return
     *   The change tracking version query for the Microsoft SQL Server database.
     */

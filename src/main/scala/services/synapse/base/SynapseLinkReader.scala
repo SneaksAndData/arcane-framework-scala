@@ -134,22 +134,6 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       }
     yield synapseBlob.map(_.asWatermark).getOrElse(previousVersion)
 
-  /** TODO: temporary method that will be removed once watermarking is implemented. Should be replaced with watermark
-    * read and fallback to reading all container in case watermark is not found
-    * @param startFrom
-    * @return
-    */
-  def getVersion(startFrom: OffsetDateTime): Task[SynapseWatermark] =
-    for
-      candidates <- reader.getEligibleDates(storagePath, startFrom).runCollect
-      allCandidates <- ZIO.when(candidates.isEmpty) {
-        for all <- reader
-            .getEligibleDates(storagePath, OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC))
-            .runCollect
-        yield all
-      }
-    yield allCandidates.getOrElse(candidates).minBy(_.asDate).asWatermark
-
   /** Check if the provided batch folder has relevant changes - only take a batch that has model.json committed
     * @param latestVersion
     *   Watermark to check for changes
@@ -157,7 +141,6 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     */
   def hasChanges(latestVersion: SynapseWatermark): Task[Boolean] = isValidSynapseBatch(latestVersion.prefix)
 
-  // TODO: when watermark comparison is added, getEligibleDates can be skipped if diff(prev, current) <= changeTrackingInterval * 1.5
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
     * deleted records. Start date to get changes from
     * @return

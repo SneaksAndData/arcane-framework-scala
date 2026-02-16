@@ -28,18 +28,6 @@ abstract class BlobListingSource[PathType <: BlobPath](
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
     .map(BlobSourceWatermark.fromEpochSecond)
 
-  // Listing readers do not support versioned streams, since they do not keep track of which file has been or not been processed
-  // thus they always act like they lookback until beginning of time
-  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceWatermark] =
-    for version <- ZIO.succeed(
-        OffsetDateTime
-          .now()
-          .minus(lookBackInterval)
-          .toInstant
-          .toEpochMilli / 1000
-      )
-    yield BlobSourceWatermark.fromEpochSecond(version)
-
   // due to the fact that this is always called by StreamingDataProvider after comparing versions
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ZIO.succeed(true)

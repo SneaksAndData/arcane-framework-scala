@@ -35,6 +35,4 @@ class BlobListingCsvSource[PathType <: BlobPath](
 
   override def getLatestVersion: Task[BlobSourceWatermark] = ???
 
-  override def getStartFrom(lookBackInterval: Duration): Task[BlobSourceWatermark] = ???
-
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ???

@@ -3,18 +3,17 @@ package services.blobsource.providers
 
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
-import models.settings.{BackfillSettings, IcebergSinkSettings, SinkSettings, VersionedDataGraphBuilderSettings}
+import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
 import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
+import services.iceberg.base.TablePropertyManager
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
-import com.sneaksanddata.arcane.framework.services.iceberg.base.TablePropertyManager
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import scala.util.Try
 
 class BlobSourceDataProvider(
     sourceReader: BlobSourceReader,
@@ -49,18 +48,16 @@ class BlobSourceDataProvider(
   override def firstVersion: Task[BlobSourceWatermark] =
     for
       watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _         <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
-      watermark <- ZIO.attempt(Try(BlobSourceWatermark.fromJson(watermarkString)).toOption)
-      fallback <- ZIO.when(watermark.isEmpty) {
-        sourceReader.getStartFrom(settings.lookBackInterval)
-      }
-    // assume fallback is only there if we have no watermark
-    yield fallback match {
-      // if fallback is computed, return it
-      case Some(value) => value
-      // if no fallback, get value from watermark and fail if it is empty
-      case None => watermark.get
-    }
+      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
+      watermark <- ZIO
+        .attempt(BlobSourceWatermark.fromJson(watermarkString))
+        .orDieWith(e =>
+          new Throwable(
+            s"Target contains invalid watermark: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
+            e
+          )
+        )
+    yield watermark
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
     sourceReader.hasChanges(previousVersion)
