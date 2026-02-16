@@ -25,7 +25,7 @@ class GenericGroupingTransformer(groupingSettings: GroupingSettings, declaredMet
   private def logBatchSize(batch: Chunk[Element]) =
     for
       size <- ZIO.succeed(batch.size.toLong) @@ declaredMetrics.rowsIncoming
-      _    <- zlog(s"Received batch with %s rows from streaming source", size.toString)
+      _    <- zlog("Received batch with %s rows from streaming source", size.toString)
     yield batch
 
 /** The companion object for the LazyOutputDataProcessor class.

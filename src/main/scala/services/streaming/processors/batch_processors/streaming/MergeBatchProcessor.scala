@@ -29,7 +29,11 @@ class MergeBatchProcessor(
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
       (for
-        _ <- zlog("Applying batch set with index %s", batchesSet.batchIndex.toString)
+        _ <- zlog(
+          "Applying batch set with index %s",
+          Seq(getAnnotation("processor", "MergeBatchProcessor")),
+          batchesSet.batchIndex.toString
+        )
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
           ZIO.unless(batch.isEmpty)(tableManager.migrateSchema(batch.schema, batch.targetTableName))
         )
