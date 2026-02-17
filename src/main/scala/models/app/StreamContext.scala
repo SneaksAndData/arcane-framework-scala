@@ -16,3 +16,7 @@ trait StreamContext:
   /** Kind of the stream
     */
   def streamKind: String = sys.env("STREAMCONTEXT__STREAM_KIND")
+
+  /** User provided custom tags to be added to the metrics and logs (in future)
+    */
+  def customTags: Map[String, String] = Map.empty

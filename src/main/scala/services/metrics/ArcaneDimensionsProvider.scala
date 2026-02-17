@@ -15,16 +15,20 @@ import scala.collection.immutable.SortedMap
   *   The stream context.
   */
 class ArcaneDimensionsProvider(streamContext: StreamContext) extends DimensionsProvider:
+  private val dimensionPrefix = "arcane.sneaksanddata.com"
+
   /** Provides the metrics dimensions.
     *
     * @return
     *   The dimensions.
     */
   def getDimensions: SortedMap[String, String] = SortedMap(
-    "arcane.sneaksanddata.com/kind"      -> streamContext.streamKind.camelCaseToSnakeCase,
-    "arcane.sneaksanddata.com/mode"      -> getStreamMode(streamContext.IsBackfilling),
-    "arcane.sneaksanddata.com/stream_id" -> streamContext.streamId
-  )
+    s"$dimensionPrefix/kind"      -> streamContext.streamKind.camelCaseToSnakeCase,
+    s"$dimensionPrefix/mode"      -> getStreamMode(streamContext.IsBackfilling),
+    s"$dimensionPrefix/stream_id" -> streamContext.streamId
+  ) ++ streamContext.customTags.map { case (tagKey, tagValue) =>
+    s"$dimensionPrefix/$tagKey" -> tagValue
+  }
 
   private def getStreamMode(isBackfilling: Boolean): String = if isBackfilling then "backfill" else "stream"
 
