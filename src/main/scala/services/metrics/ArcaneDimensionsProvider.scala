@@ -26,8 +26,8 @@ class ArcaneDimensionsProvider(streamContext: StreamContext) extends DimensionsP
     s"$dimensionPrefix/kind"      -> streamContext.streamKind.camelCaseToSnakeCase,
     s"$dimensionPrefix/mode"      -> getStreamMode(streamContext.IsBackfilling),
     s"$dimensionPrefix/stream_id" -> streamContext.streamId
-  ) ++ streamContext.customTags.map {
-    case (tagKey, tagValue) => s"$dimensionPrefix/$tagKey" -> tagValue
+  ) ++ streamContext.customTags.map { case (tagKey, tagValue) =>
+    s"$dimensionPrefix/$tagKey" -> tagValue
   }
 
   private def getStreamMode(isBackfilling: Boolean): String = if isBackfilling then "backfill" else "stream"
