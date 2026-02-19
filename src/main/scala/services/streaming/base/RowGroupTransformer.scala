@@ -31,7 +31,7 @@ trait RowGroupTransformer:
 
   type OutgoingElement <: IndexedStagedBatches
 
-  type OnStagingTablesComplete = (Iterable[StagedVersionedBatch & MergeableBatch], Long, Chunk[Any]) => OutgoingElement
+  type OnStagingTablesComplete = (StagedVersionedBatch & MergeableBatch, Long, Chunk[Any]) => OutgoingElement
   type OnBatchStaged =
     (
         Option[Table],
@@ -53,4 +53,4 @@ trait RowGroupTransformer:
   def process(
       onStagingTablesComplete: OnStagingTablesComplete,
       onBatchStaged: OnBatchStaged
-  ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement]
+  ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement]

@@ -17,7 +17,7 @@ trait HookManager:
   /** Enriches received staging batch with metadata and converts it to in-flight batch.
     */
   def onStagingTablesComplete(
-      staged: Iterable[StagedVersionedBatch & MergeableBatch],
+      staged: StagedVersionedBatch & MergeableBatch,
       index: Long,
       others: Chunk[Any]
   ): StagingProcessor#OutgoingElement

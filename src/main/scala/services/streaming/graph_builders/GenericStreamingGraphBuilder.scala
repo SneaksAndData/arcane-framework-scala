@@ -8,15 +8,11 @@ import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
+import services.streaming.processors.transformers.{FieldFilteringTransformer, RateProcessor, StagingProcessor}
 
 import zio.stream.ZStream
-import zio.{Tag, ZIO, ZLayer}
+import zio.{Duration, Tag, ZIO, ZLayer}
 
 /** Provides the complete data stream for the streaming process including all the stages and services except the sink
   * and lifetime service.
@@ -24,7 +20,7 @@ import zio.{Tag, ZIO, ZLayer}
 class GenericStreamingGraphBuilder(
     streamDataProvider: StreamDataProvider,
     fieldFilteringProcessor: FieldFilteringTransformer,
-    groupTransformer: GenericGroupingTransformer,
+    rateProcessor: RateProcessor,
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
     disposeBatchProcessor: DisposeBatchProcessor,
@@ -43,7 +39,7 @@ class GenericStreamingGraphBuilder(
     streamDataProvider.stream
       .trySetBuffering(sourceBufferingSettings)
       .via(fieldFilteringProcessor.process)
-      .via(groupTransformer.process)
+      .via(rateProcessor.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
       .via(mergeProcessor.process)
       .via(watermarkProcessor.process)
