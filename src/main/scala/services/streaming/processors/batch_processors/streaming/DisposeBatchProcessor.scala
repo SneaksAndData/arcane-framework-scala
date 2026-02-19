@@ -35,7 +35,7 @@ class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient, streamCo
             Seq(getAnnotation("processor", "DisposeBatchProcessor")),
             batchesSet.batchIndex.toString
           )
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => disposeServiceClient.disposeBatch(batch))
+          _ <- disposeServiceClient.disposeBatch(batchesSet.groupedBySchema)
         yield batchesSet
     )
 

@@ -34,13 +34,11 @@ class MergeBatchProcessor(
           Seq(getAnnotation("processor", "MergeBatchProcessor")),
           batchesSet.batchIndex.toString
         )
-        _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
-          ZIO.unless(batch.isEmpty)(tableManager.migrateSchema(batch.schema, batch.targetTableName))
-        )
-        _ <- ZIO
-          .foreach(batchesSet.groupedBySchema)(batch => ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch)))
+        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty)(tableManager.migrateSchema(batchesSet.groupedBySchema.schema, batchesSet.groupedBySchema.targetTableName))
+        
+        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty)(mergeServiceClient.applyBatch(batchesSet.groupedBySchema))
 
-        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty || batchesSet.groupedBySchema.head.isEmpty) {
+        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty) {
           for
             _ <- tableManager.optimizeTable(
               batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)

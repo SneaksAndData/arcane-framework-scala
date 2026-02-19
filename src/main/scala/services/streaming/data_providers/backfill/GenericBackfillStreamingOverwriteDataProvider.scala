@@ -57,9 +57,7 @@ class GenericBackfillStreamingOverwriteDataProvider(
         else
           backfillBatchFactory.createBackfillBatch(
             lastBatchSet.flatMap(batchSet =>
-              batchSet.groupedBySchema
-                .find(batch => batch.completedWatermarkValue.isDefined)
-                .flatMap(_.completedWatermarkValue)
+              batchSet.groupedBySchema.completedWatermarkValue
             )
           )
     yield backfillBatch
@@ -135,7 +133,7 @@ private class BackfillHookManager(base: HookManager, backfillTableSettings: Back
   /** @inheritdoc
     */
   def onStagingTablesComplete(
-      staged: Iterable[StagedVersionedBatch & MergeableBatch],
+      staged: StagedVersionedBatch & MergeableBatch,
       index: Long,
       others: Chunk[Any]
   ): StagingProcessor#OutgoingElement =

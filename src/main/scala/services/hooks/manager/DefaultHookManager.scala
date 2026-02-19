@@ -20,7 +20,7 @@ import services.streaming.processors.transformers.{IndexedStagedBatches, Staging
 
 import zio.Chunk
 
-class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], batchIndex: Long)
+class DefaultIndexedStagedBatches(groupedBySchema: StagedVersionedBatch & MergeableBatch, batchIndex: Long)
     extends IndexedStagedBatches(groupedBySchema, batchIndex)
     with SnapshotExpirationRequestConvertable
     with OrphanFilesExpirationRequestConvertable
@@ -31,7 +31,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch
       settings: Option[SnapshotExpirationSettings]
   ): Option[JdbcSnapshotExpirationRequest] = settings.map { snapshotExpirationSettings =>
     JdbcSnapshotExpirationRequest(
-      groupedBySchema.head.targetTableName,
+      groupedBySchema.targetTableName,
       snapshotExpirationSettings.batchThreshold,
       snapshotExpirationSettings.retentionThreshold,
       batchIndex
@@ -42,7 +42,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch
       settings: Option[OrphanFilesExpirationSettings]
   ): Option[JdbcOrphanFilesExpirationRequest] = settings.map { orphanFilesExpirationSettings =>
     JdbcOrphanFilesExpirationRequest(
-      groupedBySchema.head.targetTableName,
+      groupedBySchema.targetTableName,
       orphanFilesExpirationSettings.batchThreshold,
       orphanFilesExpirationSettings.retentionThreshold,
       batchIndex
@@ -52,7 +52,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch
   override def getOptimizationRequest(settings: Option[OptimizeSettings]): Option[JdbcOptimizationRequest] =
     settings.map { optimizerSettings =>
       JdbcOptimizationRequest(
-        groupedBySchema.head.targetTableName,
+        groupedBySchema.targetTableName,
         optimizerSettings.batchThreshold,
         optimizerSettings.fileSizeThreshold,
         batchIndex
@@ -62,7 +62,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch
   override def getAnalyzeRequest(settings: Option[AnalyzeSettings]): Option[JdbcAnalyzeRequest] =
     settings.map { analyzerSettings =>
       JdbcAnalyzeRequest(
-        groupedBySchema.head.targetTableName,
+        groupedBySchema.targetTableName,
         analyzerSettings.batchThreshold,
         analyzerSettings.includedColumns,
         batchIndex
@@ -77,7 +77,7 @@ abstract class DefaultHookManager extends HookManager:
   /** Enriches received staging batch with metadata and converts it to in-flight batch.
     */
   override def onStagingTablesComplete(
-      staged: Iterable[StagedVersionedBatch & MergeableBatch],
+      staged: StagedVersionedBatch & MergeableBatch,
       index: Long,
       others: Chunk[Any]
   ): StagingProcessor#OutgoingElement =

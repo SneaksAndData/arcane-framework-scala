@@ -20,7 +20,7 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 
 import scala.collection.parallel.CollectionConverters.*
 
-trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
+trait IndexedStagedBatches(val groupedBySchema: StagedVersionedBatch & MergeableBatch, val batchIndex: Long)
 
 class StagingProcessor(
     stagingDataSettings: StagingDataSettings,
@@ -52,6 +52,7 @@ class StagingProcessor(
             for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
             yield filtered
           }
+          _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsIncoming
           groupedBySchema <-
             (if stagingDataSettings.isUnifiedSchema then
                ZIO.succeed(

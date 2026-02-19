@@ -16,14 +16,12 @@ class WatermarkProcessor(
     declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batchesSet =>
-    for _ <- ZIO.foreach(batchesSet.groupedBySchema) { batch =>
-        batch.applyWatermark(
+    for _ <- batchesSet.groupedBySchema.applyWatermark(
           propertyManager,
           targetTableSettings.targetTableNameParts.Name,
           declaredMetrics,
           "WatermarkProcessor"
         )
-      }
     yield batchesSet
   }
 
