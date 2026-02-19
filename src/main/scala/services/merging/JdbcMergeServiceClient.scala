@@ -189,7 +189,8 @@ class JdbcMergeServiceClient(
       for
         _ <- zlog(
           "Creating backfill table %s",
-          Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName))
+          Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)),
+          backfillTableSettings.backfillTableFullName
         )
         schema: ArcaneSchema <- schemaProvider.getSchema
         created <- createTable(
