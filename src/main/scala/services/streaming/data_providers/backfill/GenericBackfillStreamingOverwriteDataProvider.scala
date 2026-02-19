@@ -45,7 +45,7 @@ class GenericBackfillStreamingOverwriteDataProvider(
     */
   def requestBackfill: Task[BatchType] =
     for
-      _ <- zlog(s"Starting backfill process")
+      _ <- zlog("Starting backfill process")
       lastBatchSet <- streamingGraphBuilder
         .produce(BackfillHookManager(baseHookManager, backfillTableSettings))
         .via(streamLifetimeGuard)
