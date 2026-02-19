@@ -15,7 +15,6 @@ import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -72,7 +71,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       // but no further stages being invoked
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
+        .andReturn(new TestIndexedStagedBatches(EasyMock.anyObject(), 0))
         .times(streamRepeatCount)
       hookManager
         .onBatchStaged(
@@ -118,7 +117,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         // Real services
         GenericStreamRunnerService.layer,
         GenericStreamingGraphBuilder.layer,
-        GenericGroupingTransformer.layer,
         DisposeBatchProcessor.layer,
         FieldFilteringTransformer.layer,
         MergeBatchProcessor.layer,
@@ -127,7 +125,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),

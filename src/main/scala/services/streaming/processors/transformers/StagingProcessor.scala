@@ -95,7 +95,7 @@ class StagingProcessor(
           applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
             writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
           )
-        yield Chunk.fromIterable(applyTasks.map(batches => batches))).gaugeDuration(declaredMetrics.batchStageDuration)
+        yield Chunk(applyTasks.map(batches => batches))).gaugeDuration(declaredMetrics.batchStageDuration)
       )
       .zipWithIndex
       .mapChunks(batches => batches.map { case (batch, index) => onStagingTablesComplete(batch, index, Chunk()) })

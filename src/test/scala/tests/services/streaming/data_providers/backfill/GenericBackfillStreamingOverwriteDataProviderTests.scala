@@ -23,7 +23,6 @@ import services.streaming.base.{
 }
 import services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -60,15 +59,13 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           ZStream.fromIterable(
             Seq(
               TestIndexedStagedBatches(
-                groupedBySchema = Seq(
-                  TestStageVersionedBatch(
-                    "test",
-                    ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
-                    "target_test",
-                    TestTablePropertiesSettings,
-                    "col0",
-                    Some("123")
-                  )
+                groupedBySchema = TestStageVersionedBatch(
+                  "test",
+                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                  "target_test",
+                  TestTablePropertiesSettings,
+                  "col0",
+                  Some("123")
                 ),
                 batchIndex = 1
               )
@@ -112,15 +109,13 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         .andReturn(
           ZStream.repeat(
             TestIndexedStagedBatches(
-              groupedBySchema = Seq(
-                TestStageVersionedBatch(
-                  "test",
-                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
-                  "target_test",
-                  TestTablePropertiesSettings,
-                  "col0",
-                  Some("123")
-                )
+              groupedBySchema = TestStageVersionedBatch(
+                "test",
+                ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                "target_test",
+                TestTablePropertiesSettings,
+                "col0",
+                Some("123")
               ),
               batchIndex = 1
             )
@@ -183,7 +178,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       // but no further stages being invoked
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
+        .andReturn(new TestIndexedStagedBatches(EasyMock.anyObject(), 0))
         .times(streamRepeatCount)
 
       jdbcTableManager
@@ -231,7 +226,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       .provide(
         // Real services
         GenericStreamingGraphBuilder.layer,
-        GenericGroupingTransformer.layer,
         DisposeBatchProcessor.layer,
         FieldFilteringTransformer.layer,
         MergeBatchProcessor.layer,
@@ -241,7 +235,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),

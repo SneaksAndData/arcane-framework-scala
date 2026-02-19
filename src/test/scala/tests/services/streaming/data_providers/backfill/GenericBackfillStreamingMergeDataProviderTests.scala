@@ -18,7 +18,6 @@ import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -117,7 +116,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
 
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
+        .andReturn(new TestIndexedStagedBatches(EasyMock.anyObject(), 0))
         .times(streamRepeatCount)
 
       jdbcTableManager
@@ -165,7 +164,6 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       .provide(
         // Real services
         GenericStreamingGraphBuilder.layer,
-        GenericGroupingTransformer.layer,
         DisposeBatchProcessor.layer,
         FieldFilteringTransformer.layer,
         MergeBatchProcessor.layer,
@@ -175,7 +173,6 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),

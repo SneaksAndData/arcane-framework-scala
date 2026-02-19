@@ -68,20 +68,20 @@ object StagingProcessorTests extends ZIOSpecDefault:
   } yield stagingProcessor
 
   private def toInFlightBatch(
-      batches: Iterable[StagedVersionedBatch & MergeableBatch],
+      batches: StagedVersionedBatch & MergeableBatch,
       index: Long,
       others: Any
   ): StagedBatchProcessor#BatchType =
     new TestIndexedStagedBatches(batches, index)
 
   class IndexedStagedBatchesWithMetadata(
-      override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
+      override val groupedBySchema: StagedVersionedBatch & MergeableBatch,
       override val batchIndex: Long,
       val others: Chunk[String]
   ) extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
 
   private def toInFlightBatchWithMetadata(
-      batches: Iterable[StagedVersionedBatch & MergeableBatch],
+      batches: StagedVersionedBatch & MergeableBatch,
       index: Long,
       others: Chunk[Any]
   ): StagedBatchProcessor#BatchType =
@@ -92,7 +92,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       for {
         stagingProcessor <- getProcessor
         result <- ZStream
-          .succeed(Chunk[TestInput]())
+          .fromIterable(Chunk[TestInput]())
           .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
           .run(ZSink.last)
       } yield assertTrue(result.isEmpty)
@@ -102,7 +102,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       for {
         stagingProcessor <- getProcessor
         result <- ZStream
-          .succeed(testInput)
+          .fromIterable(testInput)
           .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
