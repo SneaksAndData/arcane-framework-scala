@@ -36,10 +36,9 @@ class StagingProcessor(
   override def process(
       onStagingTablesComplete: OnStagingTablesComplete,
       onBatchStaged: OnBatchStaged
-  ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
-    ZPipeline[Chunk[IncomingElement]]()
-      .filter(_.nonEmpty)
-      .mapZIO(elements =>
+  ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
+    ZPipeline[IncomingElement]()
+      .mapChunksZIO(elements =>
         (for
           _ <- zlog(
             "Started preparing a batch of size %s for staging",
@@ -53,6 +52,7 @@ class StagingProcessor(
             for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
             yield filtered
           }
+          _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsIncoming
           groupedBySchema <-
             (if stagingDataSettings.isUnifiedSchema then
                ZIO.succeed(
@@ -95,10 +95,10 @@ class StagingProcessor(
           applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
             writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
           )
-        yield applyTasks.map(batches => batches)).gaugeDuration(declaredMetrics.batchStageDuration)
+        yield Chunk(applyTasks.map(batches => batches))).gaugeDuration(declaredMetrics.batchStageDuration)
       )
       .zipWithIndex
-      .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
+      .mapChunks(batches => batches.map { case (batch, index) => onStagingTablesComplete(batch, index, Chunk()) })
 
   private def writeDataRows(
       rows: Chunk[DataRow],

@@ -6,7 +6,6 @@ import models.settings.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
 import services.streaming.graph_builders.GenericGraphBuilderFactory
-import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.backfill.{
   BackfillApplyBatchProcessor,
   BackfillOverwriteWatermarkProcessor
@@ -61,7 +60,6 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[StagingProcessor]),
           ZLayer.succeed(mock[FieldFilteringTransformer]),
           ZLayer.succeed(mock[StreamLifetimeService]),
-          ZLayer.succeed(mock[GenericGroupingTransformer]),
           ZLayer.succeed(mock[MergeBatchProcessor]),
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
