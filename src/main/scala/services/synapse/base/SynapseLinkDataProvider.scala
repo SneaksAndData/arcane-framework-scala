@@ -36,7 +36,11 @@ class SynapseLinkDataProvider(
     case Some(backfillStartDate) =>
       ZStream
         .fromZIO(getCurrentVersion(SynapseWatermark.epoch))
-        .flatMap(version => shaper.shapeStream(synapseReader.getData(backfillStartDate)).concat(ZStream.succeed(JsonWatermarkRow(version))))
+        .flatMap(version =>
+          shaper
+            .shapeStream(synapseReader.getData(backfillStartDate))
+            .concat(ZStream.succeed(JsonWatermarkRow(version)))
+        )
     case None => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
   override def firstVersion: Task[SynapseWatermark] =
@@ -70,7 +74,7 @@ object SynapseLinkDataProvider:
       sinkSettings      <- ZIO.service[SinkSettings]
       backfillSettings  <- ZIO.service[BackfillSettings]
       synapseReader     <- ZIO.service[SynapseLinkReader]
-      shaper <- ZIO.service[ThroughputShaper]
+      shaper            <- ZIO.service[ThroughputShaper]
     yield SynapseLinkDataProvider(
       synapseReader,
       propertyManager,

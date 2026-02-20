@@ -84,8 +84,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
       _             <- propertyManager.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
     yield ()
-    
-  private val shaper: MemoryBoundShaper = MemoryBoundShaper(propertyManager, TestDynamicSinkSettings(backfillSettings.backfillTableFullName))  
+
+  private val shaper: MemoryBoundShaper =
+    MemoryBoundShaper(propertyManager, TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
