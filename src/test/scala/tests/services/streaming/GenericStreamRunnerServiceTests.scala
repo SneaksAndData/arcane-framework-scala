@@ -71,7 +71,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       // but no further stages being invoked
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(EasyMock.anyObject(), 0))
+        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
       hookManager
         .onBatchStaged(

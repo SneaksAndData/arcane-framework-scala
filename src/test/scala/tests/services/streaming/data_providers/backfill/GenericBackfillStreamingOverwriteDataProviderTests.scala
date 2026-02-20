@@ -59,13 +59,15 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           ZStream.fromIterable(
             Seq(
               TestIndexedStagedBatches(
-                groupedBySchema = TestStageVersionedBatch(
-                  "test",
-                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
-                  "target_test",
-                  TestTablePropertiesSettings,
-                  "col0",
-                  Some("123")
+                groupedBySchema = Seq(
+                  TestStageVersionedBatch(
+                    "test",
+                    ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                    "target_test",
+                    TestTablePropertiesSettings,
+                    "col0",
+                    Some("123")
+                  )
                 ),
                 batchIndex = 1
               )
@@ -109,13 +111,15 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         .andReturn(
           ZStream.repeat(
             TestIndexedStagedBatches(
-              groupedBySchema = TestStageVersionedBatch(
-                "test",
-                ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
-                "target_test",
-                TestTablePropertiesSettings,
-                "col0",
-                Some("123")
+              groupedBySchema = Seq(
+                TestStageVersionedBatch(
+                  "test",
+                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                  "target_test",
+                  TestTablePropertiesSettings,
+                  "col0",
+                  Some("123")
+                )
               ),
               batchIndex = 1
             )
@@ -178,7 +182,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       // but no further stages being invoked
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(EasyMock.anyObject(), 0))
+        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
       jdbcTableManager

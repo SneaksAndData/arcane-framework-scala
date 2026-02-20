@@ -20,7 +20,7 @@ import services.streaming.processors.transformers.{IndexedStagedBatches, Staging
 
 import zio.Chunk
 
-class DefaultIndexedStagedBatches(groupedBySchema: StagedVersionedBatch & MergeableBatch, batchIndex: Long)
+class DefaultIndexedStagedBatches(groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], batchIndex: Long)
     extends IndexedStagedBatches(groupedBySchema, batchIndex)
     with SnapshotExpirationRequestConvertable
     with OrphanFilesExpirationRequestConvertable
@@ -31,7 +31,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: StagedVersionedBatch & Mergea
       settings: Option[SnapshotExpirationSettings]
   ): Option[JdbcSnapshotExpirationRequest] = settings.map { snapshotExpirationSettings =>
     JdbcSnapshotExpirationRequest(
-      groupedBySchema.targetTableName,
+      groupedBySchema.head.targetTableName,
       snapshotExpirationSettings.batchThreshold,
       snapshotExpirationSettings.retentionThreshold,
       batchIndex
@@ -42,7 +42,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: StagedVersionedBatch & Mergea
       settings: Option[OrphanFilesExpirationSettings]
   ): Option[JdbcOrphanFilesExpirationRequest] = settings.map { orphanFilesExpirationSettings =>
     JdbcOrphanFilesExpirationRequest(
-      groupedBySchema.targetTableName,
+      groupedBySchema.head.targetTableName,
       orphanFilesExpirationSettings.batchThreshold,
       orphanFilesExpirationSettings.retentionThreshold,
       batchIndex
@@ -52,7 +52,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: StagedVersionedBatch & Mergea
   override def getOptimizationRequest(settings: Option[OptimizeSettings]): Option[JdbcOptimizationRequest] =
     settings.map { optimizerSettings =>
       JdbcOptimizationRequest(
-        groupedBySchema.targetTableName,
+        groupedBySchema.head.targetTableName,
         optimizerSettings.batchThreshold,
         optimizerSettings.fileSizeThreshold,
         batchIndex
@@ -62,7 +62,7 @@ class DefaultIndexedStagedBatches(groupedBySchema: StagedVersionedBatch & Mergea
   override def getAnalyzeRequest(settings: Option[AnalyzeSettings]): Option[JdbcAnalyzeRequest] =
     settings.map { analyzerSettings =>
       JdbcAnalyzeRequest(
-        groupedBySchema.targetTableName,
+        groupedBySchema.head.targetTableName,
         analyzerSettings.batchThreshold,
         analyzerSettings.includedColumns,
         batchIndex
@@ -77,7 +77,7 @@ abstract class DefaultHookManager extends HookManager:
   /** Enriches received staging batch with metadata and converts it to in-flight batch.
     */
   override def onStagingTablesComplete(
-      staged: StagedVersionedBatch & MergeableBatch,
+      staged: Iterable[StagedVersionedBatch & MergeableBatch],
       index: Long,
       others: Chunk[Any]
   ): StagingProcessor#OutgoingElement =

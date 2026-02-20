@@ -116,7 +116,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
 
       hookManager
         .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(EasyMock.anyObject(), 0))
+        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
       jdbcTableManager

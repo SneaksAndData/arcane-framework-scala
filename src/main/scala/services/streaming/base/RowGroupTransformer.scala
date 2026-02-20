@@ -31,7 +31,7 @@ trait RowGroupTransformer:
 
   type OutgoingElement <: IndexedStagedBatches
 
-  type OnStagingTablesComplete = (StagedVersionedBatch & MergeableBatch, Long, Chunk[Any]) => OutgoingElement
+  type OnStagingTablesComplete = (Iterable[StagedVersionedBatch & MergeableBatch], Long, Chunk[Any]) => OutgoingElement
   type OnBatchStaged =
     (
         Option[Table],

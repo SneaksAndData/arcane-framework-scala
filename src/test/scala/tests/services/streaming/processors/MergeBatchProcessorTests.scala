@@ -30,15 +30,14 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
   private val testInput = LazyList
     .from(0)
     .takeWhile(_ < 20)
-    .map {
-      case i if i % 2 == 0 =>
-        val schema = ArcaneSchema(Seq(MergeKeyField))
-        val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings, None)
-        TestIndexedStagedBatches(batch, i)
-      case i =>
-        val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
-        val secondBatch  = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings, None)
-        TestIndexedStagedBatches(secondBatch, i)
+    .map { i =>
+      val schema = ArcaneSchema(Seq(MergeKeyField))
+      val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings, None)
+
+      val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
+      val secondBatch  = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings, None)
+
+      TestIndexedStagedBatches(Seq(batch, secondBatch), i)
     }
 
   it should "run merges, optimizations and schema migrations attempts" in {

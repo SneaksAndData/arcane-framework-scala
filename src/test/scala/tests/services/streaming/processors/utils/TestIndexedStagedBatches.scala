@@ -18,7 +18,7 @@ import services.streaming.base.{
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 class TestIndexedStagedBatches(
-    override val groupedBySchema: StagedVersionedBatch & MergeableBatch,
+    override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
     override val batchIndex: Long
 ) extends IndexedStagedBatches(groupedBySchema, batchIndex)
     with SnapshotExpirationRequestConvertable
