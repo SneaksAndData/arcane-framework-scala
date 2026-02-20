@@ -9,7 +9,7 @@ import services.streaming.throughput.base.ThroughputShaper
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type.TypeID
 import zio.metrics.jvm.DefaultJvmMetrics
-import zio.{Chunk, Task, ZIO}
+import zio.{Chunk, Task, ZIO, ZLayer}
 
 import java.time.Duration
 import scala.collection.concurrent.TrieMap
@@ -93,3 +93,27 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
 
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int = (ch.size * estimationCache(rowSizeCacheKey).toLong / runtime.freeMemory()).toInt
   // TODO: report approx cost as a metric from shaper itself
+
+
+object MemoryBoundShaper:
+  private type Environment = TablePropertyManager & SinkSettings
+
+  /** Factory method to create MemoryBoundShaper
+   *
+   * @param icebergSettings
+   * Iceberg settings
+   * @return
+   * The initialized IcebergTablePropertyManager instance
+   */
+  def apply(propertyManager: TablePropertyManager, sinkSettings: SinkSettings): MemoryBoundShaper =
+    new MemoryBoundShaper(propertyManager, sinkSettings)
+
+  /** The ZLayer that creates the object MemoryBoundShaper.
+   */
+  val layer: ZLayer[Environment, Throwable, MemoryBoundShaper] =
+    ZLayer {
+      for
+        settings <- ZIO.service[SinkSettings]
+        propertyManager <- ZIO.service[TablePropertyManager]
+      yield MemoryBoundShaper(propertyManager, settings)
+    }

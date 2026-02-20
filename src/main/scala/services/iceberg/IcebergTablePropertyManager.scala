@@ -75,7 +75,7 @@ object IcebergTablePropertyManager:
   def apply(icebergSettings: SinkSettings): IcebergTablePropertyManager =
     new IcebergTablePropertyManager(icebergSettings)
 
-  /** The ZLayer that creates the LazyOutputDataProcessor.
+  /** The ZLayer that creates the IcebergTablePropertyManager.
     */
   val layer: ZLayer[Environment, Throwable, IcebergTablePropertyManager] =
     ZLayer {

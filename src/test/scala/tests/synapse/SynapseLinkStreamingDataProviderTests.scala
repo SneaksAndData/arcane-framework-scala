@@ -16,6 +16,7 @@ import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
+import com.sneaksanddata.arcane.framework.services.streaming.throughput.MemoryBoundShaper
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
@@ -83,6 +84,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
       _             <- propertyManager.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
     yield ()
+    
+  private val shaper: MemoryBoundShaper = MemoryBoundShaper(propertyManager, TestDynamicSinkSettings(backfillSettings.backfillTableFullName))  
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
@@ -96,7 +99,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             propertyManager,
             TestSinkSettings,
             graphSettings,
-            backfillSettings
+            backfillSettings,
+            shaper
           )
         )
         provider <- ZIO.succeed(
@@ -128,7 +132,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
-            backfillSettings
+            backfillSettings,
+            shaper
           )
         )
         provider <- ZIO.succeed(
@@ -160,7 +165,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
-            backfillSettings
+            backfillSettings,
+            shaper
           )
         )
         provider <- ZIO.succeed(
