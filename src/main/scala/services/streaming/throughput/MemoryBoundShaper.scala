@@ -118,6 +118,7 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int =
     (ch.size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)).toInt
   // TODO: report approx cost as a metric from shaper itself
+  // TODO: normalize value to some range
 
 object MemoryBoundShaper:
   private type Environment = TablePropertyManager & SinkSettings
