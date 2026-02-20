@@ -16,7 +16,7 @@ import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
-import com.sneaksanddata.arcane.framework.services.streaming.throughput.MemoryBoundShaper
+import com.sneaksanddata.arcane.framework.services.streaming.throughput.{MemoryBoundShaper, VoidShaper}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
@@ -68,14 +68,11 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
-    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
-  )
   private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
 
-  private def prepareWatermark(tableName: String): Task[Unit] =
+  private def prepareWatermark(tableName: String, propertyManager: IcebergTablePropertyManager): Task[Unit] =
     for
       targetName <- ZIO.succeed(tableName)
       // prepare target table metadata
@@ -90,16 +87,16 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       "streams rows in backfill mode correctly"
     ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
       for
-        _ <- prepareWatermark("synapse_backfill_test")
-
-        pm     <- ZIO.succeed(IcebergTablePropertyManager(TestDynamicSinkSettings("demo.test.synapse_backfill_test")))
-        shaper <- ZIO.succeed(MemoryBoundShaper(pm, TestDynamicSinkSettings("demo.test.synapse_backfill_test")))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+        propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
+        _                 <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
+        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            pm,
+            propertyManager,
             TestSinkSettings,
             graphSettings,
             backfillSettings,
@@ -122,74 +119,80 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       // plus there 1 record to be deleted
       // plus final row must be watermark row
       yield assertTrue((rows.size == 5 * (7 - 1) + 1 * (7 - 1) + 1) && rows.last.isWatermark)
+    },
+    test("stream correct number of changes") {
+      for
+        tableName         <- ZIO.succeed("target_table_stream")
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"demo.test.$tableName"))
+        propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
+        _                 <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
+        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        synapseLinkDataProvider <- ZIO.succeed(
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            propertyManager,
+            tableSinkSettings,
+            graphSettings,
+            backfillSettings,
+            shaper
+          )
+        )
+        provider <- ZIO.succeed(
+          SynapseLinkStreamingDataProvider(
+            synapseLinkDataProvider,
+            graphSettings,
+            backfillSettings,
+            changeCaptureStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
+        )
+        rows <- provider.stream.timeout(zio.Duration.fromSeconds(4)).runCount
+      // expect 5 rows, since each file has 5 rows
+      // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
+      // watermark is 3 hours back which should only capture 1 file
+      // one row should be watermark
+      yield assertTrue(rows == 5 + 1 + 1)
+    },
+    test("stream changes in the correct order") {
+      for
+        tableName         <- ZIO.succeed("target_table_stream_ordered")
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"demo.test.$tableName"))
+        propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
+        // prepare target table metadata
+        _      <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
+        shaper <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+
+        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        synapseLinkDataProvider <- ZIO.succeed(
+          SynapseLinkDataProvider(
+            synapseLinkReader,
+            propertyManager,
+            tableSinkSettings,
+            graphSettings,
+            backfillSettings,
+            shaper
+          )
+        )
+        provider <- ZIO.succeed(
+          SynapseLinkStreamingDataProvider(
+            synapseLinkDataProvider,
+            graphSettings,
+            backfillSettings,
+            changeCaptureStreamContext,
+            DeclaredMetrics(NullDimensionsProvider)
+          )
+        )
+        rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(4)).runCollect
+      // delete must ALWAYS come last, otherwise there is a risk of re-inserting the same row
+      yield assertTrue(rows.toList.zipWithIndex.filter(r => isDelete(r._1)).head._2 == 5) &&
+        assertTrue(
+          rows.toList.zipWithIndex
+            .map(v => (getKey(v._1), Option(v)))
+            .groupBy(v => v._1)
+            .map(v => reduceRows(v._2.map(_._2)))
+            .count(_.nonEmpty) == 4
+        )
     }
-//    test("stream correct number of changes") {
-//      for
-//        tableName <- ZIO.succeed("target_table_stream")
-//        _         <- prepareWatermark("target_table_stream")
-//
-//        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
-//        synapseLinkDataProvider <- ZIO.succeed(
-//          SynapseLinkDataProvider(
-//            synapseLinkReader,
-//            propertyManager,
-//            new TestDynamicSinkSettings(s"demo.test.$tableName"),
-//            graphSettings,
-//            backfillSettings,
-//            shaper
-//          )
-//        )
-//        provider <- ZIO.succeed(
-//          SynapseLinkStreamingDataProvider(
-//            synapseLinkDataProvider,
-//            graphSettings,
-//            backfillSettings,
-//            changeCaptureStreamContext,
-//            DeclaredMetrics(NullDimensionsProvider)
-//          )
-//        )
-//        rows <- provider.stream.timeout(zio.Duration.fromSeconds(2)).runCount
-//      // expect 5 rows, since each file has 5 rows
-//      // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
-//      // watermark is 3 hours back which should only capture 1 file
-//      // one row should be watermark
-//      yield assertTrue(rows == 5 + 1 + 1)
-//    },
-//    test("stream changes in the correct order") {
-//      for
-//        tableName <- ZIO.succeed("target_table_stream_ordered")
-//        // prepare target table metadata
-//        _ <- prepareWatermark(tableName)
-//
-//        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
-//        synapseLinkDataProvider <- ZIO.succeed(
-//          SynapseLinkDataProvider(
-//            synapseLinkReader,
-//            propertyManager,
-//            new TestDynamicSinkSettings(s"demo.test.$tableName"),
-//            graphSettings,
-//            backfillSettings,
-//            shaper
-//          )
-//        )
-//        provider <- ZIO.succeed(
-//          SynapseLinkStreamingDataProvider(
-//            synapseLinkDataProvider,
-//            graphSettings,
-//            backfillSettings,
-//            changeCaptureStreamContext,
-//            DeclaredMetrics(NullDimensionsProvider)
-//          )
-//        )
-//        rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(2)).runCollect
-//      // delete must ALWAYS come last, otherwise there is a risk of re-inserting the same row
-//      yield assertTrue(rows.toList.zipWithIndex.filter(r => isDelete(r._1)).head._2 == 5) &&
-//        assertTrue(
-//          rows.toList.zipWithIndex
-//            .map(v => (getKey(v._1), Option(v)))
-//            .groupBy(v => v._1)
-//            .map(v => reduceRows(v._2.map(_._2)))
-//            .count(_.nonEmpty) == 4
-//        )
-//    }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential

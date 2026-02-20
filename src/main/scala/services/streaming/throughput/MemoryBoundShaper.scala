@@ -86,16 +86,26 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
     chunkSizeFromRowSize <- ZIO.succeed(
       runtime.freeMemory() * estimationCache(memCacheKey) / (estimationCache(rowSizeCacheKey) + 1)
     )
-    _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toString)
+    _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
+    appliedSize <- ZIO.succeed(
+      if estimationCache("partitions").toInt > 1 then
+        (
+          Seq(chunkSizeFromRowSize, estimationCache("partitions") / 2).min.toInt,
+          estimationCache(rowSizeCacheKey).toLong
+        )
+      else
+        (
+          Seq(chunkSizeFromRowSize, 1.0).max.toInt,
+          estimationCache(rowSizeCacheKey).toLong
+        )
+    )
+    _ <- zlog(
+      "Will apply chunk size %s for the current stream, estimated memory request %s MiB",
+      appliedSize._1.toString,
+      (appliedSize._1 * appliedSize._2 / mib).toString
+    )
   // TODO: add these as metrics
-  yield
-    if estimationCache("partitions").toInt > 1 then
-      (Seq(chunkSizeFromRowSize, estimationCache("partitions") / 2).min.toInt, estimationCache(rowSizeCacheKey).toLong)
-    else
-      (
-        Seq(chunkSizeFromRowSize, 1.0).max.toInt,
-        estimationCache(rowSizeCacheKey).toLong
-      ) // TODO: set baseline rate through settings
+  yield appliedSize
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
     for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))

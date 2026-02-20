@@ -20,6 +20,7 @@ trait ThroughputShaper:
     ZStream
       .fromZIO {
         for
+          // TODO: info user on the type of shaper used
           chunkSize <- estimateChunkSize
           burst     <- estimateShapeBurst(chunkSize.Elements, chunkSize.ElementSize)
           rate      <- estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
