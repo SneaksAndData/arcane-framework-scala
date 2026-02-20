@@ -14,11 +14,11 @@ import scala.language.implicitConversions
 final class IcebergTablePropertyManager(sinkSettings: SinkSettings) extends TablePropertyManager:
   private val catalogFactory = new IcebergCatalogFactory(sinkSettings.icebergSinkSettings)
 
-  private def loadTable(tableName: String, suffix: Option[String]): Task[Table] = for
+  private def loadTable(tableName: String): Task[Table] = for
     tableId <- ZIO.succeed(
       TableIdentifier.of(
         sinkSettings.icebergSinkSettings.namespace,
-        suffix.map(v => s"$tableName.$v").getOrElse(tableName)
+        tableName
       )
     )
     catalog <- catalogFactory.getCatalog
@@ -27,19 +27,26 @@ final class IcebergTablePropertyManager(sinkSettings: SinkSettings) extends Tabl
       .orDieWith(e => Throwable(s"Unable to load target table $tableName to read its properties", e))
   yield table
 
+  private def loadPartitionsTable(tableName: String): Task[Table] = for
+    table <- loadTable(tableName)
+    partitionsTable <- ZIO.attemptBlocking(
+      MetadataTableUtils.createMetadataTableInstance(table, MetadataTableType.PARTITIONS)
+    )
+  yield partitionsTable
+
   override def comment(tableName: String, text: String): Task[Unit] = for
-    table <- loadTable(tableName, None)
+    table <- loadTable(tableName)
     _     <- ZIO.attemptBlocking(table.updateProperties().set("comment", text).commit())
   yield ()
 
   override def getProperty(tableName: String, propertyName: String): Task[String] = for
-    table      <- loadTable(tableName, None)
+    table      <- loadTable(tableName)
     properties <- ZIO.attemptBlocking(table.properties())
   yield properties.get(propertyName)
 
   override def getTableSize(tableName: String): Task[(Records: Long, Size: Long)] = ZIO.scoped {
     for
-      table <- loadTable(tableName, Some("partitions"))
+      table <- loadPartitionsTable(tableName)
       scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
         ZIO.attemptBlocking(fileScans.close()).orDie
       }
@@ -51,7 +58,7 @@ final class IcebergTablePropertyManager(sinkSettings: SinkSettings) extends Tabl
 
   override def getPartitionCount(tableName: String): Task[Int] = ZIO.scoped {
     for
-      table <- loadTable(tableName, Some("partitions"))
+      table <- loadPartitionsTable(tableName)
       scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
         ZIO.attemptBlocking(fileScans.close()).orDie
       }
@@ -61,7 +68,7 @@ final class IcebergTablePropertyManager(sinkSettings: SinkSettings) extends Tabl
     yield result
   }
 
-  override def getTableSchema(tableName: String): Task[Schema] = for table <- loadTable(tableName, None)
+  override def getTableSchema(tableName: String): Task[Schema] = for table <- loadTable(tableName)
   yield table.schema()
 
 object IcebergTablePropertyManager:

@@ -67,7 +67,10 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
 
         memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(tableSizeEstimate.Records, tableSizeEstimate.Size))
         rowsSize <- ZIO.succeed(
-          Seq(estimateRowSize(tableSchema).toDouble, tableSizeEstimate.Records / tableSizeEstimate.Size.toDouble).max
+          Seq(
+            estimateRowSize(tableSchema).toDouble,
+            tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
+          ).max
         )
         _ <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
         _ <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, rowsSize)))
@@ -81,7 +84,7 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
     }
 
     chunkSizeFromRowSize <- ZIO.succeed(
-      runtime.freeMemory() * estimationCache(memCacheKey) / estimationCache(rowSizeCacheKey)
+      runtime.freeMemory() * estimationCache(memCacheKey) / (estimationCache(rowSizeCacheKey) + 1)
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toString)
   // TODO: add these as metrics
@@ -95,15 +98,15 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
       ) // TODO: set baseline rate through settings
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
-    for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize))
+    for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))
     yield Seq(chunksToFit.toDouble / 2, 1.0).max.toInt // TODO: set baseline burst and division factor through settings
 
   override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
-    for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize))
+    for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))
     yield (Seq(chunksToFit.toDouble / 2, 1.0).max.toInt, Duration.ofSeconds(1))
 
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int =
-    (ch.size * estimationCache(rowSizeCacheKey).toLong / runtime.freeMemory()).toInt
+    (ch.size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)).toInt
   // TODO: report approx cost as a metric from shaper itself
 
 object MemoryBoundShaper:
