@@ -121,7 +121,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           )
         )
         lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
-        rows            <- streamingDataProvider.stream.takeWhile(_ => !lifetimeService.cancelled).runCollect
+        rows            <- streamingDataProvider.stream.rechunk(1).takeUntil(_ => lifetimeService.cancelled).runCollect
       yield assertTrue(rows.size == numberRowsToTake)
     }
   } @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
