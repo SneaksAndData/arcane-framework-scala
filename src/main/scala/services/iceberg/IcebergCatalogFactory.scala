@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.IcebergCatalogSettings
 import services.iceberg.base.CatalogFactory
+import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergCatalogSettings
 
 import org.apache.iceberg.CatalogProperties
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}

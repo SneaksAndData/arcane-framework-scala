@@ -4,8 +4,8 @@ package services.merging
 import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
 import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
-import models.settings.BackfillBehavior.Overwrite
-import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, SinkSettings}
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.{JdbcMergeServiceClientSettings, TablePropertiesSettings}
 import services.base.*
 import services.filters.FieldsFilteringService
 import services.iceberg.SchemaConversions
@@ -15,6 +15,8 @@ import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics._
 import utils.SqlUtils.readArcaneSchema
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type

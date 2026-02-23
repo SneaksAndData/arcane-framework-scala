@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.SinkSettings
 import services.iceberg.base.TablePropertyManager
 import services.streaming.throughput.base.ThroughputShaper
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type.TypeID

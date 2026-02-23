@@ -4,7 +4,7 @@ package services.streaming.data_providers.backfill
 import logging.ZIOLogAnnotations.zlog
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
-import models.settings.{BackfillSettings, TablePropertiesSettings}
+import models.settings.TablePropertiesSettings
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,
@@ -14,6 +14,7 @@ import services.streaming.base.{
   StagedBatchProcessor
 }
 import services.streaming.processors.transformers.StagingProcessor
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
 
 import org.apache.iceberg.Table
 import zio.stream.ZPipeline

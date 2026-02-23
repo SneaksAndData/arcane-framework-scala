@@ -5,7 +5,6 @@ import models.*
 import models.app.StreamContext
 import models.batches.SqlServerChangeTrackingMergeBatch
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
@@ -25,6 +24,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
+import com.sneaksanddata.arcane.framework.models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

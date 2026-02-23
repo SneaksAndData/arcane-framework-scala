@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package services.hooks.manager
 
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.settings.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import services.merging.maintenance.{
   JdbcAnalyzeRequest,
   JdbcOptimizationRequest,
@@ -17,6 +16,7 @@ import services.streaming.base.{
   SnapshotExpirationRequestConvertable
 }
 import services.streaming.processors.transformers.{IndexedStagedBatches, StagingProcessor}
+import com.sneaksanddata.arcane.framework.models.settings.sink.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 
 import zio.Chunk
 

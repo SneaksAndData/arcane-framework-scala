@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.OrphanFilesExpirationSettings
+import com.sneaksanddata.arcane.framework.models.settings.sink.OrphanFilesExpirationSettings
 
 object TestOrphanFilesExpirationSettings extends OrphanFilesExpirationSettings:
   val batchThreshold: Int        = 10

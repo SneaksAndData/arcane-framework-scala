@@ -6,9 +6,10 @@ import models.settings.*
 import services.base.MergeServiceClient
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
-import services.metrics.DeclaredMetrics._
+import services.metrics.DeclaredMetrics.*
 import services.streaming.base.StagedBatchProcessor
 
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 

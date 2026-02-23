@@ -1,13 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.{
-  AnalyzeSettings,
-  OptimizeSettings,
-  OrphanFilesExpirationSettings,
-  SnapshotExpirationSettings,
-  TableMaintenanceSettings
-}
+import com.sneaksanddata.arcane.framework.models.settings.sink.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, TableMaintenanceSettings}
 
 object TestTableMaintenanceSettings extends TableMaintenanceSettings:
   override val targetOptimizeSettings: Option[OptimizeSettings] = Some(TestOptimizeSettings)

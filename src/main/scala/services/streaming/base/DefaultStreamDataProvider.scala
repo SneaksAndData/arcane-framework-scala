@@ -4,8 +4,9 @@ package services.streaming.base
 import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.DataRow
-import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
 import services.metrics.DeclaredMetrics
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO}

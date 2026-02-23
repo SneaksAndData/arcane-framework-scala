@@ -4,7 +4,6 @@ package tests.services.streaming.processors.transformers
 import models.*
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
-import models.settings.IcebergStagingSettings
 import services.base.DimensionsProvider
 import services.iceberg.IcebergS3CatalogWriter
 import services.iceberg.base.CatalogWriter
@@ -21,6 +20,7 @@ import tests.shared.{
   TestTablePropertiesSettings,
   TestSinkSettingsWithMaintenance$
 }
+import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergStagingSettings
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

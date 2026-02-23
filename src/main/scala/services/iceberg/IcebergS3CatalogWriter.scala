@@ -3,8 +3,8 @@ package services.iceberg
 
 import logging.ZIOLogAnnotations.*
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.IcebergStagingSettings
 import services.iceberg.base.CatalogWriter
+import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergStagingSettings
 
 import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext

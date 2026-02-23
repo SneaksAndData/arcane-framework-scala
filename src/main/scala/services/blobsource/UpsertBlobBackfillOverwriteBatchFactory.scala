@@ -6,9 +6,11 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch,
   UpsertBlobBackfillOverwriteBatch
 }
-import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
+import models.settings.TablePropertiesSettings
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import zio.{Task, ZIO, ZLayer}
 

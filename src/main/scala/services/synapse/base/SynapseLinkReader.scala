@@ -6,7 +6,6 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
-import models.settings.SynapseSourceSettings
 import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
@@ -14,6 +13,7 @@ import services.storage.services.azure.AzureBlobStorageReader
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.versioning.SynapseWatermark
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
+import com.sneaksanddata.arcane.framework.models.settings.sources.SynapseSourceSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}

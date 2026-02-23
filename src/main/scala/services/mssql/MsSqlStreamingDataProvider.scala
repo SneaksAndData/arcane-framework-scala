@@ -2,10 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.app.StreamContext
-import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
 import services.metrics.DeclaredMetrics
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
 
 import zio.{ZIO, ZLayer}
 

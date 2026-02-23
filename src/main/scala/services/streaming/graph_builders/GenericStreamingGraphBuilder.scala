@@ -3,7 +3,6 @@ package services.streaming.graph_builders
 
 import logging.ZIOLogAnnotations.zlogStream
 import models.schemas.DataCell
-import models.settings.{BufferingStrategy, SourceBufferingSettings}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
@@ -13,6 +12,7 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
 
 import zio.stream.ZStream
 import zio.{Duration, Tag, ZIO, ZLayer}

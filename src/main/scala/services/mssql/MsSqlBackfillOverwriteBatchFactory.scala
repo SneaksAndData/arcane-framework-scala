@@ -2,9 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.batches.{SqlServerChangeTrackingBackfillBatch, StagedBackfillOverwriteBatch}
-import models.settings.{BackfillSettings, SinkSettings, TablePropertiesSettings}
+import models.settings.TablePropertiesSettings
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import zio.{Task, ZIO, ZLayer}
 

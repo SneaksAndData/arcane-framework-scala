@@ -3,12 +3,12 @@ package services.streaming.graph_builders
 
 import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
-import models.settings.{BackfillBehavior, BackfillSettings}
 import services.streaming.base.StreamingGraphBuilder
 import services.streaming.graph_builders.backfill.{
   GenericBackfillMergeGraphBuilder,
   GenericBackfillOverwriteGraphBuilder
 }
+import com.sneaksanddata.arcane.framework.models.settings.backfill.{BackfillBehavior, BackfillSettings}
 
 import zio.{ZIO, ZLayer}
 

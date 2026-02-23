@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.data_providers.backfill
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.BackfillSettings
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,
@@ -10,6 +9,7 @@ import services.streaming.base.{
   BackfillSubStream,
   HookManager
 }
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
 
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
