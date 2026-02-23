@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
+import models.settings.sink.SinkSettings
 import services.iceberg.base.TablePropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.WatermarkProcessingExtensions.*
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}

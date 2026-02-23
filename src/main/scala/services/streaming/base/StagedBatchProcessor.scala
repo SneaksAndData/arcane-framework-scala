@@ -1,14 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import services.merging.maintenance.{
-  JdbcAnalyzeRequest,
-  JdbcOptimizationRequest,
-  JdbcOrphanFilesExpirationRequest,
-  JdbcSnapshotExpirationRequest
-}
+import models.settings.sink.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
+import services.merging.maintenance.{JdbcAnalyzeRequest, JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.streaming.processors.transformers.IndexedStagedBatches
-import com.sneaksanddata.arcane.framework.models.settings.sink.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 
 import zio.stream.ZPipeline
 

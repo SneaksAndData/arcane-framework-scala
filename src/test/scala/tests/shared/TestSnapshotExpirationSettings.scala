@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import com.sneaksanddata.arcane.framework.models.settings.sink.SnapshotExpirationSettings
+import models.settings.sink.SnapshotExpirationSettings
 
 object TestSnapshotExpirationSettings extends SnapshotExpirationSettings:
   val batchThreshold: Int        = 10

@@ -4,13 +4,13 @@ package services.blobsource.providers
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
 import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.base.TablePropertyManager
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}

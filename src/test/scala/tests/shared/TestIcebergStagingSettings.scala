@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
+import models.settings.iceberg.IcebergStagingSettings
 import services.iceberg.base.S3CatalogFileIO
-import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergStagingSettings
 
 object TestIcebergStagingSettings extends IcebergStagingSettings:
   /** The namespace of the catalog.

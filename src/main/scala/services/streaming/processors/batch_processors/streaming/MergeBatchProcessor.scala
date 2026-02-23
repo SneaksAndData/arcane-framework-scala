@@ -3,13 +3,13 @@ package services.streaming.processors.batch_processors.streaming
 
 import logging.ZIOLogAnnotations.*
 import models.settings.*
+import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 import services.streaming.base.StagedBatchProcessor
 
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 

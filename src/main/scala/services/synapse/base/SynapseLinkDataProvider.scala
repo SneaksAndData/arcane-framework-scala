@@ -4,14 +4,14 @@ package services.synapse.base
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
 import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.iceberg.base.TablePropertyManager
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
+import services.streaming.throughput.base.ThroughputShaper
 import services.synapse.SynapseLinkBatch
 import services.synapse.versioning.SynapseWatermark
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
-import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaper
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 

@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillBehavior.Merge
-import com.sneaksanddata.arcane.framework.models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.backfill.BackfillBehavior.Merge
+import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 
 import java.time.OffsetDateTime
 

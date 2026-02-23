@@ -4,18 +4,18 @@ package tests.blobsource
 import models.app.StreamContext
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
-import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
+import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.S3StorageInfo.*
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings}
-import com.sneaksanddata.arcane.framework.models.settings.backfill.{BackfillBehavior, BackfillSettings}
 
 import zio.test.*
 import zio.test.TestAspect.timeout

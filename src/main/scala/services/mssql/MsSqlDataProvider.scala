@@ -4,18 +4,15 @@ package services.mssql
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.iceberg.base.TablePropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
-
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import scala.util.Try
 
 /** A data provider that reads the changes from the Microsoft SQL Server.
   * @param reader

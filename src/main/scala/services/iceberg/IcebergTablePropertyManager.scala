@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
+import models.settings.sink.SinkSettings
 import services.iceberg.base.TablePropertyManager
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 
-import org.apache.iceberg.catalog.TableIdentifier
 import org.apache.iceberg.*
+import org.apache.iceberg.catalog.TableIdentifier
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*

@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import logging.ZIOLogAnnotations.zlog
+import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.CatalogFactory
-import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergCatalogSettings
 
 import org.apache.iceberg.CatalogProperties
-import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
+import org.apache.iceberg.aws.s3.S3FileIO
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
 import org.apache.iceberg.rest.{HTTPClient, RESTSessionCatalog}
