@@ -9,12 +9,7 @@ import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.{
-  NullDimensionsProvider,
-  TablePropertiesSettings,
-  TestSinkSettings,
-  TestSinkSettingsWithMaintenance
-}
+import tests.shared.{NullDimensionsProvider, TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}

@@ -7,7 +7,11 @@ import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream

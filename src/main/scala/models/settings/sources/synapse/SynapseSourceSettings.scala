@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.sources
+package models.settings.sources.synapse
+
+import models.settings.sources.SourceSettings
 
 /** Synapse-link specific source settings
   */

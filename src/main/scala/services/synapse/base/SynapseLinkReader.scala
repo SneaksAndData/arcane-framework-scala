@@ -6,7 +6,7 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
-import models.settings.sources.SynapseSourceSettings
+import models.settings.sources.synapse.SynapseSourceSettings
 import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob

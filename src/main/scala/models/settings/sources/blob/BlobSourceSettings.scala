@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.blob
+package models.settings.sources.blob
 
 import models.settings.sources.SourceSettings
 

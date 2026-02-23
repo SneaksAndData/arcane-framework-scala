@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.staging
 
-import java.time.{ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
+import java.time.{ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
 /** Settings for staging data

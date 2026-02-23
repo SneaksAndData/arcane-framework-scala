@@ -2,9 +2,24 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.utils
 
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.settings.sink.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
-import services.merging.maintenance.{JdbcAnalyzeRequest, JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
-import services.streaming.base.{AnalyzeRequestConvertable, OptimizationRequestConvertable, OrphanFilesExpirationRequestConvertable, SnapshotExpirationRequestConvertable}
+import models.settings.sink.{
+  AnalyzeSettings,
+  OptimizeSettings,
+  OrphanFilesExpirationSettings,
+  SnapshotExpirationSettings
+}
+import services.merging.maintenance.{
+  JdbcAnalyzeRequest,
+  JdbcOptimizationRequest,
+  JdbcOrphanFilesExpirationRequest,
+  JdbcSnapshotExpirationRequest
+}
+import services.streaming.base.{
+  AnalyzeRequestConvertable,
+  OptimizationRequestConvertable,
+  OrphanFilesExpirationRequestConvertable,
+  SnapshotExpirationRequestConvertable
+}
 import services.streaming.processors.transformers.IndexedStagedBatches
 
 class TestIndexedStagedBatches(

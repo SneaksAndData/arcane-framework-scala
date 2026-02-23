@@ -3,7 +3,7 @@ package services.blobsource.readers.listing
 
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
-import models.settings.blob.JsonBlobSourceSettings
+import models.settings.sources.blob.JsonBlobSourceSettings
 import services.base.SchemaProvider
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
