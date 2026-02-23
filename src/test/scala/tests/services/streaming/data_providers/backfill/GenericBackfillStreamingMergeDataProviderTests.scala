@@ -187,7 +187,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
               SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
             )
         }),
-        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
+        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
         ZLayer.succeed(disposeServiceClient),
         ZLayer.succeed(mergeServiceClient),
         ZLayer.succeed(jdbcTableManager),
