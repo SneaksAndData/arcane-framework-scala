@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
 import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.BackfillBehavior.Overwrite
-import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, TablePropertiesSettings, SinkSettings}
+import models.settings.{BackfillSettings, JdbcMergeServiceClientSettings, SinkSettings, TablePropertiesSettings}
 import services.base.*
 import services.filters.FieldsFilteringService
 import services.iceberg.SchemaConversions
@@ -13,13 +13,13 @@ import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
-import services.metrics.DeclaredMetrics._
+import services.metrics.DeclaredMetrics.*
 import utils.SqlUtils.readArcaneSchema
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.{DecimalType, ListType, TimestampType}
+import org.apache.iceberg.types.Types.{DecimalType, ListType, StructType, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -322,7 +322,12 @@ object JdbcMergeServiceClient:
       case TypeID.UUID   => "UUID"
       case TypeID.BINARY => "VARBINARY"
       case TypeID.LIST   => s"ARRAY(${icebergType.asInstanceOf[ListType].elementType().convertType})"
-      case _             => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
+      // https://trino.io/docs/current/language/types.html#row
+      // struct<1002: colA: optional long, 1003: colB: optional string> -> ROW(colA BIGINT, colB VARCHAR)
+      // nested supported via recursion as well
+      case TypeID.STRUCT =>
+        s"ROW(${icebergType.asInstanceOf[StructType].fields().asScala.map(f => s"${f.name()} ${f.`type`().convertType}").mkString(",")})"
+      case _ => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
     }
 
   /** The environment type for the JdbcConsumer.
