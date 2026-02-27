@@ -21,7 +21,7 @@ import utils.SqlUtils.readArcaneSchema
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.{DecimalType, ListType, TimestampType}
+import org.apache.iceberg.types.Types.{DecimalType, ListType, StructType, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -324,7 +324,12 @@ object JdbcMergeServiceClient:
       case TypeID.UUID   => "UUID"
       case TypeID.BINARY => "VARBINARY"
       case TypeID.LIST   => s"ARRAY(${icebergType.asInstanceOf[ListType].elementType().convertType})"
-      case _             => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
+      // https://trino.io/docs/current/language/types.html#row
+      // struct<1002: colA: optional long, 1003: colB: optional string> -> ROW(colA BIGINT, colB VARCHAR)
+      // nested supported via recursion as well
+      case TypeID.STRUCT =>
+        s"ROW(${icebergType.asInstanceOf[StructType].fields().asScala.map(f => s"${f.name()} ${f.`type`().convertType}").mkString(",")})"
+      case _ => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
     }
 
   /** The environment type for the JdbcConsumer.
