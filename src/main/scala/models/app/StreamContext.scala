@@ -47,10 +47,14 @@ object StreamContext:
     def loadContext(implicit rw: ReadWriter[StreamSpec]): ZLayer[Any, Throwable, Environment] =
       val spec = StreamSpec
         .fromEnvironment("STREAMCONTEXT__SPEC")
+      
+      val specOverrides = StreamSpec
+        .fromEnvironment("STREAMCONTEXT_SPEC_OVERRIDE")
 
       spec
         .map(parsed =>
-          ZLayer.succeed(parsed) ++ ZLayer.succeed[DatagramSocketConfig](parsed) ++ ZLayer
-            .succeed[MetricsConfig](parsed) ++ ZLayer.succeed(DatadogPublisherConfig())
+          val merged = parsed.merge(specOverrides)
+          ZLayer.succeed(merged) ++ ZLayer.succeed[DatagramSocketConfig](merged) ++ ZLayer
+            .succeed[MetricsConfig](merged) ++ ZLayer.succeed(DatadogPublisherConfig())
         )
-        .getOrElse(ZLayer.fail(new Throwable("The stream context is not specified.")))
+        .getOrElse(ZLayer.fail(new Throwable("Unable to resolve stream context. Please verify that STREAMCONTEXT__SPEC is defined as a valid JSON string.")))

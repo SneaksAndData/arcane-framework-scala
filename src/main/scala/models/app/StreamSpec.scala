@@ -29,7 +29,9 @@ trait StreamSpec
     with VersionedDataGraphBuilderSettings
     with TablePropertiesSettings
     with IcebergStagingSettings
-    with JdbcMergeServiceClientSettings
+    with JdbcMergeServiceClientSettings:
+  
+  def merge(other: Option[StreamSpec]): StreamSpec
 
 object StreamSpec:
   def apply(value: String)(implicit rw: ReadWriter[StreamSpec]): StreamSpec = upickle.read(value)
