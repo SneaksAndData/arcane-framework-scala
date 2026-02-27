@@ -13,6 +13,7 @@ import models.settings.{
   VersionedDataGraphBuilderSettings
 }
 
+import com.sneaksanddata.arcane.framework.models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
 import upickle.ReadWriter
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
@@ -29,8 +30,9 @@ trait StreamSpec
     with VersionedDataGraphBuilderSettings
     with TablePropertiesSettings
     with IcebergStagingSettings
-    with JdbcMergeServiceClientSettings:
-  
+    with JdbcMergeServiceClientSettings
+    with ThroughputSettings:
+
   def merge(other: Option[StreamSpec]): StreamSpec
 
 object StreamSpec:

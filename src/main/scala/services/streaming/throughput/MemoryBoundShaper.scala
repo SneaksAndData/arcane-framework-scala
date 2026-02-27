@@ -3,6 +3,8 @@ package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
 import models.settings.sink.SinkSettings
+import models.settings.streaming.ThroughputSettings
+import models.settings.streaming.ThroughputShaperImpl.MemoryBound
 import services.iceberg.base.TablePropertyManager
 import services.streaming.throughput.base.ThroughputShaper
 
@@ -13,9 +15,19 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 import java.time.Duration
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
+import scala.math.{exp, log}
 
-class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings: SinkSettings)
-    extends ThroughputShaper:
+class MemoryBoundShaper(
+    tablePropertyManager: TablePropertyManager,
+    sinkSettings: SinkSettings,
+    throughputSettings: ThroughputSettings
+) extends ThroughputShaper:
+
+  private val shaperSettings = throughputSettings.shaperImpl match
+    case mb: MemoryBound => mb
+    case _ =>
+      throw new RuntimeException("`shaperImpl.$$type` must be set to `MemoryBound` when using MemoryBoundShaper")
+
   private val runtime            = Runtime.getRuntime
   private val maxAvailableMemory = runtime.maxMemory()
   private val mib                = 1024 * 1024
@@ -32,28 +44,28 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
     * @param estSize
     * @return
     */
-  private def estimateMemoryCutoff(estRows: Long, estSize: Long): Double = (estRows, estSize) match
-    case (x, y) if x < 1e6 || y < 100 * mib      => 0.2 // TODO: add this to config
-    case (x, y) if x < 10e6 || y < 10000 * mib   => 0.3 // TODO: add this to config
-    case (x, y) if x < 100e6 || y < 100000 * mib => 0.6 // TODO: add this to config
-    case _                                       => 0.8 // TODO: add this to config
+  private def estimateMemoryCutoff(estRows: Long, estSize: Long): Double = scaledSigmoid(
+    shaperSettings.tableRowCountWeight * log(estRows) + shaperSettings.tableSizeWeight * log(estSize),
+    shaperSettings.tableSizeScaleFactor
+  )
 
   private def estimateRowSize(schema: Schema): Long =
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
       tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
-        case TypeID.TIME           => 4L + 8L
-        case TypeID.BINARY         => 16L + 8L
-        case TypeID.INTEGER        => 4L + 8L
-        case TypeID.BOOLEAN        => 1L + 8L
-        case TypeID.LONG           => 8L + 8L
-        case TypeID.FLOAT          => 4L + 8L
-        case TypeID.DOUBLE         => 8L + 8L
-        case TypeID.STRING         => 2L * 50 + 8L // conservative over-estimation for varchar types - 50 UTF-8 chars
+        case TypeID.TIME    => 4L + 8L
+        case TypeID.INTEGER => 4L + 8L
+        case TypeID.BOOLEAN => 1L + 8L
+        case TypeID.LONG    => 8L + 8L
+        case TypeID.FLOAT   => 4L + 8L
+        case TypeID.DOUBLE  => 8L + 8L
+        case TypeID.STRING =>
+          2L * shaperSettings.meanStringTypeSizeEstimate.toLong + 8L // conservative over-estimation for varchar types
         case TypeID.DECIMAL        => 8L + 8L + 8L
         case TypeID.TIMESTAMP      => 8L + 8L
         case TypeID.TIMESTAMP_NANO => 8L + 8L
-        case _ => 8L + 256L // assume large size for structs, lists, geometry, variant and other less common types
+        case _ =>
+          8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
     }
 
   override def estimateChunkSize: Task[(Elements: Int, ElementSize: Long)] = for
@@ -108,16 +120,31 @@ class MemoryBoundShaper(tablePropertyManager: TablePropertyManager, sinkSettings
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
     for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))
-    yield Seq(chunksToFit.toDouble / 2, 1.0).max.toInt // TODO: set baseline burst and division factor through settings
+    yield Seq(
+      chunksToFit.toDouble / shaperSettings.burstEstimateDivisionFactor,
+      throughputSettings.advisedChunksBurst.toDouble
+    ).max.toInt
 
   override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
     for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))
-    yield (Seq(chunksToFit.toDouble / 2, 1.0).max.toInt, Duration.ofSeconds(1))
+    yield (
+      Seq(
+        chunksToFit.toDouble / shaperSettings.rateEstimateDivisionFactor,
+        throughputSettings.advisedRateChunks.toDouble
+      ).max.toInt,
+      throughputSettings.advisedRatePeriod
+    )
+
+    /** Project (-inf, inf) to (0, 1) https://en.wikipedia.org/wiki/Sigmoid_function
+      *
+      * @param Scaling
+      *   factor for range projection Higher values increase sensitivity near 0.
+      */
+  private def scaledSigmoid(value: Double, k: Int): Double = 1.0 / (1.0 + exp(-1.0 * k * value))
 
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int =
-    (ch.size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)).toInt
-  // TODO: report approx cost as a metric from shaper itself
-  // TODO: normalize value to some range
+    val rawCost = ch.size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)
+    (scaledSigmoid(rawCost.toDouble, shaperSettings.chunkCostScale) * shaperSettings.chunkCostMax).toInt
 
 object MemoryBoundShaper:
   private type Environment = TablePropertyManager & SinkSettings
@@ -129,15 +156,9 @@ object MemoryBoundShaper:
     * @return
     *   The initialized IcebergTablePropertyManager instance
     */
-  def apply(propertyManager: TablePropertyManager, sinkSettings: SinkSettings): MemoryBoundShaper =
-    new MemoryBoundShaper(propertyManager, sinkSettings)
-
-  /** The ZLayer that creates the object MemoryBoundShaper.
-    */
-  val layer: ZLayer[Environment, Throwable, MemoryBoundShaper] =
-    ZLayer {
-      for
-        settings        <- ZIO.service[SinkSettings]
-        propertyManager <- ZIO.service[TablePropertyManager]
-      yield MemoryBoundShaper(propertyManager, settings)
-    }
+  def apply(
+      propertyManager: TablePropertyManager,
+      sinkSettings: SinkSettings,
+      memoryBoundShaperSettings: ThroughputSettings
+  ): MemoryBoundShaper =
+    new MemoryBoundShaper(propertyManager, sinkSettings, memoryBoundShaperSettings)
