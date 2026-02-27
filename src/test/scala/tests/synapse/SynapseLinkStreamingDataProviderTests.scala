@@ -18,6 +18,8 @@ import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ThroughputShaperImpl.MemoryBound
+import com.sneaksanddata.arcane.framework.models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
@@ -83,6 +85,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       _             <- propertyManager.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
     yield ()
 
+  case object TestThroughputSettings extends ThroughputSettings:
+    override val shaperImpl: ThroughputShaperImpl = MemoryBound(50, 256, 2, 2, 1, 1000, 0.5, 0.5, 2)
+    override val advisedChunkSize: Int            = 1
+    override val advisedRateChunks: Int           = 1
+    override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)
+    override val advisedChunksBurst: Int          = 10
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
       "streams rows in backfill mode correctly"
@@ -91,7 +100,19 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
         propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
         _                 <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
-        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+        shaper <- ZIO.succeed(
+          MemoryBoundShaper(
+            propertyManager,
+            tableSinkSettings,
+            new ThroughputSettings {
+              override val shaperImpl: ThroughputShaperImpl = MemoryBound(50, 256, 2, 2, 1, 1000, 0.5, 0.5, 2)
+              override val advisedChunkSize: Int            = 1
+              override val advisedRateChunks: Int           = 1
+              override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)
+              override val advisedChunksBurst: Int          = 10
+            }
+          )
+        )
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -127,7 +148,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"demo.test.$tableName"))
         propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
         _                 <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
-        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings, TestThroughputSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -163,7 +184,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
         // prepare target table metadata
         _      <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
-        shaper <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+        shaper <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings, TestThroughputSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
