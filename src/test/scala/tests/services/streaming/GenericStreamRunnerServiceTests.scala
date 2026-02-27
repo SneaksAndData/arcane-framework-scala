@@ -15,7 +15,6 @@ import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -65,7 +64,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     expecting {
 
       // The data provider mock provides an infinite stream of test input
-      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
+      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
 
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
       // It produces the empty set of staged batches, so the rest  of the pipeline can continue
@@ -118,7 +117,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         // Real services
         GenericStreamRunnerService.layer,
         GenericStreamingGraphBuilder.layer,
-        GenericGroupingTransformer.layer,
         DisposeBatchProcessor.layer,
         FieldFilteringTransformer.layer,
         MergeBatchProcessor.layer,
@@ -127,7 +125,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
@@ -135,7 +132,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
-        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
+        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
         ZLayer.succeed(disposeServiceClient),
         ZLayer.succeed(mergeServiceClient),
         ZLayer.succeed(jdbcTableManager),

@@ -92,7 +92,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       for {
         stagingProcessor <- getProcessor
         result <- ZStream
-          .succeed(Chunk[TestInput]())
+          .fromIterable(Chunk[TestInput]())
           .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
           .run(ZSink.last)
       } yield assertTrue(result.isEmpty)
@@ -102,7 +102,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       for {
         stagingProcessor <- getProcessor
         result <- ZStream
-          .succeed(testInput)
+          .fromIterable(testInput)
           .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))

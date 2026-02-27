@@ -23,7 +23,6 @@ import services.streaming.base.{
 }
 import services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.GenericGroupingTransformer
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -176,7 +175,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     expecting {
 
       // The data provider mock provides an infinite stream of test input
-      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever))
+      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
 
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
       // It produces the empty set of staged batches, so the rest  of the pipeline can continue
@@ -217,7 +216,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           SqlServerChangeTrackingMergeBatch(
             "test",
             ArcaneSchema(Seq(MergeKeyField)),
-            "test",
+            TestBackfillTableSettings.backfillTableFullName,
             TablePropertiesSettings,
             None
           )
@@ -231,7 +230,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       .provide(
         // Real services
         GenericStreamingGraphBuilder.layer,
-        GenericGroupingTransformer.layer,
         DisposeBatchProcessor.layer,
         FieldFilteringTransformer.layer,
         MergeBatchProcessor.layer,
@@ -241,7 +239,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestGroupingSettings),
         ZLayer.succeed(TestStagingDataSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
@@ -256,7 +253,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
               SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
             )
         }),
-        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount - 1, identity)),
+        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
         ZLayer.succeed(disposeServiceClient),
         ZLayer.succeed(mergeServiceClient),
         ZLayer.succeed(jdbcTableManager),
