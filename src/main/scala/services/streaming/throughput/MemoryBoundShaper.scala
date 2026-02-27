@@ -17,6 +17,13 @@ import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 import scala.math.{exp, log}
 
+/**
+ * Throughput shaper the uses information from Java Runtime on available memory to limit stream throughput.
+ * This shaper ensures application doesn't crash with OOM on bursts, but results in slower stream chunk processing compared to less conservative shapers.
+ * Chunk cost and amount of memory available for allocation are estimated using sigmoid functions, based on target table size in bytes and rows.
+ *
+ * For partitioned tables, this shaper will force chunk size to be smaller than number of partitions in the table, thus providing merge speed increase.
+ */
 class MemoryBoundShaper(
     tablePropertyManager: TablePropertyManager,
     sinkSettings: SinkSettings,
@@ -136,8 +143,6 @@ class MemoryBoundShaper(
     )
 
     /** Project (-inf, inf) to (0, 1) https://en.wikipedia.org/wiki/Sigmoid_function
-      *
-      * @param Scaling
       *   factor for range projection Higher values increase sensitivity near 0.
       */
   private def scaledSigmoid(value: Double, k: Int): Double = 1.0 / (1.0 + exp(-1.0 * k * value))

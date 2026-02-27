@@ -10,7 +10,7 @@ import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
-import services.streaming.throughput.{MemoryBoundShaper, VoidShaper}
+import services.streaming.throughput.{MemoryBoundShaper, StaticShaper}
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
