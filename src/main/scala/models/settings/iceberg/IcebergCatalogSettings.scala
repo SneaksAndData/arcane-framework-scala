@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.iceberg
 
 /** Connection information for Iceberg REST Catalog
   */

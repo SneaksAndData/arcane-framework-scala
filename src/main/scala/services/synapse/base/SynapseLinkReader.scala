@@ -6,7 +6,7 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
-import models.settings.SynapseSourceSettings
+import models.settings.sources.synapse.SynapseSourceSettings
 import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
@@ -19,8 +19,8 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException}
-import java.time.format.DateTimeFormatter
 import java.time.*
+import java.time.format.DateTimeFormatter
 
 final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader)
     extends SchemaProvider[ArcaneSchema]:

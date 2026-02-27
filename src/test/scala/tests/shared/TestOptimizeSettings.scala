@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.OptimizeSettings
+import models.settings.sink.OptimizeSettings
 
 object TestOptimizeSettings extends OptimizeSettings:
   val batchThreshold: Int       = 10

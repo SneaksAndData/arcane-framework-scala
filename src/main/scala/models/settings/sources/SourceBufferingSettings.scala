@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.sources
 
 /** Provides buffering strategies for the streaming process.
   */

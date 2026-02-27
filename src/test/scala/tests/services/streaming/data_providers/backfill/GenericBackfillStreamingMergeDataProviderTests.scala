@@ -9,7 +9,7 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch
 }
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import models.settings.{BufferingStrategy, SourceBufferingSettings}
+import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -29,8 +29,6 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

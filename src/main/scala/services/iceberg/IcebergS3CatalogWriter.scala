@@ -3,25 +3,20 @@ package services.iceberg
 
 import logging.ZIOLogAnnotations.*
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.IcebergStagingSettings
+import models.settings.iceberg.IcebergStagingSettings
 import services.iceberg.base.CatalogWriter
 
-import org.apache.iceberg.aws.s3.{S3FileIO, S3FileIOProperties}
-import org.apache.iceberg.catalog.SessionCatalog.SessionContext
+import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
 import org.apache.iceberg.data.GenericRecord
 import org.apache.iceberg.data.parquet.GenericParquetWriter
 import org.apache.iceberg.parquet.Parquet
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList
-import org.apache.iceberg.rest.auth.OAuth2Properties
-import org.apache.iceberg.rest.{HTTPClient, RESTCatalog, RESTSessionCatalog}
-import org.apache.iceberg.*
+import org.apache.iceberg.rest.RESTCatalog
 import zio.*
 import zio.logging.LogAnnotation
 
-import java.time.Instant
 import java.util.UUID
-import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 

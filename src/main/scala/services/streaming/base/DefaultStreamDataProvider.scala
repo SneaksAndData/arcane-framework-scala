@@ -4,7 +4,8 @@ package services.streaming.base
 import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.schemas.DataRow
-import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
 import services.metrics.DeclaredMetrics
 
 import zio.stream.ZStream

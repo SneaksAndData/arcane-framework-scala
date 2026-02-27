@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
+import models.settings.iceberg.IcebergStagingSettings
+import models.settings.sink.IcebergSinkSettings
 import services.iceberg.IcebergCatalogCredential
 import services.iceberg.base.S3CatalogFileIO
-
-import com.sneaksanddata.arcane.framework.models.settings.{IcebergSinkSettings, IcebergStagingSettings}
 
 object IcebergCatalogInfo:
   val defaultNamespace  = "test"

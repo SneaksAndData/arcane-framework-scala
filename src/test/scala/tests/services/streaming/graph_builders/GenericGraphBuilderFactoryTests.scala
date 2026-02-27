@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.graph_builders
 
 import models.app.StreamContext
-import models.settings.BackfillBehavior
+import models.settings.backfill.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
 import services.streaming.graph_builders.GenericGraphBuilderFactory

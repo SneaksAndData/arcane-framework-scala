@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.backfill
 
 import models.batches.StagedBackfillOverwriteBatch
-import models.settings.SinkSettings
+import models.settings.sink.SinkSettings
 import services.iceberg.base.TablePropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
