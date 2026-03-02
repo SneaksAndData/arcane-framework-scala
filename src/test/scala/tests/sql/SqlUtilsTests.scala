@@ -41,6 +41,24 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
             "r1" -> JdbcFieldInfo("", java.sql.Types.INTEGER, 0, 0),
             "r2" -> JdbcFieldInfo("", java.sql.Types.VARCHAR, 0, 0)
           )
+        },
+      columns
+        .find(c => c.name == "c6")
+        .map { case c: JdbcArrayFieldInfo =>
+          val nestedMatch = c.arrayBaseElementType match
+            case e: JdbcRowFieldInfo =>
+              e.fields == Map(
+                "ar1" -> JdbcFieldInfo("", java.sql.Types.INTEGER, 0, 0),
+                "ar2" -> JdbcRowFieldInfo(
+                  "ar2",
+                  fields = Map(
+                    "arr1" -> JdbcFieldInfo("", java.sql.Types.INTEGER, 0, 0),
+                    "arr2" -> JdbcFieldInfo("", java.sql.Types.VARCHAR, 0, 0)
+                  )
+                ),
+                "ar3" -> JdbcFieldInfo("", java.sql.Types.VARCHAR, 0, 0)
+              )
+          c.typeId == java.sql.Types.ARRAY && c.arrayBaseElementType.typeId == java.sql.Types.JAVA_OBJECT && nestedMatch
         }
     )
   }

@@ -174,7 +174,19 @@ object SqlUtils:
 
   private def parseRowType(rowTypeString: String, fieldName: Option[String] = None): JdbcRowFieldInfo =
     JdbcRowFieldInfo(
+      // GIVEN
       // row(a varchar,b integer,c row(a varchar,c integer),d integer)
+
+      // STRIP ROW(..)
+      // a varchar,b integer,c row(a varchar,c integer),d integer
+
+      // THEN:
+      // a varchar
+      // b integer
+      // c row(a varchar,c integer)
+      // d integer
+
+      // ASSEMBLE field name -> field type
       name = fieldName.getOrElse(""),
       fields = rowTypeString
         .stripPrefix("row")
