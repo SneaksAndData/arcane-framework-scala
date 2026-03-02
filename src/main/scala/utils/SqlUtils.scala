@@ -4,7 +4,7 @@ package utils
 import models.*
 import models.schemas.*
 
-import java.sql.ResultSet
+import java.sql.{JDBCType, ResultSet}
 import scala.util.{Failure, Success, Try}
 
 object SqlUtils:
@@ -20,6 +20,19 @@ object SqlUtils:
       override val typeId: Int,
       arrayBaseElementType: JdbcFieldInfo
   ) extends JdbcFieldInfo(name, typeId, 0, 0)
+
+  case class JdbcRowFieldInfo(
+      override val name: String,
+      fields: Map[String, JdbcFieldInfo]
+  ) extends JdbcFieldInfo(name, java.sql.Types.JAVA_OBJECT, 0, 0)
+
+  given Conversion[JdbcRowFieldInfo, ArcaneSchema]:
+    override def apply(x: JdbcRowFieldInfo): ArcaneSchema = x.fields.map { case (fieldName, fieldType) =>
+      Field(
+        name = fieldName,
+        fieldType = toArcaneType(fieldType).get
+      )
+    }.toSeq
 
   /** Reads the schema of a table from a SQL result set.
     *
@@ -91,7 +104,7 @@ object SqlUtils:
       case java.sql.Types.VARCHAR   => Success(ArcaneType.StringType)
       case java.sql.Types.VARBINARY => Success(ArcaneType.ByteArrayType)
       case java.sql.Types.ARRAY =>
-        jdbcTypeInfo match {
+        jdbcTypeInfo match
           case f: JdbcArrayFieldInfo =>
             toArcaneType(f.arrayBaseElementType).map(elementType => ArcaneType.ListType(elementType, 0))
           case _ =>
@@ -100,14 +113,29 @@ object SqlUtils:
                 s"Type of the column ${jdbcTypeInfo.name} has java.sql.types.Array identifier, but is not provided as JdbcArrayFieldInfo"
               )
             )
-        }
 
+      case java.sql.Types.JAVA_OBJECT =>
+        jdbcTypeInfo match
+          case f: JdbcRowFieldInfo => Success(ArcaneType.StructType(f))
+          case _ =>
+            Failure(
+              new IllegalArgumentException(
+                s"Type of the column ${jdbcTypeInfo.name} has java.sql.types.JAVA_OBJECT identifier, but is not provided as JdbcRowFieldInfo"
+              )
+            )
       case _ =>
         Failure(
           new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId} for column ${jdbcTypeInfo.name}")
         )
 
-  private def parseArrayType(arrayTypeString: String): JdbcFieldInfo =
+  private def parseDecimalType(decimalTypeString: String): JdbcFieldInfo = new JdbcFieldInfo(
+    name = "",
+    typeId = java.sql.Types.DECIMAL,
+    precision = decimalTypeString.split(",").head.replace("decimal(", "").toInt,
+    scale = decimalTypeString.split(",").reverse.head.replace(")", "").toInt
+  )
+
+  private def parseArrayType(arrayTypeString: String): JdbcFieldInfo = {
     arrayTypeString.replace("array(", "").replace(")", "") match {
       case "varchar" =>
         new JdbcFieldInfo(
@@ -137,23 +165,49 @@ object SqlUtils:
           precision = 0,
           scale = 0
         )
-      case decimal if decimal.startsWith("decimal") =>
-        new JdbcFieldInfo(
-          name = "",
-          typeId = java.sql.Types.DECIMAL,
-          precision = decimal.split(",").head.replace("decimal(", "").toInt,
-          scale = decimal.split(",").reverse.head.replace(")", "").toInt
-        )
+      case decimal if decimal.startsWith("decimal") => parseDecimalType(decimal)
       // rows are currently just objects, until https://github.com/trinodb/trino/issues/16479
-      case row if row.startsWith("row") =>
-        JdbcFieldInfo(
-          name = "",
-          typeId = java.sql.Types.JAVA_OBJECT,
-          precision = 0,
-          scale = 0
-        )
+      case row if row.startsWith("row") => parseRowType(row)
       case _ => throw new RuntimeException(s"Unmapped array type for schema migration: $arrayTypeString")
     }
+  }
+
+  private def parseRowType(rowTypeString: String, fieldName: Option[String] = None): JdbcRowFieldInfo =
+    JdbcRowFieldInfo(
+      // row(a varchar,b integer,c row(a varchar,c integer),d integer)
+      name = fieldName.getOrElse(""),
+      fields = rowTypeString
+        .replace("row", "")
+        .stripPrefix("(")
+        .stripSuffix(")")
+        .split(",")
+        .map { typeString =>
+          typeString.split(",").foldLeft(List.empty[String]) { case (agg, e) =>
+            if e.contains(",") then // in case we have a nested ROW
+              agg.init :+ (agg.last.concat(e))
+            else agg ++ Seq(e)
+          }
+          val (typeName, typeVal) = typeString.split(" ").toList match
+            case tpn :: tpv :: _ => (tpn, tpv)
+            case _ =>
+              throw new RuntimeException(
+                s"Cannot resolve types for schema migration: invalid type string for ROW type received from JDBC client: $typeString"
+              )
+
+          typeVal match
+            case row if row.startsWith("row")             => typeName -> parseRowType(row)
+            case decimal if decimal.startsWith("decimal") => typeName -> parseDecimalType(decimal)
+            case array if array.startsWith("array")       => typeName -> parseArrayType(array)
+            case _ =>
+              typeName -> JdbcFieldInfo(
+                name = "",
+                typeId = JDBCType.valueOf(typeVal.toUpperCase).getVendorTypeNumber,
+                precision = 0,
+                scale = 0
+              )
+        }
+        .toMap
+    )
 
   /** Gets the columns of a result set.
     */
@@ -166,6 +220,11 @@ object SqlUtils:
             name = resultSet.getMetaData.getColumnName(i),
             typeId = resultSet.getMetaData.getColumnType(i),
             parseArrayType(resultSet.getMetaData.getColumnTypeName(i))
+          )
+        else if resultSet.getMetaData.getColumnType(i) == java.sql.Types.JAVA_OBJECT then
+          parseRowType(
+            resultSet.getMetaData.getColumnTypeName(i),
+            fieldName = Some(resultSet.getMetaData.getColumnName(i))
           )
         else
           new JdbcFieldInfo(

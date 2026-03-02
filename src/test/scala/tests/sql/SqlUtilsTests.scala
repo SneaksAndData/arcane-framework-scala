@@ -13,7 +13,7 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
   it should "parse JDBC metadata into Arcane Types" in {
     val sqlConnection: Connection = DriverManager.getConnection("jdbc:trino://localhost:8080/iceberg/test?user=test")
     val createTableStatement = sqlConnection.prepareStatement(
-      "create table if not exists iceberg.test.array_table (c1 integer, c2 varchar, c3 array(varchar), c4 array(decimal(16, 3)))"
+      "create table if not exists iceberg.test.array_table (c1 integer, c2 varchar, c3 array(varchar), c4 array(decimal(16, 3)), c5 row(r1 integer, r2 varchar))"
     )
     createTableStatement.execute()
 
@@ -21,7 +21,7 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
       sqlConnection.prepareStatement("select * from iceberg.test.array_table where 1=0").executeQuery().getColumns
 
     (
-      columns.size should be(4),
+      columns.size should be(5),
       columns
         .find(c => c.name == "c3")
         .map { case c: JdbcArrayFieldInfo =>
@@ -33,7 +33,15 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
         .map { case c: JdbcArrayFieldInfo =>
           c.typeId == java.sql.Types.ARRAY && c.arrayBaseElementType.typeId == java.sql.Types.DECIMAL && c.arrayBaseElementType.precision == 16 && c.arrayBaseElementType.scale == 3
         }
-        .isDefined should be(true)
+        .isDefined should be(true),
+      columns
+        .find(c => c.name == "c5")
+        .map { case c: JdbcRowFieldInfo =>
+          c.typeId == java.sql.Types.JAVA_OBJECT && c.fields == Map(
+            "r1" -> JdbcFieldInfo("", java.sql.Types.INTEGER, 0, 0),
+            "r2" -> JdbcFieldInfo("", java.sql.Types.VARCHAR, 0, 0)
+          )
+        }
     )
   }
 }
