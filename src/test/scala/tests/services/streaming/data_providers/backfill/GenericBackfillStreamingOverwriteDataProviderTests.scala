@@ -3,32 +3,19 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.app.StreamContext
-import models.batches.{
-  SqlServerChangeTrackingMergeBatch,
-  StagedBackfillOverwriteBatch,
-  SynapseLinkBackfillOverwriteBatch
-}
+import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.schemas.ArcaneType.StringType
 import models.schemas.*
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
-import services.streaming.base.{
-  BackfillOverwriteBatchFactory,
-  BackfillStreamingOverwriteDataProvider,
-  HookManager,
-  StreamDataProvider
-}
+import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingOverwriteDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.GenericGroupingTransformer
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
@@ -238,6 +225,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         StagingProcessor.layer,
         FieldsFilteringService.layer,
         GenericBackfillStreamingOverwriteDataProvider.layer,
+        IcebergEntityManager.stagingLayer,
         IcebergS3CatalogWriter.layer,
 
         // Settings

@@ -14,7 +14,7 @@ import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
-import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
+import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -67,22 +67,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
-    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
-  )
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
-
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-
-  private def prepareWatermark(tableName: String): Task[Unit] =
-    for
-      targetName <- ZIO.succeed(tableName)
-      // prepare target table metadata
-      watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-      _             <- propertyManager.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
-    yield ()
+  private val icebergUtil = IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
@@ -93,7 +79,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            propertyManager,
+            icebergUtil.propertyManager,
             TestSinkSettings,
             graphSettings,
             backfillSettings
@@ -119,13 +105,15 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream correct number of changes") {
       for
         tableName <- ZIO.succeed("target_table_stream")
-        _         <- prepareWatermark("target_table_stream")
+        watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
+        azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
+        _         <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            propertyManager,
+            icebergUtil.propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
@@ -151,13 +139,15 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       for
         tableName <- ZIO.succeed("target_table_stream_ordered")
         // prepare target table metadata
-        _ <- prepareWatermark(tableName)
+        watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
+        azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
+        _         <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            propertyManager,
+            icebergUtil.propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings

@@ -6,7 +6,7 @@ import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import models.settings.IcebergStagingSettings
 import services.base.DimensionsProvider
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.iceberg.base.CatalogWriter
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -14,13 +14,7 @@ import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
-import tests.shared.{
-  NullDimensionsProvider,
-  TestIcebergStagingSettings,
-  TestStagingDataSettings,
-  TestTablePropertiesSettings,
-  TestSinkSettingsWithMaintenance$
-}
+import tests.shared.{NullDimensionsProvider, TestIcebergStagingSettings, TestSinkSettingsWithMaintenance, TestStagingDataSettings, TestTablePropertiesSettings}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -60,7 +54,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
     stagingProcessor = StagingProcessor(
       TestStagingDataSettings,
       TestTablePropertiesSettings,
-      TestSinkSettingsWithMaintenance$,
+      TestSinkSettingsWithMaintenance,
       TestIcebergStagingSettings,
       catalogWriterService,
       DeclaredMetrics(NullDimensionsProvider)
@@ -107,6 +101,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     }
-  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(
+  ).provide(icebergCatalogSettingsLayer, IcebergEntityManager.stagingLayer, IcebergS3CatalogWriter.layer) @@ timeout(
     zio.Duration.fromSeconds(60)
   ) @@ TestAspect.withLiveClock
