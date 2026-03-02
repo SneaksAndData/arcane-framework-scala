@@ -144,7 +144,7 @@ object SqlUtils:
           precision = decimal.split(",").head.replace("decimal(", "").toInt,
           scale = decimal.split(",").reverse.head.replace(")", "").toInt
         )
-      // rows are current just objects, until https://github.com/trinodb/trino/issues/16479
+      // rows are currently just objects, until https://github.com/trinodb/trino/issues/16479
       case row if row.startsWith("row") =>
         JdbcFieldInfo(
           name = "",
