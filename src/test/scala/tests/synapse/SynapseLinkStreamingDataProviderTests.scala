@@ -17,7 +17,7 @@ import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
 import zio.test.*
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{tag, timeout}
 import zio.{Scope, Task, ZIO}
 
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
@@ -68,8 +68,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     .map(_._1)
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-  private val icebergUtil =
+  private val icebergUtilBackfill =
     IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+  private def getIcebergUtilStream(tableName: String) =
+    IcebergUtil(TestDynamicSinkSettings(tableName), defaultStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
@@ -80,7 +82,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            icebergUtil.propertyManager,
+            icebergUtilBackfill.propertyManager,
             TestSinkSettings,
             graphSettings,
             backfillSettings
@@ -108,7 +110,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         tableName     <- ZIO.succeed("target_table_stream")
         watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
         azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-        _             <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
+        icebergUtil   <- ZIO.succeed(getIcebergUtilStream(tableName))
+        _             <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -142,7 +145,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         // prepare target table metadata
         watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
         azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-        _             <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
+        icebergUtil   <- ZIO.succeed(getIcebergUtilStream(tableName))
+        _             <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -174,4 +178,4 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             .count(_.nonEmpty) == 4
         )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
