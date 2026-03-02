@@ -68,7 +68,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     .map(_._1)
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-  private val icebergUtil = IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+  private val icebergUtil =
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
@@ -104,10 +105,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream correct number of changes") {
       for
-        tableName <- ZIO.succeed("target_table_stream")
+        tableName     <- ZIO.succeed("target_table_stream")
         watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
         azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-        _         <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
+        _             <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -141,7 +142,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         // prepare target table metadata
         watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
         azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-        _         <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
+        _             <- icebergUtil.prepareWatermark("target_table_stream", azPrefixes.init.last.asWatermark)
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(

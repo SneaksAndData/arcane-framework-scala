@@ -111,11 +111,17 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings
         .sleep(zio.Duration.fromSeconds(1))
         .repeatUntil(_ =>
           catalog
-            .tableExists(entityManager.catalogFactory.getSessionContext, TableIdentifier.of(writerSettings.namespace, name))
+            .tableExists(
+              entityManager.catalogFactory.getSessionContext,
+              TableIdentifier.of(writerSettings.namespace, name)
+            )
         )
       _ <- zlog("Staging table %s created, appending data", logAnnotations, name)
       table <- ZIO.attemptBlocking(
-        catalog.loadTable(entityManager.catalogFactory.getSessionContext, TableIdentifier.of(writerSettings.namespace, name))
+        catalog.loadTable(
+          entityManager.catalogFactory.getSessionContext,
+          TableIdentifier.of(writerSettings.namespace, name)
+        )
       )
       updatedTable <- appendData(data, schema, false, table, logAnnotations)
       _            <- zlog("Staging table %s ready for merge", logAnnotations, name)
@@ -135,19 +141,16 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings
 
 object IcebergS3CatalogWriter:
 
-  /** Factory method to create IcebergS3CatalogWriter
-    *
-    * @param icebergSettings
-    *   Iceberg settings
+  /** Factory method to create IcebergS3CatalogWriter Iceberg settings
     * @return
     *   The initialized IcebergS3CatalogWriter instance
     */
   def apply(entityManager: CatalogEntityManager, writerSettings: IcebergStagingSettings): IcebergS3CatalogWriter =
     new IcebergS3CatalogWriter(entityManager, writerSettings)
-    
+
   def layer = ZLayer {
     for
       stagingEntityManager <- ZIO.service[StagingEntityManager]
-      settings <- ZIO.service[IcebergStagingSettings]
-    yield IcebergS3CatalogWriter(stagingEntityManager, settings) 
-  }  
+      settings             <- ZIO.service[IcebergStagingSettings]
+    yield IcebergS3CatalogWriter(stagingEntityManager, settings)
+  }

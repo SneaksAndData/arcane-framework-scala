@@ -14,7 +14,13 @@ import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
-import tests.shared.{NullDimensionsProvider, TestIcebergStagingSettings, TestSinkSettingsWithMaintenance, TestStagingDataSettings, TestTablePropertiesSettings}
+import tests.shared.{
+  NullDimensionsProvider,
+  TestIcebergStagingSettings,
+  TestSinkSettingsWithMaintenance,
+  TestStagingDataSettings,
+  TestTablePropertiesSettings
+}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

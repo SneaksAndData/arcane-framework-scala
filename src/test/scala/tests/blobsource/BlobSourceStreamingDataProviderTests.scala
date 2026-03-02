@@ -9,7 +9,12 @@ import models.settings.{BackfillBehavior, BackfillSettings, VersionedDataGraphBu
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.{IcebergS3CatalogWriter, IcebergSinkEntityManager, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
+import services.iceberg.{
+  IcebergS3CatalogWriter,
+  IcebergSinkEntityManager,
+  IcebergTablePropertyManager,
+  given_Conversion_ArcaneSchema_Schema
+}
 import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.{defaultSinkSettings, defaultStagingSettings}
@@ -53,9 +58,10 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
 
     override def streamKind: String = "units"
   }
-  
-  private val icebergUtil = IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
-  
+
+  private val icebergUtil =
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {
       for
@@ -114,7 +120,10 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _ <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond))
+        _ <- icebergUtil.prepareWatermark(
+          "test",
+          BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
+        )
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,

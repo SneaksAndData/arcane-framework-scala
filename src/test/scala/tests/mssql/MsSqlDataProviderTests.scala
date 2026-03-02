@@ -50,7 +50,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  private val icebergUtil = IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+  private val icebergUtil =
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
     for

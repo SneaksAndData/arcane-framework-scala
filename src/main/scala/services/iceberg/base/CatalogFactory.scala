@@ -23,4 +23,3 @@ trait CatalogFactory:
     * @return
     */
   def getCatalog: Task[RESTSessionCatalog]
-
