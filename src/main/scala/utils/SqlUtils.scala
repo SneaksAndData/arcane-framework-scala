@@ -144,6 +144,14 @@ object SqlUtils:
           precision = decimal.split(",").head.replace("decimal(", "").toInt,
           scale = decimal.split(",").reverse.head.replace(")", "").toInt
         )
+      // rows are current just objects, until https://github.com/trinodb/trino/issues/16479
+      case row if row.startsWith("row") =>
+        JdbcFieldInfo(
+          name = "",
+          typeId = java.sql.Types.JAVA_OBJECT,
+          precision = 0,
+          scale = 0
+        )
       case _ => throw new RuntimeException(s"Unmapped array type for schema migration: $arrayTypeString")
     }
 
