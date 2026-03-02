@@ -131,12 +131,12 @@ object SqlUtils:
   private def parseDecimalType(decimalTypeString: String): JdbcFieldInfo = new JdbcFieldInfo(
     name = "",
     typeId = java.sql.Types.DECIMAL,
-    precision = decimalTypeString.split(",").head.replace("decimal(", "").toInt,
-    scale = decimalTypeString.split(",").reverse.head.replace(")", "").toInt
+    precision = decimalTypeString.split(",").head.stripPrefix("decimal(").toInt,
+    scale = decimalTypeString.split(",").reverse.head.stripSuffix(")").toInt
   )
 
   private def parseArrayType(arrayTypeString: String): JdbcFieldInfo = {
-    arrayTypeString.replace("array(", "").replace(")", "") match {
+    arrayTypeString.stripPrefix("array(").stripSuffix(")") match {
       case "varchar" =>
         new JdbcFieldInfo(
           name = "",
@@ -177,17 +177,17 @@ object SqlUtils:
       // row(a varchar,b integer,c row(a varchar,c integer),d integer)
       name = fieldName.getOrElse(""),
       fields = rowTypeString
-        .replace("row", "")
+        .stripPrefix("row")
         .stripPrefix("(")
         .stripSuffix(")")
         .split(",")
+        .foldLeft(List.empty[String]) { case (agg, e) =>
+          if e.contains(")") && agg.nonEmpty then // in case we have a nested ROW
+            agg.init :+ agg.last.concat(s",$e")
+          else agg ++ Seq(e)
+        }
         .map { typeString =>
-          typeString.split(",").foldLeft(List.empty[String]) { case (agg, e) =>
-            if e.contains(",") then // in case we have a nested ROW
-              agg.init :+ (agg.last.concat(e))
-            else agg ++ Seq(e)
-          }
-          val (typeName, typeVal) = typeString.split(" ").toList match
+          val (typeName, typeVal) = typeString.split(" ", 2).toList match
             case tpn :: tpv :: _ => (tpn, tpv)
             case _ =>
               throw new RuntimeException(

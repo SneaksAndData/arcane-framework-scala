@@ -13,7 +13,7 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
   it should "parse JDBC metadata into Arcane Types" in {
     val sqlConnection: Connection = DriverManager.getConnection("jdbc:trino://localhost:8080/iceberg/test?user=test")
     val createTableStatement = sqlConnection.prepareStatement(
-      "create table if not exists iceberg.test.array_table (c1 integer, c2 varchar, c3 array(varchar), c4 array(decimal(16, 3)), c5 row(r1 integer, r2 varchar))"
+      "create or replace table iceberg.test.array_table (c1 integer, c2 varchar, c3 array(varchar), c4 array(decimal(16, 3)), c5 row(r1 integer, r2 varchar), c6 array(row(ar1 integer, ar2 row(arr1 integer, arr2 varchar), ar3 varchar)))"
     )
     createTableStatement.execute()
 
@@ -21,7 +21,7 @@ class SqlUtilsTests extends AnyFlatSpec with Matchers {
       sqlConnection.prepareStatement("select * from iceberg.test.array_table where 1=0").executeQuery().getColumns
 
     (
-      columns.size should be(5),
+      columns.size should be(6),
       columns
         .find(c => c.name == "c3")
         .map { case c: JdbcArrayFieldInfo =>
