@@ -10,19 +10,28 @@ import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
-import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergStagingEntityManager, IcebergTablePropertyManager}
+import services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergStagingEntityManager,
+  IcebergTablePropertyManager
+}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
+import services.bootstrap.DefaultStreamBootstrapper
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

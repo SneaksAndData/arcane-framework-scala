@@ -14,10 +14,10 @@ import scala.jdk.CollectionConverters.*
 
 trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends CatalogEntityManager:
   override val catalogFactory = new IcebergCatalogFactory(catalogSettings)
-  
+
   private def delete(tableId: TableIdentifier): Task[Boolean] = for
     catalog <- catalogFactory.getCatalog
-    result <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
+    result  <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
   yield result
 
   /** Deletes the specified table from the catalog
@@ -60,9 +60,11 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
 
   override def deleteTables(prefix: String): Task[Unit] = for
     catalog <- catalogFactory.getCatalog
-    matchingTables <- ZIO.attemptBlockingIO(catalog.listTables(catalogFactory.getSessionContext, Namespace.of(catalogSettings.namespace))).map(_.asScala.filter(_.name().startsWith(prefix)).toList)
+    matchingTables <- ZIO
+      .attemptBlockingIO(catalog.listTables(catalogFactory.getSessionContext, Namespace.of(catalogSettings.namespace)))
+      .map(_.asScala.filter(_.name().startsWith(prefix)).toList)
     _ <- ZIO.foreachPar(matchingTables)(delete)
-  yield ()  
+  yield ()
 
 class IcebergSinkEntityManager(catalogSettings: IcebergCatalogSettings)
     extends IcebergEntityManager(catalogSettings)

@@ -107,7 +107,7 @@ trait TableManager:
     *   The result of the schema migration operation.
     */
   def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit]
-  
+
   /** Runs ANALYZE on the table
     * @return
     */

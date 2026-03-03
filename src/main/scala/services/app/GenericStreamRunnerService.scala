@@ -5,9 +5,9 @@ import logging.ZIOLogAnnotations.zlog
 import models.settings.staging.StagingDataSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.base.TableManager
+import services.bootstrap.base.StreamBootstrapper
 import services.iceberg.base.{SinkEntityManager, StagingEntityManager}
 import services.streaming.base.{HookManager, StreamingGraphBuilder}
-import com.sneaksanddata.arcane.framework.services.bootstrap.base.StreamBootstrapper
 
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZLayer}
@@ -60,7 +60,8 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & StagingDataSettings & StreamBootstrapper & HookManager
+  type Environment = StreamLifetimeService & StreamingGraphBuilder & StagingDataSettings & StreamBootstrapper &
+    HookManager
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
