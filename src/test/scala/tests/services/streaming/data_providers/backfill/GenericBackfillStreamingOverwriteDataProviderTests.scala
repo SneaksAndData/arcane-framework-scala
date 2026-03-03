@@ -12,7 +12,7 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.*
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{
@@ -236,6 +236,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         StagingProcessor.layer,
         FieldsFilteringService.layer,
         GenericBackfillStreamingOverwriteDataProvider.layer,
+        IcebergEntityManager.stagingLayer,
         IcebergS3CatalogWriter.layer,
 
         // Settings

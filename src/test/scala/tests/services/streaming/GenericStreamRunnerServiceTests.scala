@@ -10,7 +10,12 @@ import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergStagingEntityManager,
+  IcebergTablePropertyManager
+}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
@@ -122,6 +127,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         MergeBatchProcessor.layer,
         StagingProcessor.layer,
         FieldsFilteringService.layer,
+        IcebergEntityManager.stagingLayer,
         IcebergS3CatalogWriter.layer,
 
         // Settings

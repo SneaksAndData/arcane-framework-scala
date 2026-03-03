@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
+import services.storage.models.azure.AzureBlobStorageReaderSettings
+import services.storage.services.azure.AzureBlobStorageReader
+
 import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReaderSettings
-import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
 
 object TestAzureStorageInfo:
   val endpoint                 = "http://localhost:10001/devstoreaccount1"

@@ -9,12 +9,7 @@ import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.{
-  NullDimensionsProvider,
-  TablePropertiesSettings,
-  TestSinkSettings,
-  TestSinkSettingsWithMaintenance$
-}
+import tests.shared.{NullDimensionsProvider, TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
@@ -64,7 +59,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     replay(tableManager)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettingsWithMaintenance$, declaredMetrics)
+      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettingsWithMaintenance, declaredMetrics)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect

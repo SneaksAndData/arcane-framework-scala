@@ -41,23 +41,25 @@ final class IcebergCatalogFactory(icebergCatalogSettings: IcebergCatalogSettings
       Map().asJava
     );
 
-  def newCatalog: Task[RESTSessionCatalog] = for
-    result <- ZIO.succeed(
-      new RESTSessionCatalog(
-        config => HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
-        (_, _) =>
-          val baseIO = new S3FileIO()
-          baseIO.initialize(catalogProperties.asJava)
-          baseIO
+  def newCatalog: Task[RESTSessionCatalog] = ZIO.scoped {
+    for
+      result <- ZIO.succeed(
+        new RESTSessionCatalog(
+          config => HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+          (_, _) =>
+            val baseIO = new S3FileIO()
+            baseIO.initialize(catalogProperties.asJava)
+            baseIO
+        )
       )
-    )
-    name <- ZIO.succeed(java.util.UUID.randomUUID().toString)
-    _    <- zlog("Creating new Iceberg RESTSessionCatalog instance with id %s", name)
-    _ <- ZIO.attemptBlocking(
-      result.initialize(name, (catalogProperties ++ Map("header.X-Arcane-Runner-Identifier" -> name)).asJava)
-    )
-    _ <- ZIO.attempt(catalogs.addOne((name, (result, Instant.now.getEpochSecond))))
-  yield result
+      name <- ZIO.succeed(java.util.UUID.randomUUID().toString)
+      _    <- zlog("Creating new Iceberg RESTSessionCatalog instance with id %s", name)
+      _ <- ZIO.attemptBlocking(
+        result.initialize(name, (catalogProperties ++ Map("header.X-Arcane-Runner-Identifier" -> name)).asJava)
+      )
+      _ <- ZIO.attempt(catalogs.addOne((name, (result, Instant.now.getEpochSecond))))
+    yield result
+  }
 
   def getCatalog: Task[RESTSessionCatalog] = for
     catalogInfo <- ZIO.attempt(catalogs.find { case (_, (_, duration)) =>

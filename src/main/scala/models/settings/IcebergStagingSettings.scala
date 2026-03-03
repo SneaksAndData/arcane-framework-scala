@@ -3,6 +3,7 @@ package models.settings
 
 import services.iceberg.base.S3CatalogFileIO
 
+// TODO: refactor these in YAML
 /** Represents the settings of an Iceberg catalog.
   */
 trait IcebergStagingSettings extends IcebergCatalogSettings:

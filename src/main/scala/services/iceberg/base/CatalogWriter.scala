@@ -72,14 +72,6 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[TableImpl]
 
-  /** Deletes the specified table from the catalog
-    * @param tableName
-    *   Table to delete
-    * @return
-    *   true if successful, false otherwise
-    */
-  def delete(tableName: String): Task[Boolean]
-
   /** Appends provided rows to the table.
     * @param data
     *   Rows to append
@@ -94,14 +86,3 @@ trait CatalogWriter[CatalogImpl, TableImpl, SchemaImpl]:
       schema: SchemaImpl,
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[TableImpl]
-
-  /** Creates a new table in the Iceberg catalog, using the provided schema
-    * @param name
-    *   Name for the table, excluding schema (namespace) name
-    * @param schema
-    *   Schema for the table
-    * @param replace
-    *   If true, will replace the table if it exists
-    * @return
-    */
-  def createTable(name: String, schema: Schema, replace: Boolean): Task[Table]
