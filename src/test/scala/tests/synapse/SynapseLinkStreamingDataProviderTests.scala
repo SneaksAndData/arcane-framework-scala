@@ -80,8 +80,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
       for
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
-        icebergUtil       <- ZIO.succeed(getIcebergUtilStream(tableSinkSettings.targetTableNameParts.Name))
-        shaper            <- ZIO.succeed(MemoryBoundShaper(icebergUtil.propertyManager, tableSinkSettings))
+        shaper            <- ZIO.succeed(MemoryBoundShaper(icebergUtilBackfill.propertyManager, tableSinkSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
