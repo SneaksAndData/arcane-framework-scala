@@ -6,6 +6,7 @@ import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
 import models.settings.sink.SinkSettings
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
 import org.apache.iceberg.{PartitionSpec, SortOrder, Table}
 import zio.{Task, ZIO, ZLayer}
@@ -16,6 +17,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
   override val catalogFactory = new IcebergCatalogFactory(catalogSettings)
 
   private def delete(tableId: TableIdentifier): Task[Boolean] = for
+    _       <- zlog("Deleting table %s", tableId.name())
     catalog <- catalogFactory.getCatalog
     result  <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
   yield result
@@ -63,6 +65,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
     matchingTables <- ZIO
       .attemptBlockingIO(catalog.listTables(catalogFactory.getSessionContext, Namespace.of(catalogSettings.namespace)))
       .map(_.asScala.filter(_.name().startsWith(prefix)).toList)
+    _ <- zlog("Found %s tables eligible for delete under prefix %s", matchingTables.size.toString, prefix)
     _ <- ZIO.foreachPar(matchingTables)(delete)
   yield ()
 

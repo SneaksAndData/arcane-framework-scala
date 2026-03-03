@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.bootstrap
 
+import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
@@ -22,12 +23,16 @@ class DefaultStreamBootstrapper(
     backfillSettings: BackfillSettings,
     streamContext: StreamContext
 ) extends StreamBootstrapper:
-  override def cleanupStagingTables(prefix: String): Task[Unit] = stagingEntityManager.deleteTables(prefix)
+  override def cleanupStagingTables(prefix: String): Task[Unit] =
+    zlog("Looking for staging tables from previous run, using prefix %s", prefix) *> stagingEntityManager.deleteTables(
+      prefix
+    )
 
   override def createBackFillTable: Task[Unit] =
     for _ <- ZIO.when(streamContext.IsBackfilling && backfillSettings.backfillBehavior == Overwrite) {
         for
           schema <- schemaProvider.getSchema
+          _      <- zlog("Creating backfill table %s", backfillSettings.backfillTableFullName)
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
               name = backfillSettings.backfillTableNameParts.Name,
@@ -41,6 +46,7 @@ class DefaultStreamBootstrapper(
 
   override def createTargetTable: Task[Unit] = for
     schema <- schemaProvider.getSchema
+    _      <- zlog("Creating target table %s", sinkSettings.targetTableFullName)
     _ <- sinkEntityManager.createTable(
       CreateTableRequest(
         name = sinkSettings.targetTableNameParts.Name,
