@@ -185,16 +185,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         .andReturn(new TestIndexedStagedBatches(List.empty, 0))
         .times(streamRepeatCount)
 
-      jdbcTableManager
-        .cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.createTargetTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.createBackFillTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
       jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()

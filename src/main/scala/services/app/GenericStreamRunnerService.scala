@@ -5,7 +5,9 @@ import logging.ZIOLogAnnotations.zlog
 import models.settings.staging.StagingDataSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.base.TableManager
+import services.iceberg.base.{SinkEntityManager, StagingEntityManager}
 import services.streaming.base.{HookManager, StreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.bootstrap.base.StreamBootstrapper
 
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZLayer}
@@ -22,7 +24,7 @@ class GenericStreamRunnerService(
     lifetimeService: StreamLifetimeService,
     stagingDataSettings: StagingDataSettings,
     hookManager: HookManager,
-    tableManager: TableManager
+    bootstrapper: StreamBootstrapper
 ) extends StreamRunnerService:
 
   /** Runs the stream.
@@ -34,14 +36,12 @@ class GenericStreamRunnerService(
     lifetimeService.start()
     for
       _ <- zlog("Starting the stream runner")
-      _ <- tableManager.cleanupStagingTables(
-        stagingDataSettings.stagingCatalogName,
-        stagingDataSettings.stagingSchemaName,
+      _ <- bootstrapper.cleanupStagingTables(
         stagingDataSettings.stagingTablePrefix
       )
 
-      _ <- tableManager.createTargetTable
-      _ <- tableManager.createBackFillTable
+      _ <- bootstrapper.createTargetTable
+      _ <- bootstrapper.createBackFillTable
       _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults)
       _ <- zlog("Stream completed")
     yield ()
@@ -60,7 +60,7 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & StagingDataSettings & TableManager & HookManager
+  type Environment = StreamLifetimeService & StreamingGraphBuilder & StagingDataSettings & StreamBootstrapper & HookManager
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
@@ -76,9 +76,9 @@ object GenericStreamRunnerService:
       lifetimeService: StreamLifetimeService,
       stagingDataSettings: StagingDataSettings,
       hookManager: HookManager,
-      tableManager: TableManager
+      bootstrapper: StreamBootstrapper
   ): GenericStreamRunnerService =
-    new GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, tableManager)
+    new GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, bootstrapper)
 
   /** The ZLayer for the GenericStreamRunnerService.
     */
@@ -89,6 +89,6 @@ object GenericStreamRunnerService:
         builder             <- ZIO.service[StreamingGraphBuilder]
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         hookManager         <- ZIO.service[HookManager]
-        tableManager        <- ZIO.service[TableManager]
-      yield GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, tableManager)
+        bootstrapper        <- ZIO.service[StreamBootstrapper]
+      yield GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, bootstrapper)
     }

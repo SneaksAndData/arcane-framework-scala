@@ -154,65 +154,55 @@ class JdbcMergeServiceClient(
 
   /** @inheritdoc
     */
-  def cleanupStagingTables(stagingCatalogName: String, stagingSchemaName: String, tableNamePrefix: String): Task[Unit] =
-    val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
-    ZIO.scoped {
-      for
-        statement  <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-        resultSet  <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
-        tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
-        _ <- ZIO.foreachDiscard(tableNames)(tableName => {
-          zlog("Found lost staging table: %s", tableName) *> dropTable(tableName)
-        })
-      yield ()
-    }
-
-  /** @inheritdoc
-    */
-  def createTargetTable: Task[Unit] =
-    for
-      _ <- zlog(
-        "Creating target table %s",
-        Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)),
-        targetTableSettings.targetTableFullName
-      )
-      schema: ArcaneSchema <- schemaProvider.getSchema
-      created <- createTable(
-        targetTableSettings.targetTableFullName,
-        fieldsFilteringService.filter(schema),
-        tablePropertiesSettings
-      )
-    yield ()
-
-  /** @inheritdoc
-    */
-  def createBackFillTable: Task[Unit] =
-    if streamContext.IsBackfilling && backfillTableSettings.backfillBehavior == Overwrite then
-      for
-        _ <- zlog(
-          "Creating backfill table %s",
-          Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)),
-          backfillTableSettings.backfillTableFullName
-        )
-        schema: ArcaneSchema <- schemaProvider.getSchema
-        created <- createTable(
-          backfillTableSettings.backfillTableFullName,
-          fieldsFilteringService.filter(schema),
-          tablePropertiesSettings
-        )
-      yield ()
-    else ZIO.unit
-
-  private def createTable(name: String, schema: Schema, properties: TablePropertiesSettings): Task[Unit] =
-    ZIO.scoped {
-      for
-        statement <- ZIO.fromAutoCloseable(
-          ZIO.attemptBlocking(sqlConnection.prepareStatement(generateCreateTableSQL(name, schema, properties)))
-        )
-        _ <- zlog("Creating table %s", name)
-        _ <- ZIO.attemptBlocking(statement.execute())
-      yield ()
-    }
+//  def cleanupStagingTables(stagingCatalogName: String, stagingSchemaName: String, tableNamePrefix: String): Task[Unit] =
+//    val sql = s"SHOW TABLES FROM $stagingCatalogName.$stagingSchemaName LIKE '$tableNamePrefix\\_\\_%' escape '\\'"
+//    ZIO.scoped {
+//      for
+//        statement  <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
+//        resultSet  <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
+//        tableNames <- ZIO.attemptBlocking(readStrings(resultSet))
+//        _ <- ZIO.foreachDiscard(tableNames)(tableName => {
+//          zlog("Found lost staging table: %s", tableName) *> dropTable(tableName)
+//        })
+//      yield ()
+//    }
+//
+//  /** @inheritdoc
+//    */
+//  def createTargetTable: Task[Unit] =
+//    for
+//      _ <- zlog(
+//        "Creating target table %s",
+//        Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)),
+//        targetTableSettings.targetTableFullName
+//      )
+//      schema: ArcaneSchema <- schemaProvider.getSchema
+//      created <- createTable(
+//        targetTableSettings.targetTableFullName,
+//        fieldsFilteringService.filter(schema),
+//        tablePropertiesSettings
+//      )
+//    yield ()
+//
+//  /** @inheritdoc
+//    */
+//  def createBackFillTable: Task[Unit] =
+//    if streamContext.IsBackfilling && backfillTableSettings.backfillBehavior == Overwrite then
+//      for
+//        _ <- zlog(
+//          "Creating backfill table %s",
+//          Seq(getAnnotation("backfillTableName", backfillTableSettings.backfillTableFullName)),
+//          backfillTableSettings.backfillTableFullName
+//        )
+//        schema: ArcaneSchema <- schemaProvider.getSchema
+//        created <- createTable(
+//          backfillTableSettings.backfillTableFullName,
+//          fieldsFilteringService.filter(schema),
+//          tablePropertiesSettings
+//        )
+//      yield ()
+//    else ZIO.unit
+//
 
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"

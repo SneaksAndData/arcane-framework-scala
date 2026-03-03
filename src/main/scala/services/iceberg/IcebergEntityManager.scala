@@ -6,12 +6,19 @@ import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
 import models.settings.sink.SinkSettings
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
 
-import org.apache.iceberg.catalog.TableIdentifier
+import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
 import org.apache.iceberg.{PartitionSpec, SortOrder, Table}
 import zio.{Task, ZIO, ZLayer}
 
+import scala.jdk.CollectionConverters.*
+
 trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends CatalogEntityManager:
   override val catalogFactory = new IcebergCatalogFactory(catalogSettings)
+  
+  private def delete(tableId: TableIdentifier): Task[Boolean] = for
+    catalog <- catalogFactory.getCatalog
+    result <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
+  yield result
 
   /** Deletes the specified table from the catalog
     *
@@ -22,8 +29,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
     */
   override def delete(tableName: String): Task[Boolean] = for
     tableId <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, tableName))
-    catalog <- catalogFactory.getCatalog
-    result  <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
+    result  <- delete(tableId)
   yield result
 
   /** Creates a new table in the Iceberg catalog, using the provided schema
@@ -51,6 +57,12 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
   yield replacedRef match
     case Some(ref) => ref
     case None      => tableRef.get
+
+  override def deleteTables(prefix: String): Task[Unit] = for
+    catalog <- catalogFactory.getCatalog
+    matchingTables <- ZIO.attemptBlockingIO(catalog.listTables(catalogFactory.getSessionContext, Namespace.of(catalogSettings.namespace))).map(_.asScala.filter(_.name().startsWith(prefix)).toList)
+    _ <- ZIO.foreachPar(matchingTables)(delete)
+  yield ()  
 
 class IcebergSinkEntityManager(catalogSettings: IcebergCatalogSettings)
     extends IcebergEntityManager(catalogSettings)
