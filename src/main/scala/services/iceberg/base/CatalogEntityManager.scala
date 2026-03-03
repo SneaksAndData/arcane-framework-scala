@@ -7,6 +7,8 @@ import org.apache.iceberg.Table
 import zio.Task
 
 trait CatalogEntityManager:
+  /** Catalog connection factory
+    */
   val catalogFactory: CatalogFactory
 
   /** Deletes the specified table from the catalog

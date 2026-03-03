@@ -4,7 +4,7 @@ package services.streaming.throughput.base
 import models.settings.sink.SinkSettings
 import models.settings.streaming.ThroughputSettings
 import models.settings.streaming.ThroughputShaperImpl.{MemoryBound, Static}
-import services.iceberg.base.TablePropertyManager
+import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.{MemoryBoundShaper, StaticShaper}
 
 import zio.{ZIO, ZLayer}
@@ -16,7 +16,7 @@ import zio.{ZIO, ZLayer}
   */
 class ThroughputShaperBuilder(
     throughputSettings: ThroughputSettings,
-    propertyManager: TablePropertyManager,
+    propertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings
 ):
 
@@ -27,14 +27,14 @@ class ThroughputShaperBuilder(
 object ThroughputShaperBuilder:
   def apply(
       throughputSettings: ThroughputSettings,
-      propertyManager: TablePropertyManager,
+      propertyManager: SinkPropertyManager,
       sinkSettings: SinkSettings
   ): ThroughputShaperBuilder = new ThroughputShaperBuilder(throughputSettings, propertyManager, sinkSettings)
 
   val layer = ZLayer {
     for
       settings        <- ZIO.service[ThroughputSettings]
-      propertyManager <- ZIO.service[TablePropertyManager]
+      propertyManager <- ZIO.service[SinkPropertyManager]
       sinkSettings    <- ZIO.service[SinkSettings]
     yield ThroughputShaperBuilder(settings, propertyManager, sinkSettings)
   }

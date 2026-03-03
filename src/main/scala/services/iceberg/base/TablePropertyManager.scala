@@ -7,6 +7,10 @@ import zio.Task
 /** Object responsible for managing table properties in Iceberg Catalog
   */
 trait TablePropertyManager:
+  /** Catalog connection factory
+    */
+  val catalogFactory: CatalogFactory
+
   /** Adds or updates a comment on the table
     *
     * @param tableName
@@ -45,3 +49,11 @@ trait TablePropertyManager:
     * @return
     */
   def getTableSchema(tableName: String): Task[Schema]
+
+/** Property manager for sink catalog
+  */
+trait SinkPropertyManager extends TablePropertyManager
+
+/** Property manager for staging catalog
+  */
+trait StagingPropertyManager extends TablePropertyManager

@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.settings.sink.SinkSettings
 import models.settings.streaming.ThroughputSettings
 import models.settings.streaming.ThroughputShaperImpl.MemoryBound
-import services.iceberg.base.TablePropertyManager
+import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaper
 
 import org.apache.iceberg.Schema
@@ -26,7 +26,7 @@ import scala.math.{exp, log}
   * providing merge speed increase.
   */
 class MemoryBoundShaper(
-    tablePropertyManager: TablePropertyManager,
+    tablePropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputSettings: ThroughputSettings
 ) extends ThroughputShaper:
@@ -153,7 +153,7 @@ class MemoryBoundShaper(
     (scaledSigmoid(rawCost.toDouble, shaperSettings.chunkCostScale) * shaperSettings.chunkCostMax).toInt
 
 object MemoryBoundShaper:
-  private type Environment = TablePropertyManager & SinkSettings
+  private type Environment = SinkPropertyManager & SinkSettings
 
   /** Factory method to create MemoryBoundShaper
     *
@@ -163,7 +163,7 @@ object MemoryBoundShaper:
     *   The initialized IcebergTablePropertyManager instance
     */
   def apply(
-      propertyManager: TablePropertyManager,
+      propertyManager: SinkPropertyManager,
       sinkSettings: SinkSettings,
       memoryBoundShaperSettings: ThroughputSettings
   ): MemoryBoundShaper =
