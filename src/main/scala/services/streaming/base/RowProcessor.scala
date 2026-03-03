@@ -7,7 +7,7 @@ import zio.stream.ZPipeline
   */
 trait RowProcessor:
 
-  type Element = GroupingTransformer#Element
+  type Element = RowGroupTransformer#IncomingElement
 
   /** Processes the incoming data.
     *

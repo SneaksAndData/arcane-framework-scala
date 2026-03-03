@@ -9,6 +9,7 @@ import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import services.synapse.SynapseLinkBatch
 import services.synapse.versioning.SynapseWatermark
 
+import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaper
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -20,7 +21,8 @@ class SynapseLinkDataProvider(
     propertyManager: TablePropertyManager,
     sinkSettings: SinkSettings,
     settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings
+    backfillSettings: BackfillSettings,
+    shaper: ThroughputShaper
 ) extends VersionedDataProvider[SynapseWatermark, SynapseLinkBatch]
     with BackfillDataProvider[SynapseLinkBatch]:
 
@@ -28,13 +30,17 @@ class SynapseLinkDataProvider(
       previousVersion: SynapseWatermark,
       nextVersion: SynapseWatermark
   ): ZStream[Any, Throwable, SynapseLinkBatch] =
-    synapseReader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
+    shaper.shapeStream(synapseReader.getChanges(previousVersion)).concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   override def requestBackfill: ZStream[Any, Throwable, SynapseLinkBatch] = backfillSettings.backfillStartDate match
     case Some(backfillStartDate) =>
       ZStream
         .fromZIO(getCurrentVersion(SynapseWatermark.epoch))
-        .flatMap(version => synapseReader.getData(backfillStartDate).concat(ZStream.succeed(JsonWatermarkRow(version))))
+        .flatMap(version =>
+          shaper
+            .shapeStream(synapseReader.getData(backfillStartDate))
+            .concat(ZStream.succeed(JsonWatermarkRow(version)))
+        )
     case None => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
   override def firstVersion: Task[SynapseWatermark] =
@@ -59,7 +65,7 @@ class SynapseLinkDataProvider(
 
 object SynapseLinkDataProvider:
   type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & TablePropertyManager &
-    SinkSettings
+    SinkSettings & ThroughputShaper
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
@@ -68,11 +74,13 @@ object SynapseLinkDataProvider:
       sinkSettings      <- ZIO.service[SinkSettings]
       backfillSettings  <- ZIO.service[BackfillSettings]
       synapseReader     <- ZIO.service[SynapseLinkReader]
+      shaper            <- ZIO.service[ThroughputShaper]
     yield SynapseLinkDataProvider(
       synapseReader,
       propertyManager,
       sinkSettings,
       versionedSettings,
-      backfillSettings
+      backfillSettings,
+      shaper
     )
   }

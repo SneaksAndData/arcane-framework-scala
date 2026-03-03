@@ -8,7 +8,7 @@ class TestStreamLifetimeService(maxQueries: Int, callback: Int => Any) extends S
   override def cancelled: Boolean =
     callback(counter)
     counter += 1
-    counter > maxQueries
+    counter >= maxQueries
 
   override def cancel(): Unit = ()
 

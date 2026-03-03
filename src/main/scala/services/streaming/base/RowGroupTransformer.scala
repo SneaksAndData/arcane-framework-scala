@@ -53,4 +53,4 @@ trait RowGroupTransformer:
   def process(
       onStagingTablesComplete: OnStagingTablesComplete,
       onBatchStaged: OnBatchStaged
-  ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement]
+  ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement]

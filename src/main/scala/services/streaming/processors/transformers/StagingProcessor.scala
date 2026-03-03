@@ -33,70 +33,79 @@ class StagingProcessor(
 
   type OutgoingElement = StagedBatchProcessor#BatchType
 
+  private def processChunk(
+      elements: Chunk[IncomingElement],
+      onBatchStaged: OnBatchStaged
+  ): ZIO[Any, Throwable, Chunk[Iterable[StagedVersionedBatch & MergeableBatch]]] = for
+    _ <- zlog(
+      "Started preparing a batch of size %s for staging",
+      Seq(getAnnotation("processor", "StagingProcessor")),
+      elements.size.toString
+    )
+    // check if watermark row has been emitted and pass it down the pipeline
+    maybeWatermark <- ZIO.attempt(elements.par.find(_.isWatermark).flatMap(_.getWatermark))
+    // avoid failure by trying to commit watermark row if present
+    filteredElements <- ZIO.when(maybeWatermark.isDefined) {
+      for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
+      yield filtered
+    }
+    _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsIncoming
+    groupedBySchema <-
+      (if stagingDataSettings.isUnifiedSchema then
+         ZIO.succeed(
+           Map(
+             filteredElements
+               .getOrElse(elements)
+               .headOption
+               .map(_.schema)
+               .getOrElse(ArcaneSchema.empty()) -> filteredElements.getOrElse(elements)
+           )
+         )
+       else
+         ZIO.succeed(
+           filteredElements
+             .getOrElse(elements)
+             .toArray
+             .par
+             .map(r => r.schema -> r)
+             .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
+               (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
+               mergeGroupedChunks
+             )
+         )
+      ).gaugeDuration(declaredMetrics.batchTransformDuration)
+
+    _ <- ZIO.when((maybeWatermark.isDefined && filteredElements.exists(_.nonEmpty)) || maybeWatermark.isEmpty)(
+      zlog(
+        "Batch of size %s is ready for staging",
+        Seq(getAnnotation("processor", "StagingProcessor")),
+        filteredElements.getOrElse(elements).size.toString
+      )
+    )
+    _ <- ZIO.when(maybeWatermark.isDefined && !filteredElements.exists(_.nonEmpty))(
+      zlog(
+        "Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur",
+        Seq(getAnnotation("processor", "StagingProcessor"))
+      )
+    )
+
+    applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
+      writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
+    )
+  yield Chunk(applyTasks.map(batches => batches))
+
   override def process(
       onStagingTablesComplete: OnStagingTablesComplete,
       onBatchStaged: OnBatchStaged
-  ): ZPipeline[Any, Throwable, Chunk[IncomingElement], OutgoingElement] =
-    ZPipeline[Chunk[IncomingElement]]()
-      .filter(_.nonEmpty)
-      .mapZIO(elements =>
-        (for
-          _ <- zlog(
-            "Started preparing a batch of size %s for staging",
-            Seq(getAnnotation("processor", "StagingProcessor")),
-            elements.size.toString
+  ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
+    ZPipeline[IncomingElement]()
+      .mapChunksZIO(elements =>
+        for staged <- ZIO.when(elements.nonEmpty)(
+            processChunk(elements, onBatchStaged).gaugeDuration(declaredMetrics.batchStageDuration)
           )
-          // check if watermark row has been emitted and pass it down the pipeline
-          maybeWatermark <- ZIO.attempt(elements.par.find(_.isWatermark).flatMap(_.getWatermark))
-          // avoid failure by trying to commit watermark row if present
-          filteredElements <- ZIO.when(maybeWatermark.isDefined) {
-            for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
-            yield filtered
-          }
-          groupedBySchema <-
-            (if stagingDataSettings.isUnifiedSchema then
-               ZIO.succeed(
-                 Map(
-                   filteredElements
-                     .getOrElse(elements)
-                     .headOption
-                     .map(_.schema)
-                     .getOrElse(ArcaneSchema.empty()) -> filteredElements.getOrElse(elements)
-                 )
-               )
-             else
-               ZIO.succeed(
-                 filteredElements
-                   .getOrElse(elements)
-                   .toArray
-                   .par
-                   .map(r => r.schema -> r)
-                   .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
-                     (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
-                     mergeGroupedChunks
-                   )
-               )
-            ).gaugeDuration(declaredMetrics.batchTransformDuration)
-
-          _ <- ZIO.when((maybeWatermark.isDefined && filteredElements.exists(_.nonEmpty)) || maybeWatermark.isEmpty)(
-            zlog(
-              "Batch of size %s is ready for staging",
-              Seq(getAnnotation("processor", "StagingProcessor")),
-              filteredElements.getOrElse(elements).size.toString
-            )
-          )
-          _ <- ZIO.when(maybeWatermark.isDefined && !filteredElements.exists(_.nonEmpty))(
-            zlog(
-              "Batch contains watermark only. Staging and merge operations will be skipped, but maintenance may still occur",
-              Seq(getAnnotation("processor", "StagingProcessor"))
-            )
-          )
-
-          applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
-            writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
-          )
-        yield applyTasks.map(batches => batches)).gaugeDuration(declaredMetrics.batchStageDuration)
+        yield staged.getOrElse(Chunk.empty)
       )
+      .filter(_.nonEmpty)
       .zipWithIndex
       .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
 
