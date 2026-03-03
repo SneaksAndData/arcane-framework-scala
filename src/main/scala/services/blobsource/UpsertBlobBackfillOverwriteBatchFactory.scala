@@ -1,12 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource
 
-import models.batches.{
-  StagedBackfillOverwriteBatch,
-  SynapseLinkBackfillOverwriteBatch,
-  UpsertBlobBackfillOverwriteBatch
-}
-import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
+import models.batches.{StagedBackfillOverwriteBatch, UpsertBlobBackfillOverwriteBatch}
+import models.settings.TablePropertiesSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
 

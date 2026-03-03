@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.sink
 
 /** Settings for optimizing the data table
   */

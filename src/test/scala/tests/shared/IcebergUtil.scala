@@ -3,7 +3,8 @@ package tests.shared
 
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
-import models.settings.{IcebergStagingSettings, SinkSettings}
+import models.settings.iceberg.IcebergStagingSettings
+import models.settings.sink.SinkSettings
 import services.iceberg.{
   IcebergS3CatalogWriter,
   IcebergSinkEntityManager,

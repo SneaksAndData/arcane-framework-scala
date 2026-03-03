@@ -1,17 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.providers
 
-import logging.ZIOLogAnnotations.zlog
 import models.app.StreamContext
-import models.schemas.DataRow
-import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
 import services.blobsource.BlobSourceBatch
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 
-import zio.stream.ZStream
-import zio.{Task, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 class BlobSourceStreamingDataProvider(
     dataProvider: BlobSourceDataProvider,

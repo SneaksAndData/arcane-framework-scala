@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.iceberg
 
 import services.iceberg.base.S3CatalogFileIO
 

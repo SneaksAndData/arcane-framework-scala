@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.StagingDataSettings
+import models.settings.staging.StagingDataSettings
 
 object TestStagingDataSettings extends StagingDataSettings:
   override val stagingCatalogName: String = "catalog"

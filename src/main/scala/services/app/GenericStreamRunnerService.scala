@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.app
 
-import logging.ZIOLogAnnotations.{getAnnotation, zlog}
-import models.settings.StagingDataSettings
+import logging.ZIOLogAnnotations.zlog
+import models.settings.staging.StagingDataSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.base.TableManager
 import services.streaming.base.{HookManager, StreamingGraphBuilder}

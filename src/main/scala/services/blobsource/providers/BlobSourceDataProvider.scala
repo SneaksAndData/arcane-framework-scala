@@ -3,7 +3,9 @@ package services.blobsource.providers
 
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
-import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark

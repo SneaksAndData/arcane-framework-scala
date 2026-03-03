@@ -5,7 +5,10 @@ import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.{IcebergStagingSettings, SinkSettings, StagingDataSettings, TablePropertiesSettings}
+import models.settings.TablePropertiesSettings
+import models.settings.iceberg.IcebergStagingSettings
+import models.settings.sink.SinkSettings
+import models.settings.staging.StagingDataSettings
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics

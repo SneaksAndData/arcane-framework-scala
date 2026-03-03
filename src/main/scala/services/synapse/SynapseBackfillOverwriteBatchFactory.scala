@@ -2,7 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.synapse
 
 import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
-import models.settings.{BackfillSettings, TablePropertiesSettings, SinkSettings}
+import models.settings.TablePropertiesSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.merging.JdbcMergeServiceClient
 import services.streaming.base.BackfillOverwriteBatchFactory
 

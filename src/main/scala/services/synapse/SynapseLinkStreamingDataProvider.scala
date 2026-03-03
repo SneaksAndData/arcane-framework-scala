@@ -3,7 +3,8 @@ package services.synapse
 
 import models.app.StreamContext
 import models.schemas.DataRow
-import models.settings.{BackfillSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 import services.synapse.base.SynapseLinkDataProvider

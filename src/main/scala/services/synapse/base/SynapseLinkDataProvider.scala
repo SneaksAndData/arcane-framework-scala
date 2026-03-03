@@ -3,7 +3,9 @@ package services.synapse.base
 
 import logging.ZIOLogAnnotations.zlog
 import models.schemas.JsonWatermarkRow
-import models.settings.{BackfillSettings, SinkSettings, VersionedDataGraphBuilderSettings}
+import models.settings.VersionedDataGraphBuilderSettings
+import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import services.iceberg.base.TablePropertyManager
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 import services.streaming.throughput.base.ThroughputShaper

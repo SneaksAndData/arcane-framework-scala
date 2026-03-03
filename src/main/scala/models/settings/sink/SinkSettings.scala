@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.sink
+
+import models.settings.sink.IcebergSinkSettings
 
 /** Settings for the target table
   */

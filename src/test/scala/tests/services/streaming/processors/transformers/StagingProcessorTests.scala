@@ -4,7 +4,7 @@ package tests.services.streaming.processors.transformers
 import models.*
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
-import models.settings.IcebergStagingSettings
+import models.settings.iceberg.IcebergStagingSettings
 import services.base.DimensionsProvider
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.iceberg.base.CatalogWriter
@@ -14,13 +14,7 @@ import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.IcebergCatalogInfo.*
-import tests.shared.{
-  NullDimensionsProvider,
-  TestIcebergStagingSettings,
-  TestSinkSettingsWithMaintenance,
-  TestStagingDataSettings,
-  TestTablePropertiesSettings
-}
+import tests.shared.*
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.data_providers.backfill
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.BackfillSettings
+import models.settings.backfill.BackfillSettings
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,

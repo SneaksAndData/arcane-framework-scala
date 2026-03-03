@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.blob
+package models.settings.sources.blob
 
-import models.settings.SourceSettings
+import models.settings.sources.SourceSettings
 
 /** Blob-source specific source settings
   */

@@ -2,7 +2,12 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.utils
 
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.settings.{AnalyzeSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
+import models.settings.sink.{
+  AnalyzeSettings,
+  OptimizeSettings,
+  OrphanFilesExpirationSettings,
+  SnapshotExpirationSettings
+}
 import services.merging.maintenance.{
   JdbcAnalyzeRequest,
   JdbcOptimizationRequest,
