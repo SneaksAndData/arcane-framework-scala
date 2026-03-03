@@ -77,7 +77,7 @@ services:
     command: [ "/bin/sh", "-c", "pip install boto3 pandas pyarrow fastparquet && python /populate-s3-reader-bucket.py"  ]
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.9.2
+    image: quay.io/lakekeeper/catalog:v0.11.2
     network_mode: host
     environment:
       #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -120,7 +120,7 @@ services:
       - ./populate-cdm-container.py:/populate-cdm-container.py
     command: [ "/bin/sh", "-c", "pip install azure-storage-blob==12.24.1 requests && python /populate-cdm-container.py" ]
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:v0.9.2
+    image: quay.io/lakekeeper/catalog:v0.11.2
     network_mode: host
     environment:
       #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!

@@ -12,7 +12,7 @@ import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import tests.shared.AzureStorageInfo.*
+import tests.shared.TestAzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 

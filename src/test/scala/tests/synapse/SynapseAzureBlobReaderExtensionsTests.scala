@@ -3,7 +3,7 @@ package tests.synapse
 
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.SynapseAzureBlobReaderExtensions.*
-import tests.shared.AzureStorageInfo.*
+import tests.shared.TestAzureStorageInfo.*
 
 import zio.stream.ZSink
 import zio.test.*
