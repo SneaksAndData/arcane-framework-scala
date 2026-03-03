@@ -25,5 +25,6 @@ object AzureBlobStorageReaderSettings:
     httpMaxRetryDelay = httpMaxRetryDelay,
     maxResultsPerPage = maxResultsPerPage
   )
-  
-  val default = AzureBlobStorageReaderSettings(3, Duration.ofSeconds(60), Duration.ofMillis(500), Duration.ofSeconds(3), 5000)
+
+  val default =
+    AzureBlobStorageReaderSettings(3, Duration.ofSeconds(60), Duration.ofMillis(500), Duration.ofSeconds(3), 5000)

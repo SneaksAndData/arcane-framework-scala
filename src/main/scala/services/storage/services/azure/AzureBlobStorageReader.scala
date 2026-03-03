@@ -136,7 +136,11 @@ object AzureBlobStorageReader:
     * @return
     *   AzureBlobStorageReader instance
     */
-  def apply(accountName: String, credential: TokenCredential, settings: Option[AzureBlobStorageReaderSettings]): AzureBlobStorageReader =
+  def apply(
+      accountName: String,
+      credential: TokenCredential,
+      settings: Option[AzureBlobStorageReaderSettings]
+  ): AzureBlobStorageReader =
     new AzureBlobStorageReader(accountName, None, Some(credential), None, settings)
 
   /** Create AzureBlobStorageReader for the account using StorageSharedKeyCredential
@@ -148,7 +152,11 @@ object AzureBlobStorageReader:
     * @return
     *   AzureBlobStorageReader instance
     */
-  def apply(accountName: String, credential: StorageSharedKeyCredential, settings: Option[AzureBlobStorageReaderSettings]): AzureBlobStorageReader =
+  def apply(
+      accountName: String,
+      credential: StorageSharedKeyCredential,
+      settings: Option[AzureBlobStorageReaderSettings]
+  ): AzureBlobStorageReader =
     new AzureBlobStorageReader(accountName, None, None, Some(credential), settings)
 
   /** Create AzureBlobStorageReader for the account using StorageSharedKeyCredential and custom endpoint
@@ -162,7 +170,12 @@ object AzureBlobStorageReader:
     * @return
     *   AzureBlobStorageReader instance
     */
-  def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential, settings: Option[AzureBlobStorageReaderSettings]): AzureBlobStorageReader =
+  def apply(
+      accountName: String,
+      endpoint: String,
+      credential: StorageSharedKeyCredential,
+      settings: Option[AzureBlobStorageReaderSettings]
+  ): AzureBlobStorageReader =
     new AzureBlobStorageReader(accountName, Some(endpoint), None, Some(credential), settings)
 
   /** Create AzureBlobStorageReader for the account using default credential chain
