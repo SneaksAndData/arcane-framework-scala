@@ -135,7 +135,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(hookManager),
         ZLayer.succeed(new SchemaProvider[ArcaneSchema] {
           override type SchemaType = ArcaneSchema
-          override def getSchema: Task[SchemaType] = ZIO.succeed(ArcaneSchema.empty())
+          override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
 
           override def empty: SchemaType = ArcaneSchema.empty()
         }),
