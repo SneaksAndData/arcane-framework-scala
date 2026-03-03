@@ -7,7 +7,7 @@ import org.scalatest.matchers.should.Matchers.{should, shouldBe}
 import zio.test.*
 import zio.{Scope, Unsafe, ZIO}
 
-import tests.shared.AzureStorageInfo.*
+import tests.shared.TestAzureStorageInfo.*
 
 import zio.test.TestAspect.timeout
 

@@ -13,11 +13,11 @@ case class AzureBlobStorageReaderSettings(
 
 object AzureBlobStorageReaderSettings:
   def apply(
-      httpMaxRetries: Int = 3,
-      httpRetryTimeout: Duration = Duration.ofSeconds(60),
-      httpMinRetryDelay: Duration = Duration.ofMillis(500),
-      httpMaxRetryDelay: Duration = Duration.ofSeconds(3),
-      maxResultsPerPage: Int = 5000
+      httpMaxRetries: Int,
+      httpRetryTimeout: Duration,
+      httpMinRetryDelay: Duration,
+      httpMaxRetryDelay: Duration,
+      maxResultsPerPage: Int
   ): AzureBlobStorageReaderSettings = new AzureBlobStorageReaderSettings(
     httpMaxRetries = httpMaxRetries,
     httpRetryTimeout = httpRetryTimeout,
@@ -25,3 +25,6 @@ object AzureBlobStorageReaderSettings:
     httpMaxRetryDelay = httpMaxRetryDelay,
     maxResultsPerPage = maxResultsPerPage
   )
+
+  val default =
+    AzureBlobStorageReaderSettings(3, Duration.ofSeconds(60), Duration.ofMillis(500), Duration.ofSeconds(3), 5000)
