@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
-import models.settings.{IcebergCatalogSettings, IcebergStagingSettings, SinkSettings}
+import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
+import models.settings.sink.SinkSettings
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
 
 import org.apache.iceberg.catalog.TableIdentifier
