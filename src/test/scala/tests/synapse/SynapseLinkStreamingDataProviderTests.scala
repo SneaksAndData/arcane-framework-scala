@@ -17,6 +17,7 @@ import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.TestAzureStorageInfo.*
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.test.*
 import zio.test.TestAspect.{tag, timeout}
 import zio.{Scope, Task, ZIO}
@@ -77,10 +78,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
       "streams rows in backfill mode correctly"
-    ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
+    ) {
       for
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
-        shaper            <- ZIO.succeed(MemoryBoundShaper(icebergUtilBackfill.propertyManager, tableSinkSettings))
+        // shaper requires target table to exist
+        _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableNameParts.Name, SynapseWatermark.epoch)
+        shaper <- ZIO.succeed(MemoryBoundShaper(icebergUtilBackfill.propertyManager, tableSinkSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
