@@ -16,7 +16,6 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
-import scala.util.Try
 
 class SynapseLinkDataProvider(
     synapseReader: SynapseLinkReader,

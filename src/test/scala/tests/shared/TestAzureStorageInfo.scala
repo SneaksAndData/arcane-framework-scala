@@ -1,10 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
+import services.storage.models.azure.AzureBlobStorageReaderSettings
+import services.storage.services.azure.AzureBlobStorageReader
 
-object AzureStorageInfo:
+import com.azure.storage.common.StorageSharedKeyCredential
+
+object TestAzureStorageInfo:
   val endpoint                 = "http://localhost:10001/devstoreaccount1"
   val container                = "cdm-e2e"
   val malformedSchemaContainer = "cdm-e2e-malformed-schema"
@@ -12,4 +14,4 @@ object AzureStorageInfo:
   val accessKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
   val credential: StorageSharedKeyCredential = StorageSharedKeyCredential(storageAccount, accessKey)
-  val storageReader: AzureBlobStorageReader  = AzureBlobStorageReader(storageAccount, endpoint, credential)
+  val storageReader: AzureBlobStorageReader  = AzureBlobStorageReader(storageAccount, endpoint, credential, None)

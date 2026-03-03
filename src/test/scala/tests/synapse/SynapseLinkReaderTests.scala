@@ -4,8 +4,8 @@ package tests.synapse
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.synapse.base.SynapseLinkReader
-import tests.shared.AzureStorageInfo.*
-import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
+import services.synapse.versioning.SynapseWatermark
+import tests.shared.TestAzureStorageInfo.*
 
 import zio.test.*
 import zio.test.TestAspect.timeout

@@ -15,7 +15,7 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
-import zio.{Tag, ZIO, ZLayer}
+import zio.{Duration, Tag, ZIO, ZLayer}
 
 /** Provides the complete data stream for the streaming process including all the stages and services except the sink
   * and lifetime service.

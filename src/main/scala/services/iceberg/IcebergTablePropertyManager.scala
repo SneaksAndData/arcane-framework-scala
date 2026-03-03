@@ -6,6 +6,7 @@ import services.iceberg.base.TablePropertyManager
 
 import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
+import org.apache.iceberg.*
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*

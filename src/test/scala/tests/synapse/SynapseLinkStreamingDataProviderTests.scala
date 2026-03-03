@@ -7,19 +7,19 @@ import models.schemas.{ArcaneSchema, DataRow, Field, MergeKeyField}
 import models.settings.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.streaming.ThroughputShaperImpl.MemoryBound
+import models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
-import services.streaming.throughput.{MemoryBoundShaper, StaticShaper}
+import services.streaming.throughput.MemoryBoundShaper
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import tests.shared.AzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
+import tests.shared.TestAzureStorageInfo.*
 import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ThroughputShaperImpl.MemoryBound
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
