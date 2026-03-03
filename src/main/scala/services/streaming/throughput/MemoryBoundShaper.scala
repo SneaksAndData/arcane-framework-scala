@@ -124,9 +124,6 @@ object MemoryBoundShaper:
   private type Environment = TablePropertyManager & SinkSettings
 
   /** Factory method to create MemoryBoundShaper
-    *
-    * @param icebergSettings
-    *   Iceberg settings
     * @return
     *   The initialized IcebergTablePropertyManager instance
     */

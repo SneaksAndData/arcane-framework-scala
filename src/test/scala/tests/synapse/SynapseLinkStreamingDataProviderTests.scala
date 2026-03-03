@@ -9,14 +9,14 @@ import models.settings.BackfillBehavior.Overwrite
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
+import services.streaming.throughput.{MemoryBoundShaper, VoidShaper}
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import tests.shared.TestAzureStorageInfo.*
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
+import tests.shared.TestAzureStorageInfo.*
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
-import com.sneaksanddata.arcane.framework.services.streaming.throughput.{MemoryBoundShaper, VoidShaper}
 import zio.test.*
 import zio.test.TestAspect.{tag, timeout}
 import zio.{Scope, Task, ZIO}
@@ -80,9 +80,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
       for
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
-        propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
-        _                 <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
-        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+        icebergUtil       <- ZIO.succeed(getIcebergUtilStream(tableSinkSettings.targetTableNameParts.Name))
+        shaper            <- ZIO.succeed(MemoryBoundShaper(icebergUtil.propertyManager, tableSinkSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -114,13 +113,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream correct number of changes") {
       for
-        tableName     <- ZIO.succeed("target_table_stream")
+        tableName         <- ZIO.succeed("target_table_stream")
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"demo.test.$tableName"))
-        watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-        azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-        icebergUtil   <- ZIO.succeed(getIcebergUtilStream(tableName))
-        _             <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
-        shaper            <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+        watermarkTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
+        azPrefixes        <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
+        icebergUtil       <- ZIO.succeed(getIcebergUtilStream(tableName))
+        _                 <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
+        shaper            <- ZIO.succeed(MemoryBoundShaper(icebergUtil.propertyManager, tableSinkSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
@@ -159,7 +158,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
         icebergUtil   <- ZIO.succeed(getIcebergUtilStream(tableName))
         _             <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
-        shaper <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
+        shaper        <- ZIO.succeed(MemoryBoundShaper(propertyManager, tableSinkSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
