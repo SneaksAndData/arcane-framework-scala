@@ -14,7 +14,7 @@ import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSql
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
-import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestStreamLifetimeService}
+import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestStreamLifetimeService}
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -51,16 +51,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
-    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
-  )
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
-
-  private def prepareWatermark(tableName: String, provider: MsSqlDataProvider): Task[Unit] =
-    for
-      _ <- writer.createTable(tableName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      _ <- propertyManager.comment(tableName, MsSqlWatermark.epoch.toJson)
-    yield ()
+  private val icebergUtil =
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
     for
@@ -105,13 +97,13 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         provider <- ZIO.succeed(
           MsSqlDataProvider(
             connection,
-            propertyManager,
+            icebergUtil.propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
             backfillSettings
           )
         )
-        _ <- prepareWatermark(tableName, provider)
+        _ <- icebergUtil.prepareWatermark(tableName, MsSqlWatermark.epoch)
         streamingDataProvider <- ZIO.succeed(
           MsSqlStreamingDataProvider(
             provider,

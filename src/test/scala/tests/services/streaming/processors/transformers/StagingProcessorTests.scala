@@ -6,7 +6,7 @@ import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import models.settings.iceberg.IcebergStagingSettings
 import services.base.DimensionsProvider
-import services.iceberg.IcebergS3CatalogWriter
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.iceberg.base.CatalogWriter
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -101,6 +101,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     }
-  ).provide(icebergCatalogSettingsLayer, IcebergS3CatalogWriter.layer) @@ timeout(
+  ).provide(icebergCatalogSettingsLayer, IcebergEntityManager.stagingLayer, IcebergS3CatalogWriter.layer) @@ timeout(
     zio.Duration.fromSeconds(60)
   ) @@ TestAspect.withLiveClock

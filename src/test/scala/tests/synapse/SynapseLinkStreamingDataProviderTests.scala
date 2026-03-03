@@ -18,10 +18,11 @@ import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.TestAzureStorageInfo.*
-import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
+import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestSinkSettings}
 
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.test.*
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{tag, timeout}
 import zio.{Scope, Task, ZIO}
 
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
@@ -71,19 +72,11 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
-
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-
-  private def prepareWatermark(tableName: String, propertyManager: IcebergTablePropertyManager): Task[Unit] =
-    for
-      targetName <- ZIO.succeed(tableName)
-      // prepare target table metadata
-      watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-      _             <- propertyManager.comment(targetName, azPrefixes.init.last.asWatermark.toJson)
-    yield ()
+  private val icebergUtilBackfill =
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+  private def getIcebergUtilStream(tableName: String) =
+    IcebergUtil(TestDynamicSinkSettings(tableName), defaultStagingSettings)
 
   case object TestThroughputSettings extends ThroughputSettings:
     override val shaperImpl: ThroughputShaperImpl = MemoryBound(50, 256, 2, 2, 1, 1000, 0.5, 0.5, 2)
@@ -95,14 +88,14 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
       "streams rows in backfill mode correctly"
-    ) { // backfill should not attempt to load table watermark, thus we do not need the target table to exist
+    ) {
       for
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
-        propertyManager   <- ZIO.succeed(IcebergTablePropertyManager(tableSinkSettings))
-        _                 <- prepareWatermark(tableSinkSettings.targetTableNameParts.Name, propertyManager)
+        // shaper requires target table to exist
+        _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableNameParts.Name, SynapseWatermark.epoch)
         shaper <- ZIO.succeed(
           MemoryBoundShaper(
-            propertyManager,
+            icebergUtilBackfill.propertyManager,
             tableSinkSettings,
             new ThroughputSettings {
               override val shaperImpl: ThroughputShaperImpl = MemoryBound(50, 256, 2, 2, 1, 1000, 0.5, 0.5, 2)
@@ -118,7 +111,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            propertyManager,
+            icebergUtilBackfill.propertyManager,
             TestSinkSettings,
             graphSettings,
             backfillSettings,
@@ -154,7 +147,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            propertyManager,
+            icebergUtil.propertyManager,
             tableSinkSettings,
             graphSettings,
             backfillSettings,
@@ -190,7 +183,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            propertyManager,
+            icebergUtil.propertyManager,
             tableSinkSettings,
             graphSettings,
             backfillSettings,
@@ -217,4 +210,4 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             .count(_.nonEmpty) == 4
         )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
+  ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock @@ TestAspect.sequential

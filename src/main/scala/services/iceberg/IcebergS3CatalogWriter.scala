@@ -4,7 +4,7 @@ package services.iceberg
 import logging.ZIOLogAnnotations.*
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.iceberg.IcebergStagingSettings
-import services.iceberg.base.CatalogWriter
+import services.iceberg.base.{CatalogEntityManager, CatalogWriter, StagingEntityManager}
 
 import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
@@ -26,40 +26,10 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
 
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
+class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings: IcebergStagingSettings)
     extends CatalogWriter[RESTCatalog, Table, Schema]:
 
-  private val maxRowsPerFile = icebergCatalogSettings.maxRowsPerFile.getOrElse(10000)
-  private val catalogFactory = new IcebergCatalogFactory(icebergCatalogSettings)
-
-  def createTable(name: String, schema: Schema, replace: Boolean): Task[Table] = for
-    tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
-    catalog <- catalogFactory.getCatalog
-    tableBuilder <- ZIO.attempt(
-      icebergCatalogSettings.stagingLocation match
-        case Some(newLocation) =>
-          catalog
-            .buildTable(catalogFactory.getSessionContext, tableId, schema)
-            .withLocation(newLocation + "/" + name)
-            .withPartitionSpec(PartitionSpec.unpartitioned())
-        case None =>
-          catalog
-            .buildTable(catalogFactory.getSessionContext, tableId, schema)
-            .withPartitionSpec(PartitionSpec.unpartitioned())
-    )
-    replacedRef <- ZIO.when(replace) {
-      for
-        _      <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
-        newRef <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
-      yield newRef
-    }
-    tableRef <- ZIO.unless(replace) {
-      for newRef <- ZIO.attemptBlocking(tableBuilder.create())
-      yield newRef
-    }
-  yield replacedRef match
-    case Some(ref) => ref
-    case None      => tableRef.get
+  private val maxRowsPerFile = writerSettings.maxRowsPerFile.getOrElse(10000)
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -129,28 +99,28 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[Table] =
     for
-      _       <- createTable(name, schema, false)
+      _       <- entityManager.createTable(name, schema, false)
       _       <- zlog("Created a staging table %s, waiting for commit", logAnnotations, name)
-      catalog <- catalogFactory.getCatalog
+      catalog <- entityManager.catalogFactory.getCatalog
       _ <- ZIO
         .sleep(zio.Duration.fromSeconds(1))
         .repeatUntil(_ =>
           catalog
-            .tableExists(catalogFactory.getSessionContext, TableIdentifier.of(icebergCatalogSettings.namespace, name))
+            .tableExists(
+              entityManager.catalogFactory.getSessionContext,
+              TableIdentifier.of(writerSettings.namespace, name)
+            )
         )
       _ <- zlog("Staging table %s created, appending data", logAnnotations, name)
       table <- ZIO.attemptBlocking(
-        catalog.loadTable(catalogFactory.getSessionContext, TableIdentifier.of(icebergCatalogSettings.namespace, name))
+        catalog.loadTable(
+          entityManager.catalogFactory.getSessionContext,
+          TableIdentifier.of(writerSettings.namespace, name)
+        )
       )
       updatedTable <- appendData(data, schema, false, table, logAnnotations)
       _            <- zlog("Staging table %s ready for merge", logAnnotations, name)
     yield updatedTable
-
-  override def delete(tableName: String): Task[Boolean] = for
-    tableId <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, tableName))
-    catalog <- catalogFactory.getCatalog
-    result  <- ZIO.attemptBlocking(catalog.dropTable(catalogFactory.getSessionContext, tableId))
-  yield result
 
   def append(
       data: Iterable[DataRow],
@@ -158,30 +128,24 @@ class IcebergS3CatalogWriter(icebergCatalogSettings: IcebergStagingSettings)
       schema: Schema,
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[Table] = for
-    tableId      <- ZIO.succeed(TableIdentifier.of(icebergCatalogSettings.namespace, name))
-    catalog      <- catalogFactory.getCatalog
-    table        <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
+    tableId      <- ZIO.succeed(TableIdentifier.of(writerSettings.namespace, name))
+    catalog      <- entityManager.catalogFactory.getCatalog
+    table        <- ZIO.attemptBlocking(catalog.loadTable(entityManager.catalogFactory.getSessionContext, tableId))
     updatedTable <- appendData(data, schema, false, table, logAnnotations)
   yield updatedTable
 
 object IcebergS3CatalogWriter:
 
-  type Environment = IcebergStagingSettings
-
-  /** Factory method to create IcebergS3CatalogWriter
-    *
-    * @param icebergSettings
-    *   Iceberg settings
+  /** Factory method to create IcebergS3CatalogWriter Iceberg settings
     * @return
     *   The initialized IcebergS3CatalogWriter instance
     */
-  def apply(icebergSettings: IcebergStagingSettings): IcebergS3CatalogWriter =
-    new IcebergS3CatalogWriter(icebergSettings)
+  def apply(entityManager: CatalogEntityManager, writerSettings: IcebergStagingSettings): IcebergS3CatalogWriter =
+    new IcebergS3CatalogWriter(entityManager, writerSettings)
 
-  /** The ZLayer that creates the LazyOutputDataProcessor.
-    */
-  val layer: ZLayer[Environment, Throwable, IcebergS3CatalogWriter] =
-    ZLayer {
-      for settings <- ZIO.service[IcebergStagingSettings]
-      yield IcebergS3CatalogWriter(settings)
-    }
+  def layer = ZLayer {
+    for
+      stagingEntityManager <- ZIO.service[StagingEntityManager]
+      settings             <- ZIO.service[IcebergStagingSettings]
+    yield IcebergS3CatalogWriter(stagingEntityManager, settings)
+  }

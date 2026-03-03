@@ -10,12 +10,17 @@ import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
+import services.iceberg.{
+  IcebergS3CatalogWriter,
+  IcebergSinkEntityManager,
+  IcebergTablePropertyManager,
+  given_Conversion_ArcaneSchema_Schema
+}
 import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.{NullDimensionsProvider, TestDynamicSinkSettings}
+import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -55,30 +60,19 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     override def streamKind: String = "units"
   }
 
-  private val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
-    TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
-  )
-  private val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(defaultStagingSettings)
-
-  private def prepareWatermark(tableName: String, value: BlobSourceWatermark): Task[Unit] =
-    for
-      targetName <- ZIO.succeed(tableName)
-      // prepare target table metadata
-      watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _             <- writer.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      _             <- propertyManager.comment(targetName, value.toJson)
-    yield ()
+  private val icebergUtil =
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _      <- prepareWatermark("test", BlobSourceWatermark.epoch)
+        _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            propertyManager,
+            icebergUtil.propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             streamSettings,
             backfillSettings
@@ -100,11 +94,11 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _      <- prepareWatermark("test", BlobSourceWatermark.epoch)
+        _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            propertyManager,
+            icebergUtil.propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             streamSettings,
             backfillSettings
@@ -127,11 +121,14 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _ <- prepareWatermark("test", BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond))
+        _ <- icebergUtil.prepareWatermark(
+          "test",
+          BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
+        )
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            propertyManager,
+            icebergUtil.propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             emptyStreamSettings,
             backfillSettings
