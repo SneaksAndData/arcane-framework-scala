@@ -141,7 +141,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         azPrefixes        <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
         icebergUtil       <- ZIO.succeed(getIcebergUtilStream(tableName))
         _                 <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
-        shaper            <- ZIO.succeed(MemoryBoundShaper(icebergUtil.propertyManager, tableSinkSettings, TestThroughputSettings))
+        shaper <- ZIO.succeed(MemoryBoundShaper(icebergUtil.propertyManager, tableSinkSettings, TestThroughputSettings))
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
