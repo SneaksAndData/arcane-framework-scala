@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import logging.ZIOLogAnnotations.*
+import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.iceberg.IcebergStagingSettings
 import services.iceberg.base.{CatalogEntityManager, CatalogWriter, StagingEntityManager}
@@ -99,7 +100,7 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[Table] =
     for
-      _       <- entityManager.createTable(name, schema, false)
+      _       <- entityManager.createTable(CreateTableRequest(name, schema, false))
       _       <- zlog("Created a staging table %s, waiting for commit", logAnnotations, name)
       catalog <- entityManager.catalogFactory.getCatalog
       _ <- ZIO
