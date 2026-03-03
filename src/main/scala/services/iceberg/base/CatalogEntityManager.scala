@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg.base
 
-import org.apache.iceberg.{Schema, Table}
+import models.ddl.CreateTableRequest
+
+import org.apache.iceberg.Table
 import zio.Task
 
 trait CatalogEntityManager:
@@ -17,16 +19,10 @@ trait CatalogEntityManager:
   def delete(tableName: String): Task[Boolean]
 
   /** Creates a new table in the Iceberg catalog, using the provided schema
-    *
-    * @param name
-    *   Name for the table, excluding schema (namespace) name
-    * @param schema
-    *   Schema for the table
-    * @param replace
-    *   If true, will replace the table if it exists
     * @return
+    *   An Iceberg table reference
     */
-  def createTable(name: String, schema: Schema, replace: Boolean): Task[Table]
+  def createTable(request: CreateTableRequest): Task[Table]
 
 /** Entity manager for sink catalog
   */

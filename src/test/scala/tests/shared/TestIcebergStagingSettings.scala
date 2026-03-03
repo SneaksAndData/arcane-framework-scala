@@ -17,14 +17,6 @@ object TestIcebergStagingSettings extends IcebergStagingSettings:
     */
   override val catalogUri: String = "http://localhost:8080"
 
-  /** The catalog S3 properties.
-    */
-  override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
-
-  /** The lakehouse location of the catalog
-    */
-  override val stagingLocation: Option[String] = None
-
   override val maxRowsPerFile: Option[Int] = None
 
   override val additionalProperties: Map[String, String] = S3CatalogFileIO.properties

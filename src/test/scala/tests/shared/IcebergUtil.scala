@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
+import models.ddl.CreateTableRequest
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.iceberg.IcebergStagingSettings
@@ -30,8 +31,8 @@ class IcebergUtil(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSet
       targetName <- ZIO.succeed(tableName)
       // prepare target table metadata
       watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _             <- entityManager.createTable(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
-      _             <- propertyManager.comment(targetName, value.toJson)
+      _ <- entityManager.createTable(CreateTableRequest(targetName, ArcaneSchema(Seq(Field("test", StringType))), true))
+      _ <- propertyManager.comment(targetName, value.toJson)
     yield ()
 
 object IcebergUtil:
