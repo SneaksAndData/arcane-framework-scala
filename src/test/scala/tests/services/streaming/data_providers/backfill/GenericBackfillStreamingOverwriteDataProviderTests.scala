@@ -269,7 +269,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
-        IcebergTablePropertyManager.layer
+        IcebergTablePropertyManager.sinkLayer
+        // TODO: not used yet IcebergTablePropertyManager.stagingLayer
       )
 
     // Act

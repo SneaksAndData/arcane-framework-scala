@@ -3,7 +3,7 @@ package services.streaming.processors.batch_processors
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.batches.StagedBatch
-import services.iceberg.base.TablePropertyManager
+import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.TimestampOnlyWatermark
 
@@ -12,7 +12,7 @@ import zio.ZIO
 object WatermarkProcessingExtensions:
   extension (batch: StagedBatch)
     def applyWatermark(
-        propertyManager: TablePropertyManager,
+        propertyManager: SinkPropertyManager,
         targetName: String,
         declaredMetrics: DeclaredMetrics,
         stageName: String

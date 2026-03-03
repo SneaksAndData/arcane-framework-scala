@@ -6,7 +6,7 @@ import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
-import services.iceberg.base.TablePropertyManager
+import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
@@ -20,7 +20,7 @@ import zio.{Task, ZIO, ZLayer}
   */
 class MsSqlDataProvider(
     reader: MsSqlReader,
-    propertyManager: TablePropertyManager,
+    propertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings
@@ -84,7 +84,7 @@ object MsSqlDataProvider:
       for
         reader            <- ZIO.service[MsSqlReader]
         versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
-        propertyManager   <- ZIO.service[TablePropertyManager]
+        propertyManager   <- ZIO.service[SinkPropertyManager]
         sinkSettings      <- ZIO.service[SinkSettings]
         backfillSettings  <- ZIO.service[BackfillSettings]
       yield new MsSqlDataProvider(

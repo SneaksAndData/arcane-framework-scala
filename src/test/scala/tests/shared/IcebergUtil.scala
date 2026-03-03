@@ -9,6 +9,7 @@ import models.settings.sink.SinkSettings
 import services.iceberg.{
   IcebergS3CatalogWriter,
   IcebergSinkEntityManager,
+  IcebergSinkTablePropertyManager,
   IcebergTablePropertyManager,
   given_Conversion_ArcaneSchema_Schema
 }
@@ -19,8 +20,8 @@ import zio.{Task, ZIO}
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class IcebergUtil(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSettings):
-  val propertyManager: IcebergTablePropertyManager = IcebergTablePropertyManager(
-    sinkSettings
+  val propertyManager: IcebergSinkTablePropertyManager = IcebergSinkTablePropertyManager(
+    sinkSettings.icebergSinkSettings
   )
   val entityManager: IcebergSinkEntityManager = IcebergSinkEntityManager(sinkSettings.icebergSinkSettings)
 

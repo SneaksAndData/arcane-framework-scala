@@ -1,24 +1,24 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
+import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
 import models.settings.sink.SinkSettings
-import services.iceberg.base.TablePropertyManager
+import services.iceberg.base.{SinkPropertyManager, StagingPropertyManager, TablePropertyManager}
 
 import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
-import org.apache.iceberg.*
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
-final class IcebergTablePropertyManager(sinkSettings: SinkSettings) extends TablePropertyManager:
-  private val catalogFactory = new IcebergCatalogFactory(sinkSettings.icebergSinkSettings)
+trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings) extends TablePropertyManager:
+  override val catalogFactory = new IcebergCatalogFactory(catalogSettings)
 
   private def loadTable(tableName: String): Task[Table] = for
     tableId <- ZIO.succeed(
       TableIdentifier.of(
-        sinkSettings.icebergSinkSettings.namespace,
+        catalogSettings.namespace,
         tableName
       )
     )
@@ -72,24 +72,24 @@ final class IcebergTablePropertyManager(sinkSettings: SinkSettings) extends Tabl
   override def getTableSchema(tableName: String): Task[Schema] = for table <- loadTable(tableName)
   yield table.schema()
 
+class IcebergSinkTablePropertyManager(catalogSettings: IcebergCatalogSettings)
+    extends IcebergTablePropertyManager(catalogSettings)
+    with SinkPropertyManager
+
+class IcebergStagingTablePropertyManager(catalogSettings: IcebergCatalogSettings)
+    extends IcebergTablePropertyManager(catalogSettings)
+    with StagingPropertyManager
+
 object IcebergTablePropertyManager:
 
-  type Environment = SinkSettings
-
-  /** Factory method to create IcebergTablePropertyManager
-    *
-    * @param icebergSettings
-    *   Iceberg settings
-    * @return
-    *   The initialized IcebergTablePropertyManager instance
-    */
-  def apply(icebergSettings: SinkSettings): IcebergTablePropertyManager =
-    new IcebergTablePropertyManager(icebergSettings)
-
-  /** The ZLayer that creates the IcebergTablePropertyManager.
-    */
-  val layer: ZLayer[Environment, Throwable, IcebergTablePropertyManager] =
+  val sinkLayer =
     ZLayer {
       for settings <- ZIO.service[SinkSettings]
-      yield IcebergTablePropertyManager(settings)
+      yield IcebergSinkTablePropertyManager(settings.icebergSinkSettings)
+    }
+
+  val stagingLayer =
+    ZLayer {
+      for settings <- ZIO.service[IcebergStagingSettings]
+      yield IcebergStagingTablePropertyManager(settings)
     }

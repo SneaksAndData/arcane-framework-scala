@@ -9,7 +9,7 @@ import models.settings.sink.SinkSettings
 import services.blobsource.BlobSourceBatch
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.base.TablePropertyManager
+import services.iceberg.base.SinkPropertyManager
 import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
 
 import zio.stream.ZStream
@@ -19,7 +19,7 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class BlobSourceDataProvider(
     sourceReader: BlobSourceReader,
-    propertyManager: TablePropertyManager,
+    propertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     settings: VersionedDataGraphBuilderSettings,
     backfillSettings: BackfillSettings
@@ -69,12 +69,12 @@ class BlobSourceDataProvider(
 
 object BlobSourceDataProvider:
   private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader &
-    TablePropertyManager & SinkSettings
+    SinkPropertyManager & SinkSettings
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
-      propertyManager   <- ZIO.service[TablePropertyManager]
+      propertyManager   <- ZIO.service[SinkPropertyManager]
       sinkSettings      <- ZIO.service[SinkSettings]
       backfillSettings  <- ZIO.service[BackfillSettings]
       blobSource        <- ZIO.service[BlobSourceReader]
