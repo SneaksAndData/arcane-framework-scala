@@ -7,7 +7,6 @@ import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import models.settings.JdbcMergeServiceClientSettings
 import services.base.SchemaProvider
-import services.caching.schema_cache.MutableSchemaCache
 import services.filters.FieldsFilteringService
 import services.merging.*
 import services.merging.maintenance.{
@@ -57,7 +56,6 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       streamContext,
       fieldsFilteringServiceMock,
       TestTablePropertiesSettings,
-      MutableSchemaCache(),
       DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
     )
 
