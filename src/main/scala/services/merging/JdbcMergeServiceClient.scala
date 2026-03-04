@@ -48,7 +48,6 @@ class JdbcMergeServiceClient(
     streamContext: StreamContext,
     fieldsFilteringService: FieldsFilteringService,
     tablePropertiesSettings: TablePropertiesSettings,
-    schemaProviderCache: SchemaCache,
     declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
@@ -180,7 +179,7 @@ object JdbcMergeServiceClient:
   /** The environment type for the JdbcConsumer.
     */
   private type Environment = JdbcMergeServiceClientSettings & SinkSettings & SchemaProvider[ArcaneSchema] &
-    FieldsFilteringService & TablePropertiesSettings & StreamContext & BackfillSettings & SchemaCache & DeclaredMetrics
+    FieldsFilteringService & TablePropertiesSettings & StreamContext & BackfillSettings & DeclaredMetrics
 
   /** Factory method to create JdbcConsumer.
     * @param options
@@ -195,7 +194,6 @@ object JdbcMergeServiceClient:
       streamContext: StreamContext,
       fieldsFilteringService: FieldsFilteringService,
       tablePropertiesSettings: TablePropertiesSettings,
-      schemaProviderManager: SchemaCache,
       declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
@@ -205,7 +203,6 @@ object JdbcMergeServiceClient:
       streamContext,
       fieldsFilteringService,
       tablePropertiesSettings,
-      schemaProviderManager,
       declaredMetrics
     )
 
@@ -221,7 +218,6 @@ object JdbcMergeServiceClient:
           fieldsFilteringService  <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
           streamContext           <- ZIO.service[StreamContext]
-          schemaProviderManager   <- ZIO.service[SchemaCache]
           declaredMetrics         <- ZIO.service[DeclaredMetrics]
         yield JdbcMergeServiceClient(
           connectionOptions,
@@ -230,7 +226,6 @@ object JdbcMergeServiceClient:
           streamContext,
           fieldsFilteringService,
           tablePropertiesSettings,
-          schemaProviderManager,
           declaredMetrics
         )
       }
