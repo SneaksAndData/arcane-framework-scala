@@ -11,6 +11,9 @@ import services.metrics.DeclaredMetrics
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
+import scala.util.Random
+import java.time.Duration
+
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](
     dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
     settings: VersionedDataGraphBuilderSettings,
@@ -20,6 +23,15 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
 ) extends StreamDataProvider:
 
   type StreamElementType = DataRow
+
+  private val rng = Random(settings.changeCaptureJitterSeed)
+
+  private def getNextSleepDuration: Duration =
+    // Calculate range: [base - base * variation, base + base * variation]
+    val baseDuration = settings.changeCaptureInterval.toMillis
+    val offset       = (baseDuration * settings.changeCaptureJitterVariance * (2 * rng.nextDouble() - 1)).toLong
+
+    Duration.ofMillis(baseDuration + offset)
 
   private def nextVersion(version: Task[WatermarkType]) =
     for
@@ -34,11 +46,13 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
         )
       )
       _ <- ZIO.unless(hasVersionUpdated) {
-        for _ <- zlog(
+        for
+          nextSleepDuration <- ZIO.succeed(getNextSleepDuration)
+          _ <- zlog(
             "No changes in watermark version, next check in %s seconds, staying at %s version",
-            settings.changeCaptureInterval.toSeconds.toString,
+            nextSleepDuration.toSeconds.toString,
             previousVersion.version
-          ) *> ZIO.sleep(zio.Duration.fromJava(settings.changeCaptureInterval))
+          ) *> ZIO.sleep(nextSleepDuration)
         yield ()
       }
     yield Some((currentVersion, previousVersion) -> ZIO.succeed(currentVersion))
@@ -48,12 +62,16 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       _         <- zlog("Checking watermark value %s for data changes", previousVersion.version)
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
-        zlog(
-          s"No changes in source data found between watermark value %s and current moment, next check in ${settings.changeCaptureInterval.toSeconds} seconds",
-          previousVersion.version
-        ) *> ZIO.sleep(
-          settings.changeCaptureInterval
-        )
+        for
+          nextSleepDuration <- ZIO.succeed(getNextSleepDuration)
+          _ <- zlog(
+            "No changes in source data found between watermark value %s and current moment, next check in %s seconds",
+            nextSleepDuration.toSeconds.toString,
+            previousVersion.version
+          ) *> ZIO.sleep(
+            nextSleepDuration
+          )
+        yield ()
       }
       _ <- ZIO.when(isChanged) {
         zlog(

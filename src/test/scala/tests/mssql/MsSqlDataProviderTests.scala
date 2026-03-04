@@ -34,7 +34,9 @@ import scala.util.Success
 
 object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val graphSettings = new VersionedDataGraphBuilderSettings {
-    override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
+    override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
+    override val changeCaptureJitterVariance: Double = 0.01
+    override val changeCaptureJitterSeed: Long       = 0
   }
   private val backfillSettings = new BackfillSettings {
     override val backfillBehavior: BackfillBehavior = Overwrite
@@ -48,7 +50,9 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val pkString    = "primary key(x)"
 
   private val settings = new VersionedDataGraphBuilderSettings {
-    override val changeCaptureInterval: Duration = Duration.ofMillis(1)
+    override val changeCaptureInterval: Duration     = Duration.ofMillis(1)
+    override val changeCaptureJitterVariance: Double = 0.01
+    override val changeCaptureJitterSeed: Long       = 0
   }
 
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>

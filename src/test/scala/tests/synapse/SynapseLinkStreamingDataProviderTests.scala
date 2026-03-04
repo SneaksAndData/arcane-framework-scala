@@ -26,7 +26,9 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
   private val graphSettings = new VersionedDataGraphBuilderSettings {
-    override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
+    override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
+    override val changeCaptureJitterVariance: Double = 0.01
+    override val changeCaptureJitterSeed: Long       = 0
   }
   private val backfillSettings = new BackfillSettings {
     override val backfillBehavior: BackfillBehavior = Overwrite
