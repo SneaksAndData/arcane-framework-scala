@@ -42,8 +42,8 @@ class MergeBatchProcessor(
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
           ZIO.unless(batch.isEmpty) {
             for
-              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.split(".").last)
-              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split(".").last)
+              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.split('.').last)
+              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split('.').last)
             yield ()
           }
         )

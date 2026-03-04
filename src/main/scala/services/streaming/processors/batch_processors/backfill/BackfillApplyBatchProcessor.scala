@@ -32,8 +32,8 @@ class BackfillApplyBatchProcessor(
     ZPipeline.mapZIO(batch =>
       for
         _            <- zlog("Applying backfill batch with name to %s", batch.targetTableName)
-        targetSchema <- propertyManager.getTableSchema(batch.targetTableName.split(".").last)
-        _            <- entityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split(".").last)
+        targetSchema <- propertyManager.getTableSchema(batch.targetTableName.split('.').last)
+        _            <- entityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split('.').last)
         _            <- mergeServiceClient.applyBatch(batch)
       yield batch
     )

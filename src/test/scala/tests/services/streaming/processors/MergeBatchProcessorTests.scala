@@ -4,14 +4,16 @@ package tests.services.streaming.processors
 import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.LongType
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
-import services.base.{BatchOptimizationResult, MergeServiceClient, TableManager}
+import services.base.{BatchOptimizationResult, MergeServiceClient}
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.{NullDimensionsProvider, TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
 
+import org.apache.iceberg.Schema
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -28,10 +30,11 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     .takeWhile(_ < 20)
     .map { i =>
       val schema = ArcaneSchema(Seq(MergeKeyField))
-      val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings, None)
+      val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "catalog.schema.target", TablePropertiesSettings, None)
 
       val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
-      val secondBatch  = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings, None)
+      val secondBatch =
+        SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "catalog.schema.target", TablePropertiesSettings, None)
 
       TestIndexedStagedBatches(Seq(batch, secondBatch), i)
     }
@@ -47,6 +50,10 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
+      sinkPropertyManager
+        .getTableSchema(EasyMock.anyString())
+        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .times(40)
       sinkEntityManager
         .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
         .andReturn(ZIO.unit)
@@ -61,8 +68,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         .times(20)
       tableManager.analyzeTable(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
     }
-    replay(mergeServiceClient)
-    replay(tableManager)
+    replay(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager)
 
     val mergeBatchProcessor =
       MergeBatchProcessor(
@@ -96,6 +102,10 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
+      sinkPropertyManager
+        .getTableSchema(EasyMock.anyString())
+        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .times(40)
       sinkEntityManager
         .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
         .andReturn(ZIO.unit)
@@ -105,8 +115,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       tableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.analyzeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
-    replay(mergeServiceClient)
-    replay(tableManager)
+    replay(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager)
 
     val mergeBatchProcessor =
       MergeBatchProcessor(
