@@ -1,18 +1,21 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import logging.ZIOLogAnnotations.zlog
-import models.schemas.{DataRow, JsonWatermarkRow}
+import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
-import services.streaming.base.{BackfillDataProvider, VersionedDataProvider}
+import services.mssql.versioning.MsSqlWatermark.*
+import services.streaming.base.DefaultSourceDataProvider
+import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
+
+import java.time.OffsetDateTime
 
 /** A data provider that reads the changes from the Microsoft SQL Server.
   * @param reader
@@ -20,18 +23,17 @@ import zio.{Task, ZIO, ZLayer}
   */
 class MsSqlDataProvider(
     reader: MsSqlReader,
-    propertyManager: SinkPropertyManager,
+    sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings
-) extends VersionedDataProvider[MsSqlWatermark, DataRow]
-    with BackfillDataProvider[DataRow]:
-
-  override def requestChanges(
-      previousVersion: MsSqlWatermark,
-      nextVersion: MsSqlWatermark
-  ): ZStream[Any, Throwable, DataRow] =
-    reader.getChanges(previousVersion).concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
+    backfillSettings: BackfillSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder
+) extends DefaultSourceDataProvider[MsSqlWatermark](
+      sinkPropertyManager,
+      sinkSettings,
+      backfillSettings,
+      throughputShaperBuilder
+    ):
 
   def hasChanges(previousVersion: MsSqlWatermark): Task[Boolean] = reader.hasChanges(previousVersion)
 
@@ -48,30 +50,14 @@ class MsSqlDataProvider(
         }
     yield version
 
-  /** The first version of the data.
-    */
-  override def firstVersion: Task[MsSqlWatermark] =
-    for
-      watermarkString <- propertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
-      _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
-      watermark <- ZIO
-        .attempt(MsSqlWatermark.fromJson(watermarkString))
-        .orDieWith(e =>
-          new Throwable(
-            s"Target contains invalid watermark: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
-            e
-          )
-        )
-    yield watermark
+  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow] =
+    reader.backfill
 
-  /** Provides the backfill data.
-    *
-    * @return
-    *   A task that represents the backfill data.
-    */
-  override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
-    .fromZIO(getCurrentVersion(MsSqlWatermark.epoch))
-    .flatMap(watermark => reader.backfill.concat(ZStream.succeed(JsonWatermarkRow(watermark))))
+  override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
+    reader.getChanges(previousVersion)
+
+  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): MsSqlWatermark =
+    MsSqlWatermark.epoch
 
 /** The companion object for the MsSqlDataProvider class.
   */
@@ -87,11 +73,13 @@ object MsSqlDataProvider:
         propertyManager   <- ZIO.service[SinkPropertyManager]
         sinkSettings      <- ZIO.service[SinkSettings]
         backfillSettings  <- ZIO.service[BackfillSettings]
+        shaperBuilder     <- ZIO.service[ThroughputShaperBuilder]
       yield new MsSqlDataProvider(
         reader,
         propertyManager,
         sinkSettings,
         versionedSettings,
-        backfillSettings
+        backfillSettings,
+        shaperBuilder
       )
     }

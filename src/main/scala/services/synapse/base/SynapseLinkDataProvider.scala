@@ -1,17 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
-import logging.ZIOLogAnnotations.zlog
-import models.schemas.{DataRow, JsonWatermarkRow}
+import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
-import services.iceberg.base.{SinkPropertyManager, TablePropertyManager}
-import services.streaming.base.{BackfillDataProvider, DefaultSourceDataProvider, VersionedDataProvider}
-import services.streaming.throughput.base.{ThroughputShaper, ThroughputShaperBuilder}
-import services.synapse.SynapseLinkBatch
+import services.iceberg.base.SinkPropertyManager
+import services.streaming.base.DefaultSourceDataProvider
+import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.versioning.SynapseWatermark
-import services.synapse.versioning.SynapseWatermark._
+import services.synapse.versioning.SynapseWatermark.*
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
