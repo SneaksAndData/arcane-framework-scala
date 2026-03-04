@@ -10,3 +10,11 @@ trait VersionedDataGraphBuilderSettings:
   /** The interval for periodic change capture operation.
     */
   val changeCaptureInterval: Duration
+
+  /** Variance to apply to the `changeCaptureInterval`
+    */
+  val changeCaptureJitterVariance: Double
+
+  /** Seed for `changeCaptureJitterVariance`
+    */
+  val changeCaptureJitterSeed: Long
