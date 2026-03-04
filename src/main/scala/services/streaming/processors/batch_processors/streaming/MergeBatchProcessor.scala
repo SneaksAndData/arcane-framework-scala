@@ -40,11 +40,11 @@ class MergeBatchProcessor(
           batchesSet.batchIndex.toString
         )
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
-          ZIO.unless(batch.isEmpty){
+          ZIO.unless(batch.isEmpty) {
             for
               targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.split(".").last)
               _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split(".").last)
-            yield ()  
+            yield ()
           }
         )
         _ <- ZIO
@@ -94,11 +94,19 @@ object MergeBatchProcessor:
       targetTableSettings: SinkSettings,
       declaredMetrics: DeclaredMetrics
   ): MergeBatchProcessor =
-    new MergeBatchProcessor(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager, targetTableSettings, declaredMetrics)
+    new MergeBatchProcessor(
+      mergeServiceClient,
+      tableManager,
+      sinkEntityManager,
+      sinkPropertyManager,
+      targetTableSettings,
+      declaredMetrics
+    )
 
   /** The required environment for the MergeBatchProcessor.
     */
-  type Environment = MergeServiceClient & SinkSettings & SinkEntityManager & SinkPropertyManager & JdbcTableManager & DeclaredMetrics
+  type Environment = MergeServiceClient & SinkSettings & SinkEntityManager & SinkPropertyManager & JdbcTableManager &
+    DeclaredMetrics
 
   /** The ZLayer that creates the MergeProcessor.
     */
@@ -107,9 +115,16 @@ object MergeBatchProcessor:
       for
         jdbcConsumer        <- ZIO.service[MergeServiceClient]
         targetTableSettings <- ZIO.service[SinkSettings]
-        sinkEntityManager        <- ZIO.service[SinkEntityManager]
-        sinkPropertyManager        <- ZIO.service[SinkPropertyManager]
-        tableManager <- ZIO.service[JdbcTableManager]
+        sinkEntityManager   <- ZIO.service[SinkEntityManager]
+        sinkPropertyManager <- ZIO.service[SinkPropertyManager]
+        tableManager        <- ZIO.service[JdbcTableManager]
         declaredMetrics     <- ZIO.service[DeclaredMetrics]
-      yield MergeBatchProcessor(jdbcConsumer, sinkEntityManager, sinkPropertyManager, tableManager, targetTableSettings, declaredMetrics)
+      yield MergeBatchProcessor(
+        jdbcConsumer,
+        sinkEntityManager,
+        sinkPropertyManager,
+        tableManager,
+        targetTableSettings,
+        declaredMetrics
+      )
     }

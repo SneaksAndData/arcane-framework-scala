@@ -32,11 +32,10 @@ trait CatalogEntityManager:
     */
   def deleteTables(prefix: String): Task[Unit]
 
-  /**
-   * Migrates the table from oldSchema to newSchema by adding missing fields.
-   * Not supported: type updates, renames and deletion
-   * @return
-   */
+  /** Migrates the table from oldSchema to newSchema by adding missing fields. Not supported: type updates, renames and
+    * deletion
+    * @return
+    */
   def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Unit]
 
 /** Entity manager for sink catalog

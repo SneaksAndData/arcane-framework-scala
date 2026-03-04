@@ -75,7 +75,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager      <- ZIO.service[StagingPropertyManager]
+        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
         backfillSettings        <- ZIO.service[BackfillSettings]
         targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]

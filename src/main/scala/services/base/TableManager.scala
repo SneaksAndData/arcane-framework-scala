@@ -96,7 +96,7 @@ trait TableManager:
   def expireOrphanFiles(
       orphanFilesExpirationRequest: Option[OrphanFilesExpirationRequest]
   ): Task[BatchOptimizationResult]
-  
+
   /** Runs ANALYZE on the table
     * @return
     */

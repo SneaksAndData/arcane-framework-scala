@@ -64,7 +64,7 @@ class JdbcMergeServiceClient(
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
-  
+
   /** @inheritdoc
     */
   override def applyBatch(batch: Batch): Task[BatchApplicationResult] =
@@ -119,7 +119,7 @@ class JdbcMergeServiceClient(
           _ => BatchOptimizationResult(false)
         ).gaugeDuration(declaredMetrics.targetRemoveOrphanDuration)
       case _ => ZIO.succeed(BatchOptimizationResult(true))
-  
+
   /** @inheritdoc
     */
   override def close(): Unit = sqlConnection.close()

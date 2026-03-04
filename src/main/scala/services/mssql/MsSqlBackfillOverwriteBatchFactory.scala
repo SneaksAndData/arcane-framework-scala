@@ -57,7 +57,7 @@ object MsSqlBackfillOverwriteBatchFactory:
     *   The MsSqlBackfillBatchFactory instance.
     */
   def apply(
-             stagingPropertyManager: StagingPropertyManager,
+      stagingPropertyManager: StagingPropertyManager,
       backfillSettings: BackfillSettings,
       targetTableSettings: SinkSettings,
       tablePropertiesSettings: TablePropertiesSettings
@@ -74,7 +74,7 @@ object MsSqlBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager      <- ZIO.service[StagingPropertyManager]
+        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
         backfillSettings        <- ZIO.service[BackfillSettings]
         targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]

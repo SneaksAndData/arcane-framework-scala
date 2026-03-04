@@ -73,11 +73,15 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
 
   override def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Unit] = for
     diff <- ZIO.succeed(oldSchema.getMissingFields(newSchema))
-    _ <- ZIO.when(diff.nonEmpty) { 
+    _ <- ZIO.when(diff.nonEmpty) {
       for
-        _ <- zlog("Target schema of %s needs an update, will add the following fields: %s", tableName, diff.map(f => s"${f.name}/${f.fieldType.toString}").mkString(","))
-        tableId <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, tableName))
-        catalog <- catalogFactory.getCatalog
+        _ <- zlog(
+          "Target schema of %s needs an update, will add the following fields: %s",
+          tableName,
+          diff.map(f => s"${f.name}/${f.fieldType.toString}").mkString(",")
+        )
+        tableId  <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, tableName))
+        catalog  <- catalogFactory.getCatalog
         tableRef <- ZIO.attemptBlockingIO(catalog.loadTable(catalogFactory.getSessionContext, tableId))
         updateBuilder <- ZIO.attempt(diff.foldLeft(tableRef.updateSchema()) { (builder, field) =>
           builder.addColumn(field.name, field.fieldType)

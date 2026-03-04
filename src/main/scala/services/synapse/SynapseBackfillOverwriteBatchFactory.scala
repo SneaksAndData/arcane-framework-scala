@@ -23,7 +23,7 @@ import zio.{Task, ZIO, ZLayer}
   *   The table properties settings.
   */
 class SynapseBackfillOverwriteBatchFactory(
-                                            stagingTablePropertyManager: StagingPropertyManager,
+    stagingTablePropertyManager: StagingPropertyManager,
     backfillSettings: BackfillSettings,
     targetTableSettings: SinkSettings,
     tablePropertiesSettings: TablePropertiesSettings
@@ -78,7 +78,7 @@ object SynapseBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager      <- ZIO.service[StagingPropertyManager]
+        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
         backfillSettings        <- ZIO.service[BackfillSettings]
         targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
