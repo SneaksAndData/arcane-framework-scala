@@ -5,6 +5,8 @@ import logging.ZIOLogAnnotations.*
 import models.settings.*
 import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
@@ -18,6 +20,8 @@ import zio.{ZIO, ZLayer}
 class MergeBatchProcessor(
     mergeServiceClient: MergeServiceClient,
     tableManager: JdbcTableManager,
+    sinkEntityManager: SinkEntityManager,
+    sinkPropertyManager: SinkPropertyManager,
     targetTableSettings: SinkSettings,
     declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
@@ -36,7 +40,12 @@ class MergeBatchProcessor(
           batchesSet.batchIndex.toString
         )
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
-          ZIO.unless(batch.isEmpty)(tableManager.migrateSchema(batch.schema, batch.targetTableName))
+          ZIO.unless(batch.isEmpty) {
+            for
+              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.split('.').last)
+              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split('.').last)
+            yield ()
+          }
         )
         _ <- ZIO
           .foreach(batchesSet.groupedBySchema)(batch => ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch)))
@@ -72,8 +81,6 @@ object MergeBatchProcessor:
     *
     * @param mergeServiceClient
     *   The JDBC consumer.
-    * @param tableManager
-    *   The table manager.
     * @param targetTableSettings
     *   The target table settings.
     * @return
@@ -81,15 +88,25 @@ object MergeBatchProcessor:
     */
   def apply(
       mergeServiceClient: MergeServiceClient,
+      sinkEntityManager: SinkEntityManager,
+      sinkPropertyManager: SinkPropertyManager,
       tableManager: JdbcTableManager,
       targetTableSettings: SinkSettings,
       declaredMetrics: DeclaredMetrics
   ): MergeBatchProcessor =
-    new MergeBatchProcessor(mergeServiceClient, tableManager, targetTableSettings, declaredMetrics)
+    new MergeBatchProcessor(
+      mergeServiceClient,
+      tableManager,
+      sinkEntityManager,
+      sinkPropertyManager,
+      targetTableSettings,
+      declaredMetrics
+    )
 
   /** The required environment for the MergeBatchProcessor.
     */
-  type Environment = MergeServiceClient & SinkSettings & JdbcTableManager & DeclaredMetrics
+  type Environment = MergeServiceClient & SinkSettings & SinkEntityManager & SinkPropertyManager & JdbcTableManager &
+    DeclaredMetrics
 
   /** The ZLayer that creates the MergeProcessor.
     */
@@ -98,7 +115,16 @@ object MergeBatchProcessor:
       for
         jdbcConsumer        <- ZIO.service[MergeServiceClient]
         targetTableSettings <- ZIO.service[SinkSettings]
+        sinkEntityManager   <- ZIO.service[SinkEntityManager]
+        sinkPropertyManager <- ZIO.service[SinkPropertyManager]
         tableManager        <- ZIO.service[JdbcTableManager]
         declaredMetrics     <- ZIO.service[DeclaredMetrics]
-      yield MergeBatchProcessor(jdbcConsumer, tableManager, targetTableSettings, declaredMetrics)
+      yield MergeBatchProcessor(
+        jdbcConsumer,
+        sinkEntityManager,
+        sinkPropertyManager,
+        tableManager,
+        targetTableSettings,
+        declaredMetrics
+      )
     }

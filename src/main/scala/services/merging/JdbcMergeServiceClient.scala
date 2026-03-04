@@ -3,28 +3,22 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
-import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
-import models.settings.backfill.BackfillBehavior.Overwrite
+import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.{JdbcMergeServiceClientSettings, TablePropertiesSettings}
 import services.base.*
 import services.filters.FieldsFilteringService
-import services.iceberg.SchemaConversions
-import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
-import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
-import utils.SqlUtils.readArcaneSchema
 
-import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{DecimalType, ListType, StructType, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager, ResultSet}
+import java.sql.{Connection, DriverManager}
 import scala.jdk.CollectionConverters.*
 
 trait JdbcTableManager extends TableManager:
@@ -42,24 +36,6 @@ trait JdbcTableManager extends TableManager:
 
   override type TableAnalyzeRequest = JdbcAnalyzeRequest
 
-class JdbcSchemaProvider(tableName: String, sqlConnection: Connection) extends SchemaProvider[ArcaneSchema]:
-  /** @inheritdoc
-    */
-  override def getSchema: Task[ArcaneSchema] =
-    val query = s"SELECT * FROM $tableName where true and false"
-    ZIO.scoped {
-      for
-        statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
-        resultSet <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery()))
-        tryFields <- ZIO.attemptBlocking(resultSet.readArcaneSchema)
-        fields    <- ZIO.fromTry(tryFields)
-      yield fields
-    }
-
-  def empty: ArcaneSchema = ArcaneSchema.empty()
-
-type SchemaProviderFactory = (String, Connection) => SchemaProvider[ArcaneSchema]
-
 /** A consumer that consumes batches from a JDBC source.
   *
   * @param options
@@ -70,11 +46,9 @@ class JdbcMergeServiceClient(
     targetTableSettings: SinkSettings,
     backfillTableSettings: BackfillSettings,
     streamContext: StreamContext,
-    schemaProvider: SchemaProvider[ArcaneSchema],
     fieldsFilteringService: FieldsFilteringService,
     tablePropertiesSettings: TablePropertiesSettings,
     schemaProviderCache: SchemaCache,
-    maybeSchemaProviderFactory: Option[SchemaProviderFactory],
     declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
@@ -84,9 +58,6 @@ class JdbcMergeServiceClient(
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
-
-  private val schemaProviderFactory =
-    maybeSchemaProviderFactory.getOrElse((name, connection) => new JdbcSchemaProvider(name, connection))
 
   /** @inheritdoc
     */
@@ -145,55 +116,6 @@ class JdbcMergeServiceClient(
 
   /** @inheritdoc
     */
-  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit] =
-    for
-      targetSchema <- getSchema(tableName)
-      missingFields = targetSchema.getMissingFields(newSchema)
-      _ <- addColumns(tableName, missingFields)
-    yield ()
-
-  private def dropTable(tableName: String): Task[Unit] =
-    val sql = s"DROP TABLE IF EXISTS $tableName"
-    ZIO.scoped {
-      for
-        statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(sql)))
-        _         <- zlog("Dropping table: %s", tableName)
-        _         <- ZIO.attemptBlocking(statement.execute())
-      yield ()
-    }
-
-  def getSchema(tableName: String): Task[ArcaneSchema] =
-    schemaProviderCache.getSchemaProvider(tableName, name => schemaProviderFactory(name, sqlConnection))
-
-  private def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] = missingFields match
-    case Seq() => ZIO.unit
-    case _ =>
-      for
-        _ <- ZIO.foreach(missingFields)(field => {
-          val query =
-            generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-          ZIO.scoped {
-            for
-              _ <- zlog(
-                "Adding column to table %s, field %s type %s, query: %s",
-                targetTableName,
-                field.name,
-                field.fieldType.toString,
-                query
-              )
-              statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(sqlConnection.prepareStatement(query)))
-              _         <- ZIO.attemptBlocking(statement.execute())
-            yield ()
-          }
-        })
-        _ <- schemaProviderCache.refreshSchemaProvider(
-          targetTableName,
-          name => schemaProviderFactory(name, sqlConnection)
-        )
-      yield ()
-
-  /** @inheritdoc
-    */
   override def close(): Unit = sqlConnection.close()
 
   private type ResultMapper[Result] = Boolean => Result
@@ -224,21 +146,6 @@ class JdbcMergeServiceClient(
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
 object JdbcMergeServiceClient:
-
-  private def readStrings(row: ResultSet): List[String] =
-    Iterator
-      .iterate(row.next())(_ => row.next())
-      .takeWhile(identity)
-      .map(_ => row.getString(1))
-      .toList
-
-  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
-    s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
-
-  def generateCreateTableSQL(tableName: String, schema: Schema, properties: TablePropertiesSettings): String =
-    val columns =
-      schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
-    s"CREATE TABLE IF NOT EXISTS $tableName ($columns) ${properties.serializeToWithExpression}"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
   extension (icebergType: Type)
@@ -286,11 +193,9 @@ object JdbcMergeServiceClient:
       targetTableSettings: SinkSettings,
       backfillTableSettings: BackfillSettings,
       streamContext: StreamContext,
-      schemaProvider: SchemaProvider[ArcaneSchema],
       fieldsFilteringService: FieldsFilteringService,
       tablePropertiesSettings: TablePropertiesSettings,
       schemaProviderManager: SchemaCache,
-      maybeSchemaProviderFactory: Option[SchemaProviderFactory],
       declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
@@ -298,11 +203,9 @@ object JdbcMergeServiceClient:
       targetTableSettings,
       backfillTableSettings,
       streamContext,
-      schemaProvider,
       fieldsFilteringService,
       tablePropertiesSettings,
       schemaProviderManager,
-      maybeSchemaProviderFactory,
       declaredMetrics
     )
 
@@ -315,7 +218,6 @@ object JdbcMergeServiceClient:
           connectionOptions       <- ZIO.service[JdbcMergeServiceClientSettings]
           targetTableSettings     <- ZIO.service[SinkSettings]
           backfillTableSettings   <- ZIO.service[BackfillSettings]
-          schemaProvider          <- ZIO.service[SchemaProvider[ArcaneSchema]]
           fieldsFilteringService  <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
           streamContext           <- ZIO.service[StreamContext]
@@ -326,11 +228,9 @@ object JdbcMergeServiceClient:
           targetTableSettings,
           backfillTableSettings,
           streamContext,
-          schemaProvider,
           fieldsFilteringService,
           tablePropertiesSettings,
           schemaProviderManager,
-          None,
           declaredMetrics
         )
       }

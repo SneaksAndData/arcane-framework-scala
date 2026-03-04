@@ -5,10 +5,12 @@ import models.batches.SynapseLinkBackfillOverwriteBatch
 import models.schemas.ArcaneType.LongType
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.MergeServiceClient
-import services.merging.JdbcTableManager
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import tests.shared.TablePropertiesSettings
 
+import org.apache.iceberg.Schema
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -36,21 +38,26 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
 
   it should "run applies" in {
     // Arrange
-    val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager       = mock[JdbcTableManager]
+    val mergeServiceClient  = mock[MergeServiceClient]
+    val sinkPropertyManager = mock[SinkPropertyManager]
+    val sinkEntityManager   = mock[SinkEntityManager]
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(testInput.length)
-      tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(testInput.length)
+      sinkPropertyManager
+        .getTableSchema(EasyMock.anyString())
+        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .times(testInput.length)
+      sinkEntityManager
+        .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
+        .andReturn(ZIO.unit)
+        .times(testInput.length)
 
-      tableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
-      tableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
-      tableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
     }
-    replay(mergeServiceClient, tableManager)
+    replay(mergeServiceClient, sinkEntityManager, sinkPropertyManager)
 
-    val processor = BackfillApplyBatchProcessor(mergeServiceClient, tableManager)
+    val processor = BackfillApplyBatchProcessor(mergeServiceClient, sinkEntityManager, sinkPropertyManager)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(processor.process).runCollect
@@ -58,7 +65,6 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       verify(mergeServiceClient)
-      verify(tableManager)
       result should contain theSameElementsInOrderAs testInput
     }
   }

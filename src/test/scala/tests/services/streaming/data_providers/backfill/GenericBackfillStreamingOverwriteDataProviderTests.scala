@@ -227,6 +227,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         FieldsFilteringService.layer,
         GenericBackfillStreamingOverwriteDataProvider.layer,
         IcebergEntityManager.stagingLayer,
+        IcebergEntityManager.sinkLayer,
         IcebergS3CatalogWriter.layer,
 
         // Settings

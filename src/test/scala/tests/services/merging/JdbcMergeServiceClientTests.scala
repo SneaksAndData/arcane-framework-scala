@@ -49,17 +49,15 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       */
     override val connectionUrl: String = connectionUri
 
-  private def getJdbcMergeServiceClient(schemaProviderFactory: Option[SchemaProviderFactory]) =
+  private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
       TestSinkSettings,
       TestBackfillTableSettings,
       streamContext,
-      schemaProviderMock,
       fieldsFilteringServiceMock,
       TestTablePropertiesSettings,
       MutableSchemaCache(),
-      schemaProviderFactory,
       DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
     )
 
@@ -117,7 +115,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         _ <- setupTable(tableName)
 
         connection <- getConnection
-        mergeServiceClient = getJdbcMergeServiceClient(None)
+        mergeServiceClient = getJdbcMergeServiceClient
         _  <- mergeServiceClient.applyBatch(batch)
         rs <- ZIO.attemptBlocking(connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}"))
         _  <- ZIO.attemptBlocking(rs.next())
@@ -138,7 +136,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         _ <- setupTable(tableName)
 
         connection <- getConnection
-        mergeServiceClient = getJdbcMergeServiceClient(None)
+        mergeServiceClient = getJdbcMergeServiceClient
         _  <- mergeServiceClient.disposeBatch(batch)
         rs <- ZIO.attemptBlocking(connection.getMetaData.getTables(null, null, s"staged_$tableName", null))
         stagingTableExists <- ZIO.attemptBlocking(rs.next())
@@ -159,7 +157,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         _ <- setupTable(tableName)
 
         request            = Some(JdbcOptimizationRequest(tableName, 10, "1MB", 9))
-        mergeServiceClient = getJdbcMergeServiceClient(None)
+        mergeServiceClient = getJdbcMergeServiceClient
         result <- mergeServiceClient.optimizeTable(request)
       yield assertTrue(!result.skipped)
     },
@@ -178,7 +176,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         _ <- setupTable(tableName)
 
         request            = Some(JdbcSnapshotExpirationRequest(tableName, 10, "8d", 9))
-        mergeServiceClient = getJdbcMergeServiceClient(None)
+        mergeServiceClient = getJdbcMergeServiceClient
         result <- mergeServiceClient.expireSnapshots(request)
       yield assertTrue(!result.skipped)
     },
@@ -197,65 +195,8 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         _ <- setupTable(tableName)
 
         request            = Some(JdbcOrphanFilesExpirationRequest(tableName, 10, "8d", 9))
-        mergeServiceClient = getJdbcMergeServiceClient(None)
+        mergeServiceClient = getJdbcMergeServiceClient
         result <- mergeServiceClient.expireOrphanFiles(request)
       yield assertTrue(!result.skipped)
-    },
-    test("performs schema migrations") {
-      for
-        tableName <- ZIO.succeed("table_schema_migrated")
-        batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(
-            s"test.staged_$tableName",
-            schema,
-            s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
-          )
-        )
-        _ <- setupTable(tableName)
-        updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
-          Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
-          Field("new_column", StringType) :: Nil
-
-        mergeServiceClient = getJdbcMergeServiceClient(None)
-        result <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
-
-        newSchema <- mergeServiceClient.getSchema(tableName)
-      yield assertTrue(newSchema == updatedSchema)
-    },
-    test("reads schema once during schema migrations") {
-      var callCount = 0
-
-      def schemaProviderFactory(name: String, connection: Connection) =
-        callCount = callCount + 1
-        new JdbcSchemaProvider(name, connection)
-
-      for
-        tableName <- ZIO.succeed("table_schema_migrations")
-        batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(
-            s"test.staged_$tableName",
-            schema,
-            s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
-          )
-        )
-        _ <- setupTable(tableName)
-        updatedSchema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) ::
-          Field("colA", StringType) :: Field("colB", StringType) :: Field("Id", StringType) ::
-          Field("new_column", StringType) :: Nil
-
-        mergeServiceClient = getJdbcMergeServiceClient(Some(schemaProviderFactory))
-        // The schema provider should be called twice, once for the original schema and once for the updated schema
-        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName) // First and second calls here
-        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
-        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
-        _ <- mergeServiceClient.migrateSchema(updatedSchema, tableName)
-        _ <- mergeServiceClient.getSchema(tableName)
-
-        newSchema <- mergeServiceClient.getSchema(tableName)
-      yield assertTrue(callCount == 2)
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

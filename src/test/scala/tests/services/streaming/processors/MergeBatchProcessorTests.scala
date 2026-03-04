@@ -5,12 +5,15 @@ import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.LongType
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.{NullDimensionsProvider, TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
 
+import org.apache.iceberg.Schema
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -27,24 +30,34 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     .takeWhile(_ < 20)
     .map { i =>
       val schema = ArcaneSchema(Seq(MergeKeyField))
-      val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "target", TablePropertiesSettings, None)
+      val batch  = SynapseLinkMergeBatch(s"staging_$i", schema, "catalog.schema.target", TablePropertiesSettings, None)
 
       val secondSchema = ArcaneSchema(Seq(MergeKeyField, Field("field", LongType)))
-      val secondBatch  = SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "target", TablePropertiesSettings, None)
+      val secondBatch =
+        SynapseLinkMergeBatch(s"staging_0_$i", secondSchema, "catalog.schema.target", TablePropertiesSettings, None)
 
       TestIndexedStagedBatches(Seq(batch, secondBatch), i)
     }
 
   it should "run merges, optimizations and schema migrations attempts" in {
     // Arrange
-    val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager       = mock[JdbcTableManager]
-    val declaredMetrics    = DeclaredMetrics(NullDimensionsProvider)
+    val mergeServiceClient  = mock[MergeServiceClient]
+    val sinkPropertyManager = mock[SinkPropertyManager]
+    val sinkEntityManager   = mock[SinkEntityManager]
+    val tableManager        = mock[JdbcTableManager]
+    val declaredMetrics     = DeclaredMetrics(NullDimensionsProvider)
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
-      tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(40)
+      sinkPropertyManager
+        .getTableSchema(EasyMock.anyString())
+        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .times(40)
+      sinkEntityManager
+        .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
+        .andReturn(ZIO.unit)
+        .times(40)
 
       // Calling once for each batch set
       tableManager.optimizeTable(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
@@ -55,11 +68,17 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         .times(20)
       tableManager.analyzeTable(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
     }
-    replay(mergeServiceClient)
-    replay(tableManager)
+    replay(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettingsWithMaintenance, declaredMetrics)
+      MergeBatchProcessor(
+        mergeServiceClient,
+        sinkEntityManager,
+        sinkPropertyManager,
+        tableManager,
+        TestSinkSettingsWithMaintenance,
+        declaredMetrics
+      )
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
@@ -74,24 +93,39 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
 
   it should "not run optimizations if no settings provided" in {
     // Arrange
-    val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager       = mock[JdbcTableManager]
-    val declaredMetrics    = DeclaredMetrics(NullDimensionsProvider)
+    val mergeServiceClient  = mock[MergeServiceClient]
+    val sinkPropertyManager = mock[SinkPropertyManager]
+    val sinkEntityManager   = mock[SinkEntityManager]
+    val tableManager        = mock[JdbcTableManager]
+    val declaredMetrics     = DeclaredMetrics(NullDimensionsProvider)
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
-      tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(40)
+      sinkPropertyManager
+        .getTableSchema(EasyMock.anyString())
+        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .times(40)
+      sinkEntityManager
+        .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
+        .andReturn(ZIO.unit)
+        .times(40)
       tableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.analyzeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
-    replay(mergeServiceClient)
-    replay(tableManager)
+    replay(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager)
 
     val mergeBatchProcessor =
-      MergeBatchProcessor(mergeServiceClient, tableManager, TestSinkSettings, declaredMetrics)
+      MergeBatchProcessor(
+        mergeServiceClient,
+        sinkEntityManager,
+        sinkPropertyManager,
+        tableManager,
+        TestSinkSettings,
+        declaredMetrics
+      )
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(mergeBatchProcessor.process).runCollect
