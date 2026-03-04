@@ -9,6 +9,7 @@ import services.merging.JdbcTableManager
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import tests.shared.TablePropertiesSettings
 
+import com.sneaksanddata.arcane.framework.services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -37,20 +38,18 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
   it should "run applies" in {
     // Arrange
     val mergeServiceClient = mock[MergeServiceClient]
-    val tableManager       = mock[JdbcTableManager]
+    val sinkPropertyManager = mock[SinkPropertyManager]
+    val sinkEntityManager = mock[SinkEntityManager]
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(testInput.length)
-      tableManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(testInput.length)
-
-      tableManager.optimizeTable(None).andReturn(ZIO.unit).anyTimes()
-      tableManager.expireSnapshots(None).andReturn(ZIO.unit).anyTimes()
-      tableManager.expireOrphanFiles(None).andReturn(ZIO.unit).anyTimes()
+      sinkEntityManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(testInput.length)
+      
     }
-    replay(mergeServiceClient, tableManager)
+    replay(mergeServiceClient)
 
-    val processor = BackfillApplyBatchProcessor(mergeServiceClient, tableManager)
+    val processor = BackfillApplyBatchProcessor(mergeServiceClient, sinkEntityManager, sinkPropertyManager)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(processor.process).runCollect
@@ -58,7 +57,6 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       verify(mergeServiceClient)
-      verify(tableManager)
       result should contain theSameElementsInOrderAs testInput
     }
   }

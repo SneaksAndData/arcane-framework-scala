@@ -158,6 +158,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         FieldsFilteringService.layer,
         GenericBackfillStreamingMergeDataProvider.layer,
         IcebergEntityManager.stagingLayer,
+        IcebergEntityManager.sinkLayer,
         IcebergS3CatalogWriter.layer,
 
         // Settings
