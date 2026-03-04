@@ -29,32 +29,36 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
 
   private val throughputShaper = throughputShaperBuilder.build
 
-  final override def requestChanges(
-      previousVersion: WatermarkType,
-      nextVersion: WatermarkType
-  ): ZStream[Any, Throwable, DataRow] = throughputShaper
-    .shapeStream(changeStream(previousVersion, nextVersion))
-    .concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
-
   /** Implements data streaming logic for public `requestChanges`
+    *
     * @param previousVersion
     *   Previous watermark
-    * @param nextVersion
-    *   Current watermark
     * @return
     */
   protected def changeStream(
-      previousVersion: WatermarkType,
-      nextVersion: WatermarkType
+      previousVersion: WatermarkType
   ): ZStream[Any, Throwable, DataRow]
 
   /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
+    *
     * @param startTime
     * @return
     */
   protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): WatermarkType
 
+  /** Implements data streaming logic for public `requestBackfill`
+    *
+    * @param backfillStartDate
+    * @return
+    */
   protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow]
+
+  final override def requestChanges(
+      previousVersion: WatermarkType,
+      nextVersion: WatermarkType
+  ): ZStream[Any, Throwable, DataRow] = throughputShaper
+    .shapeStream(changeStream(previousVersion))
+    .concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   final override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
     .fromZIO(getCurrentVersion(getBackfillStartWatermark(backfillSettings.backfillStartDate)))
