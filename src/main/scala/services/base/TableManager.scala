@@ -96,18 +96,7 @@ trait TableManager:
   def expireOrphanFiles(
       orphanFilesExpirationRequest: Option[OrphanFilesExpirationRequest]
   ): Task[BatchOptimizationResult]
-
-  /** Migrates the schema of a table.
-    *
-    * @param newSchema
-    *   The new schema coming from the batch.
-    * @param tableName
-    *   The name of the table.
-    * @return
-    *   The result of the schema migration operation.
-    */
-  def migrateSchema(newSchema: ArcaneSchema, tableName: String): Task[Unit]
-
+  
   /** Runs ANALYZE on the table
     * @return
     */

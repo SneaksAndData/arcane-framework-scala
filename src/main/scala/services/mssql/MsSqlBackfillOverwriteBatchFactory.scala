@@ -5,14 +5,13 @@ import models.batches.{SqlServerChangeTrackingBackfillBatch, StagedBackfillOverw
 import models.settings.TablePropertiesSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
-import services.merging.JdbcMergeServiceClient
+import services.iceberg.base.StagingPropertyManager
 import services.streaming.base.BackfillOverwriteBatchFactory
+import services.iceberg.given_Conversion_Schema_ArcaneSchema
 
 import zio.{Task, ZIO, ZLayer}
 
 /** A factory that creates a backfill batch for the SQL Server data source.
-  * @param jdbcMergeServiceClient
-  *   The JDBC merge service client.
   * @param backfillSettings
   *   The backfill settings.
   * @param targetTableSettings
@@ -21,7 +20,7 @@ import zio.{Task, ZIO, ZLayer}
   *   The table properties settings.
   */
 class MsSqlBackfillOverwriteBatchFactory(
-    jdbcMergeServiceClient: JdbcMergeServiceClient,
+    stagingPropertyManager: StagingPropertyManager,
     backfillSettings: BackfillSettings,
     targetTableSettings: SinkSettings,
     tablePropertiesSettings: TablePropertiesSettings
@@ -30,7 +29,7 @@ class MsSqlBackfillOverwriteBatchFactory(
   /** @inheritdoc
     */
   def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
-    for schema <- jdbcMergeServiceClient.getSchema(backfillSettings.backfillTableFullName)
+    for schema <- stagingPropertyManager.getTableSchema(backfillSettings.backfillTableNameParts.Name)
     yield SqlServerChangeTrackingBackfillBatch(
       backfillSettings.backfillTableFullName,
       schema,
@@ -45,11 +44,9 @@ object MsSqlBackfillOverwriteBatchFactory:
 
   /** The environment required for the MsSqlBackfillBatchFactory.
     */
-  type Environment = JdbcMergeServiceClient & BackfillSettings & SinkSettings & TablePropertiesSettings
+  private type Environment = StagingPropertyManager & BackfillSettings & SinkSettings & TablePropertiesSettings
 
   /** Creates a new MsSqlBackfillBatchFactory.
-    * @param jdbcMergeServiceClient
-    *   The JDBC merge service client.
     * @param backfillSettings
     *   The backfill settings.
     * @param targetTableSettings
@@ -60,13 +57,13 @@ object MsSqlBackfillOverwriteBatchFactory:
     *   The MsSqlBackfillBatchFactory instance.
     */
   def apply(
-      jdbcMergeServiceClient: JdbcMergeServiceClient,
+             stagingPropertyManager: StagingPropertyManager,
       backfillSettings: BackfillSettings,
       targetTableSettings: SinkSettings,
       tablePropertiesSettings: TablePropertiesSettings
   ): MsSqlBackfillOverwriteBatchFactory =
     new MsSqlBackfillOverwriteBatchFactory(
-      jdbcMergeServiceClient,
+      stagingPropertyManager,
       backfillSettings,
       targetTableSettings,
       tablePropertiesSettings
@@ -77,12 +74,12 @@ object MsSqlBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        mergeServiceClient      <- ZIO.service[JdbcMergeServiceClient]
+        stagingPropertyManager      <- ZIO.service[StagingPropertyManager]
         backfillSettings        <- ZIO.service[BackfillSettings]
         targetTableSettings     <- ZIO.service[SinkSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
       yield MsSqlBackfillOverwriteBatchFactory(
-        mergeServiceClient,
+        stagingPropertyManager,
         backfillSettings,
         targetTableSettings,
         tablePropertiesSettings
