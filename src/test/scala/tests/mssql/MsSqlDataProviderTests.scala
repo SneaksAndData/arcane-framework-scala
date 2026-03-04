@@ -14,7 +14,13 @@ import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSql
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
-import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestStreamLifetimeService}
+import tests.shared.{
+  IcebergUtil,
+  NullDimensionsProvider,
+  TestDynamicSinkSettings,
+  TestStreamLifetimeService,
+  TestThroughputShaperBuilder
+}
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -51,8 +57,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new StreamContext:
     override val IsBackfilling = false
 
-  private val icebergUtil =
-    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+  private val defaultSinkSettings = TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
+  private val icebergUtil         = IcebergUtil(defaultSinkSettings, defaultStagingSettings)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
     for
@@ -100,7 +106,11 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
             icebergUtil.propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
             graphSettings,
-            backfillSettings
+            backfillSettings,
+            TestThroughputShaperBuilder.default(
+              icebergUtil.propertyManager,
+              new TestDynamicSinkSettings(s"demo.test.$tableName")
+            )
           )
         )
         _ <- icebergUtil.prepareWatermark(tableName, MsSqlWatermark.epoch)
