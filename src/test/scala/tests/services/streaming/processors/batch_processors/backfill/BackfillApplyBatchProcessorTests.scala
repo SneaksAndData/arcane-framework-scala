@@ -5,11 +5,10 @@ import models.batches.SynapseLinkBackfillOverwriteBatch
 import models.schemas.ArcaneType.LongType
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.MergeServiceClient
-import services.merging.JdbcTableManager
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import tests.shared.TablePropertiesSettings
 
-import com.sneaksanddata.arcane.framework.services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -37,15 +36,18 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
 
   it should "run applies" in {
     // Arrange
-    val mergeServiceClient = mock[MergeServiceClient]
+    val mergeServiceClient  = mock[MergeServiceClient]
     val sinkPropertyManager = mock[SinkPropertyManager]
-    val sinkEntityManager = mock[SinkEntityManager]
+    val sinkEntityManager   = mock[SinkEntityManager]
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(testInput.length)
-      sinkEntityManager.migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString()).andReturn(ZIO.unit).times(testInput.length)
-      
+      sinkEntityManager
+        .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
+        .andReturn(ZIO.unit)
+        .times(testInput.length)
+
     }
     replay(mergeServiceClient)
 

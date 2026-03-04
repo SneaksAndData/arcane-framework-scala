@@ -13,8 +13,6 @@ import zio.{Task, ZIO, ZLayer}
 
 /** A factory that creates a backfill batch for the SQL Server data source.
   *
-  * @param jdbcMergeServiceClient
-  *   The JDBC merge service client.
   * @param backfillSettings
   *   The backfill settings.
   * @param targetTableSettings

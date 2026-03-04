@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg.base
 
 import models.ddl.CreateTableRequest
+import models.schemas.ArcaneSchema
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import org.apache.iceberg.Table
 import zio.Task
 
