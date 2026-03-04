@@ -4,11 +4,11 @@ package tests.services.streaming
 import models.*
 import models.app.StreamContext
 import models.batches.SqlServerChangeTrackingMergeBatch
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
-import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
+import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
 import services.iceberg.{
   IcebergEntityManager,
@@ -31,6 +31,7 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
+import services.bootstrap.DefaultStreamBootstrapper
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -38,7 +39,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
-import zio.{Runtime, Schedule, Unsafe, ZIO, ZLayer}
+import zio.{Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
 class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -97,16 +98,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         )
         .times(streamRepeatCount)
 
-      jdbcTableManager
-        .cleanupStagingTables(EasyMock.anyString(), EasyMock.anyString(), EasyMock.anyObject())
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.createTargetTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
-      jdbcTableManager.createBackFillTable
-        .andReturn(ZIO.unit)
-        .anyTimes()
       jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
@@ -125,6 +116,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         MergeBatchProcessor.layer,
         StagingProcessor.layer,
         FieldsFilteringService.layer,
+        IcebergEntityManager.sinkLayer,
         IcebergEntityManager.stagingLayer,
         IcebergS3CatalogWriter.layer,
 
@@ -141,18 +133,26 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ZLayer.succeed(mergeServiceClient),
         ZLayer.succeed(jdbcTableManager),
         ZLayer.succeed(hookManager),
+        ZLayer.succeed(new SchemaProvider[ArcaneSchema] {
+          override type SchemaType = ArcaneSchema
+          override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
+
+          override def empty: SchemaType = ArcaneSchema.empty()
+        }),
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(new StreamContext {
           override def IsBackfilling: Boolean = false
           override def streamId: String       = "test-stream-id"
           override def streamKind: String     = "test-stream-kind"
         }),
+        ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
-        IcebergTablePropertyManager.sinkLayer
-        // TODO: not used yet IcebergTablePropertyManager.stagingLayer
+        IcebergTablePropertyManager.sinkLayer,
+        // TODO: not used yet IcebergTablePropertyManager.stagingLayer,
+        DefaultStreamBootstrapper.layer
       )
 
     // Act

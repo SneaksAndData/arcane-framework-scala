@@ -26,3 +26,11 @@ trait BackfillSettings:
   /** The backfill behavior.
     */
   val backfillBehavior: BackfillBehavior
+
+  def backfillTableNameParts: (Warehouse: String, Namespace: String, Name: String) =
+    backfillTableFullName.split('.').toList match
+      case warehouse :: namespace :: name :: _ => (Warehouse = warehouse, Namespace = namespace, Name = name)
+      case _ =>
+        throw new RuntimeException(
+          s"Invalid table name format for $backfillTableFullName. Must be {warehouse}.{namespace}.{name}"
+        )

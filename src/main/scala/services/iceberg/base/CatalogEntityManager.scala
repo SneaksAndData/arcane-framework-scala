@@ -26,6 +26,11 @@ trait CatalogEntityManager:
     */
   def createTable(request: CreateTableRequest): Task[Table]
 
+  /** Deletes all tables with name matching the specified prefix
+    * @return
+    */
+  def deleteTables(prefix: String): Task[Unit]
+
 /** Entity manager for sink catalog
   */
 trait SinkEntityManager extends CatalogEntityManager
