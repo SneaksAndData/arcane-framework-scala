@@ -3,28 +3,22 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
-import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
-import models.settings.backfill.BackfillBehavior.Overwrite
+import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.{JdbcMergeServiceClientSettings, TablePropertiesSettings}
 import services.base.*
 import services.filters.FieldsFilteringService
-import services.iceberg.SchemaConversions
-import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
-import services.merging.JdbcMergeServiceClient.{generateAlterTableSQL, generateCreateTableSQL, readStrings}
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
-import utils.SqlUtils.readArcaneSchema
 
-import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{DecimalType, ListType, StructType, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager, ResultSet}
+import java.sql.{Connection, DriverManager}
 import scala.jdk.CollectionConverters.*
 
 trait JdbcTableManager extends TableManager:
@@ -152,21 +146,6 @@ class JdbcMergeServiceClient(
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
 object JdbcMergeServiceClient:
-
-  private def readStrings(row: ResultSet): List[String] =
-    Iterator
-      .iterate(row.next())(_ => row.next())
-      .takeWhile(identity)
-      .map(_ => row.getString(1))
-      .toList
-
-  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
-    s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
-
-  def generateCreateTableSQL(tableName: String, schema: Schema, properties: TablePropertiesSettings): String =
-    val columns =
-      schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
-    s"CREATE TABLE IF NOT EXISTS $tableName ($columns) ${properties.serializeToWithExpression}"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
   extension (icebergType: Type)
