@@ -48,6 +48,8 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       */
     override val connectionUrl: String = connectionUri
 
+    override val extraConnectionParameters: Map[String, String] = Map()
+
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
