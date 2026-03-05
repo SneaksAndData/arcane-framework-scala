@@ -56,7 +56,7 @@ class JdbcMergeServiceClient(
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
-  private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
+  private lazy val sqlConnection: Connection = DriverManager.getConnection(options.getConnectionString)
 
   /** @inheritdoc
     */
