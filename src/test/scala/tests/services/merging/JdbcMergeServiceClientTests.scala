@@ -5,7 +5,8 @@ import models.app.StreamContext
 import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
-import models.settings.JdbcMergeServiceClientSettings
+import models.settings.JdbcQueryRetryMode.Never
+import models.settings.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
@@ -16,7 +17,7 @@ import services.merging.maintenance.{
 }
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import tests.services.merging.JdbcMergeServiceClientTests.test
-import tests.shared.{TestBackfillTableSettings, TestTablePropertiesSettings, TestSinkSettings}
+import tests.shared.{TestBackfillTableSettings, TestSinkSettings, TestTablePropertiesSettings}
 
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar
@@ -49,6 +50,12 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
     override val connectionUrl: String = connectionUri
 
     override val extraConnectionParameters: Map[String, String] = Map()
+
+    override val queryRetryMode: JdbcQueryRetryMode        = Never
+    override val queryRetryOnMessageContents: List[String] = List()
+    override val queryRetryBaseDuration: zio.Duration      = zio.Duration.Zero
+    override val queryRetryMaxAttempts: Int                = 1
+    override val queryRetryScaleFactor: Double             = 1
 
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
