@@ -45,22 +45,22 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.24",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.2.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.33.13",
-    libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.1",
+    libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.3",
     libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
     // Iceberg deps - read
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-mapreduce-client-core
-    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.4.2",
+    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.4.3",
 
     // Iceberg deps - core API, S3 and write
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
-    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.10.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.10.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-core
-    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.10.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.10.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-parquet
-    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.10.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.10.1",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
-    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.10.0",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.10.1",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
     libraryDependencies += "software.amazon.awssdk" % "auth" % "2.33.13",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
@@ -70,7 +70,7 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/software.amazon.awssdk/kms
     libraryDependencies += "software.amazon.awssdk" % "kms" % "2.33.13",
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
-    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.2",
+    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.3",
     // https://mvnrepository.com/artifact/io.trino/trino-jdbc
     libraryDependencies += "io.trino" % "trino-jdbc" % "478",
 
@@ -95,12 +95,12 @@ lazy val root = (project in file("."))
 
     // Logging and metrics
     // For ZIO
-    libraryDependencies += "dev.zio" %% "zio-logging" % "2.5.2",
-    libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.5.2",
+    libraryDependencies += "dev.zio" %% "zio-logging" % "2.5.3",
+    libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.5.3",
     
     // For DataDog
     libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.25.3",
-    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.22",
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.32",
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "9.0",
 
     // Metrics
