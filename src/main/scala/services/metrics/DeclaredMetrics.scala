@@ -15,6 +15,12 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     */
   private val metricsNamespace = "arcane.stream"
 
+  /** Number of rows received from the source
+    */
+  val rowsIncoming: Counter[Long] = Metric
+    .counter(s"$metricsNamespace.rows.incoming")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
   /** Chunk size for ZStream set for the next changeset, in elements
     */
   val rowChunkSize: Gauge[Double] = Metric
