@@ -6,11 +6,12 @@ import models.settings.sink.SinkSettings
 import models.settings.streaming.ThroughputSettings
 import models.settings.streaming.ThroughputShaperImpl.MemoryBound
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaper
 
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type.TypeID
-import zio.{Chunk, Task, ZIO, ZLayer}
+import zio.{Chunk, Task, ZIO}
 
 import java.time.Duration
 import scala.collection.concurrent.TrieMap
@@ -28,7 +29,8 @@ import scala.math.{exp, log}
 class MemoryBoundShaper(
     tablePropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    throughputSettings: ThroughputSettings
+    throughputSettings: ThroughputSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends ThroughputShaper:
 
   private val shaperSettings = throughputSettings.shaperImpl match
@@ -118,12 +120,15 @@ class MemoryBoundShaper(
           estimationCache(rowSizeCacheKey).toLong
         )
     )
+    estMemoryPerChunk <- ZIO.succeed(appliedSize._1 * appliedSize._2 / mib)
     _ <- zlog(
       "Will apply chunk size %s for the current stream, estimated memory request %s MiB",
       appliedSize._1.toString,
-      (appliedSize._1 * appliedSize._2 / mib).toString
+      estMemoryPerChunk.toString
     )
-  // TODO: add these as metrics
+    _ <- ZIO.succeed(appliedSize._1.toDouble) @@ declaredMetrics.rowChunkSize
+    _ <- ZIO.succeed(estMemoryPerChunk.toDouble) @@ declaredMetrics.rowChunkSizeBytes
+    _ <- ZIO.succeed(estimateChunkCost(appliedSize._1).toDouble) @@ declaredMetrics.rowChunkCost
   yield appliedSize
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
@@ -148,8 +153,10 @@ class MemoryBoundShaper(
       */
   private def scaledSigmoid(value: Double, k: Int): Double = 1.0 / (1.0 + exp(-1.0 * k * value))
 
-  override def estimateChunkCost[Element](ch: Chunk[Element]): Int =
-    val rawCost = ch.size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)
+  override def estimateChunkCost[Element](ch: Chunk[Element]): Int = estimateChunkCost(ch.size)
+
+  private def estimateChunkCost(size: Int): Int =
+    val rawCost = size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)
     (scaledSigmoid(rawCost.toDouble, shaperSettings.chunkCostScale) * shaperSettings.chunkCostMax).toInt
 
 object MemoryBoundShaper:
@@ -165,6 +172,7 @@ object MemoryBoundShaper:
   def apply(
       propertyManager: SinkPropertyManager,
       sinkSettings: SinkSettings,
-      memoryBoundShaperSettings: ThroughputSettings
+      memoryBoundShaperSettings: ThroughputSettings,
+      declaredMetrics: DeclaredMetrics
   ): MemoryBoundShaper =
-    new MemoryBoundShaper(propertyManager, sinkSettings, memoryBoundShaperSettings)
+    new MemoryBoundShaper(propertyManager, sinkSettings, memoryBoundShaperSettings, declaredMetrics)
