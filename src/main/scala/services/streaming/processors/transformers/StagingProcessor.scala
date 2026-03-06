@@ -52,7 +52,6 @@ class StagingProcessor(
       for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
       yield filtered
     }
-    _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsIncoming
     groupedBySchema <-
       (if stagingDataSettings.isUnifiedSchema then
          ZIO.succeed(

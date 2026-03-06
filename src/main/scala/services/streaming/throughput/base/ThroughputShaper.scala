@@ -1,8 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.throughput.base
 
-import zio.{Chunk, Task}
+import logging.ZIOLogAnnotations.zlog
+
 import zio.stream.ZStream
+import zio.{Chunk, Task}
 
 import java.time.Duration
 
@@ -20,10 +22,16 @@ trait ThroughputShaper:
     ZStream
       .fromZIO {
         for
-          // TODO: info user on the type of shaper used
           chunkSize <- estimateChunkSize
           burst     <- estimateShapeBurst(chunkSize.Elements, chunkSize.ElementSize)
           rate      <- estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
+          _ <- zlog(
+            "Shaping stream using chunkSize %s, burst %s and rate %s/%s (chunks/s)",
+            chunkSize.Elements.toString,
+            burst.toString,
+            rate.Elements.toString,
+            rate.Period.toSeconds.toString
+          )
         yield (Size = chunkSize, Burst = burst, Rate = rate)
       }
       .flatMap { case (size, burst, rate) =>

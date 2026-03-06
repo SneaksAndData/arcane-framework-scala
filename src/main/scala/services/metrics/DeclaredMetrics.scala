@@ -15,10 +15,22 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     */
   private val metricsNamespace = "arcane.stream"
 
-  /** Number of rows received from the source
+  /** Chunk size for ZStream set for the next changeset, in elements
     */
-  val rowsIncoming: Counter[Long] = Metric
-    .counter(s"$metricsNamespace.rows.incoming")
+  val rowChunkSize: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.rows.chunk_size")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Estimated chunk size for ZStream set for the next changeset, in bytes
+    */
+  val rowChunkSizeBytes: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.rows.chunk_size_bytes")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Estimated row chunk cost for throttle algorithm
+    */
+  val rowChunkCost: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.rows.chunk_cost")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
   /** Time it takes to transform a source rows into a mergeable batch
