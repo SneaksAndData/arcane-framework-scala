@@ -139,8 +139,6 @@ class JdbcMergeServiceClient(
 
   private type ResultMapper[Result] = Boolean => Result
 
-  private def observeStatementResult(statement: PreparedStatement): Task[Unit] = ???
-
   private def executeBatchQuery[Result](
       query: String,
       batchName: String,
@@ -152,7 +150,6 @@ class JdbcMergeServiceClient(
         statement         <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
         _                 <- zlog(s"$operation batch $batchName")
         applicationResult <- ZIO.attempt(statement.execute()).retry(retryPolicy)
-        executionResult   <- ZIO.attempt(statement.getResultSet)
       yield resultMapper(applicationResult)
     }
 
