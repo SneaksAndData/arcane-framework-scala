@@ -4,6 +4,7 @@ package services.merging
 import logging.ZIOLogAnnotations.*
 import models.app.StreamContext
 import models.schemas.ArcaneSchema
+import models.settings.JdbcQueryRetryMode.{Always, BackfillOnly, Never}
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.{JdbcMergeServiceClientSettings, TablePropertiesSettings}
@@ -16,9 +17,10 @@ import services.metrics.DeclaredMetrics.*
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{DecimalType, ListType, StructType, TimestampType}
-import zio.{Task, ZIO, ZLayer}
+import zio.{Schedule, Task, ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager}
+import java.io.IOException
+import java.sql.*
 import scala.jdk.CollectionConverters.*
 
 trait JdbcTableManager extends TableManager:
@@ -57,6 +59,24 @@ class JdbcMergeServiceClient(
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.getConnectionString)
+
+  private val retryPolicy =
+    val backoffPolicy =
+      Schedule.exponential(options.queryRetryBaseDuration, options.queryRetryScaleFactor).jittered && Schedule.recurs(
+        options.queryRetryMaxAttempts
+      ) && Schedule.recurWhile[Throwable] {
+        case _: IOException                     => true
+        case _: SQLFeatureNotSupportedException => false
+        case _: SQLTimeoutException             => false
+        case e: SQLException => options.queryRetryOnMessageContents.exists(prefix => e.getMessage.contains(prefix))
+        case _               => false
+      }
+
+    options.queryRetryMode match
+      case Never                                       => Schedule.stop
+      case Always                                      => backoffPolicy
+      case BackfillOnly if streamContext.IsBackfilling => backoffPolicy
+      case _                                           => Schedule.stop
 
   /** @inheritdoc
     */
@@ -119,6 +139,8 @@ class JdbcMergeServiceClient(
 
   private type ResultMapper[Result] = Boolean => Result
 
+  private def observeStatementResult(statement: PreparedStatement): Task[Unit] = ???
+
   private def executeBatchQuery[Result](
       query: String,
       batchName: String,
@@ -129,7 +151,8 @@ class JdbcMergeServiceClient(
       for
         statement         <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
         _                 <- zlog(s"$operation batch $batchName")
-        applicationResult <- ZIO.attempt(statement.execute())
+        applicationResult <- ZIO.attempt(statement.execute()).retry(retryPolicy)
+        executionResult   <- ZIO.attempt(statement.getResultSet)
       yield resultMapper(applicationResult)
     }
 
