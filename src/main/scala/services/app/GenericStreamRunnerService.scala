@@ -4,9 +4,7 @@ package services.app
 import logging.ZIOLogAnnotations.zlog
 import models.settings.staging.StagingDataSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
-import services.base.TableManager
 import services.bootstrap.base.StreamBootstrapper
-import services.iceberg.base.{SinkEntityManager, StagingEntityManager}
 import services.streaming.base.{HookManager, StreamingGraphBuilder}
 
 import zio.stream.{ZPipeline, ZSink}

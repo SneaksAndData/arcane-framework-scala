@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.app.StreamContext
 import models.schemas.DataRow
 import models.settings.VersionedDataGraphBuilderSettings
@@ -41,6 +41,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       _ <- ZIO.when(hasVersionUpdated)(
         zlog(
           "Watermark version changed from %s to %s",
+          Seq(getAnnotation("processor", "StreamProcessor")),
           previousVersion.version,
           currentVersion.version
         )
@@ -50,6 +51,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
           nextSleepDuration <- ZIO.succeed(getNextSleepDuration)
           _ <- zlog(
             "No changes in watermark version, next check in %s seconds, staying at %s version",
+            Seq(getAnnotation("processor", "StreamProcessor")),
             nextSleepDuration.toSeconds.toString,
             previousVersion.version
           ) *> ZIO.sleep(nextSleepDuration)
@@ -59,13 +61,18 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
 
   private def hasChanges(previousVersion: WatermarkType): Task[Boolean] =
     for
-      _         <- zlog("Checking watermark value %s for data changes", previousVersion.version)
+      _ <- zlog(
+        "Checking watermark value %s for data changes",
+        Seq(getAnnotation("processor", "StreamProcessor")),
+        previousVersion.version
+      )
       isChanged <- dataProvider.hasChanges(previousVersion)
       _ <- ZIO.unless(isChanged) {
         for
           nextSleepDuration <- ZIO.succeed(getNextSleepDuration)
           _ <- zlog(
             "No changes in source data found between watermark value %s and current moment, next check in %s seconds",
+            Seq(getAnnotation("processor", "StreamProcessor")),
             nextSleepDuration.toSeconds.toString,
             previousVersion.version
           ) *> ZIO.sleep(
@@ -75,7 +82,8 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       }
       _ <- ZIO.when(isChanged) {
         zlog(
-          s"Source data has changed between watermark value %s and current moment, streaming",
+          "Source data has changed between watermark value %s and current moment, streaming",
+          Seq(getAnnotation("processor", "StreamProcessor")),
           previousVersion.version
         ) *> ZIO.unit
       }
