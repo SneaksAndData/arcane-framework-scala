@@ -28,7 +28,7 @@ class BlobSourceDataProvider(
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
       sinkPropertyManager,
       sinkSettings,
-  streamMode,
+      streamMode,
       throughputShaperBuilder
     ):
 
@@ -54,7 +54,7 @@ object BlobSourceDataProvider:
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
+      context           <- ZIO.service[PluginStreamContext]
       propertyManager   <- ZIO.service[SinkPropertyManager]
       blobSource        <- ZIO.service[BlobSourceReader]
       throughputBuilder <- ZIO.service[ThroughputShaperBuilder]

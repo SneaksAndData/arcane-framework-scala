@@ -69,8 +69,8 @@ object UpsertBlobBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
-        context <- ZIO.service[PluginStreamContext]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        context                <- ZIO.service[PluginStreamContext]
       yield UpsertBlobBackfillOverwriteBatchFactory(
         stagingPropertyManager,
         context.streamMode.backfill,

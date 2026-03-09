@@ -85,10 +85,10 @@ object GenericStreamRunnerService:
   val layer: ZLayer[Environment, Nothing, StreamRunnerService] =
     ZLayer {
       for
-        lifetimeService     <- ZIO.service[StreamLifetimeService]
-        builder             <- ZIO.service[StreamingGraphBuilder]
-        context <- ZIO.service[PluginStreamContext]
-        hookManager         <- ZIO.service[HookManager]
-        bootstrapper        <- ZIO.service[StreamBootstrapper]
+        lifetimeService <- ZIO.service[StreamLifetimeService]
+        builder         <- ZIO.service[StreamingGraphBuilder]
+        context         <- ZIO.service[PluginStreamContext]
+        hookManager     <- ZIO.service[HookManager]
+        bootstrapper    <- ZIO.service[StreamBootstrapper]
       yield GenericStreamRunnerService(builder, lifetimeService, context.staging.table, hookManager, bootstrapper)
     }

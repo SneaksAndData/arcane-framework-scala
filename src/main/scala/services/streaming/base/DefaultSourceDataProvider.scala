@@ -20,10 +20,10 @@ import java.time.OffsetDateTime
   *   Watermark implementation for the source
   */
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
-                                                                                                    sinkPropertyManager: SinkPropertyManager,
-                                                                                                    sinkSettings: SinkSettings,
-                                                                                                    streamMode: StreamModeSettings,
-                                                                                                    throughputShaperBuilder: ThroughputShaperBuilder
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    streamMode: StreamModeSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder
 )(implicit rw: ReadWriter[WatermarkType])
     extends VersionedDataProvider[WatermarkType, DataRow]
     with BackfillDataProvider[DataRow]:

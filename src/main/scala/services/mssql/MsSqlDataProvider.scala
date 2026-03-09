@@ -30,7 +30,7 @@ class MsSqlDataProvider(
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,
-  streamModeSettings,
+      streamModeSettings,
       throughputShaperBuilder
     ):
 
@@ -67,10 +67,10 @@ object MsSqlDataProvider:
   val layer =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
-        reader            <- ZIO.service[MsSqlReader]
-        propertyManager   <- ZIO.service[SinkPropertyManager]
-        shaperBuilder     <- ZIO.service[ThroughputShaperBuilder]
+        context         <- ZIO.service[PluginStreamContext]
+        reader          <- ZIO.service[MsSqlReader]
+        propertyManager <- ZIO.service[SinkPropertyManager]
+        shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
       yield new MsSqlDataProvider(
         reader,
         propertyManager,

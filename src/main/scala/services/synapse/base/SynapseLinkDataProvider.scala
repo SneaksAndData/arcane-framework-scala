@@ -25,7 +25,7 @@ class SynapseLinkDataProvider(
 ) extends DefaultSourceDataProvider[SynapseWatermark](
       sinkPropertyManager,
       sinkSettings,
-  streamModeSettings,
+      streamModeSettings,
       throughputShaperBuilder
     ):
 
@@ -60,10 +60,10 @@ object SynapseLinkDataProvider:
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
-      propertyManager   <- ZIO.service[SinkPropertyManager]
-      synapseReader     <- ZIO.service[SynapseLinkReader]
-      shaperBuilder     <- ZIO.service[ThroughputShaperBuilder]
+      context         <- ZIO.service[PluginStreamContext]
+      propertyManager <- ZIO.service[SinkPropertyManager]
+      synapseReader   <- ZIO.service[SynapseLinkReader]
+      shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
     yield SynapseLinkDataProvider(
       synapseReader,
       propertyManager,
