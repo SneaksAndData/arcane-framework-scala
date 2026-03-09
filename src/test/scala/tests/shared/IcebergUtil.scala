@@ -21,9 +21,9 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class IcebergUtil(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSettings):
   val propertyManager: IcebergSinkTablePropertyManager = IcebergSinkTablePropertyManager(
-    sinkSettings.icebergSinkSettings
+    sinkSettings.icebergCatalog
   )
-  val entityManager: IcebergSinkEntityManager = IcebergSinkEntityManager(sinkSettings.icebergSinkSettings)
+  val entityManager: IcebergSinkEntityManager = IcebergSinkEntityManager(sinkSettings.icebergCatalog)
 
   val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
 

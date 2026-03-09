@@ -103,7 +103,7 @@ class IcebergStagingEntityManager(catalogSettings: IcebergCatalogSettings)
 object IcebergEntityManager:
   val sinkLayer = ZLayer {
     for sinkSettings <- ZIO.service[SinkSettings]
-    yield IcebergSinkEntityManager(sinkSettings.icebergSinkSettings)
+    yield IcebergSinkEntityManager(sinkSettings.icebergCatalog)
   }
 
   val stagingLayer = ZLayer {

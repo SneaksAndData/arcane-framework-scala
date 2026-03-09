@@ -19,7 +19,7 @@ trait SinkSettings:
 
   /** Settings for Iceberg Catalog instance associated with the sink
     */
-  val icebergSinkSettings: IcebergSinkSettings
+  val icebergCatalog: IcebergSinkSettings
 
   /** Merge client configuration
     */
@@ -39,9 +39,9 @@ trait SinkSettings:
         )
 
 case class DefaultSinkSettings(
-    override val icebergSinkSettings: DefaultIcebergSinkSettings,
-    override val maintenanceSettings: DefaultTableMaintenanceSettings,
-    override val targetTableFullName: String,
-    override val targetTableProperties: DefaultTablePropertiesSettings,
-    override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
+                                override val icebergCatalog: DefaultIcebergSinkSettings,
+                                override val maintenanceSettings: DefaultTableMaintenanceSettings,
+                                override val targetTableFullName: String,
+                                override val targetTableProperties: DefaultTablePropertiesSettings,
+                                override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
 ) extends SinkSettings derives ReadWriter
