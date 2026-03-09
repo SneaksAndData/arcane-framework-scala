@@ -12,11 +12,11 @@ import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptur
 import zio.{ZIO, ZLayer}
 
 class BlobSourceStreamingDataProvider(
-                                       dataProvider: BlobSourceDataProvider,
-                                       settings: ChangeCaptureSettings,
-                                       backfillSettings: BackfillSettings,
-                                       streamContext: BaseStreamContext,
-                                       declaredMetrics: DeclaredMetrics
+    dataProvider: BlobSourceDataProvider,
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    streamContext: BaseStreamContext,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[BlobSourceWatermark, BlobSourceBatch](
       dataProvider,
       settings,
@@ -26,15 +26,15 @@ class BlobSourceStreamingDataProvider(
     )
 
 object BlobSourceStreamingDataProvider:
-  private type Environment = BlobSourceDataProvider & ChangeCaptureSettings & BackfillSettings &
-    BaseStreamContext & DeclaredMetrics
+  private type Environment = BlobSourceDataProvider & ChangeCaptureSettings & BackfillSettings & BaseStreamContext &
+    DeclaredMetrics
 
   def apply(
-             dataProvider: BlobSourceDataProvider,
-             settings: ChangeCaptureSettings,
-             backfillSettings: BackfillSettings,
-             streamContext: BaseStreamContext,
-             declaredMetrics: DeclaredMetrics
+      dataProvider: BlobSourceDataProvider,
+      settings: ChangeCaptureSettings,
+      backfillSettings: BackfillSettings,
+      streamContext: BaseStreamContext,
+      declaredMetrics: DeclaredMetrics
   ): BlobSourceStreamingDataProvider =
     new BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 

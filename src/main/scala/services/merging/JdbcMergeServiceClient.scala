@@ -45,13 +45,13 @@ trait JdbcTableManager extends TableManager:
   *   The options for the consumer.
   */
 class JdbcMergeServiceClient(
-                              options: JdbcMergeServiceClientSettings,
-                              targetTableSettings: SinkSettings,
-                              backfillTableSettings: BackfillSettings,
-                              streamContext: BaseStreamContext,
-                              fieldsFilteringService: FieldsFilteringService,
-                              tablePropertiesSettings: TablePropertiesSettings,
-                              declaredMetrics: DeclaredMetrics
+    options: JdbcMergeServiceClientSettings,
+    targetTableSettings: SinkSettings,
+    backfillTableSettings: BackfillSettings,
+    streamContext: BaseStreamContext,
+    fieldsFilteringService: FieldsFilteringService,
+    tablePropertiesSettings: TablePropertiesSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -209,13 +209,13 @@ object JdbcMergeServiceClient:
     *   The initialized JdbcConsumer instance
     */
   def apply(
-             options: JdbcMergeServiceClientSettings,
-             targetTableSettings: SinkSettings,
-             backfillTableSettings: BackfillSettings,
-             streamContext: BaseStreamContext,
-             fieldsFilteringService: FieldsFilteringService,
-             tablePropertiesSettings: TablePropertiesSettings,
-             declaredMetrics: DeclaredMetrics
+      options: JdbcMergeServiceClientSettings,
+      targetTableSettings: SinkSettings,
+      backfillTableSettings: BackfillSettings,
+      streamContext: BaseStreamContext,
+      fieldsFilteringService: FieldsFilteringService,
+      tablePropertiesSettings: TablePropertiesSettings,
+      declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,

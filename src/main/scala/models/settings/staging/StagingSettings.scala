@@ -5,27 +5,23 @@ import models.settings.iceberg.{DefaultIcebergStagingSettings, IcebergStagingSet
 
 import upickle.ReadWriter
 
-/**
- * Staging configuration
- */
+/** Staging configuration
+  */
 trait StagingSettings:
-  /**
-   * Settings for staging tables management
-   */
+  /** Settings for staging tables management
+    */
   val table: StagingTableSettings
 
-  /**
-   * Merge client configuration
-   */
+  /** Merge client configuration
+    */
   val mergeServiceClient: JdbcMergeServiceClientSettings
 
-  /**
-   * Iceberg REST Catalog configuration for staging tables
-   */
+  /** Iceberg REST Catalog configuration for staging tables
+    */
   val icebergCatalog: IcebergStagingSettings
 
 case class DefaultStagingSettings(
-                                   override val table: DefaultStagingTableSettings,
-                                   override val icebergCatalog: DefaultIcebergStagingSettings,
-                                   override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
-                                 ) extends StagingSettings derives ReadWriter
+    override val table: DefaultStagingTableSettings,
+    override val icebergCatalog: DefaultIcebergStagingSettings,
+    override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
+) extends StagingSettings derives ReadWriter

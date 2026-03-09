@@ -18,11 +18,11 @@ import zio.{Tag, ZIO, ZLayer}
   *   The stream lifetime service.
   */
 class GenericStreamRunnerService(
-                                  builder: StreamingGraphBuilder,
-                                  lifetimeService: StreamLifetimeService,
-                                  stagingDataSettings: StagingTableSettings,
-                                  hookManager: HookManager,
-                                  bootstrapper: StreamBootstrapper
+    builder: StreamingGraphBuilder,
+    lifetimeService: StreamLifetimeService,
+    stagingDataSettings: StagingTableSettings,
+    hookManager: HookManager,
+    bootstrapper: StreamBootstrapper
 ) extends StreamRunnerService:
 
   /** Runs the stream.
@@ -71,11 +71,11 @@ object GenericStreamRunnerService:
     *   A new instance of the GenericStreamRunnerService class.
     */
   def apply(
-             builder: StreamingGraphBuilder,
-             lifetimeService: StreamLifetimeService,
-             stagingDataSettings: StagingTableSettings,
-             hookManager: HookManager,
-             bootstrapper: StreamBootstrapper
+      builder: StreamingGraphBuilder,
+      lifetimeService: StreamLifetimeService,
+      stagingDataSettings: StagingTableSettings,
+      hookManager: HookManager,
+      bootstrapper: StreamBootstrapper
   ): GenericStreamRunnerService =
     new GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, bootstrapper)
 

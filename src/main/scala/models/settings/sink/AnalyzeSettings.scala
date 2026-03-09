@@ -16,6 +16,6 @@ trait AnalyzeSettings:
   val includedColumns: Seq[String]
 
 case class DefaultAnalyzeSettings(
-                                   override val includedColumns: Seq[String],
-                                   override val batchThreshold: Int
-                                 ) extends AnalyzeSettings derives ReadWriter
+    override val includedColumns: Seq[String],
+    override val batchThreshold: Int
+) extends AnalyzeSettings derives ReadWriter

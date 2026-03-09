@@ -86,14 +86,14 @@ object StagingProcessorTests extends ZIOSpecDefault:
       others: Chunk[Any]
   ): StagedBatchProcessor#BatchType =
     new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
-    
+
   private val mockPluginContextLayer = ZLayer.succeed(new PluginStreamContext {
-    override val streamMode: StreamModeSettings = ???
-    override val sink: SinkSettings = ???
-    override val source: StreamSourceSettings = ???
-    override val staging: StagingSettings = ???
+    override val streamMode: StreamModeSettings       = ???
+    override val sink: SinkSettings                   = ???
+    override val source: StreamSourceSettings         = ???
+    override val staging: StagingSettings             = ???
     override val observability: ObservabilitySettings = ???
-    override val throughput: ThroughputSettings = ???
+    override val throughput: ThroughputSettings       = ???
 
     override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
   })
@@ -118,6 +118,11 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     }
-  ).provide(icebergCatalogSettingsLayer, IcebergEntityManager.stagingLayer, IcebergS3CatalogWriter.layer, mockPluginContextLayer) @@ timeout(
+  ).provide(
+    icebergCatalogSettingsLayer,
+    IcebergEntityManager.stagingLayer,
+    IcebergS3CatalogWriter.layer,
+    mockPluginContextLayer
+  ) @@ timeout(
     zio.Duration.fromSeconds(60)
   ) @@ TestAspect.withLiveClock

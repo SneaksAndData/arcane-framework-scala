@@ -5,21 +5,18 @@ import models.settings.backfill.{BackfillSettings, DefaultBackfillSettings}
 
 import upickle.ReadWriter
 
-/**
- * Settings for available streaming mode
- */
+/** Settings for available streaming mode
+  */
 trait StreamModeSettings:
-  /**
-   * Backfill mode-only settings
-   */
+  /** Backfill mode-only settings
+    */
   val backfill: BackfillSettings
 
-  /**
-   * Change capture mode settings
-   */
+  /** Change capture mode settings
+    */
   val changeCapture: ChangeCaptureSettings
 
 case class DefaultStreamModeSettings(
-                                      override val changeCapture: DefaultChangeCaptureSettings,
-                                      override val backfill: DefaultBackfillSettings
-                                    ) extends StreamModeSettings derives ReadWriter
+    override val changeCapture: DefaultChangeCaptureSettings,
+    override val backfill: DefaultBackfillSettings
+) extends StreamModeSettings derives ReadWriter

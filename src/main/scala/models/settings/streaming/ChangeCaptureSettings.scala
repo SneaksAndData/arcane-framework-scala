@@ -25,7 +25,7 @@ trait ChangeCaptureSettings:
   val changeCaptureJitterSeed: Long
 
 case class DefaultChangeCaptureSettings(
-                                         override val changeCaptureJitterSeed: Long,
-                                         override val changeCaptureJitterVariance: Double,
-                                         override val changeCaptureInterval: Duration
-                                       ) extends ChangeCaptureSettings derives ReadWriter
+    override val changeCaptureJitterSeed: Long,
+    override val changeCaptureJitterVariance: Double,
+    override val changeCaptureInterval: Duration
+) extends ChangeCaptureSettings derives ReadWriter

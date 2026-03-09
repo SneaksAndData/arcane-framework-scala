@@ -18,12 +18,12 @@ import zio.{Task, ZIO, ZLayer}
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class BlobSourceDataProvider(
-                              sourceReader: BlobSourceReader,
-                              sinkPropertyManager: SinkPropertyManager,
-                              sinkSettings: SinkSettings,
-                              settings: ChangeCaptureSettings,
-                              backfillSettings: BackfillSettings,
-                              throughputShaperBuilder: ThroughputShaperBuilder
+    sourceReader: BlobSourceReader,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
       sinkPropertyManager,
       sinkSettings,
@@ -49,8 +49,8 @@ class BlobSourceDataProvider(
     sourceReader.getChanges(getBackfillStartWatermark(backfillStartDate))
 
 object BlobSourceDataProvider:
-  private type Environment = ChangeCaptureSettings & BackfillSettings & BlobSourceReader &
-    SinkPropertyManager & SinkSettings & ThroughputShaperBuilder
+  private type Environment = ChangeCaptureSettings & BackfillSettings & BlobSourceReader & SinkPropertyManager &
+    SinkSettings & ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for

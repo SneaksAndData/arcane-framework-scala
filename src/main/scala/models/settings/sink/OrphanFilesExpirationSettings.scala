@@ -16,6 +16,6 @@ trait OrphanFilesExpirationSettings:
   val retentionThreshold: String
 
 case class DefaultOrphanFilesExpirationSettings(
-                                                 override val retentionThreshold: String,
-                                                 override val batchThreshold: Int
-                                               ) extends OrphanFilesExpirationSettings derives ReadWriter
+    override val retentionThreshold: String,
+    override val batchThreshold: Int
+) extends OrphanFilesExpirationSettings derives ReadWriter

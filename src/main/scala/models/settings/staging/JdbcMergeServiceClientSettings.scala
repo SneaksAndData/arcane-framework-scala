@@ -71,11 +71,11 @@ trait JdbcMergeServiceClientSettings:
   ).mkString("&")
 
 case class DefaultJdbcMergeServiceClientSettings(
-                                                  override val queryRetryMode: JdbcQueryRetryMode,
-                                                  override val queryRetryBaseDuration: Duration,
-                                                  override val queryRetryOnMessageContents: List[String],
-                                                  override val queryRetryScaleFactor: Double,
-                                                  override val queryRetryMaxAttempts: Int,
-                                                  override val extraConnectionParameters: Map[String, String],
-                                                  override val connectionUrl: String
-                                                ) extends JdbcMergeServiceClientSettings derives ReadWriter
+    override val queryRetryMode: JdbcQueryRetryMode,
+    override val queryRetryBaseDuration: Duration,
+    override val queryRetryOnMessageContents: List[String],
+    override val queryRetryScaleFactor: Double,
+    override val queryRetryMaxAttempts: Int,
+    override val extraConnectionParameters: Map[String, String],
+    override val connectionUrl: String
+) extends JdbcMergeServiceClientSettings derives ReadWriter

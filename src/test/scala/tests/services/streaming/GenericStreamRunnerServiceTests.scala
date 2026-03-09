@@ -10,12 +10,21 @@ import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
-import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergStagingEntityManager, IcebergTablePropertyManager}
+import services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergStagingEntityManager,
+  IcebergTablePropertyManager
+}
 import services.merging.JdbcTableManager
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
@@ -140,12 +149,12 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           override def streamId: String       = "test-stream-id"
           override def streamKind: String     = "test-stream-kind"
 
-          override val streamMode: StreamModeSettings = ???
-          override val source: StreamSourceSettings = ???
-          override val sink: SinkSettings = ???
+          override val streamMode: StreamModeSettings       = ???
+          override val source: StreamSourceSettings         = ???
+          override val sink: SinkSettings                   = ???
           override val observability: ObservabilitySettings = ???
-          override val staging: StagingSettings = ???
-          override val throughput: ThroughputSettings = ???
+          override val staging: StagingSettings             = ???
+          override val throughput: ThroughputSettings       = ???
 
           override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
         }),

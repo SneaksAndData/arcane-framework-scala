@@ -10,6 +10,6 @@ class TestStagingSettings extends StagingSettings:
   override val table: StagingTableSettings = TestStagingTableSettings
 
   override val mergeServiceClient: JdbcMergeServiceClientSettings = TestJdbcMergeServiceClientSettings
-  
+
 object TestStagingSettings:
   def apply(): StagingSettings = new TestStagingSettings()

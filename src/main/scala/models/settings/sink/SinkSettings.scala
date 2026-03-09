@@ -34,8 +34,8 @@ trait SinkSettings:
         )
 
 case class DefaultSinkSettings(
-                                override val icebergSinkSettings: DefaultIcebergSinkSettings,
-                                override val maintenanceSettings: DefaultTableMaintenanceSettings,
-                                override val targetTableFullName: String,
-                                override val targetTableProperties: DefaultTablePropertiesSettings
-                              ) extends SinkSettings derives ReadWriter
+    override val icebergSinkSettings: DefaultIcebergSinkSettings,
+    override val maintenanceSettings: DefaultTableMaintenanceSettings,
+    override val targetTableFullName: String,
+    override val targetTableProperties: DefaultTablePropertiesSettings
+) extends SinkSettings derives ReadWriter

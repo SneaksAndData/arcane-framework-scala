@@ -26,11 +26,11 @@ import zio.{ZIO, ZLayer}
   * into using CHANGE_TRACKING_CURRENT_VERSION() values that come from the stream output.
   */
 class MsSqlStreamingDataProvider(
-                                  dataProvider: MsSqlDataProvider,
-                                  settings: ChangeCaptureSettings,
-                                  backfillSettings: BackfillSettings,
-                                  streamContext: BaseStreamContext,
-                                  declaredMetrics: DeclaredMetrics
+    dataProvider: MsSqlDataProvider,
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    streamContext: BaseStreamContext,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](
       dataProvider,
       settings,
@@ -43,8 +43,7 @@ object MsSqlStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = MsSqlDataProvider & ChangeCaptureSettings & BackfillSettings & BaseStreamContext &
-    DeclaredMetrics
+  type Environment = MsSqlDataProvider & ChangeCaptureSettings & BackfillSettings & BaseStreamContext & DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -55,11 +54,11 @@ object MsSqlStreamingDataProvider:
     *   A new instance of the MsSqlStreamingDataProvider class.
     */
   def apply(
-             dataProvider: MsSqlDataProvider,
-             settings: ChangeCaptureSettings,
-             backfillSettings: BackfillSettings,
-             streamContext: BaseStreamContext,
-             declaredMetrics: DeclaredMetrics
+      dataProvider: MsSqlDataProvider,
+      settings: ChangeCaptureSettings,
+      backfillSettings: BackfillSettings,
+      streamContext: BaseStreamContext,
+      declaredMetrics: DeclaredMetrics
   ): MsSqlStreamingDataProvider =
     new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 

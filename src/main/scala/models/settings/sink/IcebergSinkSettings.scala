@@ -9,10 +9,9 @@ import upickle.ReadWriter
   */
 trait IcebergSinkSettings extends IcebergCatalogSettings
 
-
 case class DefaultIcebergSinkSettings(
-                                          override val additionalProperties: Map[String, String],
-                                          override val namespace: String,
-                                          override val catalogUri: String,
-                                          override val warehouse: String
-                                        ) extends IcebergSinkSettings derives ReadWriter
+    override val additionalProperties: Map[String, String],
+    override val namespace: String,
+    override val catalogUri: String,
+    override val warehouse: String
+) extends IcebergSinkSettings derives ReadWriter

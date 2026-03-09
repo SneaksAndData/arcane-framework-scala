@@ -13,11 +13,11 @@ import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptur
 import zio.{ZIO, ZLayer}
 
 class SynapseLinkStreamingDataProvider(
-                                        dataProvider: SynapseLinkDataProvider,
-                                        settings: ChangeCaptureSettings,
-                                        backfillSettings: BackfillSettings,
-                                        streamContext: BaseStreamContext,
-                                        declaredMetrics: DeclaredMetrics
+    dataProvider: SynapseLinkDataProvider,
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    streamContext: BaseStreamContext,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](
       dataProvider,
       settings,
@@ -40,11 +40,11 @@ object SynapseLinkStreamingDataProvider:
     *   A new instance of the MsSqlStreamingDataProvider class.
     */
   def apply(
-             dataProvider: SynapseLinkDataProvider,
-             settings: ChangeCaptureSettings,
-             backfillSettings: BackfillSettings,
-             streamContext: BaseStreamContext,
-             declaredMetrics: DeclaredMetrics
+      dataProvider: SynapseLinkDataProvider,
+      settings: ChangeCaptureSettings,
+      backfillSettings: BackfillSettings,
+      streamContext: BaseStreamContext,
+      declaredMetrics: DeclaredMetrics
   ): SynapseLinkStreamingDataProvider =
     new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 

@@ -31,9 +31,9 @@ trait ThroughputSettings:
   val advisedChunksBurst: Int
 
 case class DefaultThroughputSettings(
-                                      override val shaperImpl: ThroughputShaperImpl,
-                                      override val advisedRatePeriod: Duration,
-                                      override val advisedChunksBurst: Int,
-                                      override val advisedChunkSize: Int,
-                                      override val advisedRateChunks: Int
-                                    ) extends ThroughputSettings derives ReadWriter
+    override val shaperImpl: ThroughputShaperImpl,
+    override val advisedRatePeriod: Duration,
+    override val advisedChunksBurst: Int,
+    override val advisedChunkSize: Int,
+    override val advisedRateChunks: Int
+) extends ThroughputSettings derives ReadWriter

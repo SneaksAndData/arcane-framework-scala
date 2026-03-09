@@ -28,9 +28,8 @@ trait StagingTableSettings:
     */
   val isUnifiedSchema: Boolean
 
-  /**
-   * Max rows per file in each staging table
-   */
+  /** Max rows per file in each staging table
+    */
   val maxRowsPerFile: Option[Int]
 
   /** Creates a name for the staging table
@@ -41,9 +40,9 @@ trait StagingTableSettings:
     s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$id".replace('-', '_')
 
 case class DefaultStagingTableSettings(
-                                        override val stagingTablePrefix: String,
-                                        override val maxRowsPerFile: Option[Int],
-                                        override val stagingCatalogName: String,
-                                        override val stagingSchemaName: String,
-                                        override val isUnifiedSchema: Boolean
-                                      ) extends StagingTableSettings derives ReadWriter
+    override val stagingTablePrefix: String,
+    override val maxRowsPerFile: Option[Int],
+    override val stagingCatalogName: String,
+    override val stagingSchemaName: String,
+    override val isUnifiedSchema: Boolean
+) extends StagingTableSettings derives ReadWriter

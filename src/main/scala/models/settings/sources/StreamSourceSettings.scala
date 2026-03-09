@@ -8,9 +8,9 @@ import upickle.default.*
 
 trait StreamSourceSettings:
   type SourceSettingsType <: SourceSettings
-  
+
   val source: SourceSettingsType
-  
+
   val buffering: SourceBufferingSettings
-  
+
   val fieldSelectionRule: FieldSelectionRuleSettings

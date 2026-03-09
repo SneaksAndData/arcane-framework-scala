@@ -24,8 +24,8 @@ trait TableMaintenanceSettings:
   val targetAnalyzeSettings: Option[AnalyzeSettings]
 
 case class DefaultTableMaintenanceSettings(
-                                            override val targetAnalyzeSettings: Option[DefaultAnalyzeSettings],
-                                            override val targetOptimizeSettings: Option[DefaultOptimizeSettings],
-                                            override val targetSnapshotExpirationSettings: Option[DefaultSnapshotExpirationSettings],
-                                            override val targetOrphanFilesExpirationSettings: Option[DefaultOrphanFilesExpirationSettings]
-                                          ) extends TableMaintenanceSettings derives ReadWriter
+    override val targetAnalyzeSettings: Option[DefaultAnalyzeSettings],
+    override val targetOptimizeSettings: Option[DefaultOptimizeSettings],
+    override val targetSnapshotExpirationSettings: Option[DefaultSnapshotExpirationSettings],
+    override val targetOrphanFilesExpirationSettings: Option[DefaultOrphanFilesExpirationSettings]
+) extends TableMaintenanceSettings derives ReadWriter

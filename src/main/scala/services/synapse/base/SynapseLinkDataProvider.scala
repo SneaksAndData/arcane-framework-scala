@@ -17,12 +17,12 @@ import zio.{Task, ZIO, ZLayer}
 import java.time.OffsetDateTime
 
 class SynapseLinkDataProvider(
-                               synapseReader: SynapseLinkReader,
-                               sinkPropertyManager: SinkPropertyManager,
-                               sinkSettings: SinkSettings,
-                               settings: ChangeCaptureSettings,
-                               backfillSettings: BackfillSettings,
-                               throughputShaperBuilder: ThroughputShaperBuilder
+    synapseReader: SynapseLinkReader,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[SynapseWatermark](
       sinkPropertyManager,
       sinkSettings,
@@ -57,8 +57,8 @@ class SynapseLinkDataProvider(
     SynapseWatermark.epoch
 
 object SynapseLinkDataProvider:
-  type Environment = ChangeCaptureSettings & BackfillSettings & SynapseLinkReader & SinkPropertyManager &
-    SinkSettings & ThroughputShaperBuilder
+  type Environment = ChangeCaptureSettings & BackfillSettings & SynapseLinkReader & SinkPropertyManager & SinkSettings &
+    ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for

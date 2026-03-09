@@ -15,11 +15,11 @@ import scala.util.Random
 import java.time.Duration
 
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](
-                                                                                               dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
-                                                                                               settings: ChangeCaptureSettings,
-                                                                                               backfillSettings: BackfillSettings,
-                                                                                               streamContext: BaseStreamContext,
-                                                                                               declaredMetrics: DeclaredMetrics
+    dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    streamContext: BaseStreamContext,
+    declaredMetrics: DeclaredMetrics
 ) extends StreamDataProvider:
 
   type StreamElementType = DataRow

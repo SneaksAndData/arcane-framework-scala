@@ -16,6 +16,6 @@ trait SnapshotExpirationSettings:
   val retentionThreshold: String
 
 case class DefaultSnapshotExpirationSettings(
-                                              override val retentionThreshold: String,
-                                              override val batchThreshold: Int
-                                            ) extends SnapshotExpirationSettings derives ReadWriter
+    override val retentionThreshold: String,
+    override val batchThreshold: Int
+) extends SnapshotExpirationSettings derives ReadWriter

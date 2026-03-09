@@ -16,6 +16,6 @@ trait OptimizeSettings:
   val fileSizeThreshold: String
 
 case class DefaultOptimizeSettings(
-                                    override val fileSizeThreshold: String,
-                                    override val batchThreshold: Int
-                                  ) extends OptimizeSettings derives ReadWriter
+    override val fileSizeThreshold: String,
+    override val batchThreshold: Int
+) extends OptimizeSettings derives ReadWriter

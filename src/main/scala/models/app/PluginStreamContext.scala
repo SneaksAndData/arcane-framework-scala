@@ -18,17 +18,17 @@ import zio.metrics.connectors.statsd.DatagramSocketConfig
   */
 trait PluginStreamContext extends BaseStreamContext:
   val streamMode: StreamModeSettings
-  
+
   val sink: SinkSettings
-  
+
   val source: StreamSourceSettings
-  
+
   val staging: StagingSettings
-  
+
   val observability: ObservabilitySettings
-  
+
   val throughput: ThroughputSettings
-  
+
   def merge(other: Option[PluginStreamContext]): PluginStreamContext
 
 object PluginStreamContext:

@@ -22,12 +22,12 @@ import java.time.OffsetDateTime
   *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-                         reader: MsSqlReader,
-                         sinkPropertyManager: SinkPropertyManager,
-                         sinkSettings: SinkSettings,
-                         settings: ChangeCaptureSettings,
-                         backfillSettings: BackfillSettings,
-                         throughputShaperBuilder: ThroughputShaperBuilder
+    reader: MsSqlReader,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    settings: ChangeCaptureSettings,
+    backfillSettings: BackfillSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,

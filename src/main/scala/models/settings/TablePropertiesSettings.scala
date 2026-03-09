@@ -37,7 +37,7 @@ trait TablePropertiesSettings:
 object TablePropertiesSettings:
 
   /** Serializes the table properties to a Trino with expression
-   */
+    */
   extension (properties: TablePropertiesSettings)
     def serializeToWithExpression: String =
       val supportedProperties =
@@ -45,7 +45,7 @@ object TablePropertiesSettings:
       s"WITH ($supportedProperties)"
 
   /** Serializes the table properties to a HashMap
-   */
+    */
   extension (properties: TablePropertiesSettings)
     def serializeToMap: Map[String, String] =
       Map(
@@ -56,9 +56,10 @@ object TablePropertiesSettings:
       )
 
   /** Extracts fields from partition expressions: year(col) -> col
-   */
+    */
   extension (properties: TablePropertiesSettings)
-    def partitionFields: Array[String] = Array.empty[String]
+    def partitionFields: Array[String] = Array
+      .empty[String]
       .map { pe =>
         val matchingPart = partitionExpressionParts.filter(pep => pe.toLowerCase.startsWith(pep._1)).head
         pe.substring(pe.indexOf("(") + 1, pe.indexOf(matchingPart._2))
@@ -76,12 +77,12 @@ object TablePropertiesSettings:
     "bucket"   -> ",",
     "truncate" -> ","
   )
-  
+
 case class DefaultTablePropertiesSettings(
-                                           override val format: TableFormat,
-                                           override val sortedBy: Array[String],
-                                           override val parquetBloomFilterColumns: Array[String]
-                                         ) extends TablePropertiesSettings derives ReadWriter
+    override val format: TableFormat,
+    override val sortedBy: Array[String],
+    override val parquetBloomFilterColumns: Array[String]
+) extends TablePropertiesSettings derives ReadWriter
 
 /** Empty settings to be used with no-op batches
   */

@@ -10,10 +10,19 @@ import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcQueryRetry
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import services.merging.maintenance.{
+  JdbcOptimizationRequest,
+  JdbcOrphanFilesExpirationRequest,
+  JdbcSnapshotExpirationRequest
+}
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import tests.services.merging.JdbcMergeServiceClientTests.test
-import tests.shared.{TestBackfillTableSettings, TestJdbcMergeServiceClientSettings, TestSinkSettings, TestTablePropertiesSettings}
+import tests.shared.{
+  TestBackfillTableSettings,
+  TestJdbcMergeServiceClientSettings,
+  TestSinkSettings,
+  TestTablePropertiesSettings
+}
 
 import com.sneaksanddata.arcane.framework.models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import io.trino.jdbc.TrinoDriver
