@@ -5,20 +5,17 @@ import models.settings.{DefaultFieldSelectionRuleSettings, FieldSelectionRule, F
 
 import upickle.ReadWriter
 
-trait StreamSourceSettings extends SourceSettings with SourceBufferingSettings with FieldSelectionRuleSettings
+trait StreamSourceSettings:
+  type SourceSettingsType <: SourceSettings
+  
+  val source: SourceSettingsType
+  
+  val buffering: SourceBufferingSettings
+  
+  val fieldSelectionRule: FieldSelectionRuleSettings
 
 case class DefaultStreamSourceSettings(
-    buffering: DefaultSourceBufferingSettings,
-    fieldSelectionRuleSettings: DefaultFieldSelectionRuleSettings,
-    changeCaptureInterval: Int
-) extends StreamSourceSettings derives ReadWriter {
-
-  override val rule: FieldSelectionRule     = fieldSelectionRuleSettings.rule
-  override val essentialFields: Set[String] = fieldSelectionRuleSettings.essentialFields
-  override val isServerSide: Boolean        = fieldSelectionRuleSettings.isServerSide
-
-  override val bufferingStrategy: BufferingStrategy = buffering.bufferingStrategy
-  override val bufferingEnabled: Boolean            = buffering.bufferingEnabled
-
-  override val changeCaptureIntervalSeconds: Int = changeCaptureInterval
-}
+                                                                              override val buffering: SourceBufferingSettings,
+                                                                              override val fieldSelectionRule: FieldSelectionRuleSettings,
+                                                                              override val source: StreamSourceSettings#SourceSettingsType
+) extends StreamSourceSettings derives ReadWriter

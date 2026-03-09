@@ -52,7 +52,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(
-      TestStagingDataSettings,
+      TestStagingTableSettings$$,
       TestTablePropertiesSettings,
       TestSinkSettingsWithMaintenance,
       TestIcebergStagingSettings,

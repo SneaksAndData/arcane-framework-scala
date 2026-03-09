@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.versioning
 
-import com.sneaksanddata.arcane.framework.models.serialization.OffsetDateTimeRW.*
+import models.serialization.OffsetDateTimeRW.*
 import services.streaming.base.{JsonWatermark, SourceWatermark}
 
 import upickle.default.*

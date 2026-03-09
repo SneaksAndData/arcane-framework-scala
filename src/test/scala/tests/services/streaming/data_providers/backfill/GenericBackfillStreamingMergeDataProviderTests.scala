@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
@@ -162,7 +162,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TestStagingTableSettings$$),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
         ZLayer.succeed(defaultStagingSettings),
@@ -182,7 +182,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(jdbcTableManager),
         ZLayer.succeed(hookManager),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new StreamContext {
+        ZLayer.succeed(new BaseStreamContext {
           override def IsBackfilling: Boolean = false
           override def streamId: String       = "test-stream-id"
           override def streamKind: String     = "test-stream-kind"

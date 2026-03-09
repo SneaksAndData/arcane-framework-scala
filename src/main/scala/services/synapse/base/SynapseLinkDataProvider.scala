@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
@@ -10,6 +9,7 @@ import services.streaming.base.DefaultSourceDataProvider
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.versioning.SynapseWatermark
 import services.synapse.versioning.SynapseWatermark.*
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -17,12 +17,12 @@ import zio.{Task, ZIO, ZLayer}
 import java.time.OffsetDateTime
 
 class SynapseLinkDataProvider(
-    synapseReader: SynapseLinkReader,
-    sinkPropertyManager: SinkPropertyManager,
-    sinkSettings: SinkSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder
+                               synapseReader: SynapseLinkReader,
+                               sinkPropertyManager: SinkPropertyManager,
+                               sinkSettings: SinkSettings,
+                               settings: ChangeCaptureSettings,
+                               backfillSettings: BackfillSettings,
+                               throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[SynapseWatermark](
       sinkPropertyManager,
       sinkSettings,
@@ -57,12 +57,12 @@ class SynapseLinkDataProvider(
     SynapseWatermark.epoch
 
 object SynapseLinkDataProvider:
-  type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & SinkPropertyManager &
+  type Environment = ChangeCaptureSettings & BackfillSettings & SynapseLinkReader & SinkPropertyManager &
     SinkSettings & ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
-      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      versionedSettings <- ZIO.service[ChangeCaptureSettings]
       propertyManager   <- ZIO.service[SinkPropertyManager]
       sinkSettings      <- ZIO.service[SinkSettings]
       backfillSettings  <- ZIO.service[BackfillSettings]

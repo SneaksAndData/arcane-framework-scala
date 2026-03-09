@@ -2,17 +2,18 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.schemas.ArcaneSchema
-import models.settings.JdbcQueryRetryMode.{Always, BackfillOnly, Never}
+import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcQueryRetryMode.{Always, BackfillOnly, Never}
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
-import models.settings.{JdbcMergeServiceClientSettings, TablePropertiesSettings}
+import models.settings.TablePropertiesSettings
 import services.base.*
 import services.filters.FieldsFilteringService
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
+import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcMergeServiceClientSettings
 
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
@@ -44,13 +45,13 @@ trait JdbcTableManager extends TableManager:
   *   The options for the consumer.
   */
 class JdbcMergeServiceClient(
-    options: JdbcMergeServiceClientSettings,
-    targetTableSettings: SinkSettings,
-    backfillTableSettings: BackfillSettings,
-    streamContext: StreamContext,
-    fieldsFilteringService: FieldsFilteringService,
-    tablePropertiesSettings: TablePropertiesSettings,
-    declaredMetrics: DeclaredMetrics
+                              options: JdbcMergeServiceClientSettings,
+                              targetTableSettings: SinkSettings,
+                              backfillTableSettings: BackfillSettings,
+                              streamContext: BaseStreamContext,
+                              fieldsFilteringService: FieldsFilteringService,
+                              tablePropertiesSettings: TablePropertiesSettings,
+                              declaredMetrics: DeclaredMetrics
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -199,7 +200,7 @@ object JdbcMergeServiceClient:
   /** The environment type for the JdbcConsumer.
     */
   private type Environment = JdbcMergeServiceClientSettings & SinkSettings & SchemaProvider[ArcaneSchema] &
-    FieldsFilteringService & TablePropertiesSettings & StreamContext & BackfillSettings & DeclaredMetrics
+    FieldsFilteringService & TablePropertiesSettings & BaseStreamContext & BackfillSettings & DeclaredMetrics
 
   /** Factory method to create JdbcConsumer.
     * @param options
@@ -208,13 +209,13 @@ object JdbcMergeServiceClient:
     *   The initialized JdbcConsumer instance
     */
   def apply(
-      options: JdbcMergeServiceClientSettings,
-      targetTableSettings: SinkSettings,
-      backfillTableSettings: BackfillSettings,
-      streamContext: StreamContext,
-      fieldsFilteringService: FieldsFilteringService,
-      tablePropertiesSettings: TablePropertiesSettings,
-      declaredMetrics: DeclaredMetrics
+             options: JdbcMergeServiceClientSettings,
+             targetTableSettings: SinkSettings,
+             backfillTableSettings: BackfillSettings,
+             streamContext: BaseStreamContext,
+             fieldsFilteringService: FieldsFilteringService,
+             tablePropertiesSettings: TablePropertiesSettings,
+             declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
@@ -237,7 +238,7 @@ object JdbcMergeServiceClient:
           backfillTableSettings   <- ZIO.service[BackfillSettings]
           fieldsFilteringService  <- ZIO.service[FieldsFilteringService]
           tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-          streamContext           <- ZIO.service[StreamContext]
+          streamContext           <- ZIO.service[BaseStreamContext]
           declaredMetrics         <- ZIO.service[DeclaredMetrics]
         yield JdbcMergeServiceClient(
           connectionOptions,

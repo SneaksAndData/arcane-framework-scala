@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import upickle.ReadWriter
+
 /** Settings for orphan files expiration
   */
 trait AnalyzeSettings:
@@ -12,3 +14,8 @@ trait AnalyzeSettings:
   /** Optional columns to limit ANALYZE to
     */
   val includedColumns: Seq[String]
+
+case class DefaultAnalyzeSettings(
+                                   override val includedColumns: Seq[String],
+                                   override val batchThreshold: Int
+                                 ) extends AnalyzeSettings derives ReadWriter

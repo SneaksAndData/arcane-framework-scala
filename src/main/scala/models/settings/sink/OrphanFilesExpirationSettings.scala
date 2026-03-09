@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import upickle.ReadWriter
+
 /** Settings for orphan files expiration
   */
 trait OrphanFilesExpirationSettings:
@@ -12,3 +14,8 @@ trait OrphanFilesExpirationSettings:
   /** Retention threshold for orphan files expiration
     */
   val retentionThreshold: String
+
+case class DefaultOrphanFilesExpirationSettings(
+                                                 override val retentionThreshold: String,
+                                                 override val batchThreshold: Int
+                                               ) extends OrphanFilesExpirationSettings derives ReadWriter

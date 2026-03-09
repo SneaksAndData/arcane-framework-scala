@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
@@ -11,6 +10,7 @@ import services.mssql.versioning.MsSqlWatermark
 import services.mssql.versioning.MsSqlWatermark.*
 import services.streaming.base.DefaultSourceDataProvider
 import services.streaming.throughput.base.ThroughputShaperBuilder
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -22,12 +22,12 @@ import java.time.OffsetDateTime
   *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-    reader: MsSqlReader,
-    sinkPropertyManager: SinkPropertyManager,
-    sinkSettings: SinkSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder
+                         reader: MsSqlReader,
+                         sinkPropertyManager: SinkPropertyManager,
+                         sinkSettings: SinkSettings,
+                         settings: ChangeCaptureSettings,
+                         backfillSettings: BackfillSettings,
+                         throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,
@@ -69,7 +69,7 @@ object MsSqlDataProvider:
     ZLayer {
       for
         reader            <- ZIO.service[MsSqlReader]
-        versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+        versionedSettings <- ZIO.service[ChangeCaptureSettings]
         propertyManager   <- ZIO.service[SinkPropertyManager]
         sinkSettings      <- ZIO.service[SinkSettings]
         backfillSettings  <- ZIO.service[BackfillSettings]

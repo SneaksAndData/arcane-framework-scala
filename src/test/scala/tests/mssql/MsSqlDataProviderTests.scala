@@ -1,10 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.mssql
 
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
-import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
@@ -21,6 +20,7 @@ import tests.shared.{
   TestStreamLifetimeService,
   TestThroughputShaperBuilder
 }
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -33,7 +33,7 @@ import scala.language.postfixOps
 import scala.util.Success
 
 object MsSqlDataProviderTests extends ZIOSpecDefault:
-  private val graphSettings = new VersionedDataGraphBuilderSettings {
+  private val graphSettings = new ChangeCaptureSettings {
     override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
     override val changeCaptureJitterVariance: Double = 0.01
     override val changeCaptureJitterSeed: Long       = 0
@@ -49,7 +49,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val fieldString = "(x int not null, y int)"
   private val pkString    = "primary key(x)"
 
-  private val settings = new VersionedDataGraphBuilderSettings {
+  private val settings = new ChangeCaptureSettings {
     override val changeCaptureInterval: Duration     = Duration.ofMillis(1)
     override val changeCaptureJitterVariance: Double = 0.01
     override val changeCaptureJitterSeed: Long       = 0
@@ -58,7 +58,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
     Success(fields)
 
-  private val streamContext = new StreamContext:
+  private val streamContext = new BaseStreamContext:
     override val IsBackfilling = false
 
   private val defaultSinkSettings = TestDynamicSinkSettings(backfillSettings.backfillTableFullName)

@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.app.StreamContext
-import models.settings.VersionedDataGraphBuilderSettings
+import models.app.BaseStreamContext
 import models.settings.backfill.BackfillSettings
 import services.metrics.DeclaredMetrics
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.{ZIO, ZLayer}
 
@@ -26,11 +26,11 @@ import zio.{ZIO, ZLayer}
   * into using CHANGE_TRACKING_CURRENT_VERSION() values that come from the stream output.
   */
 class MsSqlStreamingDataProvider(
-    dataProvider: MsSqlDataProvider,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
-    streamContext: StreamContext,
-    declaredMetrics: DeclaredMetrics
+                                  dataProvider: MsSqlDataProvider,
+                                  settings: ChangeCaptureSettings,
+                                  backfillSettings: BackfillSettings,
+                                  streamContext: BaseStreamContext,
+                                  declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](
       dataProvider,
       settings,
@@ -43,7 +43,7 @@ object MsSqlStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = MsSqlDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext &
+  type Environment = MsSqlDataProvider & ChangeCaptureSettings & BackfillSettings & BaseStreamContext &
     DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
@@ -55,11 +55,11 @@ object MsSqlStreamingDataProvider:
     *   A new instance of the MsSqlStreamingDataProvider class.
     */
   def apply(
-      dataProvider: MsSqlDataProvider,
-      settings: VersionedDataGraphBuilderSettings,
-      backfillSettings: BackfillSettings,
-      streamContext: StreamContext,
-      declaredMetrics: DeclaredMetrics
+             dataProvider: MsSqlDataProvider,
+             settings: ChangeCaptureSettings,
+             backfillSettings: BackfillSettings,
+             streamContext: BaseStreamContext,
+             declaredMetrics: DeclaredMetrics
   ): MsSqlStreamingDataProvider =
     new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
 
@@ -69,9 +69,9 @@ object MsSqlStreamingDataProvider:
     ZLayer {
       for
         dataProvider     <- ZIO.service[MsSqlDataProvider]
-        settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
+        settings         <- ZIO.service[ChangeCaptureSettings]
         backfillSettings <- ZIO.service[BackfillSettings]
-        streamContext    <- ZIO.service[StreamContext]
+        streamContext    <- ZIO.service[BaseStreamContext]
         declaredMetrics  <- ZIO.service[DeclaredMetrics]
       yield MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
     }

@@ -4,8 +4,7 @@ package services.streaming.base
 import upickle.ReadWriter
 import upickle.default.*
 
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
-import java.time.format.DateTimeFormatter
+import java.time.{Duration, OffsetDateTime}
 
 /** Base trait that represents and objects holding source version tracking information. In its most simple form,
   * contains a single timestamp from source. This timestamp corresponds to the time data was last updated in the source.
@@ -47,7 +46,7 @@ case class TimestampOnlyWatermark(timestamp: OffsetDateTime) extends Watermark w
   override def toJson: String = upickle.write(this)
 
 object TimestampOnlyWatermark:
-  import com.sneaksanddata.arcane.framework.models.serialization.OffsetDateTimeRW._
+  import models.serialization.OffsetDateTimeRW.*
 
   implicit val rw: ReadWriter[TimestampOnlyWatermark] = macroRW
 

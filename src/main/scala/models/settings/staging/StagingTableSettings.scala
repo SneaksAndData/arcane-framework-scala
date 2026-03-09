@@ -1,13 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.staging
 
+import upickle.ReadWriter
+
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
 /** Settings for staging data
   */
-trait StagingDataSettings:
+trait StagingTableSettings:
 
   /** The prefix for the staging table name
     */
@@ -26,9 +28,22 @@ trait StagingDataSettings:
     */
   val isUnifiedSchema: Boolean
 
+  /**
+   * Max rows per file in each staging table
+   */
+  val maxRowsPerFile: Option[Int]
+
   /** Creates a name for the staging table
     */
   def newStagingTableName: String =
     val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
     val id                           = UUID.randomUUID().toString
     s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$id".replace('-', '_')
+
+case class DefaultStagingTableSettings(
+                                        override val stagingTablePrefix: String,
+                                        override val maxRowsPerFile: Option[Int],
+                                        override val stagingCatalogName: String,
+                                        override val stagingSchemaName: String,
+                                        override val isUnifiedSchema: Boolean
+                                      ) extends StagingTableSettings derives ReadWriter

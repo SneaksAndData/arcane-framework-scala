@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import services.metrics.DeclaredMetrics
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO}
@@ -15,11 +15,11 @@ import scala.util.Random
 import java.time.Duration
 
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](
-    dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
-    streamContext: StreamContext,
-    declaredMetrics: DeclaredMetrics
+                                                                                               dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
+                                                                                               settings: ChangeCaptureSettings,
+                                                                                               backfillSettings: BackfillSettings,
+                                                                                               streamContext: BaseStreamContext,
+                                                                                               declaredMetrics: DeclaredMetrics
 ) extends StreamDataProvider:
 
   type StreamElementType = DataRow

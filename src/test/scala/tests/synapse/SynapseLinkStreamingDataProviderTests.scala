@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.synapse
 
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.schemas.{DataRow, MergeKeyField}
 import models.settings.*
 import models.settings.backfill.BackfillBehavior.Overwrite
@@ -17,6 +17,7 @@ import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.TestAzureStorageInfo.*
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
@@ -25,7 +26,7 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
-  private val graphSettings = new VersionedDataGraphBuilderSettings {
+  private val graphSettings = new ChangeCaptureSettings {
     override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
     override val changeCaptureJitterVariance: Double = 0.01
     override val changeCaptureJitterSeed: Long       = 0
@@ -37,14 +38,14 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     )
     override val backfillTableFullName: String = "demo.test.synapse_backfill_test"
   }
-  private val backfillStreamContext = new StreamContext {
+  private val backfillStreamContext = new BaseStreamContext {
     override def IsBackfilling: Boolean = true
 
     override def streamId: String = "test"
 
     override def streamKind: String = "units"
   }
-  private val changeCaptureStreamContext = new StreamContext {
+  private val changeCaptureStreamContext = new BaseStreamContext {
     override def IsBackfilling: Boolean = false
 
     override def streamId: String = "test"

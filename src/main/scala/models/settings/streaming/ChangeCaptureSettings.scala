@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.streaming
 
 import java.time.Duration
 
 /** Provides settings for a stream source.
   */
-trait VersionedDataGraphBuilderSettings:
+trait ChangeCaptureSettings:
 
   /** The interval for periodic change capture operation.
     */

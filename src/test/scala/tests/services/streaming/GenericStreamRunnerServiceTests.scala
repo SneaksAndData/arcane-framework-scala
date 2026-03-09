@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.batches.SqlServerChangeTrackingMergeBatch
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
@@ -121,7 +121,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TestStagingTableSettings$$),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
         ZLayer.succeed(defaultStagingSettings),
@@ -140,7 +140,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           override def empty: SchemaType = ArcaneSchema.empty()
         }),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new StreamContext {
+        ZLayer.succeed(new BaseStreamContext {
           override def IsBackfilling: Boolean = false
           override def streamId: String       = "test-stream-id"
           override def streamKind: String     = "test-stream-kind"

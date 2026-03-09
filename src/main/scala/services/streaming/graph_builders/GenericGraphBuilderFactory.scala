@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import services.streaming.base.StreamingGraphBuilder
 import services.streaming.graph_builders.backfill.{
@@ -19,7 +19,7 @@ object GenericGraphBuilderFactory:
   /** The environment required for the graph builder to be created.
     */
   type Environment = GenericBackfillMergeGraphBuilder.Environment & GenericBackfillOverwriteGraphBuilder.Environment &
-    GenericStreamingGraphBuilder.Environment & BackfillSettings & StreamContext
+    GenericStreamingGraphBuilder.Environment & BackfillSettings & BaseStreamContext
 
   /** The ZLayer for the graph builder injection with runtime dependency resolution.
     */
@@ -35,7 +35,7 @@ object GenericGraphBuilderFactory:
   private def resolveGraphBuilder: ZIO[ResolverEnvironment, Nothing, StreamingGraphBuilder] =
     for
       backfillSettings <- ZIO.service[BackfillSettings]
-      streamContext    <- ZIO.service[StreamContext]
+      streamContext    <- ZIO.service[BaseStreamContext]
 
       _ <- zlog("resoling graph builder using stream context and backfill settings")
       builder <- (streamContext.IsBackfilling, backfillSettings.backfillBehavior) match

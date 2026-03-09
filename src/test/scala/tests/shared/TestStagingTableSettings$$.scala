@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.staging.StagingDataSettings
+import models.settings.staging.StagingTableSettings
 
-object TestStagingDataSettings extends StagingDataSettings:
+object TestStagingTableSettings$$ extends StagingTableSettings:
   override val stagingCatalogName: String = "catalog"
   override val stagingSchemaName: String  = "schema"
   override val stagingTablePrefix         = "staging_"

@@ -11,7 +11,7 @@ import java.time.Duration
 
 /** Provides the context for the stream.
   */
-trait StreamContext:
+trait BaseStreamContext:
 
   /** The id of the stream.
     */
@@ -36,19 +36,19 @@ trait StreamContext:
     sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
   )
 
-object StreamContext:
-  private type Environment = StreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
+object BaseStreamContext:
+  private type Environment = BaseStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
 
   /** Parses and initializes StreamContext for the plugin. This should be used when defining `layer` for plugin context
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
     * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
     */
-  extension [Spec <: StreamSpec](spec: Spec)
+  extension [Spec <: PluginStreamContext](spec: Spec)
     def loadContext(implicit rw: ReadWriter[Spec]): ZLayer[Any, Throwable, Environment] =
-      val spec = StreamSpec
+      val spec = PluginStreamContext
         .fromEnvironment[Spec]("STREAMCONTEXT__SPEC")
 
-      val specOverrides = StreamSpec
+      val specOverrides = PluginStreamContext
         .fromEnvironment[Spec]("STREAMCONTEXT_SPEC_OVERRIDE")
 
       spec

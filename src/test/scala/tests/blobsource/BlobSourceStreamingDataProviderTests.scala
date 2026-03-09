@@ -1,8 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.blobsource
 
-import models.app.StreamContext
-import models.settings.VersionedDataGraphBuilderSettings
+import models.app.BaseStreamContext
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
@@ -13,6 +12,7 @@ import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultStagingSettings
 import tests.shared.S3StorageInfo.*
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestThroughputShaperBuilder}
+import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -21,13 +21,13 @@ import zio.{Scope, ZIO}
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
-  private val streamSettings = new VersionedDataGraphBuilderSettings {
+  private val streamSettings = new ChangeCaptureSettings {
     override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
     override val changeCaptureJitterVariance: Double = 0.01
     override val changeCaptureJitterSeed: Long       = 0
   }
 
-  private val emptyStreamSettings = new VersionedDataGraphBuilderSettings {
+  private val emptyStreamSettings = new ChangeCaptureSettings {
     override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
     override val changeCaptureJitterVariance: Double = 0.01
     override val changeCaptureJitterSeed: Long       = 0
@@ -41,14 +41,14 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     override val backfillTableFullName: String = "blobsource_backfill_test"
   }
 
-  private val backfillStreamContext = new StreamContext {
+  private val backfillStreamContext = new BaseStreamContext {
     override def IsBackfilling: Boolean = true
 
     override def streamId: String = "blob-source"
 
     override def streamKind: String = "units"
   }
-  private val changeCaptureStreamContext = new StreamContext {
+  private val changeCaptureStreamContext = new BaseStreamContext {
     override def IsBackfilling: Boolean = false
 
     override def streamId: String = "blob-source"

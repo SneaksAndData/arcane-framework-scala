@@ -10,7 +10,3 @@ trait SourceSettings:
   /** How often to check for changes in the source data
     */
   val changeCaptureIntervalSeconds: Int
-
-  /** Field selection rule settings
-    */
-  val fieldSelectionRuleSettings: FieldSelectionRuleSettings
