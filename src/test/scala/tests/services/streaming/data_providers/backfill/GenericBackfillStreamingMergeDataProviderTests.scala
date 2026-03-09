@@ -162,10 +162,10 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingTableSettings$$),
+        ZLayer.succeed(TestStagingTableSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(defaultStagingSettings),
+        ZLayer.succeed(defaultIcebergStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks

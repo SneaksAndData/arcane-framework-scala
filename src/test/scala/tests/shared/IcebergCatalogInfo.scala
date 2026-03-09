@@ -11,7 +11,7 @@ object IcebergCatalogInfo:
   val defaultWarehouse  = "demo"
   val defaultCatalogUri = "http://localhost:20001/catalog"
 
-  val defaultStagingSettings: IcebergStagingSettings = new IcebergStagingSettings:
+  val defaultIcebergStagingSettings: IcebergStagingSettings = new IcebergStagingSettings:
     override val namespace: String  = defaultNamespace
     override val warehouse: String  = defaultWarehouse
     override val catalogUri: String = defaultCatalogUri

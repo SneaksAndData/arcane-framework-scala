@@ -25,7 +25,7 @@ class IcebergUtil(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSet
   )
   val entityManager: IcebergSinkEntityManager = IcebergSinkEntityManager(sinkSettings.icebergSinkSettings)
 
-  val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(entityManager, stagingSettings)
+  val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
 
   def prepareWatermark(tableName: String, value: JsonWatermark): Task[Unit] =
     for

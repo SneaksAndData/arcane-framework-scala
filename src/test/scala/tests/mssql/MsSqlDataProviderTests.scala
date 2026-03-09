@@ -12,7 +12,7 @@ import services.mssql.*
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
-import tests.shared.IcebergCatalogInfo.defaultStagingSettings
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.{
   IcebergUtil,
   NullDimensionsProvider,
@@ -62,7 +62,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
     override val IsBackfilling = false
 
   private val defaultSinkSettings = TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
-  private val icebergUtil         = IcebergUtil(defaultSinkSettings, defaultStagingSettings)
+  private val icebergUtil         = IcebergUtil(defaultSinkSettings, defaultIcebergStagingSettings)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
     for

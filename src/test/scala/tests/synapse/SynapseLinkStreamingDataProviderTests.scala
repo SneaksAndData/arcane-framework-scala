@@ -13,7 +13,7 @@ import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import services.synapse.versioning.SynapseWatermark
-import tests.shared.IcebergCatalogInfo.defaultStagingSettings
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestAzureStorageInfo.*
 import tests.shared.*
 
@@ -73,9 +73,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
-    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultIcebergStagingSettings)
   private def getIcebergUtilStream(tableName: String) =
-    IcebergUtil(TestDynamicSinkSettings(tableName), defaultStagingSettings)
+    IcebergUtil(TestDynamicSinkSettings(tableName), defaultIcebergStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(

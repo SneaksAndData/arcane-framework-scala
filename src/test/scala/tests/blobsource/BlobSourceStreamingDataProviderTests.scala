@@ -9,7 +9,7 @@ import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
-import tests.shared.IcebergCatalogInfo.defaultStagingSettings
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestThroughputShaperBuilder}
 import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
@@ -57,7 +57,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   }
 
   private val icebergUtil =
-    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultIcebergStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {

@@ -5,20 +5,17 @@ import models.app.BaseStreamContext
 import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
+
 import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcQueryRetryMode.Never
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.maintenance.{
-  JdbcOptimizationRequest,
-  JdbcOrphanFilesExpirationRequest,
-  JdbcSnapshotExpirationRequest
-}
+import services.merging.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import tests.services.merging.JdbcMergeServiceClientTests.test
-import tests.shared.{TestBackfillTableSettings, TestSinkSettings, TestTablePropertiesSettings}
-import com.sneaksanddata.arcane.framework.models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
+import tests.shared.{TestBackfillTableSettings, TestJdbcMergeServiceClientSettings, TestSinkSettings, TestTablePropertiesSettings}
 
+import com.sneaksanddata.arcane.framework.models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar
 import org.scalatestplus.easymock.EasyMockSugar.mock
@@ -44,22 +41,9 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
     override val IsBackfilling: Boolean = false
     override val streamKind: String     = "test"
 
-  private val options = new JdbcMergeServiceClientSettings:
-    /** The connection URL.
-      */
-    override val connectionUrl: String = connectionUri
-
-    override val extraConnectionParameters: Map[String, String] = Map()
-
-    override val queryRetryMode: JdbcQueryRetryMode        = Never
-    override val queryRetryOnMessageContents: List[String] = List()
-    override val queryRetryBaseDuration: zio.Duration      = zio.Duration.Zero
-    override val queryRetryMaxAttempts: Int                = 1
-    override val queryRetryScaleFactor: Double             = 1
-
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
-      options,
+      TestJdbcMergeServiceClientSettings,
       TestSinkSettings,
       TestBackfillTableSettings,
       streamContext,

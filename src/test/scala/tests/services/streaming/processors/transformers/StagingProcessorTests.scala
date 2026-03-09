@@ -48,11 +48,11 @@ object StagingProcessorTests extends ZIOSpecDefault:
   )
   private val hookManager = SynapseHookManager()
   private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergStagingSettings] =
-    ZLayer.succeed(defaultStagingSettings)
+    ZLayer.succeed(defaultIcebergStagingSettings)
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(
-      TestStagingTableSettings$$,
+      TestStagingTableSettings,
       TestTablePropertiesSettings,
       TestSinkSettingsWithMaintenance,
       TestIcebergStagingSettings,
