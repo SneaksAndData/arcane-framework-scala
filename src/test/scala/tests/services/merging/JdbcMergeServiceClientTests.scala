@@ -52,12 +52,8 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       TestJdbcMergeServiceClientSettings,
-      TestSinkSettings,
-      TestBackfillTableSettings,
-      streamContext,
-      fieldsFilteringServiceMock,
-      TestTablePropertiesSettings,
-      DeclaredMetrics(ArcaneDimensionsProvider(streamContext))
+      DeclaredMetrics(ArcaneDimensionsProvider(streamContext)),
+      false
     )
 
   private def getConnection: Task[Connection] =

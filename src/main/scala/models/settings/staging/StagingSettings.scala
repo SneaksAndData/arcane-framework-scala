@@ -12,16 +12,11 @@ trait StagingSettings:
     */
   val table: StagingTableSettings
 
-  /** Merge client configuration
-    */
-  val mergeServiceClient: JdbcMergeServiceClientSettings
-
   /** Iceberg REST Catalog configuration for staging tables
     */
   val icebergCatalog: IcebergStagingSettings
 
 case class DefaultStagingSettings(
     override val table: DefaultStagingTableSettings,
-    override val icebergCatalog: DefaultIcebergStagingSettings,
-    override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
+    override val icebergCatalog: DefaultIcebergStagingSettings
 ) extends StagingSettings derives ReadWriter

@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import models.settings.staging.{DefaultJdbcMergeServiceClientSettings, JdbcMergeServiceClientSettings}
 import models.settings.{DefaultTablePropertiesSettings, TablePropertiesSettings}
 
 import upickle.ReadWriter
@@ -20,6 +21,10 @@ trait SinkSettings:
     */
   val icebergSinkSettings: IcebergSinkSettings
 
+  /** Merge client configuration
+   */
+  val mergeServiceClient: JdbcMergeServiceClientSettings
+
   val targetTableProperties: TablePropertiesSettings
 
   /** Retrieve names for each component of a target table name
@@ -37,5 +42,6 @@ case class DefaultSinkSettings(
     override val icebergSinkSettings: DefaultIcebergSinkSettings,
     override val maintenanceSettings: DefaultTableMaintenanceSettings,
     override val targetTableFullName: String,
-    override val targetTableProperties: DefaultTablePropertiesSettings
+    override val targetTableProperties: DefaultTablePropertiesSettings,
+    override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
 ) extends SinkSettings derives ReadWriter

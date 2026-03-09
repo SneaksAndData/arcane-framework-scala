@@ -2,18 +2,13 @@ package com.sneaksanddata.arcane.framework
 package services.merging
 
 import logging.ZIOLogAnnotations.*
-import models.app.BaseStreamContext
-import models.schemas.ArcaneSchema
-import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcQueryRetryMode.{Always, BackfillOnly, Never}
-import models.settings.backfill.BackfillSettings
-import models.settings.sink.SinkSettings
-import models.settings.TablePropertiesSettings
+import models.app.PluginStreamContext
+import models.settings.staging.JdbcMergeServiceClientSettings
+import models.settings.staging.JdbcQueryRetryMode.{Always, BackfillOnly, Never}
 import services.base.*
-import services.filters.FieldsFilteringService
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
-import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcMergeServiceClientSettings
 
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
@@ -45,13 +40,9 @@ trait JdbcTableManager extends TableManager:
   *   The options for the consumer.
   */
 class JdbcMergeServiceClient(
-    options: JdbcMergeServiceClientSettings,
-    targetTableSettings: SinkSettings,
-    backfillTableSettings: BackfillSettings,
-    streamContext: BaseStreamContext,
-    fieldsFilteringService: FieldsFilteringService,
-    tablePropertiesSettings: TablePropertiesSettings,
-    declaredMetrics: DeclaredMetrics
+                              options: JdbcMergeServiceClientSettings,
+                              declaredMetrics: DeclaredMetrics,
+                              isBackfilling: Boolean
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -76,7 +67,7 @@ class JdbcMergeServiceClient(
     options.queryRetryMode match
       case Never                                       => Schedule.stop
       case Always                                      => backoffPolicy
-      case BackfillOnly if streamContext.IsBackfilling => backoffPolicy
+      case BackfillOnly if isBackfilling => backoffPolicy
       case _                                           => Schedule.stop
 
   /** @inheritdoc
@@ -99,7 +90,7 @@ class JdbcMergeServiceClient(
     */
   override def optimizeTable(maybeRequest: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] =
     maybeRequest match
-      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
+      case Some(request) if request.isApplicable && !isBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           maybeRequest.get.name,
@@ -112,7 +103,7 @@ class JdbcMergeServiceClient(
     */
   override def expireSnapshots(maybeRequest: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] =
     maybeRequest match
-      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
+      case Some(request) if request.isApplicable && !isBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           request.name,
@@ -125,7 +116,7 @@ class JdbcMergeServiceClient(
     */
   override def expireOrphanFiles(maybeRequest: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] =
     maybeRequest match
-      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
+      case Some(request) if request.isApplicable && !isBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           request.name,
@@ -156,7 +147,7 @@ class JdbcMergeServiceClient(
 
   override def analyzeTable(request: Option[TableAnalyzeRequest]): Task[BatchOptimizationResult] =
     request match
-      case Some(request) if request.isApplicable && !streamContext.IsBackfilling =>
+      case Some(request) if request.isApplicable && !isBackfilling =>
         executeBatchQuery(
           request.toSqlExpression,
           request.name,
@@ -199,8 +190,7 @@ object JdbcMergeServiceClient:
 
   /** The environment type for the JdbcConsumer.
     */
-  private type Environment = JdbcMergeServiceClientSettings & SinkSettings & SchemaProvider[ArcaneSchema] &
-    FieldsFilteringService & TablePropertiesSettings & BaseStreamContext & BackfillSettings & DeclaredMetrics
+  private type Environment = PluginStreamContext & DeclaredMetrics
 
   /** Factory method to create JdbcConsumer.
     * @param options
@@ -210,21 +200,13 @@ object JdbcMergeServiceClient:
     */
   def apply(
       options: JdbcMergeServiceClientSettings,
-      targetTableSettings: SinkSettings,
-      backfillTableSettings: BackfillSettings,
-      streamContext: BaseStreamContext,
-      fieldsFilteringService: FieldsFilteringService,
-      tablePropertiesSettings: TablePropertiesSettings,
+      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
-      targetTableSettings,
-      backfillTableSettings,
-      streamContext,
-      fieldsFilteringService,
-      tablePropertiesSettings,
-      declaredMetrics
+      declaredMetrics,
+      isBackfilling
     )
 
   /** The ZLayer that creates the JdbcConsumer.
@@ -233,20 +215,11 @@ object JdbcMergeServiceClient:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          connectionOptions       <- ZIO.service[JdbcMergeServiceClientSettings]
-          targetTableSettings     <- ZIO.service[SinkSettings]
-          backfillTableSettings   <- ZIO.service[BackfillSettings]
-          fieldsFilteringService  <- ZIO.service[FieldsFilteringService]
-          tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-          streamContext           <- ZIO.service[BaseStreamContext]
+          context <- ZIO.service[PluginStreamContext]
           declaredMetrics         <- ZIO.service[DeclaredMetrics]
         yield JdbcMergeServiceClient(
-          connectionOptions,
-          targetTableSettings,
-          backfillTableSettings,
-          streamContext,
-          fieldsFilteringService,
-          tablePropertiesSettings,
+          context.sink.mergeServiceClient,
+          context.IsBackfilling,
           declaredMetrics
         )
       }
