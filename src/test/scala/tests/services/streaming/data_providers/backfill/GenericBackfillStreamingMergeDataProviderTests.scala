@@ -9,7 +9,11 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch
 }
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, StreamSourceSettings}
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -29,10 +33,6 @@ import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import com.sneaksanddata.arcane.framework.models.settings.observability.ObservabilitySettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
-import com.sneaksanddata.arcane.framework.models.settings.staging.StagingSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

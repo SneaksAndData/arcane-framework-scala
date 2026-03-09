@@ -12,7 +12,7 @@ import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestThroughputShaperBuilder}
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
+import models.settings.streaming.ChangeCaptureSettings
 
 import zio.test.*
 import zio.test.TestAspect.timeout

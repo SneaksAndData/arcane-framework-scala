@@ -2,14 +2,19 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.{BaseStreamContext, PluginStreamContext}
+import models.app.PluginStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
-import models.schemas.ArcaneType.StringType
 import models.schemas.*
+import models.schemas.ArcaneType.StringType
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.sources.StreamSourceSettings
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -34,11 +39,6 @@ import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, Test
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
-import com.sneaksanddata.arcane.framework.models.settings.observability.ObservabilitySettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
-import com.sneaksanddata.arcane.framework.models.settings.sources.StreamSourceSettings
-import com.sneaksanddata.arcane.framework.models.settings.staging.StagingSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

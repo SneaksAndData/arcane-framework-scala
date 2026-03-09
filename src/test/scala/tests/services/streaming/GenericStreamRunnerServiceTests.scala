@@ -32,10 +32,10 @@ import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 import services.bootstrap.DefaultStreamBootstrapper
 
-import com.sneaksanddata.arcane.framework.models.settings.observability.ObservabilitySettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
-import com.sneaksanddata.arcane.framework.models.settings.staging.StagingSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.{StreamModeSettings, ThroughputSettings}
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec

@@ -3,12 +3,12 @@ package tests.catalog
 
 import models.schemas.ArcaneType.{IntType, StringType}
 import models.schemas.{DataCell, Field, MergeKeyField}
-import services.iceberg.{IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.iceberg.SchemaConversions.*
 import services.iceberg.base.CatalogWriter
+import services.iceberg.{IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import tests.shared.IcebergCatalogInfo.*
+import tests.shared.TestStagingSettings
 
-import com.sneaksanddata.arcane.framework.tests.shared.TestStagingSettings
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.test.*

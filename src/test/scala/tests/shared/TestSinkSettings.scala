@@ -2,8 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import models.settings.sink.{IcebergSinkSettings, SinkSettings, TableMaintenanceSettings}
-
-import com.sneaksanddata.arcane.framework.models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
+import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 
 object TestSinkSettings extends SinkSettings:
   override val targetTableFullName: String                    = "database.schema.target_table"

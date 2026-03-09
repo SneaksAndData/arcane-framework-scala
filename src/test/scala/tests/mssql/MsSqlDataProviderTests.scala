@@ -2,25 +2,16 @@ package com.sneaksanddata.arcane.framework
 package tests.mssql
 
 import models.app.BaseStreamContext
-import models.schemas.ArcaneType.StringType
-import models.schemas.{ArcaneSchema, Field}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
-import services.iceberg.{IcebergS3CatalogWriter, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
+import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 import services.mssql.*
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
-import tests.shared.{
-  IcebergUtil,
-  NullDimensionsProvider,
-  TestDynamicSinkSettings,
-  TestStreamLifetimeService,
-  TestThroughputShaperBuilder
-}
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
+import tests.shared.*
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout

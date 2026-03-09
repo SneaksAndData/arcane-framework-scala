@@ -17,7 +17,7 @@ import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestAzureStorageInfo.*
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
+import models.settings.streaming.ChangeCaptureSettings
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}

@@ -5,8 +5,8 @@ import models.app.BaseStreamContext
 import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
-
-import com.sneaksanddata.arcane.framework.models.settings.staging.JdbcQueryRetryMode.Never
+import models.settings.staging.JdbcQueryRetryMode.Never
+import models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
@@ -24,7 +24,6 @@ import tests.shared.{
   TestTablePropertiesSettings
 }
 
-import com.sneaksanddata.arcane.framework.models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar
 import org.scalatestplus.easymock.EasyMockSugar.mock
