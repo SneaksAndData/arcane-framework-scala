@@ -13,6 +13,7 @@ import models.settings.{
   VersionedDataGraphBuilderSettings
 }
 
+import com.sneaksanddata.arcane.framework.models.settings.observability.ObservabilitySettings
 import com.sneaksanddata.arcane.framework.models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
 import upickle.ReadWriter
 import zio.metrics.connectors.MetricsConfig
@@ -31,14 +32,17 @@ trait StreamSpec
     with TablePropertiesSettings
     with IcebergStagingSettings
     with JdbcMergeServiceClientSettings
-    with ThroughputSettings:
+    with ThroughputSettings
+    with ObservabilitySettings:
 
   def merge(other: Option[StreamSpec]): StreamSpec
 
-object StreamSpec:
-  def apply(value: String)(implicit rw: ReadWriter[StreamSpec]): StreamSpec = upickle.read(value)
+  override def customTags: Map[String, String] = metricTags
 
-  def fromEnvironment(envVarName: String)(implicit rw: ReadWriter[StreamSpec]): Option[StreamSpec] =
+object StreamSpec:
+  def apply[Spec <: StreamSpec](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
+
+  def fromEnvironment[Spec <: StreamSpec](envVarName: String)(implicit rw: ReadWriter[Spec]): Option[Spec] =
     sys.env.get(envVarName).map(env => apply(env))
 
   given Conversion[StreamSpec, DatagramSocketConfig] with
