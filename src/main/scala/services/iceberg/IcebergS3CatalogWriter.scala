@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import logging.ZIOLogAnnotations.*
+import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.iceberg.IcebergStagingSettings
@@ -148,6 +149,6 @@ object IcebergS3CatalogWriter:
   def layer = ZLayer {
     for
       stagingEntityManager <- ZIO.service[StagingEntityManager]
-      settings             <- ZIO.service[StagingSettings]
-    yield IcebergS3CatalogWriter(stagingEntityManager, settings)
+      context             <- ZIO.service[PluginStreamContext]
+    yield IcebergS3CatalogWriter(stagingEntityManager, context.staging)
   }
