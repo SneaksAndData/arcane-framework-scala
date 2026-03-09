@@ -7,7 +7,7 @@ import models.settings.observability.DefaultObservabilitySettings
 import models.settings.sink.{DefaultSinkSettings, IcebergSinkSettings, TableMaintenanceSettings}
 import models.settings.sources.{BufferingStrategy, DefaultStreamSourceSettings}
 import models.settings.staging.{DefaultStagingSettings, JdbcQueryRetryMode}
-import models.settings.streaming.{DefaultStreamModeSettings, ThroughputShaperImpl}
+import models.settings.streaming.{DefaultStreamModeSettings, DefaultThroughputSettings, ThroughputSettings, ThroughputShaperImpl}
 import models.settings.{FieldSelectionRule, TableFormat}
 
 import upickle.{ReadWriter, macroRW}
@@ -19,7 +19,8 @@ case class DefaultPluginStreamContext(
     override val source: DefaultStreamSourceSettings,
     override val staging: DefaultStagingSettings,
     override val streamMode: DefaultStreamModeSettings,         
-    override val sink: DefaultSinkSettings                                 
+    override val sink: DefaultSinkSettings,
+    override val throughput: DefaultThroughputSettings
 ) extends PluginStreamContext:
 
   // observability

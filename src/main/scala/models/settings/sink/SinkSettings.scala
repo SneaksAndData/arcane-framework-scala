@@ -1,9 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
-import models.settings.sink.IcebergSinkSettings
+import models.settings.{DefaultTablePropertiesSettings, TablePropertiesSettings}
 
-import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import upickle.ReadWriter
 
 /** Settings for the target table
@@ -20,7 +19,7 @@ trait SinkSettings:
   /** Settings for Iceberg Catalog instance associated with the sink
     */
   val icebergSinkSettings: IcebergSinkSettings
-  
+
   val targetTableProperties: TablePropertiesSettings
 
   /** Retrieve names for each component of a target table name
@@ -37,5 +36,6 @@ trait SinkSettings:
 case class DefaultSinkSettings(
                                 override val icebergSinkSettings: DefaultIcebergSinkSettings,
                                 override val maintenanceSettings: DefaultTableMaintenanceSettings,
-                                override val targetTableFullName: String
+                                override val targetTableFullName: String,
+                                override val targetTableProperties: DefaultTablePropertiesSettings
                               ) extends SinkSettings derives ReadWriter

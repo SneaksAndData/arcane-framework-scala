@@ -3,6 +3,8 @@ package models.settings
 
 import models.settings.TableFormat.PARQUET
 
+import upickle.ReadWriter
+
 /** Data file format for Iceberg tables
   */
 enum TableFormat:
@@ -34,6 +36,13 @@ trait TablePropertiesSettings:
     * predicates when reading Parquet files. Requires Parquet format
     */
   val parquetBloomFilterColumns: Array[String]
+  
+case class DefaultTablePropertiesSettings(
+                                           override val format: TableFormat,
+                                           override val sortedBy: Array[String],
+                                           override val parquetBloomFilterColumns: Array[String],
+                                           override val partitionExpressions: Array[String]
+                                         ) extends TablePropertiesSettings derives ReadWriter
 
 /** Empty settings to be used with no-op batches
   */
