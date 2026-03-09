@@ -47,16 +47,8 @@ case class TimestampOnlyWatermark(timestamp: OffsetDateTime) extends Watermark w
   override def toJson: String = upickle.write(this)
 
 object TimestampOnlyWatermark:
-  import OffsetDateTimeRW._
+  import com.sneaksanddata.arcane.framework.models.serialization.OffsetDateTimeRW._
 
   implicit val rw: ReadWriter[TimestampOnlyWatermark] = macroRW
 
   def fromJson(value: String): TimestampOnlyWatermark = upickle.read(value)
-
-object OffsetDateTimeRW:
-  private val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
-
-  implicit val rw: ReadWriter[OffsetDateTime] = readwriter[String].bimap[OffsetDateTime](
-    offsetDateTime => formatter.format(offsetDateTime),
-    str => OffsetDateTime.parse(str, formatter)
-  )

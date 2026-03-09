@@ -1,9 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources
 
+import upickle.ReadWriter
+
 /** Provides buffering strategies for the streaming process.
   */
-enum BufferingStrategy:
+enum BufferingStrategy derives ReadWriter:
   /** Buffers the data in memory in unbounded queue.
     */
   case Unbounded
@@ -27,3 +29,8 @@ trait SourceBufferingSettings:
   /** Indicates whether buffering is enabled.
     */
   val bufferingEnabled: Boolean
+
+case class DefaultSourceBufferingSettings(
+    override val bufferingStrategy: BufferingStrategy,
+    override val bufferingEnabled: Boolean
+) extends SourceBufferingSettings derives ReadWriter

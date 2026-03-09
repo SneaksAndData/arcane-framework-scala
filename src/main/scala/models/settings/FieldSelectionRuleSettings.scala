@@ -1,10 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
+import upickle.ReadWriter
+
 /** Represents a field selection rule for a streaming batch. The field selection rule is used to determine which fields
   * should be included in the result set of a query.
   */
-enum FieldSelectionRule:
+enum FieldSelectionRule derives ReadWriter:
   /** All fields should be included in the result set.
     */
   case AllFields
@@ -31,3 +33,9 @@ trait FieldSelectionRuleSettings:
   val essentialFields: Set[String]
 
   val isServerSide: Boolean
+
+case class DefaultFieldSelectionRuleSettings(
+    override val essentialFields: Set[String],
+    override val rule: FieldSelectionRule,
+    override val isServerSide: Boolean
+) extends FieldSelectionRuleSettings derives ReadWriter

@@ -43,13 +43,13 @@ object StreamContext:
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
     * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
     */
-  extension (spec: StreamSpec)
-    def loadContext(implicit rw: ReadWriter[StreamSpec]): ZLayer[Any, Throwable, Environment] =
+  extension [Spec <: StreamSpec](spec: Spec)
+    def loadContext(implicit rw: ReadWriter[Spec]): ZLayer[Any, Throwable, Environment] =
       val spec = StreamSpec
-        .fromEnvironment("STREAMCONTEXT__SPEC")
+        .fromEnvironment[Spec]("STREAMCONTEXT__SPEC")
 
       val specOverrides = StreamSpec
-        .fromEnvironment("STREAMCONTEXT_SPEC_OVERRIDE")
+        .fromEnvironment[Spec]("STREAMCONTEXT_SPEC_OVERRIDE")
 
       spec
         .map(parsed =>

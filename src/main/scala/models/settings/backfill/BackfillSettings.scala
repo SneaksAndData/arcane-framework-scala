@@ -1,12 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.backfill
 
+import models.serialization.OffsetDateTimeRW.*
+import upickle.{ReadWriter, macroRW}
+import upickle.default.*
+
 import java.time.OffsetDateTime
 
 /** Backfill graph behavior. Merge will merge the backfill data with the existing data, while Overwrite will overwrite
   * the existing data with the backfill data.
   */
-enum BackfillBehavior:
+enum BackfillBehavior derives ReadWriter:
   case Merge, Overwrite
 
 /** The settings that controls the backfill graph behavior
@@ -34,3 +38,9 @@ trait BackfillSettings:
         throw new RuntimeException(
           s"Invalid table name format for $backfillTableFullName. Must be {warehouse}.{namespace}.{name}"
         )
+
+case class DefaultBackfillSettings(
+    override val backfillBehavior: BackfillBehavior,
+    override val backfillStartDate: Option[OffsetDateTime],
+    override val backfillTableFullName: String
+) extends BackfillSettings derives ReadWriter

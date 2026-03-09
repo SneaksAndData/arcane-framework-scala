@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql.versioning
 
 import services.streaming.base.{JsonWatermark, SourceWatermark}
-import services.streaming.base.OffsetDateTimeRW.*
+import com.sneaksanddata.arcane.framework.models.serialization.OffsetDateTimeRW.*
 import upickle.default.*
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}

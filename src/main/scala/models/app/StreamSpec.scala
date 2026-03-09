@@ -26,7 +26,6 @@ trait StreamSpec
     with BackfillSettings
     with SinkSettings
     with StreamSourceSettings
-    with FieldSelectionRuleSettings
     with StagingDataSettings
     with VersionedDataGraphBuilderSettings
     with TablePropertiesSettings
@@ -36,8 +35,6 @@ trait StreamSpec
     with ObservabilitySettings:
 
   def merge(other: Option[StreamSpec]): StreamSpec
-
-  override def customTags: Map[String, String] = metricTags
 
 object StreamSpec:
   def apply[Spec <: StreamSpec](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
