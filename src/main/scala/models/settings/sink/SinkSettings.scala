@@ -22,7 +22,7 @@ trait SinkSettings:
   val icebergSinkSettings: IcebergSinkSettings
 
   /** Merge client configuration
-   */
+    */
   val mergeServiceClient: JdbcMergeServiceClientSettings
 
   val targetTableProperties: TablePropertiesSettings

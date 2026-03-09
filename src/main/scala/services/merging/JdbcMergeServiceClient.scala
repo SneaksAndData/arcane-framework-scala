@@ -40,9 +40,9 @@ trait JdbcTableManager extends TableManager:
   *   The options for the consumer.
   */
 class JdbcMergeServiceClient(
-                              options: JdbcMergeServiceClientSettings,
-                              declaredMetrics: DeclaredMetrics,
-                              isBackfilling: Boolean
+    options: JdbcMergeServiceClientSettings,
+    declaredMetrics: DeclaredMetrics,
+    isBackfilling: Boolean
 ) extends MergeServiceClient
     with JdbcTableManager
     with AutoCloseable
@@ -65,10 +65,10 @@ class JdbcMergeServiceClient(
       }
 
     options.queryRetryMode match
-      case Never                                       => Schedule.stop
-      case Always                                      => backoffPolicy
+      case Never                         => Schedule.stop
+      case Always                        => backoffPolicy
       case BackfillOnly if isBackfilling => backoffPolicy
-      case _                                           => Schedule.stop
+      case _                             => Schedule.stop
 
   /** @inheritdoc
     */
@@ -215,8 +215,8 @@ object JdbcMergeServiceClient:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          context <- ZIO.service[PluginStreamContext]
-          declaredMetrics         <- ZIO.service[DeclaredMetrics]
+          context         <- ZIO.service[PluginStreamContext]
+          declaredMetrics <- ZIO.service[DeclaredMetrics]
         yield JdbcMergeServiceClient(
           context.sink.mergeServiceClient,
           context.IsBackfilling,
