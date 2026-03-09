@@ -23,4 +23,4 @@ trait BlobSourceSettings extends SourceSettings:
 
   /** Optional s3 client settings
     */
-  val s3Source: S3ClientSettings
+  val s3ClientSettings: S3ClientSettings
