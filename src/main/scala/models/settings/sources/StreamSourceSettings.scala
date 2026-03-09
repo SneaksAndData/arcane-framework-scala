@@ -4,6 +4,7 @@ package models.settings.sources
 import models.settings.{DefaultFieldSelectionRuleSettings, FieldSelectionRule, FieldSelectionRuleSettings}
 
 import upickle.ReadWriter
+import upickle.default.*
 
 trait StreamSourceSettings:
   type SourceSettingsType <: SourceSettings
@@ -13,9 +14,3 @@ trait StreamSourceSettings:
   val buffering: SourceBufferingSettings
   
   val fieldSelectionRule: FieldSelectionRuleSettings
-
-case class DefaultStreamSourceSettings(
-                                                                              override val buffering: SourceBufferingSettings,
-                                                                              override val fieldSelectionRule: FieldSelectionRuleSettings,
-                                                                              override val source: StreamSourceSettings#SourceSettingsType
-) extends StreamSourceSettings derives ReadWriter

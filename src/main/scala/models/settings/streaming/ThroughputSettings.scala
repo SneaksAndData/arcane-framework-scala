@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.streaming
 
+import models.serialization.JavaDurationRW.*
+
 import upickle.ReadWriter
 import upickle.default.*
 

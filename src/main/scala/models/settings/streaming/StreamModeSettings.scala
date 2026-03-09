@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.streaming
 
-import models.settings.backfill.BackfillSettings
+import models.settings.backfill.{BackfillSettings, DefaultBackfillSettings}
 
 import upickle.ReadWriter
 
@@ -20,6 +20,6 @@ trait StreamModeSettings:
   val changeCapture: ChangeCaptureSettings
 
 case class DefaultStreamModeSettings(
-                                      override val changeCapture: ChangeCaptureSettings,
-                                      override val backfill: BackfillSettings
+                                      override val changeCapture: DefaultChangeCaptureSettings,
+                                      override val backfill: DefaultBackfillSettings
                                     ) extends StreamModeSettings derives ReadWriter

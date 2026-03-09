@@ -123,7 +123,7 @@ class SqlServerChangeTrackingMergeBatch(
       SqlServerChangeTrackingMergeQuery(
         targetName = targetName,
         sourceQuery = reduceExpr,
-        partitionFields = tablePropertiesSettings.partitionFields,
+        partitionFields = Seq.empty,
         mergeKey = mergeKey,
         columns = schema.map(f => f.name)
       )
