@@ -3,11 +3,11 @@ package services.blobsource.providers
 
 import models.app.BaseStreamContext
 import models.settings.backfill.BackfillSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.blobsource.BlobSourceBatch
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.{ZIO, ZLayer}
 

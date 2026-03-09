@@ -1,11 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
-import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
-import models.settings.sink.SinkSettings
+import models.app.PluginStreamContext
+import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.{SinkPropertyManager, StagingPropertyManager, TablePropertyManager}
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
 import zio.{Task, ZIO, ZLayer}

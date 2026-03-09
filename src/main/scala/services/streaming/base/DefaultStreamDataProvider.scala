@@ -5,14 +5,14 @@ import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.app.BaseStreamContext
 import models.schemas.DataRow
 import models.settings.backfill.BackfillSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
-import scala.util.Random
 import java.time.Duration
+import scala.util.Random
 
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](
     dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],

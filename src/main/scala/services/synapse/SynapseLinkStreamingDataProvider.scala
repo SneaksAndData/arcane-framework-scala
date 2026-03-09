@@ -4,11 +4,11 @@ package services.synapse
 import models.app.BaseStreamContext
 import models.schemas.DataRow
 import models.settings.backfill.BackfillSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 import services.synapse.base.SynapseLinkDataProvider
 import services.synapse.versioning.SynapseWatermark
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.{ZIO, ZLayer}
 

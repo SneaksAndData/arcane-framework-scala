@@ -4,13 +4,13 @@ package services.mssql
 import models.schemas.DataRow
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.mssql.versioning.MsSqlWatermark.*
 import services.streaming.base.DefaultSourceDataProvider
 import services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}

@@ -4,13 +4,13 @@ package services.blobsource.providers
 import models.schemas.DataRow
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.base.DefaultSourceDataProvider
 import services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}

@@ -3,10 +3,10 @@ package services.mssql
 
 import models.app.BaseStreamContext
 import models.settings.backfill.BackfillSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
 
 import zio.{ZIO, ZLayer}
 
