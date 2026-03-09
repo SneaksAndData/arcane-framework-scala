@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.app
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.PluginStreamContext
 import models.settings.staging.StagingTableSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.bootstrap.base.StreamBootstrapper
@@ -58,7 +59,7 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & StagingTableSettings & StreamBootstrapper &
+  type Environment = StreamLifetimeService & StreamingGraphBuilder & PluginStreamContext & StreamBootstrapper &
     HookManager
 
   /** Creates a new instance of the GenericStreamRunnerService class.
@@ -86,8 +87,8 @@ object GenericStreamRunnerService:
       for
         lifetimeService     <- ZIO.service[StreamLifetimeService]
         builder             <- ZIO.service[StreamingGraphBuilder]
-        stagingDataSettings <- ZIO.service[StagingTableSettings]
+        context <- ZIO.service[PluginStreamContext]
         hookManager         <- ZIO.service[HookManager]
         bootstrapper        <- ZIO.service[StreamBootstrapper]
-      yield GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, bootstrapper)
+      yield GenericStreamRunnerService(builder, lifetimeService, context.staging.table, hookManager, bootstrapper)
     }
