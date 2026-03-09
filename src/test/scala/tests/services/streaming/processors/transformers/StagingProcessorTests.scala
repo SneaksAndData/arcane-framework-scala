@@ -2,19 +2,25 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
 import models.*
+import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import models.settings.iceberg.IcebergStagingSettings
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.sources.StreamSourceSettings
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import services.base.DimensionsProvider
-import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.iceberg.base.CatalogWriter
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.IcebergCatalogInfo.*
 import tests.shared.*
+import tests.shared.IcebergCatalogInfo.*
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -80,6 +86,17 @@ object StagingProcessorTests extends ZIOSpecDefault:
       others: Chunk[Any]
   ): StagedBatchProcessor#BatchType =
     new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
+    
+  private val mockPluginContextLayer = ZLayer.succeed(new PluginStreamContext {
+    override val streamMode: StreamModeSettings = ???
+    override val sink: SinkSettings = ???
+    override val source: StreamSourceSettings = ???
+    override val staging: StagingSettings = ???
+    override val observability: ObservabilitySettings = ???
+    override val throughput: ThroughputSettings = ???
+
+    override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+  })
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
     test("run with empty batch and produce no output") {
@@ -101,6 +118,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .run(ZSink.last)
       } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
     }
-  ).provide(icebergCatalogSettingsLayer, IcebergEntityManager.stagingLayer, IcebergS3CatalogWriter.layer) @@ timeout(
+  ).provide(icebergCatalogSettingsLayer, IcebergEntityManager.stagingLayer, IcebergS3CatalogWriter.layer, mockPluginContextLayer) @@ timeout(
     zio.Duration.fromSeconds(60)
   ) @@ TestAspect.withLiveClock

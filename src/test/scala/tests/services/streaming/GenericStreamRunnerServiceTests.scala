@@ -146,6 +146,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           override val observability: ObservabilitySettings = ???
           override val staging: StagingSettings = ???
           override val throughput: ThroughputSettings = ???
+
+          override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
         }),
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(TestSourceBufferingSettings),

@@ -2,14 +2,10 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.BaseStreamContext
-import models.batches.{
-  SqlServerChangeTrackingMergeBatch,
-  StagedBackfillOverwriteBatch,
-  SynapseLinkBackfillOverwriteBatch
-}
+import models.app.{BaseStreamContext, PluginStreamContext}
+import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
+import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, StreamSourceSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -18,17 +14,17 @@ import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
 
+import com.sneaksanddata.arcane.framework.models.settings.observability.ObservabilitySettings
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
+import com.sneaksanddata.arcane.framework.models.settings.staging.StagingSettings
+import com.sneaksanddata.arcane.framework.models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -182,10 +178,20 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(jdbcTableManager),
         ZLayer.succeed(hookManager),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new BaseStreamContext {
+        ZLayer.succeed(new PluginStreamContext {
           override def IsBackfilling: Boolean = false
           override def streamId: String       = "test-stream-id"
           override def streamKind: String     = "test-stream-kind"
+
+          override val observability: ObservabilitySettings = ???
+          override val streamMode: StreamModeSettings = ???
+          override val sink: SinkSettings = ???
+          override val throughput: ThroughputSettings = ???
+          override val staging: StagingSettings = ???
+
+          override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+
+          override val source: StreamSourceSettings = ???
         }),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,

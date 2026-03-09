@@ -8,3 +8,4 @@ object TestStagingTableSettings extends StagingTableSettings:
   override val stagingSchemaName: String  = "schema"
   override val stagingTablePrefix         = "staging_"
   override val isUnifiedSchema: Boolean   = false
+  override val maxRowsPerFile: Option[Int] = Some(10000)
