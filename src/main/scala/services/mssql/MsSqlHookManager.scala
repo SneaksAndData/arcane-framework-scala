@@ -3,7 +3,7 @@ package services.mssql
 
 import models.batches.{MergeableBatch, SqlServerChangeTrackingMergeBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 import services.hooks.manager.DefaultHookManager
 
 import org.apache.iceberg.Table
@@ -19,12 +19,11 @@ class MsSqlHookManager extends DefaultHookManager:
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): StagedVersionedBatch & MergeableBatch = table match
     case Some(staged) =>
       val batchName = staged.name().split('.').last
-      SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
+      SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, EmptyTablePropertiesSettings, watermarkValue)
     case None => SqlServerChangeTrackingMergeBatch.empty(watermarkValue)
 
 object MsSqlHookManager:

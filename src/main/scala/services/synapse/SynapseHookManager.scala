@@ -3,7 +3,7 @@ package services.synapse
 
 import models.batches.{MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
+import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 import services.hooks.manager.DefaultHookManager
 
 import org.apache.iceberg.Table
@@ -19,12 +19,11 @@ class SynapseHookManager extends DefaultHookManager:
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): StagedVersionedBatch & MergeableBatch = table match
     case Some(staged) =>
       val batchName = staged.name().split('.').last
-      SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings, watermarkValue)
+      SynapseLinkMergeBatch(batchName, batchSchema, targetName, EmptyTablePropertiesSettings, watermarkValue)
     case None => SynapseLinkMergeBatch.empty(watermarkValue)
 
 object SynapseHookManager:

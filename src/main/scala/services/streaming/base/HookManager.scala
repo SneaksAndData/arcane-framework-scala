@@ -30,6 +30,5 @@ trait HookManager:
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): StagedVersionedBatch & MergeableBatch
