@@ -1,31 +1,17 @@
 package com.sneaksanddata.arcane.framework
 package models.app
 
-import models.settings.backfill.{BackfillBehavior, DefaultBackfillSettings}
-import models.settings.iceberg.DefaultIcebergStagingSettings
 import models.settings.observability.DefaultObservabilitySettings
-import models.settings.sink.{DefaultSinkSettings, IcebergSinkSettings, TableMaintenanceSettings}
-import models.settings.sources.{BufferingStrategy, StreamSourceSettings}
-import models.settings.staging.{DefaultStagingSettings, JdbcQueryRetryMode}
-import models.settings.streaming.{
-  DefaultStreamModeSettings,
-  DefaultThroughputSettings,
-  ThroughputSettings,
-  ThroughputShaperImpl
-}
-import models.settings.{FieldSelectionRule, TableFormat}
+import models.settings.sink.DefaultSinkSettings
+import models.settings.staging.DefaultStagingSettings
+import models.settings.streaming.{DefaultStreamModeSettings, DefaultThroughputSettings}
 
-import upickle.{ReadWriter, macroRW}
-
-import java.time.{Duration, OffsetDateTime}
-
-case class DefaultPluginStreamContext(
-    override val observability: DefaultObservabilitySettings,
-    override val source: StreamSourceSettings,
-    override val staging: DefaultStagingSettings,
-    override val streamMode: DefaultStreamModeSettings,
-    override val sink: DefaultSinkSettings,
-    override val throughput: DefaultThroughputSettings
+abstract class DefaultPluginStreamContext(
+    final override val observability: DefaultObservabilitySettings,
+    final override val staging: DefaultStagingSettings,
+    final override val streamMode: DefaultStreamModeSettings,
+    final override val sink: DefaultSinkSettings,
+    final override val throughput: DefaultThroughputSettings
 ) extends PluginStreamContext:
 
   // observability

@@ -1,9 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package tests.blobsource
 
-import models.app.BaseStreamContext
+import models.app.{BaseStreamContext, PluginStreamContext}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.sources.StreamSourceSettings
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings}
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.blobsource.versioning.BlobSourceWatermark
@@ -12,7 +17,6 @@ import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
 import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestThroughputShaperBuilder}
-import models.settings.streaming.ChangeCaptureSettings
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -21,43 +25,27 @@ import zio.{Scope, ZIO}
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
-  private val streamSettings = new ChangeCaptureSettings {
-    override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
-    override val changeCaptureJitterVariance: Double = 0.01
-    override val changeCaptureJitterSeed: Long       = 0
-  }
-
-  private val emptyStreamSettings = new ChangeCaptureSettings {
-    override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
-    override val changeCaptureJitterVariance: Double = 0.01
-    override val changeCaptureJitterSeed: Long       = 0
-  }
-
-  private val backfillSettings = new BackfillSettings {
-    override val backfillBehavior: BackfillBehavior = Overwrite
-    override val backfillStartDate: Option[OffsetDateTime] = Some(
-      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
-    )
-    override val backfillTableFullName: String = "blobsource_backfill_test"
-  }
-
-  private val backfillStreamContext = new BaseStreamContext {
-    override def IsBackfilling: Boolean = true
-
-    override def streamId: String = "blob-source"
-
-    override def streamKind: String = "units"
-  }
-  private val changeCaptureStreamContext = new BaseStreamContext {
-    override def IsBackfilling: Boolean = false
-
-    override def streamId: String = "blob-source"
-
-    override def streamKind: String = "units"
+  private val defaultStreamMode = new StreamModeSettings {
+    /** Backfill mode-only settings
+     */
+    override val backfill: BackfillSettings = new BackfillSettings {
+      override val backfillBehavior: BackfillBehavior = Overwrite
+      override val backfillStartDate: Option[OffsetDateTime] = Some(
+        OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
+      )
+      override val backfillTableFullName: String = "blobsource_backfill_test"
+    }
+    /** Change capture mode settings
+     */
+    override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
+      override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
+      override val changeCaptureJitterVariance: Double = 0.01
+      override val changeCaptureJitterSeed: Long       = 0
+    }
   }
 
   private val icebergUtil =
-    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultIcebergStagingSettings)
+    IcebergUtil(TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName), defaultIcebergStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {
@@ -70,8 +58,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             source,
             icebergUtil.propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
-            streamSettings,
-            backfillSettings,
+            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               icebergUtil.propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
@@ -81,9 +68,9 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(
             dataProvider,
-            streamSettings,
-            backfillSettings,
-            backfillStreamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            true,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
@@ -100,8 +87,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             source,
             icebergUtil.propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
-            streamSettings,
-            backfillSettings,
+            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               icebergUtil.propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
@@ -111,9 +97,9 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(
             dataProvider,
-            streamSettings,
-            backfillSettings,
-            changeCaptureStreamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            false,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
@@ -134,8 +120,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             source,
             icebergUtil.propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
-            emptyStreamSettings,
-            backfillSettings,
+            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               icebergUtil.propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
@@ -145,9 +130,9 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         sdp <- ZIO.succeed(
           BlobSourceStreamingDataProvider(
             dataProvider,
-            emptyStreamSettings,
-            backfillSettings,
-            changeCaptureStreamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            false,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import models.app.BaseStreamContext
+import models.app.{BaseStreamContext, PluginStreamContext}
 import models.schemas.DataRow
 import models.settings.backfill.BackfillSettings
 import models.settings.streaming.ChangeCaptureSettings
@@ -16,13 +16,13 @@ class SynapseLinkStreamingDataProvider(
     dataProvider: SynapseLinkDataProvider,
     settings: ChangeCaptureSettings,
     backfillSettings: BackfillSettings,
-    streamContext: BaseStreamContext,
+    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](
       dataProvider,
       settings,
       backfillSettings,
-      streamContext,
+  isBackfilling,
       declaredMetrics
     )
 
@@ -30,8 +30,7 @@ object SynapseLinkStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = SynapseLinkDataProvider & ChangeCaptureSettings & BackfillSettings & BaseStreamContext &
-    DeclaredMetrics
+  type Environment = SynapseLinkDataProvider & PluginStreamContext & DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -43,20 +42,18 @@ object SynapseLinkStreamingDataProvider:
       dataProvider: SynapseLinkDataProvider,
       settings: ChangeCaptureSettings,
       backfillSettings: BackfillSettings,
-      streamContext: BaseStreamContext,
+      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): SynapseLinkStreamingDataProvider =
-    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, isBackfilling, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
+        context <- ZIO.service[PluginStreamContext]
         dataProvider     <- ZIO.service[SynapseLinkDataProvider]
-        settings         <- ZIO.service[ChangeCaptureSettings]
-        backfillSettings <- ZIO.service[BackfillSettings]
-        streamContext    <- ZIO.service[BaseStreamContext]
         declaredMetrics  <- ZIO.service[DeclaredMetrics]
-      yield SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+      yield SynapseLinkStreamingDataProvider(dataProvider, context.streamMode.changeCapture, context.streamMode.backfill, context.IsBackfilling, declaredMetrics)
     }
