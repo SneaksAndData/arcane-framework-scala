@@ -192,7 +192,6 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(TestPluginStreamContext),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
-        ZLayer.succeed(TestSourceBufferingSettings),
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer
       )

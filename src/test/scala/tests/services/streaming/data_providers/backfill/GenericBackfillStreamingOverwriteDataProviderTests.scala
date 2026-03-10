@@ -253,7 +253,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(hookManager),
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(TestPluginStreamContext),
-        ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,

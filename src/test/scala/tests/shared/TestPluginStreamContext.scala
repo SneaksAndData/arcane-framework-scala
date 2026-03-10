@@ -15,7 +15,7 @@ import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, Thr
 
 import java.time.{Duration, OffsetDateTime}
 
-case object TestPluginStreamContext extends PluginStreamContext:
+abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   override def isBackfilling: Boolean = false
 
   override def streamId: String = "test-stream-id"
@@ -56,3 +56,9 @@ case object TestPluginStreamContext extends PluginStreamContext:
     }
     override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
   }
+
+object TestPluginStreamContext extends TestPluginStreamContextImpl:
+  override def isBackfilling: Boolean = false
+
+object TestPluginBackfillStreamContext extends TestPluginStreamContextImpl:
+  override def isBackfilling: Boolean = true
