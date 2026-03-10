@@ -1,6 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources.blob
 
+import services.storage.models.s3.S3ClientSettings
+
+import upickle.ReadWriter
+
 /** Parquet source specific source settings
   */
 trait ParquetBlobSourceSettings extends BlobSourceSettings:
@@ -17,3 +21,12 @@ trait ParquetBlobSourceSettings extends BlobSourceSettings:
     * matching schema. If not provided, schema will be inferred from a random file in the bucket.
     */
   val sourceSchema: Option[String]
+
+case class DefaultParquetBlobSourceSettings(
+    override val sourceSchema: Option[String],
+    override val primaryKeys: List[String],
+    override val useNameMapping: Boolean,
+    override val sourcePath: String,
+    override val tempStoragePath: String,
+    override val s3ClientSettings: S3ClientSettings
+) extends ParquetBlobSourceSettings derives ReadWriter
