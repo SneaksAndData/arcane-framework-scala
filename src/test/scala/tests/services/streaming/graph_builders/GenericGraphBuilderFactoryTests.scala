@@ -16,7 +16,12 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.shared.{CustomTestBackfillTableSettings, TestSourceBufferingSettings}
+import tests.shared.{
+  CustomTestBackfillTableSettings,
+  TestPluginBackfillStreamContext,
+  TestPluginStreamContext,
+  TestSourceBufferingSettings
+}
 
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -28,11 +33,9 @@ import zio.{Runtime, Unsafe, ZIO, ZLayer}
 class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val backfillStreamContext = new BaseStreamContext:
-    override val isBackfilling: Boolean = true
+  private val backfillStreamContext = TestPluginBackfillStreamContext
 
-  private val streamingStreamContext = new BaseStreamContext:
-    override val isBackfilling: Boolean = false
+  private val streamingStreamContext = TestPluginStreamContext
 
   private val mergeBackfillSettings     = new CustomTestBackfillTableSettings(BackfillBehavior.Merge)
   private val overwriteBackfillSettings = new CustomTestBackfillTableSettings(BackfillBehavior.Overwrite)
@@ -63,7 +66,6 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[MergeBatchProcessor]),
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
-          ZLayer.succeed(TestSourceBufferingSettings),
           ZLayer.succeed(mock[WatermarkProcessor]),
           ZLayer.succeed(mock[BackfillOverwriteWatermarkProcessor])
         )
