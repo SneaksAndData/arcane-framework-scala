@@ -3,7 +3,7 @@ package tests.shared
 
 import models.app.PluginStreamContext
 import models.settings.FieldSelectionRuleSettings
-import models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
@@ -49,7 +49,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
 
   override val source: StreamSourceSettings = new StreamSourceSettings {
     override type SourceSettingsType = SourceSettings
-    override val source: SourceSettings = new SourceSettings {}
+    override val configuration: SourceSettings = new SourceSettings {}
     override val buffering: SourceBufferingSettings = new SourceBufferingSettings {
       override val bufferingStrategy: BufferingStrategy = Unbounded
       override val bufferingEnabled: Boolean            = false
@@ -60,5 +60,21 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
 object TestPluginStreamContext extends TestPluginStreamContextImpl:
   override def isBackfilling: Boolean = false
 
-object TestPluginBackfillStreamContext extends TestPluginStreamContextImpl:
+object TestPluginBackfillOverwriteStreamContext extends TestPluginStreamContextImpl:
   override def isBackfilling: Boolean = true
+
+object TestPluginBackfillMergeStreamContext extends TestPluginStreamContextImpl:
+  override def isBackfilling: Boolean = true
+
+  override val streamMode: StreamModeSettings = new StreamModeSettings {
+    override val backfill: BackfillSettings = new BackfillSettings {
+      override val backfillTableFullName: String             = "catalog.schema.table"
+      override val backfillStartDate: Option[OffsetDateTime] = None
+      override val backfillBehavior: BackfillBehavior        = Merge
+    }
+    override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
+      override val changeCaptureInterval: Duration     = Duration.ofSeconds(10)
+      override val changeCaptureJitterVariance: Double = 0.1
+      override val changeCaptureJitterSeed: Long       = 1
+    }
+  }

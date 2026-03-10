@@ -9,7 +9,7 @@ import upickle.default.*
 trait StreamSourceSettings:
   type SourceSettingsType <: SourceSettings
 
-  val source: SourceSettingsType
+  val configuration: SourceSettingsType
 
   val buffering: SourceBufferingSettings
 

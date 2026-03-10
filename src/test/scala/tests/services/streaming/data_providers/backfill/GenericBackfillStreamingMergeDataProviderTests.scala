@@ -9,16 +9,6 @@ import models.batches.{
   SynapseLinkBackfillOverwriteBatch
 }
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import models.settings.FieldSelectionRuleSettings
-import models.settings.backfill.BackfillBehavior.Overwrite
-import models.settings.backfill.{BackfillBehavior, BackfillSettings}
-import models.settings.observability.ObservabilitySettings
-import models.settings.sink.SinkSettings
-import models.settings.sources.BufferingStrategy.Unbounded
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, SourceSettings, StreamSourceSettings}
-import models.settings.staging.StagingSettings
-import models.settings.streaming.ThroughputShaperImpl.Static
-import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -36,7 +26,6 @@ import services.streaming.processors.transformers.FieldFilteringTransformer.Envi
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.*
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
@@ -46,8 +35,6 @@ import org.scalatest.matchers.should.Matchers.{should, shouldBe}
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
-
-import java.time.{Duration, OffsetDateTime}
 
 class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -171,12 +158,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         IcebergEntityManager.sinkLayer,
         IcebergS3CatalogWriter.layer,
 
-        // Settings
-        ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(TestFieldSelectionRuleSettings),
-
         // Mocks
-        ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(new BackfillOverwriteBatchFactory {
           override def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
             ZIO.succeed(

@@ -21,6 +21,6 @@ object TestThroughputShaperBuilder:
         override val advisedChunksBurst: Int          = 10
       },
       propertyManager,
-      sinkSettings,
+      sinkSettings.targetTableNameParts.Name,
       DeclaredMetrics(NullDimensionsProvider)
     )

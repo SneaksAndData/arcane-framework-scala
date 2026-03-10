@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.sources.blob.ParquetBlobSourceSettings
@@ -98,14 +99,17 @@ object BlobListingParquetSource:
       sourceSchema
     )
 
+  private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings
+
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
-  val layer: ZLayer[ParquetBlobSourceSettings & S3BlobStorageReader, IllegalArgumentException, BlobListingParquetSource[
-    S3StoragePath
-  ]] = ZLayer {
+  def getLayer(
+      extractor: SettingsExtractor
+  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingParquetSource[S3StoragePath]] = ZLayer {
     for
+      context        <- ZIO.service[PluginStreamContext]
       blobReader     <- ZIO.service[S3BlobStorageReader]
-      sourceSettings <- ZIO.service[ParquetBlobSourceSettings]
+      sourceSettings <- ZIO.attempt(extractor(context))
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
         S3StoragePath(sourceSettings.sourcePath).toOption
       )

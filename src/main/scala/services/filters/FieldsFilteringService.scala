@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.filters
 
-import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
+import models.app.PluginStreamContext
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.FieldsFilteringService.isValid
 
@@ -47,7 +48,7 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
 
 object FieldsFilteringService:
 
-  type Environment = FieldSelectionRuleSettings
+  type Environment = PluginStreamContext
 
   def apply(fieldSelectionRule: FieldSelectionRuleSettings): FieldsFilteringService = new FieldsFilteringService(
     fieldSelectionRule
@@ -57,8 +58,8 @@ object FieldsFilteringService:
     */
   val layer: ZLayer[Environment, Nothing, FieldsFilteringService] =
     ZLayer {
-      for fieldSelectionRule <- ZIO.service[FieldSelectionRuleSettings]
-      yield FieldsFilteringService(fieldSelectionRule)
+      for context <- ZIO.service[PluginStreamContext]
+      yield FieldsFilteringService(context.source.fieldSelectionRule)
     }
 
   /** Validates that the field selection rule does not exclude essential fields

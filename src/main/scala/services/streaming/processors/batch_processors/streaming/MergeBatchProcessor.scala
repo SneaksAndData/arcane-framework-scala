@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
 import logging.ZIOLogAnnotations.*
+import models.app.PluginStreamContext
 import models.settings.*
 import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
@@ -105,16 +106,16 @@ object MergeBatchProcessor:
 
   /** The required environment for the MergeBatchProcessor.
     */
-  type Environment = MergeServiceClient & SinkSettings & SinkEntityManager & SinkPropertyManager & JdbcTableManager &
-    DeclaredMetrics
+  type Environment = MergeServiceClient & PluginStreamContext & SinkEntityManager & SinkPropertyManager &
+    JdbcTableManager & DeclaredMetrics
 
   /** The ZLayer that creates the MergeProcessor.
     */
   val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
+        context             <- ZIO.service[PluginStreamContext]
         jdbcConsumer        <- ZIO.service[MergeServiceClient]
-        targetTableSettings <- ZIO.service[SinkSettings]
         sinkEntityManager   <- ZIO.service[SinkEntityManager]
         sinkPropertyManager <- ZIO.service[SinkPropertyManager]
         tableManager        <- ZIO.service[JdbcTableManager]
@@ -124,7 +125,7 @@ object MergeBatchProcessor:
         sinkEntityManager,
         sinkPropertyManager,
         tableManager,
-        targetTableSettings,
+        context.sink,
         declaredMetrics
       )
     }

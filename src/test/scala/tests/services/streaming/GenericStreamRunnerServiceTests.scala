@@ -123,10 +123,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         IcebergEntityManager.stagingLayer,
         IcebergS3CatalogWriter.layer,
 
-        // Settings
-        ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(TestFieldSelectionRuleSettings),
-
         // Mocks
         ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
         ZLayer.succeed(disposeServiceClient),
@@ -141,7 +137,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         }),
         ZLayer.succeed(streamDataProvider),
         ZLayer.succeed(TestPluginStreamContext),
-        ZLayer.succeed(TestBackfillTableSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
