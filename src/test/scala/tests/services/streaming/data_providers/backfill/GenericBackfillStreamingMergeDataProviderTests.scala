@@ -2,18 +2,23 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.{BaseStreamContext, PluginStreamContext}
+import models.app.PluginStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
+import models.settings.FieldSelectionRuleSettings
+import models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, StreamSourceSettings}
+import models.settings.sources.BufferingStrategy.Unbounded
+import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, SourceSettings, StreamSourceSettings}
 import models.settings.staging.StagingSettings
-import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
+import models.settings.streaming.ThroughputShaperImpl.Static
+import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -41,6 +46,8 @@ import org.scalatest.matchers.should.Matchers.{should, shouldBe}
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
+
+import java.time.{Duration, OffsetDateTime}
 
 class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -191,15 +198,40 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
           override def streamId: String       = "test-stream-id"
           override def streamKind: String     = "test-stream-kind"
 
-          override val observability: ObservabilitySettings = ???
-          override val streamMode: StreamModeSettings       = ???
-          override val sink: SinkSettings                   = ???
-          override val throughput: ThroughputSettings       = ???
-          override val staging: StagingSettings             = ???
+          override val observability: ObservabilitySettings = TestObservabilitySettings
+          override val streamMode: StreamModeSettings = new StreamModeSettings {
+            override val backfill: BackfillSettings = new BackfillSettings {
+              override val backfillTableFullName: String             = "catalog.schema.table"
+              override val backfillStartDate: Option[OffsetDateTime] = None
+              override val backfillBehavior: BackfillBehavior        = Overwrite
+            }
+            override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
+              override val changeCaptureInterval: Duration     = Duration.ofSeconds(10)
+              override val changeCaptureJitterVariance: Double = 0.1
+              override val changeCaptureJitterSeed: Long       = 1
+            }
+          }
+          override val sink: SinkSettings = TestSinkSettings
+          override val throughput: ThroughputSettings = new ThroughputSettings {
+            override val shaperImpl: ThroughputShaperImpl = Static
+            override val advisedChunkSize: Int            = 1
+            override val advisedRateChunks: Int           = 1
+            override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)
+            override val advisedChunksBurst: Int          = 1
+          }
+          override val staging: StagingSettings = TestStagingSettings()
 
           override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
 
-          override val source: StreamSourceSettings = ???
+          override val source: StreamSourceSettings = new StreamSourceSettings {
+            override type SourceSettingsType = SourceSettings
+            override val source: SourceSettings = new SourceSettings {}
+            override val buffering: SourceBufferingSettings = new SourceBufferingSettings {
+              override val bufferingStrategy: BufferingStrategy = Unbounded
+              override val bufferingEnabled: Boolean            = false
+            }
+            override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
+          }
         }),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
