@@ -31,32 +31,3 @@ trait BaseStreamContext:
   val metricsPublisherInterval: Duration = Duration.ofMillis(
     sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
   )
-
-object BaseStreamContext:
-  private type Environment = BaseStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
-
-  /** Parses and initializes StreamContext for the plugin. This should be used when defining `layer` for plugin context
-    * injection. You can also specify additional services or options to be added: object MyContext: val layer =
-    * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
-    */
-  extension [Spec <: PluginStreamContext](spec: Spec)
-    def loadContext(implicit rw: ReadWriter[Spec]): ZLayer[Any, Throwable, Environment] =
-      val spec = PluginStreamContext
-        .fromEnvironment[Spec]("STREAMCONTEXT__SPEC")
-
-      val specOverrides = PluginStreamContext
-        .fromEnvironment[Spec]("STREAMCONTEXT_SPEC_OVERRIDE")
-
-      spec
-        .map(parsed =>
-          val merged = parsed.merge(specOverrides)
-          ZLayer.succeed(merged) ++ ZLayer.succeed[DatagramSocketConfig](merged) ++ ZLayer
-            .succeed[MetricsConfig](merged) ++ ZLayer.succeed(DatadogPublisherConfig())
-        )
-        .getOrElse(
-          ZLayer.fail(
-            new Throwable(
-              "Unable to resolve stream context. Please verify that STREAMCONTEXT__SPEC is defined as a valid JSON string."
-            )
-          )
-        )
