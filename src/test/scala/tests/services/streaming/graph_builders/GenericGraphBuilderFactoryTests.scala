@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.graph_builders
 
-import models.app.BaseStreamContext
 import models.settings.backfill.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
@@ -18,9 +17,9 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.{
   CustomTestBackfillTableSettings,
-  TestPluginBackfillStreamContext,
-  TestPluginStreamContext,
-  TestSourceBufferingSettings
+  TestPluginBackfillMergeStreamContext,
+  TestPluginBackfillOverwriteStreamContext,
+  TestPluginStreamContext
 }
 
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -33,19 +32,15 @@ import zio.{Runtime, Unsafe, ZIO, ZLayer}
 class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val backfillStreamContext = TestPluginBackfillStreamContext
-
-  private val streamingStreamContext = TestPluginStreamContext
-
   private val mergeBackfillSettings     = new CustomTestBackfillTableSettings(BackfillBehavior.Merge)
   private val overwriteBackfillSettings = new CustomTestBackfillTableSettings(BackfillBehavior.Overwrite)
 
   private val graphBuilderConditions = Table(
     ("streamContext", "backfillSettings", "expectedResult"),
-    (backfillStreamContext, mergeBackfillSettings, "GenericBackfillMergeGraphBuilder"),
-    (backfillStreamContext, overwriteBackfillSettings, "GenericBackfillOverwriteGraphBuilder"),
-    (streamingStreamContext, overwriteBackfillSettings, "GenericStreamingGraphBuilder"),
-    (streamingStreamContext, mergeBackfillSettings, "GenericStreamingGraphBuilder")
+    (TestPluginBackfillMergeStreamContext, mergeBackfillSettings, "GenericBackfillMergeGraphBuilder"),
+    (TestPluginBackfillOverwriteStreamContext, overwriteBackfillSettings, "GenericBackfillOverwriteGraphBuilder"),
+    (TestPluginStreamContext, overwriteBackfillSettings, "GenericStreamingGraphBuilder"),
+    (TestPluginStreamContext, mergeBackfillSettings, "GenericStreamingGraphBuilder")
   )
 
   it should "generate correct graph builder" in {

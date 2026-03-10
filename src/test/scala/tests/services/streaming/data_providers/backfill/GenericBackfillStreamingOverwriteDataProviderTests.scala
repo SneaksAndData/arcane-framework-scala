@@ -10,11 +10,6 @@ import models.batches.{
 }
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
-import models.settings.observability.ObservabilitySettings
-import models.settings.sink.SinkSettings
-import models.settings.sources.StreamSourceSettings
-import models.settings.staging.StagingSettings
-import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -37,7 +32,6 @@ import services.streaming.processors.transformers.FieldFilteringTransformer.Envi
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.*
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
@@ -203,14 +197,14 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           EasyMock.anyString(),
           EasyMock.anyString(),
           EasyMock.anyObject(),
-          EasyMock.eq(TestBackfillTableSettings.backfillTableFullName),
+          EasyMock.eq(TestPluginStreamContext.streamMode.backfill.backfillTableFullName),
           EasyMock.anyObject()
         )
         .andReturn(
           SqlServerChangeTrackingMergeBatch(
             "test",
             ArcaneSchema(Seq(MergeKeyField)),
-            TestBackfillTableSettings.backfillTableFullName,
+            TestPluginStreamContext.streamMode.backfill.backfillTableFullName,
             TablePropertiesSettings,
             None
           )
