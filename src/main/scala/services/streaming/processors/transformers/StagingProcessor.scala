@@ -27,11 +27,11 @@ import scala.collection.parallel.CollectionConverters.*
 trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 
 class StagingProcessor(
-                        stagingDataSettings: StagingTableSettings,
-                        targetTableFullName: String,
-                        icebergCatalogSettings: IcebergStagingSettings,
-                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-                        declaredMetrics: DeclaredMetrics
+    stagingDataSettings: StagingTableSettings,
+    targetTableFullName: String,
+    icebergCatalogSettings: IcebergStagingSettings,
+    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+    declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
@@ -159,9 +159,9 @@ object StagingProcessor:
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
-        catalogWriter           <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
-        declaredMetrics         <- ZIO.service[DeclaredMetrics]
+        context         <- ZIO.service[PluginStreamContext]
+        catalogWriter   <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
       yield StagingProcessor(
         context.staging.table,
         context.sink.targetTableFullName,

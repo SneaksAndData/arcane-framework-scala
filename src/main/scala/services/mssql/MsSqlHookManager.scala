@@ -23,7 +23,13 @@ class MsSqlHookManager extends DefaultHookManager:
   ): StagedVersionedBatch & MergeableBatch = table match
     case Some(staged) =>
       val batchName = staged.name().split('.').last
-      SqlServerChangeTrackingMergeBatch(batchName, batchSchema, targetName, EmptyTablePropertiesSettings, watermarkValue)
+      SqlServerChangeTrackingMergeBatch(
+        batchName,
+        batchSchema,
+        targetName,
+        EmptyTablePropertiesSettings,
+        watermarkValue
+      )
     case None => SqlServerChangeTrackingMergeBatch.empty(watermarkValue)
 
 object MsSqlHookManager:
