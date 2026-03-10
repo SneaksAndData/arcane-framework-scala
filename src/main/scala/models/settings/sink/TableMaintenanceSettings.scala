@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import upickle.ReadWriter
+
 /** The settings related to the maintenance of the table
   */
 trait TableMaintenanceSettings:
@@ -20,3 +22,10 @@ trait TableMaintenanceSettings:
   /** Settings for running ANALYZE
     */
   val targetAnalyzeSettings: Option[AnalyzeSettings]
+
+case class DefaultTableMaintenanceSettings(
+    override val targetAnalyzeSettings: Option[DefaultAnalyzeSettings],
+    override val targetOptimizeSettings: Option[DefaultOptimizeSettings],
+    override val targetSnapshotExpirationSettings: Option[DefaultSnapshotExpirationSettings],
+    override val targetOrphanFilesExpirationSettings: Option[DefaultOrphanFilesExpirationSettings]
+) extends TableMaintenanceSettings derives ReadWriter

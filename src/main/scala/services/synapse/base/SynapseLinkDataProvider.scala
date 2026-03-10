@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
+import models.app.PluginStreamContext
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
-import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.base.DefaultSourceDataProvider
 import services.streaming.throughput.base.ThroughputShaperBuilder
@@ -20,13 +20,12 @@ class SynapseLinkDataProvider(
     synapseReader: SynapseLinkReader,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
+    streamModeSettings: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[SynapseWatermark](
       sinkPropertyManager,
       sinkSettings,
-      backfillSettings,
+      streamModeSettings,
       throughputShaperBuilder
     ):
 
@@ -57,23 +56,19 @@ class SynapseLinkDataProvider(
     SynapseWatermark.epoch
 
 object SynapseLinkDataProvider:
-  type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & SynapseLinkReader & SinkPropertyManager &
-    SinkSettings & ThroughputShaperBuilder
+  type Environment = SynapseLinkReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
-      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
-      propertyManager   <- ZIO.service[SinkPropertyManager]
-      sinkSettings      <- ZIO.service[SinkSettings]
-      backfillSettings  <- ZIO.service[BackfillSettings]
-      synapseReader     <- ZIO.service[SynapseLinkReader]
-      shaperBuilder     <- ZIO.service[ThroughputShaperBuilder]
+      context         <- ZIO.service[PluginStreamContext]
+      propertyManager <- ZIO.service[SinkPropertyManager]
+      synapseReader   <- ZIO.service[SynapseLinkReader]
+      shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
     yield SynapseLinkDataProvider(
       synapseReader,
       propertyManager,
-      sinkSettings,
-      versionedSettings,
-      backfillSettings,
+      context.sink,
+      context.streamMode,
       shaperBuilder
     )
   }

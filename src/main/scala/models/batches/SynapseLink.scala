@@ -120,7 +120,7 @@ class SynapseLinkMergeBatch(
       SynapseLinkMergeQuery(
         targetName = targetName,
         sourceQuery = reduceExpr,
-        partitionFields = tablePropertiesSettings.partitionFields,
+        partitionFields = Seq.empty,
         mergeKey = mergeKey,
         columns = schema.map(f => f.name)
       )
@@ -165,7 +165,7 @@ class SynapseLinkBackfillMergeBatch(
   override val batchQuery: MergeQuery = SynapseLinkMergeQuery(
     targetName = targetName,
     sourceQuery = reduceExpr,
-    partitionFields = tablePropertiesSettings.partitionFields,
+    partitionFields = Seq.empty,
     mergeKey = mergeKey,
     columns = schema.map(f => f.name)
   )

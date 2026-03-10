@@ -5,6 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -21,7 +22,7 @@ import java.time.OffsetDateTime
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    backfillSettings: BackfillSettings,
+    streamMode: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder
 )(implicit rw: ReadWriter[WatermarkType])
     extends VersionedDataProvider[WatermarkType, DataRow]
@@ -61,10 +62,10 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     .concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   final override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
-    .fromZIO(getCurrentVersion(getBackfillStartWatermark(backfillSettings.backfillStartDate)))
+    .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
     .flatMap(version =>
       throughputShaper
-        .shapeStream(backfillStream(backfillSettings.backfillStartDate))
+        .shapeStream(backfillStream(streamMode.backfill.backfillStartDate))
         .concat(ZStream.succeed(JsonWatermarkRow(version)))
     )
 

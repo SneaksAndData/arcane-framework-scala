@@ -2,14 +2,23 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.StreamContext
+import models.app.PluginStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
+import models.settings.FieldSelectionRuleSettings
+import models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.sources.BufferingStrategy.Unbounded
+import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, SourceSettings, StreamSourceSettings}
+import models.settings.staging.StagingSettings
+import models.settings.streaming.ThroughputShaperImpl.Static
+import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -37,6 +46,8 @@ import org.scalatest.matchers.should.Matchers.{should, shouldBe}
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
+
+import java.time.{Duration, OffsetDateTime}
 
 class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
@@ -162,10 +173,10 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TestStagingTableSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(defaultStagingSettings),
+        ZLayer.succeed(defaultIcebergStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
@@ -182,17 +193,12 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         ZLayer.succeed(jdbcTableManager),
         ZLayer.succeed(hookManager),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new StreamContext {
-          override def IsBackfilling: Boolean = false
-          override def streamId: String       = "test-stream-id"
-          override def streamKind: String     = "test-stream-kind"
-        }),
+        ZLayer.succeed(TestPluginStreamContext),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         ZLayer.succeed(TestSourceBufferingSettings),
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer
-        // TODO: not used yet IcebergTablePropertyManager.stagingLayer
       )
 
     // Act

@@ -1,10 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.providers
 
+import models.app.PluginStreamContext
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
@@ -12,6 +13,7 @@ import services.iceberg.base.SinkPropertyManager
 import services.streaming.base.DefaultSourceDataProvider
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sun.source.util.Plugin
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -21,13 +23,12 @@ class BlobSourceDataProvider(
     sourceReader: BlobSourceReader,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
+    streamMode: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
       sinkPropertyManager,
       sinkSettings,
-      backfillSettings,
+      streamMode,
       throughputShaperBuilder
     ):
 
@@ -49,23 +50,19 @@ class BlobSourceDataProvider(
     sourceReader.getChanges(getBackfillStartWatermark(backfillStartDate))
 
 object BlobSourceDataProvider:
-  private type Environment = VersionedDataGraphBuilderSettings & BackfillSettings & BlobSourceReader &
-    SinkPropertyManager & SinkSettings & ThroughputShaperBuilder
+  private type Environment = BlobSourceReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
-      versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
+      context           <- ZIO.service[PluginStreamContext]
       propertyManager   <- ZIO.service[SinkPropertyManager]
-      sinkSettings      <- ZIO.service[SinkSettings]
-      backfillSettings  <- ZIO.service[BackfillSettings]
       blobSource        <- ZIO.service[BlobSourceReader]
       throughputBuilder <- ZIO.service[ThroughputShaperBuilder]
     yield BlobSourceDataProvider(
       blobSource,
       propertyManager,
-      sinkSettings,
-      versionedSettings,
-      backfillSettings,
+      context.sink,
+      context.streamMode,
       throughputBuilder
     )
   }

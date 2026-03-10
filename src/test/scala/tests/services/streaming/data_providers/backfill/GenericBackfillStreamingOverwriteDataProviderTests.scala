@@ -2,14 +2,19 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.StreamContext
+import models.app.PluginStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
   SynapseLinkBackfillOverwriteBatch
 }
-import models.schemas.ArcaneType.StringType
 import models.schemas.*
+import models.schemas.ArcaneType.StringType
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.sources.StreamSourceSettings
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
@@ -231,10 +236,10 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TestStagingTableSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(defaultStagingSettings),
+        ZLayer.succeed(defaultIcebergStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
@@ -251,17 +256,12 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(jdbcTableManager),
         ZLayer.succeed(hookManager),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new StreamContext {
-          override def IsBackfilling: Boolean = false
-          override def streamId: String       = "test-stream-id"
-          override def streamKind: String     = "test-stream-kind"
-        }),
+        ZLayer.succeed(TestPluginStreamContext),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer
-        // TODO: not used yet IcebergTablePropertyManager.stagingLayer
       )
 
     // Act

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.graph_builders
 
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.settings.backfill.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
@@ -28,10 +28,10 @@ import zio.{Runtime, Unsafe, ZIO, ZLayer}
 class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
-  private val backfillStreamContext = new StreamContext:
+  private val backfillStreamContext = new BaseStreamContext:
     override val IsBackfilling: Boolean = true
 
-  private val streamingStreamContext = new StreamContext:
+  private val streamingStreamContext = new BaseStreamContext:
     override val IsBackfilling: Boolean = false
 
   private val mergeBackfillSettings     = new CustomTestBackfillTableSettings(BackfillBehavior.Merge)

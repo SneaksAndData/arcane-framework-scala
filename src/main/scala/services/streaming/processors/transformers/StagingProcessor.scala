@@ -8,7 +8,7 @@ import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.TablePropertiesSettings
 import models.settings.iceberg.IcebergStagingSettings
 import models.settings.sink.SinkSettings
-import models.settings.staging.StagingDataSettings
+import models.settings.staging.StagingTableSettings
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
@@ -26,7 +26,7 @@ import scala.collection.parallel.CollectionConverters.*
 trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 
 class StagingProcessor(
-    stagingDataSettings: StagingDataSettings,
+    stagingDataSettings: StagingTableSettings,
     tablePropertiesSettings: TablePropertiesSettings,
     targetTableSettings: SinkSettings,
     icebergCatalogSettings: IcebergStagingSettings,
@@ -141,7 +141,7 @@ class StagingProcessor(
 object StagingProcessor:
 
   def apply(
-      stagingDataSettings: StagingDataSettings,
+      stagingDataSettings: StagingTableSettings,
       tablePropertiesSettings: TablePropertiesSettings,
       targetTableSettings: SinkSettings,
       icebergCatalogSettings: IcebergStagingSettings,
@@ -157,13 +157,13 @@ object StagingProcessor:
       declaredMetrics
     )
 
-  type Environment = StagingDataSettings & TablePropertiesSettings & SinkSettings & IcebergStagingSettings &
+  type Environment = StagingTableSettings & TablePropertiesSettings & SinkSettings & IcebergStagingSettings &
     CatalogWriter[RESTCatalog, Table, Schema] & DeclaredMetrics
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
       for
-        stagingDataSettings     <- ZIO.service[StagingDataSettings]
+        stagingDataSettings     <- ZIO.service[StagingTableSettings]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         targetTableSettings     <- ZIO.service[SinkSettings]
         icebergCatalogSettings  <- ZIO.service[IcebergStagingSettings]

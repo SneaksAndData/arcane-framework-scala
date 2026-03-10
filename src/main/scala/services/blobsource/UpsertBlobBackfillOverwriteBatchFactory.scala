@@ -9,6 +9,7 @@ import services.iceberg.base.StagingPropertyManager
 import services.streaming.base.BackfillOverwriteBatchFactory
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 
+import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import zio.{Task, ZIO, ZLayer}
 
 /** A factory that creates a backfill batch for the Blob Source.
@@ -16,14 +17,11 @@ import zio.{Task, ZIO, ZLayer}
   *   The backfill settings.
   * @param targetTableSettings
   *   The target table settings.
-  * @param tablePropertiesSettings
-  *   The table properties settings.
   */
 class UpsertBlobBackfillOverwriteBatchFactory(
     stagingTablePropertyManager: StagingPropertyManager,
     backfillSettings: BackfillSettings,
-    targetTableSettings: SinkSettings,
-    tablePropertiesSettings: TablePropertiesSettings
+    targetTableSettings: SinkSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
@@ -34,7 +32,7 @@ class UpsertBlobBackfillOverwriteBatchFactory(
       backfillSettings.backfillTableFullName,
       schema,
       targetTableSettings.targetTableFullName,
-      tablePropertiesSettings,
+      targetTableSettings.targetTableProperties,
       watermark
     )
 
@@ -44,7 +42,7 @@ object UpsertBlobBackfillOverwriteBatchFactory:
 
   /** The environment required for the BlobSourceBackfillOverwriteBatchFactory.
     */
-  private type Environment = StagingPropertyManager & BackfillSettings & SinkSettings & TablePropertiesSettings
+  private type Environment = StagingPropertyManager & PluginStreamContext
 
   /** Creates a new BlobSourceBackfillOverwriteBatchFactory.
     *
@@ -52,22 +50,18 @@ object UpsertBlobBackfillOverwriteBatchFactory:
     *   The backfill settings.
     * @param targetTableSettings
     *   The target table settings.
-    * @param tablePropertiesSettings
-    *   The table properties settings.
     * @return
     *   The SynapseBackfillOverwriteBatchFactory instance.
     */
   def apply(
       stagingPropertyManager: StagingPropertyManager,
       backfillSettings: BackfillSettings,
-      targetTableSettings: SinkSettings,
-      tablePropertiesSettings: TablePropertiesSettings
+      targetTableSettings: SinkSettings
   ): UpsertBlobBackfillOverwriteBatchFactory =
     new UpsertBlobBackfillOverwriteBatchFactory(
       stagingPropertyManager,
       backfillSettings,
-      targetTableSettings,
-      tablePropertiesSettings
+      targetTableSettings
     )
 
   /** The ZLayer for the BlobSourceBackfillOverwriteBatchFactory.
@@ -75,14 +69,11 @@ object UpsertBlobBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
-        backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[SinkSettings]
-        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        context                <- ZIO.service[PluginStreamContext]
       yield UpsertBlobBackfillOverwriteBatchFactory(
         stagingPropertyManager,
-        backfillSettings,
-        targetTableSettings,
-        tablePropertiesSettings
+        context.streamMode.backfill,
+        context.sink
       )
     }

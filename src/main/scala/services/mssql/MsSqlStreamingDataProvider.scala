@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.app.StreamContext
-import models.settings.VersionedDataGraphBuilderSettings
+import models.app.{BaseStreamContext, PluginStreamContext}
 import models.settings.backfill.BackfillSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 import services.mssql.versioning.MsSqlWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
@@ -27,15 +27,15 @@ import zio.{ZIO, ZLayer}
   */
 class MsSqlStreamingDataProvider(
     dataProvider: MsSqlDataProvider,
-    settings: VersionedDataGraphBuilderSettings,
+    settings: ChangeCaptureSettings,
     backfillSettings: BackfillSettings,
-    streamContext: StreamContext,
+    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](
       dataProvider,
       settings,
       backfillSettings,
-      streamContext,
+      isBackfilling,
       declaredMetrics
     )
 
@@ -43,8 +43,7 @@ object MsSqlStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = MsSqlDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext &
-    DeclaredMetrics
+  type Environment = MsSqlDataProvider & PluginStreamContext & DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -56,22 +55,26 @@ object MsSqlStreamingDataProvider:
     */
   def apply(
       dataProvider: MsSqlDataProvider,
-      settings: VersionedDataGraphBuilderSettings,
+      settings: ChangeCaptureSettings,
       backfillSettings: BackfillSettings,
-      streamContext: StreamContext,
+      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): MsSqlStreamingDataProvider =
-    new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+    new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, isBackfilling, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        dataProvider     <- ZIO.service[MsSqlDataProvider]
-        settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
-        backfillSettings <- ZIO.service[BackfillSettings]
-        streamContext    <- ZIO.service[StreamContext]
-        declaredMetrics  <- ZIO.service[DeclaredMetrics]
-      yield MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+        context         <- ZIO.service[PluginStreamContext]
+        dataProvider    <- ZIO.service[MsSqlDataProvider]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield MsSqlStreamingDataProvider(
+        dataProvider,
+        context.streamMode.changeCapture,
+        context.streamMode.backfill,
+        context.IsBackfilling,
+        declaredMetrics
+      )
     }

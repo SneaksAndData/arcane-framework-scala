@@ -2,9 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import logging.ZIOLogAnnotations.*
+import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.iceberg.IcebergStagingSettings
+import models.settings.staging.StagingSettings
 import services.iceberg.base.{CatalogEntityManager, CatalogWriter, StagingEntityManager}
 
 import org.apache.iceberg.*
@@ -27,10 +29,10 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
 
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings: IcebergStagingSettings)
+class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, stagingSettings: StagingSettings)
     extends CatalogWriter[RESTCatalog, Table, Schema]:
 
-  private val maxRowsPerFile = writerSettings.maxRowsPerFile.getOrElse(10000)
+  private val maxRowsPerFile = stagingSettings.table.maxRowsPerFile.getOrElse(10000)
 
   private def rowToRecord(row: DataRow, schema: Schema): GenericRecord =
     val record = GenericRecord.create(schema)
@@ -109,14 +111,14 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings
           catalog
             .tableExists(
               entityManager.catalogFactory.getSessionContext,
-              TableIdentifier.of(writerSettings.namespace, name)
+              TableIdentifier.of(stagingSettings.icebergCatalog.namespace, name)
             )
         )
       _ <- zlog("Staging table %s created, appending data", logAnnotations, name)
       table <- ZIO.attemptBlocking(
         catalog.loadTable(
           entityManager.catalogFactory.getSessionContext,
-          TableIdentifier.of(writerSettings.namespace, name)
+          TableIdentifier.of(stagingSettings.icebergCatalog.namespace, name)
         )
       )
       updatedTable <- appendData(data, schema, false, table, logAnnotations)
@@ -129,7 +131,7 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, writerSettings
       schema: Schema,
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[Table] = for
-    tableId      <- ZIO.succeed(TableIdentifier.of(writerSettings.namespace, name))
+    tableId      <- ZIO.succeed(TableIdentifier.of(stagingSettings.icebergCatalog.namespace, name))
     catalog      <- entityManager.catalogFactory.getCatalog
     table        <- ZIO.attemptBlocking(catalog.loadTable(entityManager.catalogFactory.getSessionContext, tableId))
     updatedTable <- appendData(data, schema, false, table, logAnnotations)
@@ -141,12 +143,12 @@ object IcebergS3CatalogWriter:
     * @return
     *   The initialized IcebergS3CatalogWriter instance
     */
-  def apply(entityManager: CatalogEntityManager, writerSettings: IcebergStagingSettings): IcebergS3CatalogWriter =
-    new IcebergS3CatalogWriter(entityManager, writerSettings)
+  def apply(entityManager: CatalogEntityManager, stagingSettings: StagingSettings): IcebergS3CatalogWriter =
+    new IcebergS3CatalogWriter(entityManager, stagingSettings)
 
   def layer = ZLayer {
     for
       stagingEntityManager <- ZIO.service[StagingEntityManager]
-      settings             <- ZIO.service[IcebergStagingSettings]
-    yield IcebergS3CatalogWriter(stagingEntityManager, settings)
+      context              <- ZIO.service[PluginStreamContext]
+    yield IcebergS3CatalogWriter(stagingEntityManager, context.staging)
   }

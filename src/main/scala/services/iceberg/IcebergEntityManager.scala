@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
-import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
-import models.settings.sink.SinkSettings
+import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.SchemaConversions.toIcebergType
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
 
@@ -102,11 +102,11 @@ class IcebergStagingEntityManager(catalogSettings: IcebergCatalogSettings)
 
 object IcebergEntityManager:
   val sinkLayer = ZLayer {
-    for sinkSettings <- ZIO.service[SinkSettings]
-    yield IcebergSinkEntityManager(sinkSettings.icebergSinkSettings)
+    for context <- ZIO.service[PluginStreamContext]
+    yield IcebergSinkEntityManager(context.sink.icebergCatalog)
   }
 
   val stagingLayer = ZLayer {
-    for stagingSettings <- ZIO.service[IcebergStagingSettings]
-    yield IcebergStagingEntityManager(stagingSettings)
+    for context <- ZIO.service[PluginStreamContext]
+    yield IcebergStagingEntityManager(context.staging.icebergCatalog)
   }

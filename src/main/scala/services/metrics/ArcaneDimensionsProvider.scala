@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.metrics
 
 import extensions.StringExtensions.camelCaseToSnakeCase
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import services.base.DimensionsProvider
 
 import zio.{ZIO, ZLayer}
@@ -14,7 +14,7 @@ import scala.collection.immutable.SortedMap
   * @param streamContext
   *   The stream context.
   */
-class ArcaneDimensionsProvider(streamContext: StreamContext) extends DimensionsProvider:
+class ArcaneDimensionsProvider(streamContext: BaseStreamContext) extends DimensionsProvider:
   private val dimensionPrefix = "arcane.sneaksanddata.com"
 
   /** Provides the metrics dimensions.
@@ -37,7 +37,7 @@ class ArcaneDimensionsProvider(streamContext: StreamContext) extends DimensionsP
 object ArcaneDimensionsProvider:
   /** The environment type for the ArcaneDimensionsProvider.
     */
-  type Environment = StreamContext
+  type Environment = BaseStreamContext
 
   /** Creates a new instance of the ArcaneDimensionsProvider.
     *
@@ -46,12 +46,12 @@ object ArcaneDimensionsProvider:
     * @return
     *   The ArcaneDimensionsProvider instance.
     */
-  def apply(streamContext: StreamContext): ArcaneDimensionsProvider = new ArcaneDimensionsProvider(streamContext)
+  def apply(streamContext: BaseStreamContext): ArcaneDimensionsProvider = new ArcaneDimensionsProvider(streamContext)
 
   /** The ZLayer that creates the ArcaneDimensionsProvider.
     */
   val layer: ZLayer[Environment, Nothing, DimensionsProvider] =
     ZLayer {
-      for context <- ZIO.service[StreamContext]
+      for context <- ZIO.service[BaseStreamContext]
       yield ArcaneDimensionsProvider(context)
     }

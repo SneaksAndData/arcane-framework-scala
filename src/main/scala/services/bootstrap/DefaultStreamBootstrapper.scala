@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.bootstrap
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillBehavior.Overwrite
@@ -21,7 +21,7 @@ class DefaultStreamBootstrapper(
     schemaProvider: SchemaProvider[ArcaneSchema],
     sinkSettings: SinkSettings,
     backfillSettings: BackfillSettings,
-    streamContext: StreamContext
+    streamContext: BaseStreamContext
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
     zlog("Looking for staging tables from previous run, using prefix %s", prefix) *> stagingEntityManager.deleteTables(
@@ -52,7 +52,7 @@ class DefaultStreamBootstrapper(
         name = sinkSettings.targetTableNameParts.Name,
         schema = schema,
         replace = false
-        // TODO: support partitions and other advanced features later
+        // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
     )
   yield ()
@@ -64,7 +64,7 @@ object DefaultStreamBootstrapper:
       schemaProvider: SchemaProvider[ArcaneSchema],
       sinkSettings: SinkSettings,
       backfillSettings: BackfillSettings,
-      streamContext: StreamContext
+      streamContext: BaseStreamContext
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
     sinkEntityManager = sinkEntityManager,
@@ -81,7 +81,7 @@ object DefaultStreamBootstrapper:
       schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]
       sinkSettings         <- ZIO.service[SinkSettings]
       backfillSettings     <- ZIO.service[BackfillSettings]
-      context              <- ZIO.service[StreamContext]
+      context              <- ZIO.service[BaseStreamContext]
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,

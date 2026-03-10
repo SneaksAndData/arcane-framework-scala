@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.versioning
 
-import services.streaming.base.OffsetDateTimeRW.*
+import models.serialization.OffsetDateTimeRW.*
 import services.streaming.base.{JsonWatermark, SourceWatermark}
 import services.synapse.versioning.SynapseVersionExtensions.*
 

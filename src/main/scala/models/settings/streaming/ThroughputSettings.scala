@@ -1,9 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.streaming
 
+import models.serialization.JavaDurationRW.*
+
+import upickle.ReadWriter
+import upickle.default.*
+
 import java.time.Duration
 
-enum ThroughputShaperImpl:
+enum ThroughputShaperImpl derives ReadWriter:
   case MemoryBound(
       meanStringTypeSizeEstimate: Int,
       meanObjectTypeSizeEstimate: Int,
@@ -24,3 +29,11 @@ trait ThroughputSettings:
   val advisedRateChunks: Int
   val advisedRatePeriod: Duration
   val advisedChunksBurst: Int
+
+case class DefaultThroughputSettings(
+    override val shaperImpl: ThroughputShaperImpl,
+    override val advisedRatePeriod: Duration,
+    override val advisedChunksBurst: Int,
+    override val advisedChunkSize: Int,
+    override val advisedRateChunks: Int
+) extends ThroughputSettings derives ReadWriter

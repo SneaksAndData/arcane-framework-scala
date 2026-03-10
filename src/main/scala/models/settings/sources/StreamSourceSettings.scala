@@ -1,4 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources
 
-trait StreamSourceSettings extends SourceSettings with SourceBufferingSettings
+import models.settings.{DefaultFieldSelectionRuleSettings, FieldSelectionRule, FieldSelectionRuleSettings}
+
+import upickle.ReadWriter
+import upickle.default.*
+
+trait StreamSourceSettings:
+  type SourceSettingsType <: SourceSettings
+
+  val source: SourceSettingsType
+
+  val buffering: SourceBufferingSettings
+
+  val fieldSelectionRule: FieldSelectionRuleSettings

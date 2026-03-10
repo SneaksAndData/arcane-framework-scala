@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package tests.synapse
 
-import models.app.StreamContext
 import models.schemas.{DataRow, MergeKeyField}
 import models.settings.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.streaming.throughput.base.ThroughputShaperBuilder
@@ -13,9 +13,9 @@ import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import services.synapse.versioning.SynapseWatermark
-import tests.shared.IcebergCatalogInfo.defaultStagingSettings
-import tests.shared.TestAzureStorageInfo.*
 import tests.shared.*
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
+import tests.shared.TestAzureStorageInfo.*
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -25,31 +25,25 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
-  private val graphSettings = new VersionedDataGraphBuilderSettings {
-    override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
-    override val changeCaptureJitterVariance: Double = 0.01
-    override val changeCaptureJitterSeed: Long       = 0
-  }
-  private val backfillSettings = new BackfillSettings {
-    override val backfillBehavior: BackfillBehavior = Overwrite
-    override val backfillStartDate: Option[OffsetDateTime] = Some(
-      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
-    )
-    override val backfillTableFullName: String = "demo.test.synapse_backfill_test"
-  }
-  private val backfillStreamContext = new StreamContext {
-    override def IsBackfilling: Boolean = true
+  private val defaultStreamMode = new StreamModeSettings {
 
-    override def streamId: String = "test"
+    /** Backfill mode-only settings
+      */
+    override val backfill: BackfillSettings = new BackfillSettings {
+      override val backfillBehavior: BackfillBehavior = Overwrite
+      override val backfillStartDate: Option[OffsetDateTime] = Some(
+        OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
+      )
+      override val backfillTableFullName: String = "demo.test.synapse_backfill_test"
+    }
 
-    override def streamKind: String = "units"
-  }
-  private val changeCaptureStreamContext = new StreamContext {
-    override def IsBackfilling: Boolean = false
-
-    override def streamId: String = "test"
-
-    override def streamKind: String = "units"
+    /** Change capture mode settings
+      */
+    override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
+      override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
+      override val changeCaptureJitterVariance: Double = 0.01
+      override val changeCaptureJitterSeed: Long       = 0
+    }
   }
 
   private def isDelete(row: DataRow): Boolean = row.exists(c => c.name == "IsDelete" && c.value == true)
@@ -72,16 +66,19 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
-    IcebergUtil(TestDynamicSinkSettings(backfillSettings.backfillTableFullName), defaultStagingSettings)
+    IcebergUtil(
+      TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName),
+      defaultIcebergStagingSettings
+    )
   private def getIcebergUtilStream(tableName: String) =
-    IcebergUtil(TestDynamicSinkSettings(tableName), defaultStagingSettings)
+    IcebergUtil(TestDynamicSinkSettings(tableName), defaultIcebergStagingSettings)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
       "streams rows in backfill mode correctly"
     ) {
       for
-        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(backfillSettings.backfillTableFullName))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName))
         // shaper requires target table to exist
         _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableNameParts.Name, SynapseWatermark.epoch)
         shaperBuilder <- ZIO.succeed(
@@ -94,17 +91,16 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             synapseLinkReader,
             icebergUtilBackfill.propertyManager,
             TestSinkSettings,
-            graphSettings,
-            backfillSettings,
+            defaultStreamMode,
             shaperBuilder
           )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
-            graphSettings,
-            backfillSettings,
-            backfillStreamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            true,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
@@ -134,17 +130,16 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             synapseLinkReader,
             icebergUtil.propertyManager,
             tableSinkSettings,
-            graphSettings,
-            backfillSettings,
+            defaultStreamMode,
             shaperBuilder
           )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
-            graphSettings,
-            backfillSettings,
-            changeCaptureStreamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            false,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
@@ -174,17 +169,16 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             synapseLinkReader,
             icebergUtil.propertyManager,
             tableSinkSettings,
-            graphSettings,
-            backfillSettings,
+            defaultStreamMode,
             shaperBuilder
           )
         )
         provider <- ZIO.succeed(
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
-            graphSettings,
-            backfillSettings,
-            changeCaptureStreamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            false,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )

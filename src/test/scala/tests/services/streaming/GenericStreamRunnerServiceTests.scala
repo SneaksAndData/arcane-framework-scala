@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.app.StreamContext
+import models.app.{BaseStreamContext, PluginStreamContext}
 import models.batches.SqlServerChangeTrackingMergeBatch
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
+import models.settings.sources.StreamSourceSettings
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
@@ -30,8 +30,12 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.*
-
 import services.bootstrap.DefaultStreamBootstrapper
+
+import models.settings.observability.ObservabilitySettings
+import models.settings.sink.SinkSettings
+import models.settings.staging.StagingSettings
+import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -121,10 +125,10 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingDataSettings),
+        ZLayer.succeed(TestStagingTableSettings),
         ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(defaultStagingSettings),
+        ZLayer.succeed(defaultIcebergStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
@@ -140,18 +144,13 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           override def empty: SchemaType = ArcaneSchema.empty()
         }),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new StreamContext {
-          override def IsBackfilling: Boolean = false
-          override def streamId: String       = "test-stream-id"
-          override def streamKind: String     = "test-stream-kind"
-        }),
+        ZLayer.succeed(TestPluginStreamContext),
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer,
-        // TODO: not used yet IcebergTablePropertyManager.stagingLayer,
         DefaultStreamBootstrapper.layer
       )
 

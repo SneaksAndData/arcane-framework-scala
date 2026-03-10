@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
-import models.settings.iceberg.{IcebergCatalogSettings, IcebergStagingSettings}
-import models.settings.sink.SinkSettings
+import models.app.PluginStreamContext
+import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.{SinkPropertyManager, StagingPropertyManager, TablePropertyManager}
 
 import org.apache.iceberg.*
@@ -84,12 +84,12 @@ object IcebergTablePropertyManager:
 
   val sinkLayer =
     ZLayer {
-      for settings <- ZIO.service[SinkSettings]
-      yield IcebergSinkTablePropertyManager(settings.icebergSinkSettings)
+      for context <- ZIO.service[PluginStreamContext]
+      yield IcebergSinkTablePropertyManager(context.sink.icebergCatalog)
     }
 
   val stagingLayer =
     ZLayer {
-      for settings <- ZIO.service[IcebergStagingSettings]
-      yield IcebergStagingTablePropertyManager(settings)
+      for context <- ZIO.service[PluginStreamContext]
+      yield IcebergStagingTablePropertyManager(context.staging.icebergCatalog)
     }

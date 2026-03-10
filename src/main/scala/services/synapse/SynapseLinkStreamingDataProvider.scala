@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import models.app.StreamContext
+import models.app.{BaseStreamContext, PluginStreamContext}
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
 import models.settings.backfill.BackfillSettings
+import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 import services.synapse.base.SynapseLinkDataProvider
@@ -14,15 +14,15 @@ import zio.{ZIO, ZLayer}
 
 class SynapseLinkStreamingDataProvider(
     dataProvider: SynapseLinkDataProvider,
-    settings: VersionedDataGraphBuilderSettings,
+    settings: ChangeCaptureSettings,
     backfillSettings: BackfillSettings,
-    streamContext: StreamContext,
+    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](
       dataProvider,
       settings,
       backfillSettings,
-      streamContext,
+      isBackfilling,
       declaredMetrics
     )
 
@@ -30,8 +30,7 @@ object SynapseLinkStreamingDataProvider:
 
   /** The environment for the MsSqlStreamingDataProvider.
     */
-  type Environment = SynapseLinkDataProvider & VersionedDataGraphBuilderSettings & BackfillSettings & StreamContext &
-    DeclaredMetrics
+  type Environment = SynapseLinkDataProvider & PluginStreamContext & DeclaredMetrics
 
   /** Creates a new instance of the MsSqlStreamingDataProvider class.
     * @param dataProvider
@@ -41,22 +40,26 @@ object SynapseLinkStreamingDataProvider:
     */
   def apply(
       dataProvider: SynapseLinkDataProvider,
-      settings: VersionedDataGraphBuilderSettings,
+      settings: ChangeCaptureSettings,
       backfillSettings: BackfillSettings,
-      streamContext: StreamContext,
+      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): SynapseLinkStreamingDataProvider =
-    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, isBackfilling, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        dataProvider     <- ZIO.service[SynapseLinkDataProvider]
-        settings         <- ZIO.service[VersionedDataGraphBuilderSettings]
-        backfillSettings <- ZIO.service[BackfillSettings]
-        streamContext    <- ZIO.service[StreamContext]
-        declaredMetrics  <- ZIO.service[DeclaredMetrics]
-      yield SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, streamContext, declaredMetrics)
+        context         <- ZIO.service[PluginStreamContext]
+        dataProvider    <- ZIO.service[SynapseLinkDataProvider]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield SynapseLinkStreamingDataProvider(
+        dataProvider,
+        context.streamMode.changeCapture,
+        context.streamMode.backfill,
+        context.IsBackfilling,
+        declaredMetrics
+      )
     }

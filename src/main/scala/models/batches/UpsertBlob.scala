@@ -114,7 +114,7 @@ class UpsertBlobMergeBatch(
       UpsertBlobMergeQuery(
         targetName = targetName,
         sourceQuery = reduceExpr,
-        partitionFields = tablePropertiesSettings.partitionFields,
+        partitionFields = Seq.empty,
         mergeKey = mergeKey,
         columns = schema.map(f => f.name)
       )
@@ -158,7 +158,7 @@ class UpsertBlobBackfillMergeBatch(
   override val batchQuery: MergeQuery = UpsertBlobMergeQuery(
     targetName = targetName,
     sourceQuery = reduceExpr,
-    partitionFields = tablePropertiesSettings.partitionFields,
+    partitionFields = Seq.empty,
     mergeKey = mergeKey,
     columns = schema.map(f => f.name)
   )

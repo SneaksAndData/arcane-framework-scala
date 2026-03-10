@@ -1,6 +1,10 @@
 package com.sneaksanddata.arcane.framework
-package models.settings
+package models.settings.staging
 
+import models.serialization.ZIODurationRW.*
+
+import upickle.ReadWriter
+import upickle.default.*
 import zio.Duration
 
 import java.sql.DriverManager
@@ -8,7 +12,7 @@ import scala.util.Try
 
 /** Retry modes available for the client
   */
-enum JdbcQueryRetryMode:
+enum JdbcQueryRetryMode derives ReadWriter:
   /** Always retry
     */
   case Always
@@ -65,3 +69,13 @@ trait JdbcMergeServiceClientSettings:
       }
       .mkString("&")
   ).mkString("&")
+
+case class DefaultJdbcMergeServiceClientSettings(
+    override val queryRetryMode: JdbcQueryRetryMode,
+    override val queryRetryBaseDuration: Duration,
+    override val queryRetryOnMessageContents: List[String],
+    override val queryRetryScaleFactor: Double,
+    override val queryRetryMaxAttempts: Int,
+    override val extraConnectionParameters: Map[String, String],
+    override val connectionUrl: String
+) extends JdbcMergeServiceClientSettings derives ReadWriter

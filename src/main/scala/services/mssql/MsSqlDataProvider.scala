@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import models.app.PluginStreamContext
 import models.schemas.DataRow
-import models.settings.VersionedDataGraphBuilderSettings
-import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
@@ -25,13 +25,12 @@ class MsSqlDataProvider(
     reader: MsSqlReader,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    settings: VersionedDataGraphBuilderSettings,
-    backfillSettings: BackfillSettings,
+    streamModeSettings: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,
-      backfillSettings,
+      streamModeSettings,
       throughputShaperBuilder
     ):
 
@@ -68,18 +67,15 @@ object MsSqlDataProvider:
   val layer =
     ZLayer {
       for
-        reader            <- ZIO.service[MsSqlReader]
-        versionedSettings <- ZIO.service[VersionedDataGraphBuilderSettings]
-        propertyManager   <- ZIO.service[SinkPropertyManager]
-        sinkSettings      <- ZIO.service[SinkSettings]
-        backfillSettings  <- ZIO.service[BackfillSettings]
-        shaperBuilder     <- ZIO.service[ThroughputShaperBuilder]
+        context         <- ZIO.service[PluginStreamContext]
+        reader          <- ZIO.service[MsSqlReader]
+        propertyManager <- ZIO.service[SinkPropertyManager]
+        shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
       yield new MsSqlDataProvider(
         reader,
         propertyManager,
-        sinkSettings,
-        versionedSettings,
-        backfillSettings,
+        context.sink,
+        context.streamMode,
         shaperBuilder
       )
     }

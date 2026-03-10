@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
 import logging.ZIOLogAnnotations.*
-import models.app.StreamContext
+import models.app.BaseStreamContext
 import services.base.DisposeServiceClient
 import services.streaming.base.StagedBatchProcessor
 
@@ -11,7 +11,7 @@ import zio.{ZIO, ZLayer}
 
 /** Processor that merges data into a target table.
   */
-class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient, streamContext: StreamContext)
+class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient, streamContext: BaseStreamContext)
     extends StagedBatchProcessor:
 
   /** Processes the incoming data.
@@ -48,12 +48,12 @@ object DisposeBatchProcessor:
     * @return
     *   The initialized MergeProcessor instance
     */
-  def apply(DisposeServiceClient: DisposeServiceClient, streamContext: StreamContext): DisposeBatchProcessor =
+  def apply(DisposeServiceClient: DisposeServiceClient, streamContext: BaseStreamContext): DisposeBatchProcessor =
     new DisposeBatchProcessor(DisposeServiceClient, streamContext)
 
   /** The required environment for the MergeBatchProcessor.
     */
-  type Environment = DisposeServiceClient & StreamContext
+  type Environment = DisposeServiceClient & BaseStreamContext
 
   /** The ZLayer that creates the MergeProcessor.
     */
@@ -61,6 +61,6 @@ object DisposeBatchProcessor:
     ZLayer {
       for
         disposeServiceClient <- ZIO.service[DisposeServiceClient]
-        streamContext        <- ZIO.service[StreamContext]
+        streamContext        <- ZIO.service[BaseStreamContext]
       yield DisposeBatchProcessor(disposeServiceClient, streamContext)
     }

@@ -1,7 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
-import models.settings.sink.IcebergSinkSettings
+import models.settings.staging.{DefaultJdbcMergeServiceClientSettings, JdbcMergeServiceClientSettings}
+import models.settings.{DefaultTablePropertiesSettings, TablePropertiesSettings}
+
+import upickle.ReadWriter
 
 /** Settings for the target table
   */
@@ -16,7 +19,13 @@ trait SinkSettings:
 
   /** Settings for Iceberg Catalog instance associated with the sink
     */
-  val icebergSinkSettings: IcebergSinkSettings
+  val icebergCatalog: IcebergSinkSettings
+
+  /** Merge client configuration
+    */
+  val mergeServiceClient: JdbcMergeServiceClientSettings
+
+  val targetTableProperties: TablePropertiesSettings
 
   /** Retrieve names for each component of a target table name
     * @return
@@ -28,3 +37,11 @@ trait SinkSettings:
         throw new RuntimeException(
           s"Invalid table name format for $targetTableFullName. Must be {warehouse}.{namespace}.{name}"
         )
+
+case class DefaultSinkSettings(
+    override val icebergCatalog: DefaultIcebergSinkSettings,
+    override val maintenanceSettings: DefaultTableMaintenanceSettings,
+    override val targetTableFullName: String,
+    override val targetTableProperties: DefaultTablePropertiesSettings,
+    override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
+) extends SinkSettings derives ReadWriter
