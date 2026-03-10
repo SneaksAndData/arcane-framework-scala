@@ -98,77 +98,80 @@ class UpsertBlobTests extends AnyFlatSpec with Matchers:
     batch.batchQuery.query should equal(expected)
   }
 
-  "UpsertBlobMergeBatch" should "generate a valid versioned batch" in {
-    val batch = UpsertBlobMergeBatch(
-      "test.staged_a",
-      Seq(
-        MergeKeyField,
-        Field(
-          name = "colA",
-          fieldType = StringType
-        ),
-        Field(
-          name = "colB",
-          fieldType = StringType
-        ),
-        Field(
-          name = "Id",
-          fieldType = StringType
-        ),
-        Field(
-          name = BlobBatchCommons.versionField.name,
-          fieldType = BlobBatchCommons.versionField.fieldType
-        )
-      ),
-      "test.table_a",
-      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)")),
-      Some("1234")
-    )
-
-    val expected =
-      Using(Source.fromURL(getClass.getResource("/generate_a_valid_upsertblob_merge_query_with_partitions.sql"))) {
-        _.getLines().mkString("\n")
-      }.get
-
-    batch.batchQuery.query should equal(expected)
-  }
-
-  private val mergeKeyStatements = Table(
-    ("tablePropertiesSettings", "expectedResult"),
-    (Seq("bucket(ARCANE_MERGE_KEY, 32)"), "filter_out_single_arcane_merge_key_from_merge_match_upsertblob"),
-    (
-      Seq("bucket(ARCANE_MERGE_KEY, 32)", "bucket(colA, 32)", "year(colB)"),
-      "filter_out_arcane_merge_key_from_merge_match_upsertblob"
-    )
-  )
-
-  "UpsertBlobMergeBatch" should "filter out arcane merge key from merge match" in {
-    val batchSchema = Seq(
-      MergeKeyField,
-      Field(
-        name = "colA",
-        fieldType = StringType
-      ),
-      Field(
-        name = "colB",
-        fieldType = StringType
-      ),
-      Field(
-        name = "Id",
-        fieldType = StringType
-      ),
-      Field(
-        name = BlobBatchCommons.versionField.name,
-        fieldType = BlobBatchCommons.versionField.fieldType
-      )
-    )
-    forAll(mergeKeyStatements) { (partitionSpec, expectation) =>
-      val tablePropertiesSettings = CustomTablePropertiesSettings(partitionSpec)
-      val batch = UpsertBlobMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings, None)
-      val expected = Using(Source.fromURL(getClass.getResource(s"/$expectation.sql"))) {
-        _.getLines().mkString("\n")
-      }.get
-
-      batch.batchQuery.query should equal(expected)
-    }
-  }
+// NB. 2.2 release temporary removes support for table partitioning and merge statement generation for partitioned tables
+// TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
+//
+//  "UpsertBlobMergeBatch" should "generate a valid versioned batch" in {
+//    val batch = UpsertBlobMergeBatch(
+//      "test.staged_a",
+//      Seq(
+//        MergeKeyField,
+//        Field(
+//          name = "colA",
+//          fieldType = StringType
+//        ),
+//        Field(
+//          name = "colB",
+//          fieldType = StringType
+//        ),
+//        Field(
+//          name = "Id",
+//          fieldType = StringType
+//        ),
+//        Field(
+//          name = BlobBatchCommons.versionField.name,
+//          fieldType = BlobBatchCommons.versionField.fieldType
+//        )
+//      ),
+//      "test.table_a",
+//      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)")),
+//      Some("1234")
+//    )
+//
+//    val expected =
+//      Using(Source.fromURL(getClass.getResource("/generate_a_valid_upsertblob_merge_query_with_partitions.sql"))) {
+//        _.getLines().mkString("\n")
+//      }.get
+//
+//    batch.batchQuery.query should equal(expected)
+//  }
+//
+//  private val mergeKeyStatements = Table(
+//    ("tablePropertiesSettings", "expectedResult"),
+//    (Seq("bucket(ARCANE_MERGE_KEY, 32)"), "filter_out_single_arcane_merge_key_from_merge_match_upsertblob"),
+//    (
+//      Seq("bucket(ARCANE_MERGE_KEY, 32)", "bucket(colA, 32)", "year(colB)"),
+//      "filter_out_arcane_merge_key_from_merge_match_upsertblob"
+//    )
+//  )
+//
+//  "UpsertBlobMergeBatch" should "filter out arcane merge key from merge match" in {
+//    val batchSchema = Seq(
+//      MergeKeyField,
+//      Field(
+//        name = "colA",
+//        fieldType = StringType
+//      ),
+//      Field(
+//        name = "colB",
+//        fieldType = StringType
+//      ),
+//      Field(
+//        name = "Id",
+//        fieldType = StringType
+//      ),
+//      Field(
+//        name = BlobBatchCommons.versionField.name,
+//        fieldType = BlobBatchCommons.versionField.fieldType
+//      )
+//    )
+//    forAll(mergeKeyStatements) { (partitionSpec, expectation) =>
+//      val tablePropertiesSettings = CustomTablePropertiesSettings(partitionSpec)
+//      val batch = UpsertBlobMergeBatch("test.staged_a", batchSchema, "test.table_a", tablePropertiesSettings, None)
+//      val expected = Using(Source.fromURL(getClass.getResource(s"/$expectation.sql"))) {
+//        _.getLines().mkString("\n")
+//      }.get
+//
+//      batch.batchQuery.query should equal(expected)
+//    }
+//  }

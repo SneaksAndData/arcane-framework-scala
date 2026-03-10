@@ -100,7 +100,7 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   }
 
 // NB. 2.2 release temporary removes support for table partitioning and merge statement generation for partitioned tables
-// TODO: Test disabled until 2.3 release re-introduces partitioning support
+// TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
 
 //  "SynapseLinkBackfillMergeBatch" should "generate a valid backfill merge batch" in {
 //    val batch = SynapseLinkBackfillMergeBatch(

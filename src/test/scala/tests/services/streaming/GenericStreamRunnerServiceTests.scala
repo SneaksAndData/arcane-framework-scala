@@ -144,27 +144,13 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           override def empty: SchemaType = ArcaneSchema.empty()
         }),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new PluginStreamContext {
-          override def IsBackfilling: Boolean = false
-          override def streamId: String       = "test-stream-id"
-          override def streamKind: String     = "test-stream-kind"
-
-          override val streamMode: StreamModeSettings       = ???
-          override val source: StreamSourceSettings         = ???
-          override val sink: SinkSettings                   = ???
-          override val observability: ObservabilitySettings = ???
-          override val staging: StagingSettings             = ???
-          override val throughput: ThroughputSettings       = ???
-
-          override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
-        }),
+        ZLayer.succeed(TestPluginStreamContext),
         ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer,
-        // TODO: not used yet IcebergTablePropertyManager.stagingLayer,
         DefaultStreamBootstrapper.layer
       )
 

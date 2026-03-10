@@ -16,7 +16,7 @@ enum TableFormat derives ReadWriter:
   * supported by the streaming runner
   */
 trait TablePropertiesSettings:
-  // TODO: partition specification must be re-introduced in 2.3
+  // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
 
   /** Optionally specifies the format of table data files; either PARQUET, ORC, or AVRO. Defaults to the value of the
     * iceberg.file-format catalog configuration property, which defaults to PARQUET.

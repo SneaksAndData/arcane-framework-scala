@@ -52,7 +52,7 @@ class DefaultStreamBootstrapper(
         name = sinkSettings.targetTableNameParts.Name,
         schema = schema,
         replace = false
-        // TODO: support partitions and other advanced features later
+        // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
     )
   yield ()

@@ -256,27 +256,12 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         ZLayer.succeed(jdbcTableManager),
         ZLayer.succeed(hookManager),
         ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(new PluginStreamContext {
-          override def IsBackfilling: Boolean = false
-          override def streamId: String       = "test-stream-id"
-          override def streamKind: String     = "test-stream-kind"
-
-          override val streamMode: StreamModeSettings       = ???
-          override val sink: SinkSettings                   = ???
-          override val observability: ObservabilitySettings = ???
-          override val throughput: ThroughputSettings       = ???
-          override val staging: StagingSettings             = ???
-
-          override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
-
-          override val source: StreamSourceSettings = ???
-        }),
+        ZLayer.succeed(TestPluginStreamContext),
         ZLayer.succeed(TestSourceBufferingSettings),
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer
-        // TODO: not used yet IcebergTablePropertyManager.stagingLayer
       )
 
     // Act
