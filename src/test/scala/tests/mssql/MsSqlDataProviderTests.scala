@@ -4,7 +4,7 @@ package tests.mssql
 import models.app.BaseStreamContext
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
-import models.settings.streaming.ChangeCaptureSettings
+import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
@@ -24,27 +24,27 @@ import scala.language.postfixOps
 import scala.util.Success
 
 object MsSqlDataProviderTests extends ZIOSpecDefault:
-  private val graphSettings = new ChangeCaptureSettings {
-    override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
-    override val changeCaptureJitterVariance: Double = 0.01
-    override val changeCaptureJitterSeed: Long       = 0
-  }
-  private val backfillSettings = new BackfillSettings {
-    override val backfillBehavior: BackfillBehavior = Overwrite
-    override val backfillStartDate: Option[OffsetDateTime] = Some(
-      OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
-    )
-    override val backfillTableFullName: String = "backfill_test"
+  private val defaultStreamMode = new StreamModeSettings {
+    /** Backfill mode-only settings
+     */
+    override val backfill: BackfillSettings = new BackfillSettings {
+      override val backfillBehavior: BackfillBehavior = Overwrite
+      override val backfillStartDate: Option[OffsetDateTime] = Some(
+        OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
+      )
+      override val backfillTableFullName: String = "backfill_test"
+    }
+    /** Change capture mode settings
+     */
+    override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
+      override val changeCaptureInterval: Duration     = Duration.ofSeconds(1)
+      override val changeCaptureJitterVariance: Double = 0.01
+      override val changeCaptureJitterSeed: Long       = 0
+    }
   }
 
   private val fieldString = "(x int not null, y int)"
   private val pkString    = "primary key(x)"
-
-  private val settings = new ChangeCaptureSettings {
-    override val changeCaptureInterval: Duration     = Duration.ofMillis(1)
-    override val changeCaptureJitterVariance: Double = 0.01
-    override val changeCaptureJitterSeed: Long       = 0
-  }
 
   private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
     Success(fields)
@@ -52,7 +52,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new BaseStreamContext:
     override val IsBackfilling = false
 
-  private val defaultSinkSettings = TestDynamicSinkSettings(backfillSettings.backfillTableFullName)
+  private val defaultSinkSettings = TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName)
   private val icebergUtil         = IcebergUtil(defaultSinkSettings, defaultIcebergStagingSettings)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
@@ -100,8 +100,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
             connection,
             icebergUtil.propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$tableName"),
-            graphSettings,
-            backfillSettings,
+            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               icebergUtil.propertyManager,
               new TestDynamicSinkSettings(s"demo.test.$tableName")
@@ -112,9 +111,9 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         streamingDataProvider <- ZIO.succeed(
           MsSqlStreamingDataProvider(
             provider,
-            settings,
-            backfillSettings,
-            streamContext,
+            defaultStreamMode.changeCapture,
+            defaultStreamMode.backfill,
+            false,
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
