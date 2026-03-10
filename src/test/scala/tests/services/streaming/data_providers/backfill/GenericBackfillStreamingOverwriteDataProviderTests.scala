@@ -236,7 +236,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
         // Settings
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
         ZLayer.succeed(TestBackfillTableSettings),

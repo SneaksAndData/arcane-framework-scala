@@ -173,7 +173,6 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
 
         // Settings
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks
         ZLayer.succeed(TestBackfillTableSettings),

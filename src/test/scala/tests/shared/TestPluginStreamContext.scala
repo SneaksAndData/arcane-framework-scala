@@ -49,7 +49,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
 
   override val source: StreamSourceSettings = new StreamSourceSettings {
     override type SourceSettingsType = SourceSettings
-    override val source: SourceSettings = new SourceSettings {}
+    override val configuration: SourceSettings = new SourceSettings {}
     override val buffering: SourceBufferingSettings = new SourceBufferingSettings {
       override val bufferingStrategy: BufferingStrategy = Unbounded
       override val bufferingEnabled: Boolean            = false

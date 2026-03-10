@@ -113,7 +113,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
     override val sink: SinkSettings = TestSinkSettings
     override val source: StreamSourceSettings = new StreamSourceSettings {
       override type SourceSettingsType = SourceSettings
-      override val source: SourceSettingsType                     = new SourceSettings {}
+      override val configuration: SourceSettingsType                     = new SourceSettings {}
       override val buffering: SourceBufferingSettings             = TestSourceBufferingSettings
       override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
     }
