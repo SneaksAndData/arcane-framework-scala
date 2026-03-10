@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
+import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
@@ -12,14 +13,14 @@ import zio.{ZIO, ZLayer}
 
 class WatermarkProcessor(
     propertyManager: SinkPropertyManager,
-    targetTableSettings: SinkSettings,
+    targetTableShortName: String,
     declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batchesSet =>
     for _ <- ZIO.foreach(batchesSet.groupedBySchema) { batch =>
         batch.applyWatermark(
           propertyManager,
-          targetTableSettings.targetTableNameParts.Name,
+          targetTableShortName,
           declaredMetrics,
           "WatermarkProcessor"
         )
@@ -30,22 +31,22 @@ class WatermarkProcessor(
 object WatermarkProcessor:
   def apply(
       propertyManager: SinkPropertyManager,
-      targetTableSettings: SinkSettings,
+      targetTableShortName: String,
       declaredMetrics: DeclaredMetrics
   ): WatermarkProcessor =
-    new WatermarkProcessor(propertyManager, targetTableSettings, declaredMetrics)
+    new WatermarkProcessor(propertyManager, targetTableShortName, declaredMetrics)
 
   /** The required environment for the WatermarkProcessor.
     */
-  type Environment = SinkPropertyManager & SinkSettings & DeclaredMetrics
+  type Environment = SinkPropertyManager & PluginStreamContext & DeclaredMetrics
 
   /** The ZLayer that creates the WatermarkProcessor.
     */
   val layer: ZLayer[Environment, Nothing, WatermarkProcessor] =
     ZLayer {
       for
-        iceberg             <- ZIO.service[SinkPropertyManager]
-        targetTableSettings <- ZIO.service[SinkSettings]
-        declaredMetrics     <- ZIO.service[DeclaredMetrics]
-      yield WatermarkProcessor(iceberg, targetTableSettings, declaredMetrics)
+        iceberg         <- ZIO.service[SinkPropertyManager]
+        context         <- ZIO.service[PluginStreamContext]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield WatermarkProcessor(iceberg, context.sink.targetTableNameParts.Name, declaredMetrics)
     }
