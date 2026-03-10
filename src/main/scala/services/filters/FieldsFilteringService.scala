@@ -58,8 +58,7 @@ object FieldsFilteringService:
     */
   val layer: ZLayer[Environment, Nothing, FieldsFilteringService] =
     ZLayer {
-      for
-        context <- ZIO.service[PluginStreamContext]  
+      for context <- ZIO.service[PluginStreamContext]
       yield FieldsFilteringService(context.source.fieldSelectionRule)
     }
 

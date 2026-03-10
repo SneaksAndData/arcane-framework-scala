@@ -21,8 +21,9 @@ class ThroughputShaperBuilder(
 ):
 
   def build: ThroughputShaper = throughputSettings.shaperImpl match
-    case Static          => StaticShaper(throughputSettings)
-    case mb: MemoryBound => MemoryBoundShaper(propertyManager, targetTableShortName, throughputSettings, declaredMetrics)
+    case Static => StaticShaper(throughputSettings)
+    case mb: MemoryBound =>
+      MemoryBoundShaper(propertyManager, targetTableShortName, throughputSettings, declaredMetrics)
 
 object ThroughputShaperBuilder:
   def apply(
@@ -35,7 +36,7 @@ object ThroughputShaperBuilder:
 
   val layer = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
+      context         <- ZIO.service[PluginStreamContext]
       propertyManager <- ZIO.service[SinkPropertyManager]
       metrics         <- ZIO.service[DeclaredMetrics]
     yield ThroughputShaperBuilder(context.throughput, propertyManager, context.sink.targetTableNameParts.Name, metrics)

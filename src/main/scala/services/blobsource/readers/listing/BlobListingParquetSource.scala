@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.sources.blob.ParquetBlobSourceSettings
@@ -14,7 +15,6 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -99,12 +99,15 @@ object BlobListingParquetSource:
       sourceSchema
     )
 
-  private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings  
+  private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings
+
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
-  def getLayer(extractor: SettingsExtractor):  ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingParquetSource[S3StoragePath]] = ZLayer {
+  def getLayer(
+      extractor: SettingsExtractor
+  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingParquetSource[S3StoragePath]] = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
+      context        <- ZIO.service[PluginStreamContext]
       blobReader     <- ZIO.service[S3BlobStorageReader]
       sourceSettings <- ZIO.attempt(extractor(context))
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(

@@ -103,7 +103,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
   val layer: ZLayer[Environment, Nothing, BackfillStreamingOverwriteDataProvider] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
+        context               <- ZIO.service[PluginStreamContext]
         streamingGraphBuilder <- ZIO.service[BackfillSubStream]
         lifetimeService       <- ZIO.service[StreamLifetimeService]
         backfillBatchFactory  <- ZIO.service[BackfillOverwriteBatchFactory]

@@ -161,7 +161,6 @@ class MemoryBoundShaper(
 
 object MemoryBoundShaper:
   /** Factory method to create MemoryBoundShaper
-    *
     */
   def apply(
       propertyManager: SinkPropertyManager,

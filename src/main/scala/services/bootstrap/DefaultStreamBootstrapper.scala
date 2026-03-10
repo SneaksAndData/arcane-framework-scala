@@ -76,7 +76,7 @@ object DefaultStreamBootstrapper:
 
   val layer = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
+      context              <- ZIO.service[PluginStreamContext]
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       sinkEntityManager    <- ZIO.service[SinkEntityManager]
       schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]

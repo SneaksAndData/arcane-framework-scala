@@ -106,15 +106,15 @@ object MergeBatchProcessor:
 
   /** The required environment for the MergeBatchProcessor.
     */
-  type Environment = MergeServiceClient & PluginStreamContext & SinkEntityManager & SinkPropertyManager & JdbcTableManager &
-    DeclaredMetrics
+  type Environment = MergeServiceClient & PluginStreamContext & SinkEntityManager & SinkPropertyManager &
+    JdbcTableManager & DeclaredMetrics
 
   /** The ZLayer that creates the MergeProcessor.
     */
   val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
+        context             <- ZIO.service[PluginStreamContext]
         jdbcConsumer        <- ZIO.service[MergeServiceClient]
         sinkEntityManager   <- ZIO.service[SinkEntityManager]
         sinkPropertyManager <- ZIO.service[SinkPropertyManager]

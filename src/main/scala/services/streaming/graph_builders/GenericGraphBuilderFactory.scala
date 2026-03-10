@@ -5,7 +5,10 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.settings.backfill.BackfillBehavior
 import services.streaming.base.StreamingGraphBuilder
-import services.streaming.graph_builders.backfill.{GenericBackfillMergeGraphBuilder, GenericBackfillOverwriteGraphBuilder}
+import services.streaming.graph_builders.backfill.{
+  GenericBackfillMergeGraphBuilder,
+  GenericBackfillOverwriteGraphBuilder
+}
 
 import zio.{ZIO, ZLayer}
 

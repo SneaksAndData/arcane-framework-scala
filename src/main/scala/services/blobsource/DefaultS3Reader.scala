@@ -12,10 +12,10 @@ import zio.{ZIO, ZLayer}
   */
 object DefaultS3Reader:
   private type SettingsExtractor = PluginStreamContext => BlobSourceSettings
-  
+
   def getLayer(extractor: SettingsExtractor): ZLayer[PluginStreamContext, Nothing, S3BlobStorageReader] = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
+      context  <- ZIO.service[PluginStreamContext]
       settings <- ZIO.succeed(Some(extractor(context).s3ClientSettings))
     yield S3BlobStorageReader(
       credentialsProvider = DefaultCredentialsProvider.create(),
