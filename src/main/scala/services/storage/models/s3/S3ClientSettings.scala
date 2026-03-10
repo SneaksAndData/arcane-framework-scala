@@ -1,7 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.storage.models.s3
 
+import models.serialization.S3RegionRW.*
+import models.serialization.UriRW.*
+import models.serialization.JavaDurationRW.*
+
 import software.amazon.awssdk.regions.Region
+import upickle.ReadWriter
 
 import java.net.URI
 import java.time.Duration
@@ -14,7 +19,7 @@ case class S3ClientSettings(
     retryMaxAttempts: Int,
     retryBaseDelay: Duration,
     retryMaxDelay: Duration
-)
+) derives ReadWriter
 
 object S3ClientSettings:
   def apply(
