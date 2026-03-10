@@ -26,8 +26,9 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   private val defaultStreamMode = new StreamModeSettings {
+
     /** Backfill mode-only settings
-     */
+      */
     override val backfill: BackfillSettings = new BackfillSettings {
       override val backfillBehavior: BackfillBehavior = Overwrite
       override val backfillStartDate: Option[OffsetDateTime] = Some(
@@ -35,8 +36,9 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       )
       override val backfillTableFullName: String = "blobsource_backfill_test"
     }
+
     /** Change capture mode settings
-     */
+      */
     override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
       override val changeCaptureJitterVariance: Double = 0.01
@@ -45,7 +47,10 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   }
 
   private val icebergUtil =
-    IcebergUtil(TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName), defaultIcebergStagingSettings)
+    IcebergUtil(
+      TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName),
+      defaultIcebergStagingSettings
+    )
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {

@@ -22,7 +22,7 @@ class SynapseLinkStreamingDataProvider(
       dataProvider,
       settings,
       backfillSettings,
-  isBackfilling,
+      isBackfilling,
       declaredMetrics
     )
 
@@ -52,8 +52,14 @@ object SynapseLinkStreamingDataProvider:
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
-        dataProvider     <- ZIO.service[SynapseLinkDataProvider]
-        declaredMetrics  <- ZIO.service[DeclaredMetrics]
-      yield SynapseLinkStreamingDataProvider(dataProvider, context.streamMode.changeCapture, context.streamMode.backfill, context.IsBackfilling, declaredMetrics)
+        context         <- ZIO.service[PluginStreamContext]
+        dataProvider    <- ZIO.service[SynapseLinkDataProvider]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield SynapseLinkStreamingDataProvider(
+        dataProvider,
+        context.streamMode.changeCapture,
+        context.streamMode.backfill,
+        context.IsBackfilling,
+        declaredMetrics
+      )
     }

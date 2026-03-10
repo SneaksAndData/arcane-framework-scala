@@ -26,8 +26,9 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
   private val defaultStreamMode = new StreamModeSettings {
+
     /** Backfill mode-only settings
-     */
+      */
     override val backfill: BackfillSettings = new BackfillSettings {
       override val backfillBehavior: BackfillBehavior = Overwrite
       override val backfillStartDate: Option[OffsetDateTime] = Some(
@@ -35,8 +36,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       )
       override val backfillTableFullName: String = "demo.test.synapse_backfill_test"
     }
+
     /** Change capture mode settings
-     */
+      */
     override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
       override val changeCaptureJitterVariance: Double = 0.01
@@ -64,7 +66,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
-    IcebergUtil(TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName), defaultIcebergStagingSettings)
+    IcebergUtil(
+      TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName),
+      defaultIcebergStagingSettings
+    )
   private def getIcebergUtilStream(tableName: String) =
     IcebergUtil(TestDynamicSinkSettings(tableName), defaultIcebergStagingSettings)
 

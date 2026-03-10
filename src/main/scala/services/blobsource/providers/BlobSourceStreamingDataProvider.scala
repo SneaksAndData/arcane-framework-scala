@@ -21,7 +21,7 @@ class BlobSourceStreamingDataProvider(
       dataProvider,
       settings,
       backfillSettings,
-  isBackfilling,
+      isBackfilling,
       declaredMetrics
     )
 
@@ -40,8 +40,14 @@ object BlobSourceStreamingDataProvider:
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
-        dataProvider     <- ZIO.service[BlobSourceDataProvider]
-        declaredMetrics  <- ZIO.service[DeclaredMetrics]
-      yield BlobSourceStreamingDataProvider(dataProvider, context.streamMode.changeCapture, context.streamMode.backfill, context.IsBackfilling, declaredMetrics)
+        context         <- ZIO.service[PluginStreamContext]
+        dataProvider    <- ZIO.service[BlobSourceDataProvider]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield BlobSourceStreamingDataProvider(
+        dataProvider,
+        context.streamMode.changeCapture,
+        context.streamMode.backfill,
+        context.IsBackfilling,
+        declaredMetrics
+      )
     }

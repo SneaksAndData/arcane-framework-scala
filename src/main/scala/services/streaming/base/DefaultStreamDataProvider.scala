@@ -90,8 +90,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       _ <- ZIO.succeed(previousVersion.age.toDouble) @@ declaredMetrics.streamingWatermarkAge
     yield isChanged
 
-  override def stream: ZStream[Any, Throwable, RowType] = if isBackfilling then
-    dataProvider.requestBackfill
+  override def stream: ZStream[Any, Throwable, RowType] = if isBackfilling then dataProvider.requestBackfill
   else
     ZStream
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)

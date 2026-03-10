@@ -25,8 +25,9 @@ import scala.util.Success
 
 object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val defaultStreamMode = new StreamModeSettings {
+
     /** Backfill mode-only settings
-     */
+      */
     override val backfill: BackfillSettings = new BackfillSettings {
       override val backfillBehavior: BackfillBehavior = Overwrite
       override val backfillStartDate: Option[OffsetDateTime] = Some(
@@ -34,8 +35,9 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
       )
       override val backfillTableFullName: String = "backfill_test"
     }
+
     /** Change capture mode settings
-     */
+      */
     override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(1)
       override val changeCaptureJitterVariance: Double = 0.01

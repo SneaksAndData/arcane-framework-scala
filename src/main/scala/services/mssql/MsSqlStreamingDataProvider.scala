@@ -35,7 +35,7 @@ class MsSqlStreamingDataProvider(
       dataProvider,
       settings,
       backfillSettings,
-  isBackfilling,
+      isBackfilling,
       declaredMetrics
     )
 
@@ -67,8 +67,14 @@ object MsSqlStreamingDataProvider:
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
-        dataProvider     <- ZIO.service[MsSqlDataProvider]
-        declaredMetrics  <- ZIO.service[DeclaredMetrics]
-      yield MsSqlStreamingDataProvider(dataProvider, context.streamMode.changeCapture, context.streamMode.backfill, context.IsBackfilling, declaredMetrics)
+        context         <- ZIO.service[PluginStreamContext]
+        dataProvider    <- ZIO.service[MsSqlDataProvider]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
+      yield MsSqlStreamingDataProvider(
+        dataProvider,
+        context.streamMode.changeCapture,
+        context.streamMode.backfill,
+        context.IsBackfilling,
+        declaredMetrics
+      )
     }
