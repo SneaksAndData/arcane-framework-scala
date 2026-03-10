@@ -16,7 +16,7 @@ import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, Thr
 import java.time.{Duration, OffsetDateTime}
 
 case object TestPluginStreamContext extends PluginStreamContext:
-  override def IsBackfilling: Boolean = false
+  override def isBackfilling: Boolean = false
 
   override def streamId: String = "test-stream-id"
 

@@ -219,7 +219,7 @@ object JdbcMergeServiceClient:
           declaredMetrics <- ZIO.service[DeclaredMetrics]
         yield JdbcMergeServiceClient(
           context.sink.mergeServiceClient,
-          context.IsBackfilling,
+          context.isBackfilling,
           declaredMetrics
         )
       }

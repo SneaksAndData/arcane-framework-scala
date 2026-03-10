@@ -74,7 +74,7 @@ object MsSqlStreamingDataProvider:
         dataProvider,
         context.streamMode.changeCapture,
         context.streamMode.backfill,
-        context.IsBackfilling,
+        context.isBackfilling,
         declaredMetrics
       )
     }

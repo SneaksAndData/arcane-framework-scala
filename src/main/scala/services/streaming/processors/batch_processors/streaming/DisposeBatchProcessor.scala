@@ -21,7 +21,7 @@ class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient, streamCo
     */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batchesSet =>
-      if streamContext.IsBackfilling then
+      if streamContext.isBackfilling then
         for _ <- zlog(
             "Running in backfill mode. Skipping dispose of batch set with index %s",
             Seq(getAnnotation("processor", "DisposeBatchProcessor")),
