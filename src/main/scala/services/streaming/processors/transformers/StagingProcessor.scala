@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.transformers
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
+import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
@@ -27,8 +28,7 @@ trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & 
 
 class StagingProcessor(
     stagingDataSettings: StagingTableSettings,
-    tablePropertiesSettings: TablePropertiesSettings,
-    targetTableSettings: SinkSettings,
+    targetTableFullName: String,
     icebergCatalogSettings: IcebergStagingSettings,
     catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
     declaredMetrics: DeclaredMetrics
@@ -132,8 +132,7 @@ class StagingProcessor(
         icebergCatalogSettings.namespace,
         icebergCatalogSettings.warehouse,
         arcaneSchema,
-        targetTableSettings.targetTableFullName,
-        tablePropertiesSettings,
+        targetTableFullName,
         watermarkValue
       )
     yield batch
@@ -142,38 +141,31 @@ object StagingProcessor:
 
   def apply(
       stagingDataSettings: StagingTableSettings,
-      tablePropertiesSettings: TablePropertiesSettings,
-      targetTableSettings: SinkSettings,
+      targetTableFullName: String,
       icebergCatalogSettings: IcebergStagingSettings,
       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
       declaredMetrics: DeclaredMetrics
   ): StagingProcessor =
     new StagingProcessor(
       stagingDataSettings,
-      tablePropertiesSettings,
-      targetTableSettings,
+      targetTableFullName,
       icebergCatalogSettings,
       catalogWriter,
       declaredMetrics
     )
 
-  type Environment = StagingTableSettings & TablePropertiesSettings & SinkSettings & IcebergStagingSettings &
-    CatalogWriter[RESTCatalog, Table, Schema] & DeclaredMetrics
+  type Environment = PluginStreamContext & CatalogWriter[RESTCatalog, Table, Schema] & DeclaredMetrics
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
       for
-        stagingDataSettings     <- ZIO.service[StagingTableSettings]
-        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
-        targetTableSettings     <- ZIO.service[SinkSettings]
-        icebergCatalogSettings  <- ZIO.service[IcebergStagingSettings]
-        catalogWriter           <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
-        declaredMetrics         <- ZIO.service[DeclaredMetrics]
+        context         <- ZIO.service[PluginStreamContext]
+        catalogWriter   <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
       yield StagingProcessor(
-        stagingDataSettings,
-        tablePropertiesSettings,
-        targetTableSettings,
-        icebergCatalogSettings,
+        context.staging.table,
+        context.sink.targetTableFullName,
+        context.staging.icebergCatalog,
         catalogWriter,
         declaredMetrics
       )

@@ -88,7 +88,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
           EasyMock.anyString(),
           EasyMock.anyObject(),
           EasyMock.anyString(),
-          EasyMock.anyObject(),
           EasyMock.anyObject()
         )
         .andReturn(
@@ -125,10 +124,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingTableSettings),
-        ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(defaultIcebergStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks

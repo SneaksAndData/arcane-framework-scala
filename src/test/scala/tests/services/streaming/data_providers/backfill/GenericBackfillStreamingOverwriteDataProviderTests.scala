@@ -204,7 +204,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           EasyMock.anyString(),
           EasyMock.anyObject(),
           EasyMock.eq(TestBackfillTableSettings.backfillTableFullName),
-          EasyMock.anyObject(),
           EasyMock.anyObject()
         )
         .andReturn(
@@ -236,10 +235,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         IcebergS3CatalogWriter.layer,
 
         // Settings
-        ZLayer.succeed(TestStagingTableSettings),
-        ZLayer.succeed(TablePropertiesSettings),
         ZLayer.succeed(TestSinkSettings),
-        ZLayer.succeed(defaultIcebergStagingSettings),
         ZLayer.succeed(TestFieldSelectionRuleSettings),
 
         // Mocks

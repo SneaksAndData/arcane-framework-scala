@@ -39,7 +39,6 @@ trait RowGroupTransformer:
         String,
         ArcaneSchema,
         String,
-        TablePropertiesSettings,
         Option[String]
     ) => StagedVersionedBatch & MergeableBatch
 

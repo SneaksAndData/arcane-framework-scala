@@ -144,7 +144,6 @@ private class BackfillHookManager(base: HookManager, backfillTableSettings: Back
       warehouse: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
       watermarkValue: Option[String]
   ): StagedVersionedBatch & MergeableBatch =
     base.onBatchStaged(
@@ -153,6 +152,5 @@ private class BackfillHookManager(base: HookManager, backfillTableSettings: Back
       warehouse,
       batchSchema,
       backfillTableSettings.backfillTableFullName,
-      tablePropertiesSettings,
       watermarkValue
     )
