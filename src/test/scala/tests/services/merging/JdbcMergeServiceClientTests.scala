@@ -20,6 +20,7 @@ import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{
   TestBackfillTableSettings,
   TestJdbcMergeServiceClientSettings,
+  TestObservabilitySettings,
   TestSinkSettings,
   TestTablePropertiesSettings
 }
@@ -44,15 +45,10 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private val schemaProviderMock         = mock[SchemaProvider[ArcaneSchema]]
   private val fieldsFilteringServiceMock = mock[FieldsFilteringService]
 
-  private val streamContext = new BaseStreamContext:
-    override val streamId: String       = "test"
-    override val IsBackfilling: Boolean = false
-    override val streamKind: String     = "test"
-
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       TestJdbcMergeServiceClientSettings,
-      DeclaredMetrics(ArcaneDimensionsProvider(streamContext)),
+      DeclaredMetrics(ArcaneDimensionsProvider("test", false, "test", TestObservabilitySettings)),
       false
     )
 

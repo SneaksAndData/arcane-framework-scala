@@ -14,7 +14,4 @@ abstract class DefaultPluginStreamContext(
     final override val throughput: DefaultThroughputSettings
 ) extends PluginStreamContext:
 
-  // observability
-  override def customTags: Map[String, String] = observability.metricTags
-
   override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???

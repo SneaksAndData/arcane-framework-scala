@@ -29,10 +29,10 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
   private val runtime = Runtime.default
 
   private val backfillStreamContext = new BaseStreamContext:
-    override val IsBackfilling: Boolean = true
+    override val isBackfilling: Boolean = true
 
   private val streamingStreamContext = new BaseStreamContext:
-    override val IsBackfilling: Boolean = false
+    override val isBackfilling: Boolean = false
 
   private val mergeBackfillSettings     = new CustomTestBackfillTableSettings(BackfillBehavior.Merge)
   private val overwriteBackfillSettings = new CustomTestBackfillTableSettings(BackfillBehavior.Overwrite)

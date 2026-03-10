@@ -19,15 +19,11 @@ trait BaseStreamContext:
 
   /** True if the stream is running in backfill mode.
     */
-  def IsBackfilling: Boolean = sys.env.getOrElse("STREAMCONTEXT__BACKFILL", "false").toLowerCase() == "true"
+  def isBackfilling: Boolean = sys.env.getOrElse("STREAMCONTEXT__BACKFILL", "false").toLowerCase() == "true"
 
   /** Kind of the stream
     */
   def streamKind: String = sys.env("STREAMCONTEXT__STREAM_KIND")
-
-  /** User provided custom tags to be added to the metrics and logs (in future)
-    */
-  def customTags: Map[String, String] = Map.empty
 
   val datadogSocketPath: String =
     sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog/dsd.socket")

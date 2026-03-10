@@ -29,7 +29,7 @@ class DefaultStreamBootstrapper(
     )
 
   override def createBackFillTable: Task[Unit] =
-    for _ <- ZIO.when(streamContext.IsBackfilling && backfillSettings.backfillBehavior == Overwrite) {
+    for _ <- ZIO.when(streamContext.isBackfilling && backfillSettings.backfillBehavior == Overwrite) {
         for
           schema <- schemaProvider.getSchema
           _      <- zlog("Creating backfill table %s", backfillSettings.backfillTableFullName)

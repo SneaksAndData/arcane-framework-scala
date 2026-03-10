@@ -59,7 +59,7 @@ object SynapseLinkStreamingDataProvider:
         dataProvider,
         context.streamMode.changeCapture,
         context.streamMode.backfill,
-        context.IsBackfilling,
+        context.isBackfilling,
         declaredMetrics
       )
     }

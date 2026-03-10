@@ -38,7 +38,7 @@ object GenericGraphBuilderFactory:
       streamContext    <- ZIO.service[BaseStreamContext]
 
       _ <- zlog("resoling graph builder using stream context and backfill settings")
-      builder <- (streamContext.IsBackfilling, backfillSettings.backfillBehavior) match
+      builder <- (streamContext.isBackfilling, backfillSettings.backfillBehavior) match
         case (false, _)                         => ZIO.service[GenericStreamingGraphBuilder]
         case (true, BackfillBehavior.Merge)     => ZIO.service[GenericBackfillMergeGraphBuilder]
         case (true, BackfillBehavior.Overwrite) => ZIO.service[GenericBackfillOverwriteGraphBuilder]
