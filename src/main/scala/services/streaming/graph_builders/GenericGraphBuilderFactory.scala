@@ -2,13 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.BaseStreamContext
-import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.app.PluginStreamContext
+import models.settings.backfill.BackfillBehavior
 import services.streaming.base.StreamingGraphBuilder
-import services.streaming.graph_builders.backfill.{
-  GenericBackfillMergeGraphBuilder,
-  GenericBackfillOverwriteGraphBuilder
-}
+import services.streaming.graph_builders.backfill.{GenericBackfillMergeGraphBuilder, GenericBackfillOverwriteGraphBuilder}
 
 import zio.{ZIO, ZLayer}
 
@@ -19,7 +16,7 @@ object GenericGraphBuilderFactory:
   /** The environment required for the graph builder to be created.
     */
   type Environment = GenericBackfillMergeGraphBuilder.Environment & GenericBackfillOverwriteGraphBuilder.Environment &
-    GenericStreamingGraphBuilder.Environment & BackfillSettings & BaseStreamContext
+    GenericStreamingGraphBuilder.Environment & PluginStreamContext
 
   /** The ZLayer for the graph builder injection with runtime dependency resolution.
     */
@@ -34,11 +31,10 @@ object GenericGraphBuilderFactory:
 
   private def resolveGraphBuilder: ZIO[ResolverEnvironment, Nothing, StreamingGraphBuilder] =
     for
-      backfillSettings <- ZIO.service[BackfillSettings]
-      streamContext    <- ZIO.service[BaseStreamContext]
+      context <- ZIO.service[PluginStreamContext]
 
       _ <- zlog("resoling graph builder using stream context and backfill settings")
-      builder <- (streamContext.isBackfilling, backfillSettings.backfillBehavior) match
+      builder <- (context.isBackfilling, context.streamMode.backfill.backfillBehavior) match
         case (false, _)                         => ZIO.service[GenericStreamingGraphBuilder]
         case (true, BackfillBehavior.Merge)     => ZIO.service[GenericBackfillMergeGraphBuilder]
         case (true, BackfillBehavior.Overwrite) => ZIO.service[GenericBackfillOverwriteGraphBuilder]

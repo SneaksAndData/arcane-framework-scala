@@ -55,7 +55,6 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
         .service[StreamingGraphBuilder]
         .provide(
           GenericGraphBuilderFactory.composedLayer,
-          ZLayer.succeed(backfillSettings),
           ZLayer.succeed(streamContext),
           ZLayer.succeed(mock[StreamDataProvider]),
           ZLayer.succeed(mock[BackfillStreamingMergeDataProvider]),

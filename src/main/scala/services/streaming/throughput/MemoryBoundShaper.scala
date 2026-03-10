@@ -28,7 +28,7 @@ import scala.math.{exp, log}
   */
 class MemoryBoundShaper(
     tablePropertyManager: SinkPropertyManager,
-    sinkSettings: SinkSettings,
+    targetTableShortName: String,
     throughputSettings: ThroughputSettings,
     declaredMetrics: DeclaredMetrics
 ) extends ThroughputShaper:
@@ -82,9 +82,9 @@ class MemoryBoundShaper(
     _ <- zlog("Estimating chunk size for the stream")
     _ <- ZIO.when(estimationCache.isEmpty) {
       for
-        tableSizeEstimate   <- tablePropertyManager.getTableSize(sinkSettings.targetTableNameParts.Name)
-        tablePartitionCount <- tablePropertyManager.getPartitionCount(sinkSettings.targetTableNameParts.Name)
-        tableSchema         <- tablePropertyManager.getTableSchema(sinkSettings.targetTableNameParts.Name)
+        tableSizeEstimate   <- tablePropertyManager.getTableSize(targetTableShortName)
+        tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
+        tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
 
         memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(tableSizeEstimate.Records, tableSizeEstimate.Size))
         rowsSize <- ZIO.succeed(
@@ -160,19 +160,13 @@ class MemoryBoundShaper(
     (scaledSigmoid(rawCost.toDouble, shaperSettings.chunkCostScale) * shaperSettings.chunkCostMax).toInt
 
 object MemoryBoundShaper:
-  private type Environment = SinkPropertyManager & SinkSettings
-
   /** Factory method to create MemoryBoundShaper
     *
-    * @param sinkSettings
-    *   Sink settings
-    * @return
-    *   The initialized IcebergTablePropertyManager instance
     */
   def apply(
       propertyManager: SinkPropertyManager,
-      sinkSettings: SinkSettings,
+      targetTableShortName: String,
       memoryBoundShaperSettings: ThroughputSettings,
       declaredMetrics: DeclaredMetrics
   ): MemoryBoundShaper =
-    new MemoryBoundShaper(propertyManager, sinkSettings, memoryBoundShaperSettings, declaredMetrics)
+    new MemoryBoundShaper(propertyManager, targetTableShortName, memoryBoundShaperSettings, declaredMetrics)
