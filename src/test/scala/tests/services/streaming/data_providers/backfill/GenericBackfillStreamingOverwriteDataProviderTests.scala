@@ -234,11 +234,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         IcebergEntityManager.sinkLayer,
         IcebergS3CatalogWriter.layer,
 
-        // Settings
-        ZLayer.succeed(TestSinkSettings),
-
         // Mocks
-        ZLayer.succeed(TestBackfillTableSettings),
         ZLayer.succeed(new BackfillOverwriteBatchFactory {
           override def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
             ZIO.succeed(

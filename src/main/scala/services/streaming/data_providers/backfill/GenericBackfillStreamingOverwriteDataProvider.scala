@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.data_providers.backfill
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
-import models.settings.TablePropertiesSettings
 import models.settings.backfill.BackfillSettings
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
@@ -68,7 +68,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
 
   /** The environment required for the GenericBackfillStreamingOverwriteDataProvider.
     */
-  type Environment = BackfillSubStream & BackfillSettings & StreamLifetimeService & BackfillOverwriteBatchFactory &
+  type Environment = BackfillSubStream & PluginStreamContext & StreamLifetimeService & BackfillOverwriteBatchFactory &
     HookManager
 
   /** Creates a new GenericBackfillStreamingOverwriteDataProvider.
@@ -103,14 +103,14 @@ object GenericBackfillStreamingOverwriteDataProvider:
   val layer: ZLayer[Environment, Nothing, BackfillStreamingOverwriteDataProvider] =
     ZLayer {
       for
+        context <- ZIO.service[PluginStreamContext]
         streamingGraphBuilder <- ZIO.service[BackfillSubStream]
-        backfillTableSettings <- ZIO.service[BackfillSettings]
         lifetimeService       <- ZIO.service[StreamLifetimeService]
         backfillBatchFactory  <- ZIO.service[BackfillOverwriteBatchFactory]
         hookManager           <- ZIO.service[HookManager]
       yield GenericBackfillStreamingOverwriteDataProvider(
         streamingGraphBuilder,
-        backfillTableSettings,
+        context.streamMode.backfill,
         lifetimeService,
         hookManager,
         backfillBatchFactory

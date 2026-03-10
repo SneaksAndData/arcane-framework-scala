@@ -46,7 +46,7 @@ object GenericBackfillStreamingMergeDataProvider:
 
   /** The environment required for the GenericBackfillStreamingMergeDataProvider.
     */
-  type Environment = BackfillSubStream & BackfillSettings & StreamLifetimeService & BackfillOverwriteBatchFactory &
+  type Environment = BackfillSubStream & StreamLifetimeService & BackfillOverwriteBatchFactory &
     HookManager
 
   /** Creates a new GenericBackfillStreamingMergeDataProvider.
