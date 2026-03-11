@@ -2,12 +2,14 @@ package com.sneaksanddata.arcane.framework
 package services.bootstrap
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.{BaseStreamContext, PluginStreamContext}
+import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
+import models.settings.TableNaming.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.staging.StagingSettings
 import services.base.SchemaProvider
 import services.bootstrap.base.StreamBootstrapper
 import services.iceberg.base.{SinkEntityManager, StagingEntityManager}
@@ -20,6 +22,7 @@ class DefaultStreamBootstrapper(
     sinkEntityManager: SinkEntityManager,
     schemaProvider: SchemaProvider[ArcaneSchema],
     sinkSettings: SinkSettings,
+    stagingSettings: StagingSettings,
     backfillSettings: BackfillSettings,
     isBackfilling: Boolean
 ) extends StreamBootstrapper:
@@ -32,10 +35,10 @@ class DefaultStreamBootstrapper(
     for _ <- ZIO.when(isBackfilling && backfillSettings.backfillBehavior == Overwrite) {
         for
           schema <- schemaProvider.getSchema
-          _      <- zlog("Creating backfill table %s", backfillSettings.backfillTableFullName)
+          _      <- zlog("Creating backfill table %s", stagingSettings.table.backfillTableName)
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
-              name = backfillSettings.backfillTableNameParts.Name,
+              name = stagingSettings.table.backfillTableName,
               schema = schema,
               replace = false
             )
@@ -49,7 +52,7 @@ class DefaultStreamBootstrapper(
     _      <- zlog("Creating target table %s", sinkSettings.targetTableFullName)
     _ <- sinkEntityManager.createTable(
       CreateTableRequest(
-        name = sinkSettings.targetTableNameParts.Name,
+        name = sinkSettings.targetTableFullName.parts.name,
         schema = schema,
         replace = false
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
@@ -63,6 +66,7 @@ object DefaultStreamBootstrapper:
       sinkEntityManager: SinkEntityManager,
       schemaProvider: SchemaProvider[ArcaneSchema],
       sinkSettings: SinkSettings,
+      stagingSettings: StagingSettings,
       backfillSettings: BackfillSettings,
       isBackfilling: Boolean
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
@@ -70,6 +74,7 @@ object DefaultStreamBootstrapper:
     sinkEntityManager = sinkEntityManager,
     schemaProvider = schemaProvider,
     sinkSettings = sinkSettings,
+    stagingSettings = stagingSettings,
     backfillSettings = backfillSettings,
     isBackfilling = isBackfilling
   )
@@ -85,6 +90,7 @@ object DefaultStreamBootstrapper:
       sinkEntityManager = sinkEntityManager,
       schemaProvider = schemaProvider,
       sinkSettings = context.sink,
+      stagingSettings = context.staging,
       backfillSettings = context.streamMode.backfill,
       isBackfilling = context.isBackfilling
     )

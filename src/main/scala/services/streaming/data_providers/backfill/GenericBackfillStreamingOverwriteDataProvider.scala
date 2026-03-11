@@ -6,6 +6,7 @@ import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
+import models.settings.staging.StagingTableSettings
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
@@ -21,8 +22,6 @@ import zio.{Chunk, Task, ZIO, ZLayer}
   * or it may produce nothing if the backfill was interrupted.
   * @param streamingGraphBuilder
   *   The streaming graph builder.
-  * @param backfillTableSettings
-  *   The backfill table settings.
   * @param lifetimeService
   *   The stream lifetime service.
   * @param baseHookManager
@@ -30,7 +29,7 @@ import zio.{Chunk, Task, ZIO, ZLayer}
   */
 class GenericBackfillStreamingOverwriteDataProvider(
     streamingGraphBuilder: BackfillSubStream,
-    backfillTableSettings: BackfillSettings,
+    stagingTableSettings: StagingTableSettings,
     lifetimeService: StreamLifetimeService,
     baseHookManager: HookManager,
     backfillBatchFactory: BackfillOverwriteBatchFactory
@@ -42,7 +41,7 @@ class GenericBackfillStreamingOverwriteDataProvider(
     for
       _ <- zlog("Starting backfill process")
       lastBatchSet <- streamingGraphBuilder
-        .produce(BackfillHookManager(baseHookManager, backfillTableSettings))
+        .produce(BackfillHookManager(baseHookManager, stagingTableSettings.backfillTableName))
         .via(streamLifetimeGuard)
         .runLast // ensure watermark is emitted at the end
       _ <- zlog("Backfill process completed")
@@ -85,14 +84,14 @@ object GenericBackfillStreamingOverwriteDataProvider:
     */
   def apply(
       streamingGraphBuilder: BackfillSubStream,
-      backfillTableSettings: BackfillSettings,
+      stagingTableSettings: StagingTableSettings,
       lifetimeService: StreamLifetimeService,
       baseHookManager: HookManager,
       backfillBatchFactory: BackfillOverwriteBatchFactory
   ): GenericBackfillStreamingOverwriteDataProvider =
     new GenericBackfillStreamingOverwriteDataProvider(
       streamingGraphBuilder,
-      backfillTableSettings,
+      stagingTableSettings,
       lifetimeService,
       baseHookManager,
       backfillBatchFactory
@@ -110,7 +109,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
         hookManager           <- ZIO.service[HookManager]
       yield GenericBackfillStreamingOverwriteDataProvider(
         streamingGraphBuilder,
-        context.streamMode.backfill,
+        context.staging.table,
         lifetimeService,
         hookManager,
         backfillBatchFactory
@@ -125,7 +124,7 @@ object GenericBackfillStreamingOverwriteDataProvider:
   * @param backfillTableSettings
   *   The backfill table settings.
   */
-private class BackfillHookManager(base: HookManager, backfillTableSettings: BackfillSettings) extends HookManager:
+private class BackfillHookManager(base: HookManager, backfillTableName: String) extends HookManager:
 
   /** @inheritdoc
     */
@@ -151,6 +150,6 @@ private class BackfillHookManager(base: HookManager, backfillTableSettings: Back
       namespace,
       warehouse,
       batchSchema,
-      backfillTableSettings.backfillTableFullName,
+      backfillTableName,
       watermarkValue
     )

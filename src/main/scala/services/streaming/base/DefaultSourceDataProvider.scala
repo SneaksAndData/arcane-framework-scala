@@ -6,6 +6,7 @@ import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.streaming.StreamModeSettings
+import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -70,7 +71,7 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     )
 
   override def firstVersion: Task[WatermarkType] = for
-    watermarkString <- sinkPropertyManager.getProperty(sinkSettings.targetTableNameParts.Name, "comment")
+    watermarkString <- sinkPropertyManager.getProperty(sinkSettings.targetTableFullName.parts.name, "comment")
     _               <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
     watermark <- ZIO
       .attempt(upickle.read(watermarkString))

@@ -2,7 +2,8 @@ package com.sneaksanddata.arcane.framework
 package models.settings.backfill
 
 import models.serialization.OffsetDateTimeRW.*
-import upickle.{ReadWriter, macroRW}
+
+import upickle.ReadWriter
 import upickle.default.*
 
 import java.time.OffsetDateTime
@@ -17,11 +18,6 @@ enum BackfillBehavior derives ReadWriter:
   */
 trait BackfillSettings:
 
-  /** The full name of the backfill table. It's the intermediate table that holds the backfill data. When backfill
-    * process is completed, the data in this table will be merged or overwritten to the target table.
-    */
-  val backfillTableFullName: String
-
   /** The start date of the backfill process. If it's None, the backfill process will start from the beginning of the
     * data.
     */
@@ -31,16 +27,7 @@ trait BackfillSettings:
     */
   val backfillBehavior: BackfillBehavior
 
-  def backfillTableNameParts: (Warehouse: String, Namespace: String, Name: String) =
-    backfillTableFullName.split('.').toList match
-      case warehouse :: namespace :: name :: _ => (Warehouse = warehouse, Namespace = namespace, Name = name)
-      case _ =>
-        throw new RuntimeException(
-          s"Invalid table name format for $backfillTableFullName. Must be {warehouse}.{namespace}.{name}"
-        )
-
 case class DefaultBackfillSettings(
     override val backfillBehavior: BackfillBehavior,
-    override val backfillStartDate: Option[OffsetDateTime],
-    override val backfillTableFullName: String
+    override val backfillStartDate: Option[OffsetDateTime]
 ) extends BackfillSettings derives ReadWriter
