@@ -11,7 +11,7 @@ import java.time.Duration
 
 /** Marker for shaper implementations
   */
-sealed trait ThroughputShaperImpl
+sealed trait ThroughputShaperImpl derives ReadWriter
 
 /** Settings for memory bound shaper implementation
   */
@@ -25,11 +25,11 @@ case class MemoryBound(
     tableRowCountWeight: Double,
     tableSizeWeight: Double,
     tableSizeScaleFactor: Int
-) extends ThroughputShaperImpl derives ReadWriter
+) extends ThroughputShaperImpl
 
 /** Settings for the static shaper implementation
   */
-case class Static() extends ThroughputShaperImpl derives ReadWriter
+case class Static() extends ThroughputShaperImpl
 
 case class ThroughputShaperImplSettings(
     memoryBound: Option[MemoryBound],
