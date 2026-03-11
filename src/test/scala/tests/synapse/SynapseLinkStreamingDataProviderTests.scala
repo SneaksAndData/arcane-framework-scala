@@ -65,7 +65,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     .map(_._1)
 
   private val stagingSettings = TestStagingSettings()
-  private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
+  private val sourceRoot      = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
     IcebergUtil(
       TestDynamicSinkSettings(stagingSettings.table.backfillTableName),
@@ -81,7 +81,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       for
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(stagingSettings.table.backfillTableName))
         // shaper requires target table to exist
-        _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableFullName.parts.name, SynapseWatermark.epoch)
+        _ <- icebergUtilBackfill.prepareWatermark(
+          tableSinkSettings.targetTableFullName.parts.name,
+          SynapseWatermark.epoch
+        )
         shaperBuilder <- ZIO.succeed(
           TestThroughputShaperBuilder.default(icebergUtilBackfill.propertyManager, tableSinkSettings)
         )

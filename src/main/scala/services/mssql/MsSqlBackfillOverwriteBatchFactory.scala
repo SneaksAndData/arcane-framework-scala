@@ -61,7 +61,7 @@ object MsSqlBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
         context                <- ZIO.service[PluginStreamContext]
       yield MsSqlBackfillOverwriteBatchFactory(
         stagingPropertyManager,

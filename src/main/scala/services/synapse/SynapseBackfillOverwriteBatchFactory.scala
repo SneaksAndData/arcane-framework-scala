@@ -60,8 +60,8 @@ object SynapseBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
-        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
+        context                <- ZIO.service[PluginStreamContext]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       yield SynapseBackfillOverwriteBatchFactory(
         stagingPropertyManager,
         context.staging.table,

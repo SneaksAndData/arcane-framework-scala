@@ -16,7 +16,13 @@ import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestStagingSettings, TestThroughputShaperBuilder}
+import tests.shared.{
+  IcebergUtil,
+  NullDimensionsProvider,
+  TestDynamicSinkSettings,
+  TestStagingSettings,
+  TestThroughputShaperBuilder
+}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -44,7 +50,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       override val changeCaptureJitterSeed: Long       = 0
     }
   }
-  
+
   private val stagingSettings = TestStagingSettings()
 
   private val icebergUtil =

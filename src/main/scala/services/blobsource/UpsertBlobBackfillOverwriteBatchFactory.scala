@@ -24,8 +24,8 @@ class UpsertBlobBackfillOverwriteBatchFactory(
 
   /** @inheritdoc
     */
-  def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] = for 
-      schema <- stagingTablePropertyManager.getTableSchema(stagingTableSettings.backfillTableName.parts.name)
+  def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] = for schema <-
+      stagingTablePropertyManager.getTableSchema(stagingTableSettings.backfillTableName.parts.name)
   yield UpsertBlobBackfillOverwriteBatch(
     stagingTableSettings.backfillTableName,
     schema,

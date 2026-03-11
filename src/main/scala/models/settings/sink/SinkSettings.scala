@@ -26,11 +26,9 @@ trait SinkSettings:
     */
   val mergeServiceClient: JdbcMergeServiceClientSettings
 
-  /**
-   * Additional properties for table creation: partitions, sort order etc.
-   */
+  /** Additional properties for table creation: partitions, sort order etc.
+    */
   val targetTableProperties: TablePropertiesSettings
-
 
 case class DefaultSinkSettings(
     override val icebergCatalog: DefaultIcebergSinkSettings,

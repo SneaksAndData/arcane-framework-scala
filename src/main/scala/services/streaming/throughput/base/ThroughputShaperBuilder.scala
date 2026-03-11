@@ -40,5 +40,10 @@ object ThroughputShaperBuilder:
       context         <- ZIO.service[PluginStreamContext]
       propertyManager <- ZIO.service[SinkPropertyManager]
       metrics         <- ZIO.service[DeclaredMetrics]
-    yield ThroughputShaperBuilder(context.throughput, propertyManager, context.sink.targetTableFullName.parts.name, metrics)
+    yield ThroughputShaperBuilder(
+      context.throughput,
+      propertyManager,
+      context.sink.targetTableFullName.parts.name,
+      metrics
+    )
   }

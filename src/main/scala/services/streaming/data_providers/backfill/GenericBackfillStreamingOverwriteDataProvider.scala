@@ -118,11 +118,6 @@ object GenericBackfillStreamingOverwriteDataProvider:
 
 /** The hook manager used for the backfill process. This manager overrides the target table used by the base hook
   * manager with the backfill table.
-  *
-  * @param base
-  *   The base hook manager.
-  * @param backfillTableSettings
-  *   The backfill table settings.
   */
 private class BackfillHookManager(base: HookManager, backfillTableName: String) extends HookManager:
 
