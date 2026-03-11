@@ -4,7 +4,7 @@ package services.streaming.graph_builders
 import logging.ZIOLogAnnotations.zlogStream
 import models.app.PluginStreamContext
 import models.schemas.DataCell
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings}
+import models.settings.sources.{Buffering, SourceBufferingSettings, Unbounded}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
@@ -56,10 +56,10 @@ object GenericStreamingGraphBuilder:
       */
     def trySetBuffering(settings: SourceBufferingSettings): ZStream[Any, Throwable, List[DataCell]] =
       (settings.bufferingEnabled, settings.bufferingStrategy) match
-        case (true, BufferingStrategy.Unbounded) =>
+        case (true, Unbounded()) =>
           zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
 
-        case (true, BufferingStrategy.Buffering(size)) =>
+        case (true, Buffering(size)) =>
           zlogStream("Running stream with bound source buffer size %s", size.toString) *> stream.buffer(size)
 
         case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream

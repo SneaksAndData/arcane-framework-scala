@@ -7,8 +7,13 @@ import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
-import models.settings.sources.BufferingStrategy.Unbounded
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, SourceSettings, StreamSourceSettings}
+import models.settings.sources.{
+  BufferingStrategy,
+  SourceBufferingSettings,
+  SourceSettings,
+  StreamSourceSettings,
+  Unbounded
+}
 import models.settings.staging.StagingSettings
 import models.settings.streaming.ThroughputShaperImpl.Static
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
@@ -50,7 +55,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
     override type SourceSettingsType = SourceSettings
     override val configuration: SourceSettings = new SourceSettings {}
     override val buffering: SourceBufferingSettings = new SourceBufferingSettings {
-      override val bufferingStrategy: BufferingStrategy = Unbounded
+      override val bufferingStrategy: BufferingStrategy = Unbounded()
       override val bufferingEnabled: Boolean            = false
     }
     override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
