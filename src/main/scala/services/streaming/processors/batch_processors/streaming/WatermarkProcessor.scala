@@ -3,6 +3,7 @@ package services.streaming.processors.batch_processors.streaming
 
 import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
+import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -48,5 +49,5 @@ object WatermarkProcessor:
         iceberg         <- ZIO.service[SinkPropertyManager]
         context         <- ZIO.service[PluginStreamContext]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
-      yield WatermarkProcessor(iceberg, context.sink.targetTableNameParts.Name, declaredMetrics)
+      yield WatermarkProcessor(iceberg, context.sink.targetTableFullName.parts.name, declaredMetrics)
     }

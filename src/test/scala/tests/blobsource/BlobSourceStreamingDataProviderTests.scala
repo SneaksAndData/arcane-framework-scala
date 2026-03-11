@@ -16,7 +16,7 @@ import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestThroughputShaperBuilder}
+import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings, TestStagingSettings, TestThroughputShaperBuilder}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -34,7 +34,6 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       override val backfillStartDate: Option[OffsetDateTime] = Some(
         OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
       )
-      override val backfillTableFullName: String = "blobsource_backfill_test"
     }
 
     /** Change capture mode settings
@@ -45,10 +44,12 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       override val changeCaptureJitterSeed: Long       = 0
     }
   }
+  
+  private val stagingSettings = TestStagingSettings()
 
   private val icebergUtil =
     IcebergUtil(
-      TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName),
+      TestDynamicSinkSettings(stagingSettings.table.backfillTableName),
       defaultIcebergStagingSettings
     )
 

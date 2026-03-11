@@ -81,7 +81,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
     val gb = GenericBackfillStreamingOverwriteDataProvider(
       streamingGraphBuilder,
-      TestBackfillTableSettings,
+      TestStagingTableSettings,
       lifetimeService,
       mock[HookManager],
       (watermark: Option[String]) =>
@@ -132,7 +132,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
     val gb = GenericBackfillStreamingOverwriteDataProvider(
       streamingGraphBuilder,
-      TestBackfillTableSettings,
+      TestStagingTableSettings,
       lifetimeService,
       mock[HookManager],
       (watermark: Option[String]) =>
@@ -197,14 +197,14 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
           EasyMock.anyString(),
           EasyMock.anyString(),
           EasyMock.anyObject(),
-          EasyMock.eq(TestPluginStreamContext.streamMode.backfill.backfillTableFullName),
+          EasyMock.eq(TestPluginStreamContext.staging.table.backfillTableName),
           EasyMock.anyObject()
         )
         .andReturn(
           SqlServerChangeTrackingMergeBatch(
             "test",
             ArcaneSchema(Seq(MergeKeyField)),
-            TestPluginStreamContext.streamMode.backfill.backfillTableFullName,
+            TestPluginStreamContext.staging.table.backfillTableName,
             TablePropertiesSettings,
             None
           )

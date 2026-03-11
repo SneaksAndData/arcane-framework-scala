@@ -99,7 +99,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
         override val backfillStartDate: Option[OffsetDateTime] = Some(
           OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
         )
-        override val backfillTableFullName: String = "some_table"
       }
 
       /** Change capture mode settings

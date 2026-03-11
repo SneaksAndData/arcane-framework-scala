@@ -4,6 +4,7 @@ package tests.shared
 import models.settings.sink.SinkSettings
 import models.settings.streaming.ThroughputShaperImpl.MemoryBound
 import models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
+import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaperBuilder
@@ -21,6 +22,6 @@ object TestThroughputShaperBuilder:
         override val advisedChunksBurst: Int          = 10
       },
       propertyManager,
-      sinkSettings.targetTableNameParts.Name,
+      sinkSettings.targetTableFullName.parts.name,
       DeclaredMetrics(NullDimensionsProvider)
     )

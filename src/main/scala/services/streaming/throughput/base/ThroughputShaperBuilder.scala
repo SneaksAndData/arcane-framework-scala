@@ -5,6 +5,7 @@ import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.streaming.ThroughputSettings
 import models.settings.streaming.ThroughputShaperImpl.{MemoryBound, Static}
+import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.{MemoryBoundShaper, StaticShaper}
@@ -39,5 +40,5 @@ object ThroughputShaperBuilder:
       context         <- ZIO.service[PluginStreamContext]
       propertyManager <- ZIO.service[SinkPropertyManager]
       metrics         <- ZIO.service[DeclaredMetrics]
-    yield ThroughputShaperBuilder(context.throughput, propertyManager, context.sink.targetTableNameParts.Name, metrics)
+    yield ThroughputShaperBuilder(context.throughput, propertyManager, context.sink.targetTableFullName.parts.name, metrics)
   }
