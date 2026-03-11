@@ -55,8 +55,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val icebergUtil =
     IcebergUtil(
-      TestDynamicSinkSettings(stagingSettings.table.backfillTableName),
-      defaultIcebergStagingSettings
+      TestDynamicSinkSettings(stagingSettings.table.backfillTableName).icebergCatalog
     )
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(

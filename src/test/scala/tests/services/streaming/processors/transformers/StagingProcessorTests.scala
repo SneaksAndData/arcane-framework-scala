@@ -8,7 +8,6 @@ import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
 import models.settings.FieldSelectionRuleSettings
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
-import models.settings.iceberg.IcebergStagingSettings
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
@@ -56,8 +55,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
     )
   )
   private val hookManager = SynapseHookManager()
-  private val icebergCatalogSettingsLayer: ZLayer[Any, Throwable, IcebergStagingSettings] =
-    ZLayer.succeed(defaultIcebergStagingSettings)
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(

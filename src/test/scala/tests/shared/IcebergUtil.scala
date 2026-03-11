@@ -4,7 +4,7 @@ package tests.shared
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
-import models.settings.iceberg.IcebergStagingSettings
+import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.sink.SinkSettings
 import services.iceberg.{
   IcebergS3CatalogWriter,
@@ -19,11 +19,11 @@ import zio.{Task, ZIO}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
-class IcebergUtil(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSettings):
+class IcebergUtil(catalogSettings: IcebergCatalogSettings):
   val propertyManager: IcebergSinkTablePropertyManager = IcebergSinkTablePropertyManager(
-    sinkSettings.icebergCatalog
+    catalogSettings
   )
-  val entityManager: IcebergSinkEntityManager = IcebergSinkEntityManager(sinkSettings.icebergCatalog)
+  val entityManager: IcebergSinkEntityManager = IcebergSinkEntityManager(catalogSettings)
 
   val writer: IcebergS3CatalogWriter = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
 
@@ -37,5 +37,4 @@ class IcebergUtil(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSet
     yield ()
 
 object IcebergUtil:
-  def apply(sinkSettings: SinkSettings, stagingSettings: IcebergStagingSettings): IcebergUtil =
-    new IcebergUtil(sinkSettings, stagingSettings)
+  def apply(catalogSettings: IcebergCatalogSettings): IcebergUtil = new IcebergUtil(catalogSettings)

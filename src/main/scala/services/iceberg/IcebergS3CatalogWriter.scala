@@ -5,7 +5,6 @@ import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.iceberg.IcebergStagingSettings
 import models.settings.staging.StagingSettings
 import services.iceberg.base.{CatalogEntityManager, CatalogWriter, StagingEntityManager}
 

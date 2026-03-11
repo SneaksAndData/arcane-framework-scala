@@ -6,9 +6,7 @@ import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.TablePropertiesSettings
-import models.settings.iceberg.IcebergStagingSettings
-import models.settings.sink.SinkSettings
+import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.staging.StagingTableSettings
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
@@ -29,7 +27,7 @@ trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & 
 class StagingProcessor(
     stagingDataSettings: StagingTableSettings,
     targetTableFullName: String,
-    icebergCatalogSettings: IcebergStagingSettings,
+    icebergCatalogSettings: IcebergCatalogSettings,
     catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
     declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
@@ -142,7 +140,7 @@ object StagingProcessor:
   def apply(
       stagingDataSettings: StagingTableSettings,
       targetTableFullName: String,
-      icebergCatalogSettings: IcebergStagingSettings,
+      icebergCatalogSettings: IcebergCatalogSettings,
       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
       declaredMetrics: DeclaredMetrics
   ): StagingProcessor =

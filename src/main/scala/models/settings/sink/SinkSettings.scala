@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.staging.{DefaultJdbcMergeServiceClientSettings, JdbcMergeServiceClientSettings}
-import models.settings.{DefaultTablePropertiesSettings, TablePropertiesSettings}
-import models.settings.TableName
+import models.settings.{DefaultTablePropertiesSettings, TableName, TablePropertiesSettings}
 
 import upickle.ReadWriter
 
@@ -20,7 +20,7 @@ trait SinkSettings:
 
   /** Settings for Iceberg Catalog instance associated with the sink
     */
-  val icebergCatalog: IcebergSinkSettings
+  val icebergCatalog: IcebergCatalogSettings
 
   /** Merge client configuration
     */

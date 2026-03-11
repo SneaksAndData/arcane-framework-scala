@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.staging
 
-import models.settings.iceberg.{DefaultIcebergStagingSettings, IcebergStagingSettings}
+import models.settings.iceberg.{DefaultIcebergStagingSettings, IcebergCatalogSettings}
 
 import upickle.ReadWriter
 
@@ -14,7 +14,7 @@ trait StagingSettings:
 
   /** Iceberg REST Catalog configuration for staging tables
     */
-  val icebergCatalog: IcebergStagingSettings
+  val icebergCatalog: IcebergCatalogSettings
 
 case class DefaultStagingSettings(
     override val table: DefaultStagingTableSettings,

@@ -3,10 +3,10 @@ package tests.synapse
 
 import models.schemas.{DataRow, MergeKeyField}
 import models.settings.*
+import models.settings.TableNaming.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
-import models.settings.TableNaming.*
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.streaming.throughput.base.ThroughputShaperBuilder
@@ -15,7 +15,6 @@ import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestAzureStorageInfo.*
 
 import zio.test.*
@@ -68,11 +67,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceRoot      = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
     IcebergUtil(
-      TestDynamicSinkSettings(stagingSettings.table.backfillTableName),
-      defaultIcebergStagingSettings
+      TestDynamicSinkSettings(stagingSettings.table.backfillTableName).icebergCatalog
     )
   private def getIcebergUtilStream(tableName: String) =
-    IcebergUtil(TestDynamicSinkSettings(tableName), defaultIcebergStagingSettings)
+    IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
     test(
