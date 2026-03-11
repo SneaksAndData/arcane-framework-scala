@@ -7,7 +7,13 @@ import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
-import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, SourceSettings, StreamSourceSettings, Unbounded}
+import models.settings.sources.{
+  BufferingStrategy,
+  SourceBufferingSettings,
+  SourceSettings,
+  StreamSourceSettings,
+  Unbounded
+}
 import models.settings.staging.StagingSettings
 import models.settings.streaming.ThroughputShaperImpl.Static
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
