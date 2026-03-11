@@ -39,7 +39,7 @@ trait SourceBufferingSettings:
   val bufferingEnabled: Boolean
 
 case class DefaultSourceBufferingSettings(
-    @key("bufferingStrategy") bufferingStrategySetting: BufferingSettings,
-    override val bufferingEnabled: Boolean
+    @key("strategy") bufferingStrategySetting: BufferingSettings,
+    @key("enabled") override val bufferingEnabled: Boolean
 ) extends SourceBufferingSettings derives ReadWriter:
   override val bufferingStrategy: BufferingStrategy = bufferingStrategySetting.resolveStrategy
