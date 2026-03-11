@@ -7,19 +7,19 @@ import upickle.implicits.key
 /** Represents a field selection rule for a streaming batch. The field selection rule is used to determine which fields
   * should be included in the result set of a query.
   */
-sealed trait FieldSelectionRule
+sealed trait FieldSelectionRule derives ReadWriter
 
 /** All fields should be included in the result set.
   */
-case class AllFields() extends FieldSelectionRule derives ReadWriter
+case class AllFields() extends FieldSelectionRule
 
 /** Only the specified fields should be excluded from the result set.
   */
-case class IncludeFields(fields: Set[String]) extends FieldSelectionRule derives ReadWriter
+case class IncludeFields(fields: Set[String]) extends FieldSelectionRule
 
 /** All fields except the specified fields should be included in the result set.
   */
-case class ExcludeFields(fields: Set[String]) extends FieldSelectionRule derives ReadWriter
+case class ExcludeFields(fields: Set[String]) extends FieldSelectionRule
 
 /** Proxy class that composes settings and makes them mutually exclusive
   */

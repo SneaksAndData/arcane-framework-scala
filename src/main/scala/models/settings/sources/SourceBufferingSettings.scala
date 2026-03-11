@@ -6,16 +6,16 @@ import upickle.implicits.key
 
 /** Provides buffering strategies for the streaming process.
   */
-sealed trait BufferingStrategy
+sealed trait BufferingStrategy derives ReadWriter
 
 /** Buffers the data in memory in unbounded queue.
   */
-case class Unbounded() extends BufferingStrategy derives ReadWriter
+case class Unbounded() extends BufferingStrategy
 
 /** Buffers the data in memory in bounded queue with a limited size. If the queue is full, the stream will block the
   * upstream until space is available.
   */
-case class Buffering(maxBufferSize: Int) extends BufferingStrategy derives ReadWriter
+case class Buffering(maxBufferSize: Int) extends BufferingStrategy
 
 case class BufferingSettings(
     unbounded: Option[Unbounded] = None,
