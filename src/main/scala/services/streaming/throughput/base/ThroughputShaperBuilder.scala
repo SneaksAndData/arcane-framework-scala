@@ -3,8 +3,7 @@ package services.streaming.throughput.base
 
 import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
-import models.settings.streaming.ThroughputSettings
-import models.settings.streaming.{MemoryBound, Static}
+import models.settings.streaming.{MemoryBound, MemoryBoundImpl, Static, StaticImpl, ThroughputSettings}
 import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
@@ -22,8 +21,8 @@ class ThroughputShaperBuilder(
 ):
 
   def build: ThroughputShaper = throughputSettings.shaperImpl match
-    case Static() => StaticShaper(throughputSettings)
-    case mb: MemoryBound =>
+    case StaticImpl(_) => StaticShaper(throughputSettings)
+    case mb: MemoryBoundImpl =>
       MemoryBoundShaper(propertyManager, targetTableShortName, throughputSettings, declaredMetrics)
 
 object ThroughputShaperBuilder:
