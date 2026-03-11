@@ -7,7 +7,6 @@ import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.TablePropertiesSettings
-import models.settings.iceberg.IcebergStagingSettings
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
 import services.iceberg.base.CatalogWriter
@@ -17,6 +16,7 @@ import services.metrics.DeclaredMetrics.*
 import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
 import utils.CollectionUtils.*
 
+import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergCatalogSettings
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.ZPipeline
@@ -27,11 +27,11 @@ import scala.collection.parallel.CollectionConverters.*
 trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
 
 class StagingProcessor(
-    stagingDataSettings: StagingTableSettings,
-    targetTableFullName: String,
-    icebergCatalogSettings: IcebergStagingSettings,
-    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-    declaredMetrics: DeclaredMetrics
+                        stagingDataSettings: StagingTableSettings,
+                        targetTableFullName: String,
+                        icebergCatalogSettings: IcebergCatalogSettings,
+                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+                        declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
@@ -142,7 +142,7 @@ object StagingProcessor:
   def apply(
       stagingDataSettings: StagingTableSettings,
       targetTableFullName: String,
-      icebergCatalogSettings: IcebergStagingSettings,
+      icebergCatalogSettings: IcebergCatalogSettings,
       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
       declaredMetrics: DeclaredMetrics
   ): StagingProcessor =

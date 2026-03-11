@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.iceberg.IcebergStagingSettings
+import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.S3CatalogFileIO
 
-object TestIcebergStagingSettings extends IcebergStagingSettings:
+object TestIcebergStagingSettings extends IcebergCatalogSettings:
   /** The namespace of the catalog.
     */
   override val namespace: String = "namespace"
