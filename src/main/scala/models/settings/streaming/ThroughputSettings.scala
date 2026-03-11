@@ -9,14 +9,12 @@ import upickle.implicits.key
 
 import java.time.Duration
 
-/**
- * Marker for shaper implementations
- */
+/** Marker for shaper implementations
+  */
 sealed trait ThroughputShaperImpl
 
-/**
- * Settings for memory bound shaper implementation
- */
+/** Settings for memory bound shaper implementation
+  */
 case class MemoryBound(
     meanStringTypeSizeEstimate: Int,
     meanObjectTypeSizeEstimate: Int,
@@ -29,15 +27,14 @@ case class MemoryBound(
     tableSizeScaleFactor: Int
 ) extends ThroughputShaperImpl derives ReadWriter
 
-/**
- * Settings for the static shaper implementation
- */
+/** Settings for the static shaper implementation
+  */
 case class Static() extends ThroughputShaperImpl derives ReadWriter
 
 case class ThroughputShaperImplSettings(
-                                       memoryBound: Option[MemoryBound],
-                                       static: Option[Static]
-                                       ) derives ReadWriter:
+    memoryBound: Option[MemoryBound],
+    static: Option[Static]
+) derives ReadWriter:
   def resolveShaperImpl: ThroughputShaperImpl = memoryBound.getOrElse(static.getOrElse(Static()))
 
 trait ThroughputSettings:
