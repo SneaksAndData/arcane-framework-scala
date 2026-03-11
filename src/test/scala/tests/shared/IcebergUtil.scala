@@ -6,7 +6,13 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.sink.SinkSettings
-import services.iceberg.{IcebergS3CatalogWriter, IcebergSinkEntityManager, IcebergSinkTablePropertyManager, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
+import services.iceberg.{
+  IcebergS3CatalogWriter,
+  IcebergSinkEntityManager,
+  IcebergSinkTablePropertyManager,
+  IcebergTablePropertyManager,
+  given_Conversion_ArcaneSchema_Schema
+}
 import services.streaming.base.JsonWatermark
 
 import zio.{Task, ZIO}
