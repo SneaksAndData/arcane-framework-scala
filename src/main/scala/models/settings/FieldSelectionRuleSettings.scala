@@ -8,6 +8,7 @@ import upickle.implicits.key
   * should be included in the result set of a query.
   */
 sealed trait FieldSelectionRule
+
 /** All fields should be included in the result set.
   */
 case class AllFields() extends FieldSelectionRule derives ReadWriter
@@ -20,16 +21,14 @@ case class IncludeFields(fields: Set[String]) extends FieldSelectionRule derives
   */
 case class ExcludeFields(fields: Set[String]) extends FieldSelectionRule derives ReadWriter
 
-/**
- * Proxy class that composes settings and makes them mutually exclusive
- */
+/** Proxy class that composes settings and makes them mutually exclusive
+  */
 case class FieldSelectionRuleSetting(
-                                    all: Option[AllFields] = None,
-                                    include: Option[IncludeFields] = None,
-                                    exclude: Option[ExcludeFields] = None
-                                    ) derives ReadWriter:
+    all: Option[AllFields] = None,
+    include: Option[IncludeFields] = None,
+    exclude: Option[ExcludeFields] = None
+) derives ReadWriter:
   def resolveSetting: FieldSelectionRule = all.getOrElse(include.getOrElse(exclude.getOrElse(AllFields())))
-
 
 /** Marker trait for a field selection rule classes
   */

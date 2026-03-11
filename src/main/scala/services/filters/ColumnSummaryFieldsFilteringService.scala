@@ -29,9 +29,7 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
       excludedPks match
         case Nil =>
           Success(
-            fields.filter(entry =>
-              includeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f))
-            )
+            fields.filter(entry => includeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
           )
         case _ =>
           Failure(
@@ -49,9 +47,7 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
       excludedPks match
         case Nil =>
           Success(
-            fields.filter(entry =>
-              !excludeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f))
-            )
+            fields.filter(entry => !excludeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
           )
         case _ =>
           Failure(

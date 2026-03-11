@@ -68,4 +68,4 @@ object FieldsFilteringService:
     def isValid: Boolean = fieldSelectionRule.rule match
       case IncludeFields(includeFields) => fieldSelectionRule.essentialFields.subsetOf(includeFields)
       case ExcludeFields(excludeFields) => excludeFields.intersect(fieldSelectionRule.essentialFields).isEmpty
-      case _ => true
+      case _                            => true
