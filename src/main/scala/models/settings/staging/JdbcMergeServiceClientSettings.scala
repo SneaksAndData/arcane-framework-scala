@@ -5,6 +5,7 @@ import models.serialization.ZIODurationRW.*
 
 import upickle.ReadWriter
 import upickle.default.*
+import upickle.implicits.key
 import zio.Duration
 
 import java.sql.DriverManager
@@ -77,5 +78,7 @@ case class DefaultJdbcMergeServiceClientSettings(
     override val queryRetryScaleFactor: Double,
     override val queryRetryMaxAttempts: Int,
     override val extraConnectionParameters: Map[String, String],
-    override val connectionUrl: String
-) extends JdbcMergeServiceClientSettings derives ReadWriter
+    @key("connectionUrl") connectionString: Option[String] = None
+) extends JdbcMergeServiceClientSettings derives ReadWriter:
+  override val connectionUrl: String =
+    connectionString.getOrElse(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI"))
