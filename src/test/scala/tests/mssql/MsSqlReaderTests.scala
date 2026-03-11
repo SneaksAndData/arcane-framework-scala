@@ -3,7 +3,7 @@ package tests.mssql
 
 import models.schemas.ArcaneType.*
 import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
-import models.settings.FieldSelectionRule.{ExcludeFields, IncludeFields}
+import models.settings.{ExcludeFields, IncludeFields}
 import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider

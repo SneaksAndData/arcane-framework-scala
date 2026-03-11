@@ -1,23 +1,34 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
-import upickle.ReadWriter
+import upickle.default.*
+import upickle.implicits.key
 
 /** Represents a field selection rule for a streaming batch. The field selection rule is used to determine which fields
   * should be included in the result set of a query.
   */
-enum FieldSelectionRule derives ReadWriter:
-  /** All fields should be included in the result set.
-    */
-  case AllFields
+sealed trait FieldSelectionRule
 
-  /** Only the specified fields should be excluded from the result set.
-    */
-  case IncludeFields(fields: Set[String])
+/** All fields should be included in the result set.
+  */
+case class AllFields() extends FieldSelectionRule derives ReadWriter
 
-  /** All fields except the specified fields should be included in the result set.
-    */
-  case ExcludeFields(fields: Set[String])
+/** Only the specified fields should be excluded from the result set.
+  */
+case class IncludeFields(fields: Set[String]) extends FieldSelectionRule derives ReadWriter
+
+/** All fields except the specified fields should be included in the result set.
+  */
+case class ExcludeFields(fields: Set[String]) extends FieldSelectionRule derives ReadWriter
+
+/** Proxy class that composes settings and makes them mutually exclusive
+  */
+case class FieldSelectionRuleSetting(
+    all: Option[AllFields] = None,
+    include: Option[IncludeFields] = None,
+    exclude: Option[ExcludeFields] = None
+) derives ReadWriter:
+  def resolveSetting: FieldSelectionRule = all.getOrElse(include.getOrElse(exclude.getOrElse(AllFields())))
 
 /** Marker trait for a field selection rule classes
   */
@@ -36,6 +47,7 @@ trait FieldSelectionRuleSettings:
 
 case class DefaultFieldSelectionRuleSettings(
     override val essentialFields: Set[String],
-    override val rule: FieldSelectionRule,
+    @key("rule") ruleSetting: FieldSelectionRuleSetting,
     override val isServerSide: Boolean
-) extends FieldSelectionRuleSettings derives ReadWriter
+) extends FieldSelectionRuleSettings derives ReadWriter:
+  override val rule: FieldSelectionRule = ruleSetting.resolveSetting

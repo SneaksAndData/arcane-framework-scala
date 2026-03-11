@@ -3,7 +3,7 @@ package services.filters
 
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
+import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings, IncludeFields, ExcludeFields}
 import services.filters.FieldsFilteringService.isValid
 
 import zio.{ZIO, ZLayer}
@@ -27,10 +27,10 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
   def filter(row: DataRow): DataRow = if row.isWatermark then row
   else
     (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
-      case (false, includeFields: FieldSelectionRule.IncludeFields) =>
-        row.filter(rowCell => includeFields.fields.exists(f => rowCell.name.toLowerCase().equalsIgnoreCase(f)))
-      case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
-        row.filter(rowCell => !excludeFields.fields.exists(f => rowCell.name.toLowerCase().equalsIgnoreCase(f)))
+      case (false, IncludeFields(includeFields)) =>
+        row.filter(rowCell => includeFields.exists(f => rowCell.name.toLowerCase().equalsIgnoreCase(f)))
+      case (false, ExcludeFields(excludeFields)) =>
+        row.filter(rowCell => !excludeFields.exists(f => rowCell.name.toLowerCase().equalsIgnoreCase(f)))
       case _ => row
 
   /** Applies field filter to the ArcaneSchema instance.
@@ -40,10 +40,10 @@ class FieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings):
     *   The filtered data/schema.
     */
   def filter(schema: ArcaneSchema): ArcaneSchema = (fieldSelectionRule.isServerSide, fieldSelectionRule.rule) match
-    case (false, includeFields: FieldSelectionRule.IncludeFields) =>
-      schema.filter(field => includeFields.fields.exists(f => field.name.toLowerCase().equalsIgnoreCase(f)))
-    case (false, excludeFields: FieldSelectionRule.ExcludeFields) =>
-      schema.filter(field => !excludeFields.fields.exists(f => field.name.toLowerCase().equalsIgnoreCase(f)))
+    case (false, IncludeFields(includeFields)) =>
+      schema.filter(field => includeFields.exists(f => field.name.toLowerCase().equalsIgnoreCase(f)))
+    case (false, ExcludeFields(excludeFields)) =>
+      schema.filter(field => !excludeFields.exists(f => field.name.toLowerCase().equalsIgnoreCase(f)))
     case _ => schema
 
 object FieldsFilteringService:
@@ -66,7 +66,6 @@ object FieldsFilteringService:
     */
   extension (fieldSelectionRule: FieldSelectionRuleSettings)
     def isValid: Boolean = fieldSelectionRule.rule match
-      case included: FieldSelectionRule.IncludeFields => fieldSelectionRule.essentialFields.subsetOf(included.fields)
-      case excluded: FieldSelectionRule.ExcludeFields =>
-        excluded.fields.intersect(fieldSelectionRule.essentialFields).isEmpty
-      case _ => true
+      case IncludeFields(includeFields) => fieldSelectionRule.essentialFields.subsetOf(includeFields)
+      case ExcludeFields(excludeFields) => excludeFields.intersect(fieldSelectionRule.essentialFields).isEmpty
+      case _                            => true
