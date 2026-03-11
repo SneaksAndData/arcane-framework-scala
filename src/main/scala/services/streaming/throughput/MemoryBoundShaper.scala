@@ -3,8 +3,7 @@ package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
 import models.settings.sink.SinkSettings
-import models.settings.streaming.ThroughputSettings
-import models.settings.streaming.ThroughputShaperImpl.MemoryBound
+import models.settings.streaming.{MemoryBound, ThroughputSettings}
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaper
@@ -50,9 +49,6 @@ class MemoryBoundShaper(
   private def getUsedMemoryShare = (maxAvailableMemory - runtime.freeMemory()) / maxAvailableMemory.toDouble
 
   /** Estimate memory pool available for chunks. Larger tables get larger pool to allow bigger chunks
-    * @param estRows
-    * @param estSize
-    * @return
     */
   private def estimateMemoryCutoff(estRows: Long, estSize: Long): Double = scaledSigmoid(
     shaperSettings.tableRowCountWeight * log(estRows) + shaperSettings.tableSizeWeight * log(estSize),
