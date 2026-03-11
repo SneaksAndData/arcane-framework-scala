@@ -4,6 +4,7 @@ package services.streaming.processors.batch_processors.backfill
 import models.app.PluginStreamContext
 import models.batches.StagedBackfillOverwriteBatch
 import models.settings.sink.SinkSettings
+import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -50,5 +51,5 @@ object BackfillOverwriteWatermarkProcessor:
         iceberg         <- ZIO.service[SinkPropertyManager]
         context         <- ZIO.service[PluginStreamContext]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
-      yield BackfillOverwriteWatermarkProcessor(iceberg, context.sink.targetTableNameParts.Name, declaredMetrics)
+      yield BackfillOverwriteWatermarkProcessor(iceberg, context.sink.targetTableFullName.parts.name, declaredMetrics)
     }

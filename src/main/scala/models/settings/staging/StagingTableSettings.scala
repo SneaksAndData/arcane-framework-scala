@@ -39,6 +39,11 @@ trait StagingTableSettings:
     val id                           = UUID.randomUUID().toString
     s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$id".replace('-', '_')
 
+  /** Name for the backfill table to be used in the current run.
+    */
+  final val backfillTableName: String =
+    s"$stagingCatalogName.$stagingSchemaName.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}"
+
 case class DefaultStagingTableSettings(
     override val stagingTablePrefix: String,
     override val maxRowsPerFile: Option[Int],

@@ -1,40 +1,35 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
+import models.app.PluginStreamContext
 import models.batches.{SqlServerChangeTrackingBackfillBatch, StagedBackfillOverwriteBatch}
+import models.settings.TableNaming.*
 import models.settings.TablePropertiesSettings
-import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.staging.StagingTableSettings
 import services.iceberg.base.StagingPropertyManager
-import services.streaming.base.BackfillOverwriteBatchFactory
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
+import services.streaming.base.BackfillOverwriteBatchFactory
 
 import zio.{Task, ZIO, ZLayer}
 
 /** A factory that creates a backfill batch for the SQL Server data source.
-  * @param backfillSettings
-  *   The backfill settings.
-  * @param targetTableSettings
-  *   The target table settings.
-  * @param tablePropertiesSettings
-  *   The table properties settings.
   */
 class MsSqlBackfillOverwriteBatchFactory(
     stagingPropertyManager: StagingPropertyManager,
-    backfillSettings: BackfillSettings,
-    targetTableSettings: SinkSettings,
-    tablePropertiesSettings: TablePropertiesSettings
+    stagingTableSettings: StagingTableSettings,
+    targetTableSettings: SinkSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
     */
   def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
-    for schema <- stagingPropertyManager.getTableSchema(backfillSettings.backfillTableNameParts.Name)
+    for schema <- stagingPropertyManager.getTableSchema(stagingTableSettings.backfillTableName.parts.name)
     yield SqlServerChangeTrackingBackfillBatch(
-      backfillSettings.backfillTableFullName,
+      stagingTableSettings.backfillTableName,
       schema,
       targetTableSettings.targetTableFullName,
-      tablePropertiesSettings,
+      targetTableSettings.targetTableProperties,
       watermark
     )
 
@@ -44,29 +39,21 @@ object MsSqlBackfillOverwriteBatchFactory:
 
   /** The environment required for the MsSqlBackfillBatchFactory.
     */
-  private type Environment = StagingPropertyManager & BackfillSettings & SinkSettings & TablePropertiesSettings
+  private type Environment = StagingPropertyManager & PluginStreamContext
 
   /** Creates a new MsSqlBackfillBatchFactory.
-    * @param backfillSettings
-    *   The backfill settings.
-    * @param targetTableSettings
-    *   The target table settings.
-    * @param tablePropertiesSettings
-    *   The table properties settings.
     * @return
     *   The MsSqlBackfillBatchFactory instance.
     */
   def apply(
       stagingPropertyManager: StagingPropertyManager,
-      backfillSettings: BackfillSettings,
-      targetTableSettings: SinkSettings,
-      tablePropertiesSettings: TablePropertiesSettings
+      stagingTableSettings: StagingTableSettings,
+      targetTableSettings: SinkSettings
   ): MsSqlBackfillOverwriteBatchFactory =
     new MsSqlBackfillOverwriteBatchFactory(
       stagingPropertyManager,
-      backfillSettings,
-      targetTableSettings,
-      tablePropertiesSettings
+      stagingTableSettings,
+      targetTableSettings
     )
 
   /** The ZLayer for the MsSqlBackfillBatchFactory.
@@ -74,14 +61,11 @@ object MsSqlBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
-        backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[SinkSettings]
-        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        context                <- ZIO.service[PluginStreamContext]
       yield MsSqlBackfillOverwriteBatchFactory(
         stagingPropertyManager,
-        backfillSettings,
-        targetTableSettings,
-        tablePropertiesSettings
+        context.staging.table,
+        context.sink
       )
     }

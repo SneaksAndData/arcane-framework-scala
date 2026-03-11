@@ -6,6 +6,7 @@ import models.settings.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
+import models.settings.TableNaming.*
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.streaming.throughput.base.ThroughputShaperBuilder
@@ -34,7 +35,6 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       override val backfillStartDate: Option[OffsetDateTime] = Some(
         OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
       )
-      override val backfillTableFullName: String = "demo.test.synapse_backfill_test"
     }
 
     /** Change capture mode settings
@@ -64,10 +64,11 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     }
     .map(_._1)
 
-  private val sourceRoot = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
+  private val stagingSettings = TestStagingSettings()
+  private val sourceRoot      = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
     IcebergUtil(
-      TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName),
+      TestDynamicSinkSettings(stagingSettings.table.backfillTableName),
       defaultIcebergStagingSettings
     )
   private def getIcebergUtilStream(tableName: String) =
@@ -78,9 +79,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       "streams rows in backfill mode correctly"
     ) {
       for
-        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(stagingSettings.table.backfillTableName))
         // shaper requires target table to exist
-        _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableNameParts.Name, SynapseWatermark.epoch)
+        _ <- icebergUtilBackfill.prepareWatermark(
+          tableSinkSettings.targetTableFullName.parts.name,
+          SynapseWatermark.epoch
+        )
         shaperBuilder <- ZIO.succeed(
           TestThroughputShaperBuilder.default(icebergUtilBackfill.propertyManager, tableSinkSettings)
         )

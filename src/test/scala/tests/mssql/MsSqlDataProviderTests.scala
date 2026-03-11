@@ -33,7 +33,6 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
       override val backfillStartDate: Option[OffsetDateTime] = Some(
         OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
       )
-      override val backfillTableFullName: String = "backfill_test"
     }
 
     /** Change capture mode settings
@@ -45,6 +44,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
     }
   }
 
+  private val stagingSettings = TestStagingSettings()
+
   private val fieldString = "(x int not null, y int)"
   private val pkString    = "primary key(x)"
 
@@ -54,7 +55,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new BaseStreamContext:
     override val isBackfilling = false
 
-  private val defaultSinkSettings = TestDynamicSinkSettings(defaultStreamMode.backfill.backfillTableFullName)
+  private val defaultSinkSettings = TestDynamicSinkSettings(stagingSettings.table.backfillTableName)
   private val icebergUtil         = IcebergUtil(defaultSinkSettings, defaultIcebergStagingSettings)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =

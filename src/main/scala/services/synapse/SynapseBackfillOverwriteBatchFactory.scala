@@ -1,41 +1,34 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
+import models.app.PluginStreamContext
 import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
-import models.settings.TablePropertiesSettings
-import models.settings.backfill.BackfillSettings
+import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
+import models.settings.staging.StagingTableSettings
 import services.iceberg.base.StagingPropertyManager
-import services.streaming.base.BackfillOverwriteBatchFactory
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
+import services.streaming.base.BackfillOverwriteBatchFactory
 
 import zio.{Task, ZIO, ZLayer}
 
 /** A factory that creates a backfill batch for the SQL Server data source.
-  *
-  * @param backfillSettings
-  *   The backfill settings.
-  * @param targetTableSettings
-  *   The target table settings.
-  * @param tablePropertiesSettings
-  *   The table properties settings.
   */
 class SynapseBackfillOverwriteBatchFactory(
     stagingTablePropertyManager: StagingPropertyManager,
-    backfillSettings: BackfillSettings,
-    targetTableSettings: SinkSettings,
-    tablePropertiesSettings: TablePropertiesSettings
+    stagingTableSettings: StagingTableSettings,
+    targetTableSettings: SinkSettings
 ) extends BackfillOverwriteBatchFactory:
 
   /** @inheritdoc
     */
   def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
-    for schema <- stagingTablePropertyManager.getTableSchema(backfillSettings.backfillTableNameParts.Name)
+    for schema <- stagingTablePropertyManager.getTableSchema(stagingTableSettings.backfillTableName.parts.name)
     yield SynapseLinkBackfillOverwriteBatch(
-      backfillSettings.backfillTableFullName,
+      stagingTableSettings.backfillTableName,
       schema,
       targetTableSettings.targetTableFullName,
-      tablePropertiesSettings,
+      targetTableSettings.targetTableProperties,
       watermark
     )
 
@@ -45,30 +38,21 @@ object SynapseBackfillOverwriteBatchFactory:
 
   /** The environment required for the SynapseBackfillOverwriteBatchFactory.
     */
-  private type Environment = StagingPropertyManager & BackfillSettings & SinkSettings & TablePropertiesSettings
+  private type Environment = StagingPropertyManager & PluginStreamContext
 
   /** Creates a new SynapseBackfillOverwriteBatchFactory.
-    *
-    * @param backfillSettings
-    *   The backfill settings.
-    * @param targetTableSettings
-    *   The target table settings.
-    * @param tablePropertiesSettings
-    *   The table properties settings.
     * @return
     *   The SynapseBackfillOverwriteBatchFactory instance.
     */
   def apply(
       stagingPropertyManager: StagingPropertyManager,
-      backfillSettings: BackfillSettings,
-      targetTableSettings: SinkSettings,
-      tablePropertiesSettings: TablePropertiesSettings
+      stagingTableSettings: StagingTableSettings,
+      targetTableSettings: SinkSettings
   ): SynapseBackfillOverwriteBatchFactory =
     new SynapseBackfillOverwriteBatchFactory(
       stagingPropertyManager,
-      backfillSettings,
-      targetTableSettings,
-      tablePropertiesSettings
+      stagingTableSettings,
+      targetTableSettings
     )
 
   /** The ZLayer for the SynapseBackfillOverwriteBatchFactory.
@@ -76,14 +60,11 @@ object SynapseBackfillOverwriteBatchFactory:
   val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchFactory] =
     ZLayer {
       for
-        stagingPropertyManager  <- ZIO.service[StagingPropertyManager]
-        backfillSettings        <- ZIO.service[BackfillSettings]
-        targetTableSettings     <- ZIO.service[SinkSettings]
-        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+        context                <- ZIO.service[PluginStreamContext]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       yield SynapseBackfillOverwriteBatchFactory(
         stagingPropertyManager,
-        backfillSettings,
-        targetTableSettings,
-        tablePropertiesSettings
+        context.staging.table,
+        context.sink
       )
     }

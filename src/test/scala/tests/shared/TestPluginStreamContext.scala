@@ -25,7 +25,6 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   override val observability: ObservabilitySettings = TestObservabilitySettings
   override val streamMode: StreamModeSettings = new StreamModeSettings {
     override val backfill: BackfillSettings = new BackfillSettings {
-      override val backfillTableFullName: String             = "catalog.schema.table"
       override val backfillStartDate: Option[OffsetDateTime] = None
       override val backfillBehavior: BackfillBehavior        = Overwrite
     }
@@ -68,7 +67,6 @@ object TestPluginBackfillMergeStreamContext extends TestPluginStreamContextImpl:
 
   override val streamMode: StreamModeSettings = new StreamModeSettings {
     override val backfill: BackfillSettings = new BackfillSettings {
-      override val backfillTableFullName: String             = "catalog.schema.table"
       override val backfillStartDate: Option[OffsetDateTime] = None
       override val backfillBehavior: BackfillBehavior        = Merge
     }

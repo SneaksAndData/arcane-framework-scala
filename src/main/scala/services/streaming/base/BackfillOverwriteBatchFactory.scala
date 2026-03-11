@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import models.batches.StagedBackfillOverwriteBatch
+import models.settings.TableName
 
 import zio.Task
 
@@ -11,9 +12,6 @@ import zio.Task
 trait BackfillOverwriteBatchFactory:
 
   /** Creates a backfill batch.
-    *
-    * @param intermediateTableName
-    *   The name of the intermediate table.
     * @return
     *   A task that represents the backfill batch.
     */
