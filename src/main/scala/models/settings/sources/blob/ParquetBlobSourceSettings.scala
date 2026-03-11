@@ -4,6 +4,7 @@ package models.settings.sources.blob
 import services.storage.models.s3.S3ClientSettings
 
 import upickle.ReadWriter
+import upickle.implicits.key
 
 /** Parquet source specific source settings
   */
@@ -28,5 +29,5 @@ case class DefaultParquetBlobSourceSettings(
     override val useNameMapping: Boolean,
     override val sourcePath: String,
     override val tempStoragePath: String,
-    override val s3ClientSettings: S3ClientSettings
+    @key("s3") override val s3ClientSettings: S3ClientSettings
 ) extends ParquetBlobSourceSettings derives ReadWriter

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import models.settings.sink.SinkSettings
-import models.settings.streaming.ThroughputShaperImpl.MemoryBound
+import models.settings.streaming.MemoryBound
 import models.settings.streaming.{ThroughputSettings, ThroughputShaperImpl}
 import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
