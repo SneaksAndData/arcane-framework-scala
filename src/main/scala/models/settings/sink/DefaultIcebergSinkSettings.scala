@@ -9,7 +9,7 @@ import upickle.ReadWriter
 import upickle.implicits.key
 
 case class DefaultIcebergSinkSettings(
-    @key("additionalProperties") catalogProperties: Map[String, String],
+    catalogProperties: Map[String, String],
     override val namespace: String,
     override val catalogUri: String,
     override val warehouse: String
