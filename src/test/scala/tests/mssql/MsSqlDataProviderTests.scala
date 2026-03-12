@@ -39,7 +39,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
       */
     override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(1)
-      override val changeCaptureJitterVariance: Double = 0.01
+      override val changeCaptureJitterVariance: Double = 0.0001
       override val changeCaptureJitterSeed: Long       = 0
     }
   }
