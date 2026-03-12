@@ -23,8 +23,7 @@ trait StagingTableSettings:
     */
   val stagingSchemaName: String
 
-  /** Indicates that all batches have the same schema. This setting should be hard-coded in the plugin and not exposed
-    * in the Stream Spec
+  /** Indicates that all batches have the same schema.
     */
   val isUnifiedSchema: Boolean
 
@@ -43,6 +42,7 @@ trait StagingTableSettings:
     */
   final val backfillTableName: String =
     s"$stagingCatalogName.$stagingSchemaName.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}"
+      .replace("-", "_")
 
 case class DefaultStagingTableSettings(
     override val stagingTablePrefix: String,

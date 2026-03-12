@@ -4,6 +4,7 @@ package services.streaming.processors.batch_processors.streaming
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
 import models.settings.*
+import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
@@ -24,7 +25,8 @@ class MergeBatchProcessor(
     sinkEntityManager: SinkEntityManager,
     sinkPropertyManager: SinkPropertyManager,
     targetTableSettings: SinkSettings,
-    declaredMetrics: DeclaredMetrics
+    declaredMetrics: DeclaredMetrics,
+    schemaMigrationEnabled: Boolean
 ) extends StagedBatchProcessor:
 
   /** Processes the incoming data.
@@ -41,10 +43,10 @@ class MergeBatchProcessor(
           batchesSet.batchIndex.toString
         )
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
-          ZIO.unless(batch.isEmpty) {
+          ZIO.when(!batch.isEmpty && schemaMigrationEnabled) {
             for
-              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.split('.').last)
-              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split('.').last)
+              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.parts.name)
+              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.parts.name)
             yield ()
           }
         )
@@ -93,7 +95,8 @@ object MergeBatchProcessor:
       sinkPropertyManager: SinkPropertyManager,
       tableManager: JdbcTableManager,
       targetTableSettings: SinkSettings,
-      declaredMetrics: DeclaredMetrics
+      declaredMetrics: DeclaredMetrics,
+      schemaMigrationEnabled: Boolean
   ): MergeBatchProcessor =
     new MergeBatchProcessor(
       mergeServiceClient,
@@ -101,7 +104,8 @@ object MergeBatchProcessor:
       sinkEntityManager,
       sinkPropertyManager,
       targetTableSettings,
-      declaredMetrics
+      declaredMetrics,
+      schemaMigrationEnabled
     )
 
   /** The required environment for the MergeBatchProcessor.
@@ -126,6 +130,7 @@ object MergeBatchProcessor:
         sinkPropertyManager,
         tableManager,
         context.sink,
-        declaredMetrics
+        declaredMetrics,
+        !context.staging.table.isUnifiedSchema
       )
     }

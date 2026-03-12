@@ -3,12 +3,13 @@ package models.batches
 
 import models.queries.*
 import models.schemas.ArcaneSchema
+import models.settings.TableName
 
 trait MergeableBatch:
 
   /** Name of the target table in the linked Catalog that holds batch data
     */
-  val targetTableName: String
+  val targetTableName: TableName
 
 /** The trait that represents a staged batch of data.
   */

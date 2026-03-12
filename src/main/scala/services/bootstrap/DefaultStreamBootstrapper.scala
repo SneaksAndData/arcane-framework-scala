@@ -12,14 +12,15 @@ import models.settings.sink.SinkSettings
 import models.settings.staging.StagingSettings
 import services.base.SchemaProvider
 import services.bootstrap.base.StreamBootstrapper
-import services.iceberg.base.{SinkEntityManager, StagingEntityManager}
-import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager}
+import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
 
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
     stagingEntityManager: StagingEntityManager,
     sinkEntityManager: SinkEntityManager,
+    sinkPropertyManager: SinkPropertyManager,
     schemaProvider: SchemaProvider[ArcaneSchema],
     sinkSettings: SinkSettings,
     stagingSettings: StagingSettings,
@@ -58,12 +59,20 @@ class DefaultStreamBootstrapper(
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
     )
+    // pre-migrate sources with unified schema and skip migration of each staged batch
+    _ <- ZIO.when(stagingSettings.table.isUnifiedSchema) {
+      for
+        targetSchema <- sinkPropertyManager.getTableSchema(sinkSettings.targetTableFullName.parts.name)
+        _ <- sinkEntityManager.migrateSchema(targetSchema, schema, sinkSettings.targetTableFullName.parts.name)
+      yield ()
+    }
   yield ()
 
 object DefaultStreamBootstrapper:
   def apply(
       stagingEntityManager: StagingEntityManager,
       sinkEntityManager: SinkEntityManager,
+      sinkPropertyManager: SinkPropertyManager,
       schemaProvider: SchemaProvider[ArcaneSchema],
       sinkSettings: SinkSettings,
       stagingSettings: StagingSettings,
@@ -72,6 +81,7 @@ object DefaultStreamBootstrapper:
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
     sinkEntityManager = sinkEntityManager,
+    sinkPropertyManager = sinkPropertyManager,
     schemaProvider = schemaProvider,
     sinkSettings = sinkSettings,
     stagingSettings = stagingSettings,
@@ -84,10 +94,12 @@ object DefaultStreamBootstrapper:
       context              <- ZIO.service[PluginStreamContext]
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       sinkEntityManager    <- ZIO.service[SinkEntityManager]
+      sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
       schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
+      sinkPropertyManager = sinkPropertyManager,
       schemaProvider = schemaProvider,
       sinkSettings = context.sink,
       stagingSettings = context.staging,
