@@ -90,10 +90,24 @@ class StagingProcessor(
       )
     )
 
-    applyTasks <- ZIO.foreach(groupedBySchema.keys)(schema =>
+    stagedBatches <- ZIO.foreach(groupedBySchema.keys)(schema =>
       writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
     )
-  yield Chunk(applyTasks.map(batches => batches))
+  yield
+    if groupedBySchema.keys.nonEmpty then Chunk(stagedBatches.map(batches => batches))
+    else
+      Chunk(
+        Seq(
+          onBatchStaged(
+            None,
+            icebergCatalogSettings.namespace,
+            icebergCatalogSettings.warehouse,
+            ArcaneSchema.empty(),
+            targetTableFullName,
+            maybeWatermark
+          )
+        )
+      )
 
   override def process(
       onStagingTablesComplete: OnStagingTablesComplete,
