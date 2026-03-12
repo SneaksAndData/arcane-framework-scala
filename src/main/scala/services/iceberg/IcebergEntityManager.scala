@@ -39,7 +39,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
   /** Creates a new table in the Iceberg catalog, using the provided schema
     * @return
     */
-  override def createTable(request: CreateTableRequest): Task[Table] = for
+  override def createTable(request: CreateTableRequest): Task[Unit] = for
     tableId <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, request.name))
     catalog <- catalogFactory.getCatalog
     tableBuilder <- ZIO.attempt(
@@ -52,17 +52,15 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
       for
         _      <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
         newRef <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
-      yield newRef
+      yield ()
     }
     tableRef <- ZIO.unless(request.replace) {
       for
         tableExists <- ZIO.attemptBlocking(catalog.tableExists(catalogFactory.getSessionContext, tableId))
         newRef      <- ZIO.unless(tableExists)(ZIO.attemptBlocking(tableBuilder.create()))
-      yield newRef
+      yield ()
     }
-  yield replacedRef match
-    case Some(ref) => ref
-    case None      => tableRef.flatten.get
+  yield ()
 
   override def deleteTables(prefix: String): Task[Unit] = for
     catalog <- catalogFactory.getCatalog
