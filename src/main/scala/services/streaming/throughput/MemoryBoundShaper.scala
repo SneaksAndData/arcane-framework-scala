@@ -127,6 +127,7 @@ class MemoryBoundShaper(
     )
     _ <- ZIO.succeed(appliedSize._1.toDouble) @@ declaredMetrics.rowChunkSize
     _ <- ZIO.succeed(estMemoryPerChunk.toDouble) @@ declaredMetrics.rowChunkSizeBytes
+    _ <- zlog("Cost: %s", estimateChunkCost(appliedSize._1).toDouble.toString)
     _ <- ZIO.succeed(estimateChunkCost(appliedSize._1).toDouble) @@ declaredMetrics.rowChunkCost
   yield appliedSize
 
@@ -155,8 +156,8 @@ class MemoryBoundShaper(
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int = estimateChunkCost(ch.size)
 
   private def estimateChunkCost(size: Int): Int =
-    val rawCost = size * estimationCache(rowSizeCacheKey).toLong / (runtime.freeMemory() + 1)
-    (scaledSigmoid(rawCost.toDouble, shaperSettings.chunkCostScale) * shaperSettings.chunkCostMax).toInt
+    val rawCost = size * estimationCache(rowSizeCacheKey) / (runtime.freeMemory() + 1)
+    scaledSigmoid(rawCost, shaperSettings.chunkCostScale).toInt
 
 object MemoryBoundShaper:
   /** Factory method to create MemoryBoundShaper
