@@ -7,19 +7,31 @@ import upickle.implicits.key
 /** Represents a field selection rule for a streaming batch. The field selection rule is used to determine which fields
   * should be included in the result set of a query.
   */
-sealed trait FieldSelectionRule derives ReadWriter
+sealed trait FieldSelectionRule
 
 /** All fields should be included in the result set.
   */
-case class AllFields() extends FieldSelectionRule
+case class AllFields() derives ReadWriter
+
+/** ADT composed with settings class for AllFields
+  */
+case class AllFieldsImpl(allFields: AllFields) extends FieldSelectionRule
 
 /** Only the specified fields should be excluded from the result set.
   */
-case class IncludeFields(fields: Set[String]) extends FieldSelectionRule
+case class IncludeFields(fields: Set[String]) derives ReadWriter
+
+/** ADT composed with settings class for IncludeFields
+  */
+case class IncludeFieldsImpl(includeFields: IncludeFields) extends FieldSelectionRule
 
 /** All fields except the specified fields should be included in the result set.
   */
-case class ExcludeFields(fields: Set[String]) extends FieldSelectionRule
+case class ExcludeFields(fields: Set[String]) derives ReadWriter
+
+/** ADT composed with settings class for ExcludeFields
+  */
+case class ExcludeFieldsImpl(excludeFields: ExcludeFields) extends FieldSelectionRule
 
 /** Proxy class that composes settings and makes them mutually exclusive
   */
@@ -28,7 +40,17 @@ case class FieldSelectionRuleSetting(
     include: Option[IncludeFields] = None,
     exclude: Option[ExcludeFields] = None
 ) derives ReadWriter:
-  def resolveSetting: FieldSelectionRule = all.getOrElse(include.getOrElse(exclude.getOrElse(AllFields())))
+  def resolveSetting: FieldSelectionRule = all
+    .map(AllFieldsImpl(_))
+    .getOrElse(
+      include
+        .map(IncludeFieldsImpl(_))
+        .getOrElse(
+          exclude
+            .map(ExcludeFieldsImpl(_))
+            .getOrElse(AllFieldsImpl(AllFields()))
+        )
+    )
 
 /** Marker trait for a field selection rule classes
   */

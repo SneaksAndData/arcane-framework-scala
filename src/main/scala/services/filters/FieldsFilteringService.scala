@@ -3,7 +3,14 @@ package services.filters
 
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings, IncludeFields, ExcludeFields}
+import models.settings.{
+  FieldSelectionRule,
+  FieldSelectionRuleSettings,
+  IncludeFields,
+  ExcludeFields,
+  IncludeFieldsImpl,
+  ExcludeFieldsImpl
+}
 import services.filters.FieldsFilteringService.isValid
 
 import zio.{ZIO, ZLayer}
@@ -66,6 +73,7 @@ object FieldsFilteringService:
     */
   extension (fieldSelectionRule: FieldSelectionRuleSettings)
     def isValid: Boolean = fieldSelectionRule.rule match
-      case IncludeFields(includeFields) => fieldSelectionRule.essentialFields.subsetOf(includeFields)
-      case ExcludeFields(excludeFields) => excludeFields.intersect(fieldSelectionRule.essentialFields).isEmpty
-      case _                            => true
+      case IncludeFieldsImpl(includeFields) => fieldSelectionRule.essentialFields.subsetOf(includeFields.fields)
+      case ExcludeFieldsImpl(excludeFields) =>
+        excludeFields.fields.intersect(fieldSelectionRule.essentialFields).isEmpty
+      case _ => true

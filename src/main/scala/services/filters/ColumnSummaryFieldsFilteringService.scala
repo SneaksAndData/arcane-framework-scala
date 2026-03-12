@@ -1,7 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package services.filters
 
-import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings, IncludeFields, ExcludeFields, AllFields}
+import models.settings.{
+  FieldSelectionRule,
+  FieldSelectionRuleSettings,
+  IncludeFields,
+  ExcludeFields,
+  AllFields,
+  IncludeFieldsImpl,
+  ExcludeFieldsImpl,
+  AllFieldsImpl
+}
 import services.mssql.SqlDataCell.normalizeName
 import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService}
 
@@ -20,16 +29,18 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
   /** @inheritdoc
     */
   def filter(fields: List[ColumnSummary]): Try[List[ColumnSummary]] = fieldSelectionRule.rule match
-    case IncludeFields(includeFields) =>
+    case IncludeFieldsImpl(includeFields) =>
       val groups = fields.groupBy { case (name, isPrimaryKey) => isPrimaryKey }
       val excludedPks = groups(true)
-        .filter(entry => !includeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
+        .filter(entry => !includeFields.fields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
         .map(_._1)
 
       excludedPks match
         case Nil =>
           Success(
-            fields.filter(entry => includeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
+            fields.filter(entry =>
+              includeFields.fields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f))
+            )
           )
         case _ =>
           Failure(
@@ -38,16 +49,18 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
             )
           )
 
-    case ExcludeFields(excludeFields) =>
+    case ExcludeFieldsImpl(excludeFields) =>
       val groups = fields.groupBy { case (name, isPrimaryKey) => isPrimaryKey }
       val excludedPks = groups(true)
-        .filter(entry => excludeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
+        .filter(entry => excludeFields.fields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
         .map(_._1)
 
       excludedPks match
         case Nil =>
           Success(
-            fields.filter(entry => !excludeFields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f)))
+            fields.filter(entry =>
+              !excludeFields.fields.exists(f => entry._1.normalizeName.toLowerCase().equalsIgnoreCase(f))
+            )
           )
         case _ =>
           Failure(
@@ -56,7 +69,7 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
             )
           )
 
-    case AllFields() => Success(fields)
+    case AllFieldsImpl(_) => Success(fields)
 
   private def toString(fields: List[String]) = "[" + fields.map(f => s"'$f'").mkString(", ") + "]"
 
