@@ -50,14 +50,14 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
     )
     replacedRef <- ZIO.when(request.replace) {
       for
-        _      <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
-        newRef <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
+        _ <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
+        _ <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
       yield ()
     }
     tableRef <- ZIO.unless(request.replace) {
       for
         tableExists <- ZIO.attemptBlocking(catalog.tableExists(catalogFactory.getSessionContext, tableId))
-        newRef      <- ZIO.unless(tableExists)(ZIO.attemptBlocking(tableBuilder.create()))
+        _           <- ZIO.unless(tableExists)(ZIO.attemptBlocking(tableBuilder.create()))
       yield ()
     }
   yield ()
