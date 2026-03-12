@@ -23,8 +23,7 @@ trait StagingTableSettings:
     */
   val stagingSchemaName: String
 
-  /** Indicates that all batches have the same schema. This setting should be hard-coded in the plugin and not exposed
-    * in the Stream Spec
+  /** Indicates that all batches have the same schema.
     */
   val isUnifiedSchema: Boolean
 
