@@ -25,7 +25,7 @@ trait CatalogEntityManager:
     * @return
     *   An Iceberg table reference
     */
-  def createTable(request: CreateTableRequest): Task[Table]
+  def createTable(request: CreateTableRequest): Task[Unit]
 
   /** Deletes all tables with name matching the specified prefix
     * @return
