@@ -55,12 +55,14 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
       yield newRef
     }
     tableRef <- ZIO.unless(request.replace) {
-      for newRef <- ZIO.attemptBlocking(tableBuilder.create())
+      for
+        tableExists <- ZIO.attemptBlocking(catalog.tableExists(catalogFactory.getSessionContext, tableId))
+        newRef      <- ZIO.unless(tableExists)(ZIO.attemptBlocking(tableBuilder.create()))
       yield newRef
     }
   yield replacedRef match
     case Some(ref) => ref
-    case None      => tableRef.get
+    case None      => tableRef.flatten.get
 
   override def deleteTables(prefix: String): Task[Unit] = for
     catalog <- catalogFactory.getCatalog
