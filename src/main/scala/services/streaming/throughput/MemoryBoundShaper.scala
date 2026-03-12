@@ -50,10 +50,13 @@ class MemoryBoundShaper(
 
   /** Estimate memory pool available for chunks. Larger tables get larger pool to allow bigger chunks
     */
-  private def estimateMemoryCutoff(estRows: Long, estSize: Long): Double = scaledSigmoid(
-    shaperSettings.tableRowCountWeight * log(estRows) + shaperSettings.tableSizeWeight * log(estSize),
-    shaperSettings.tableSizeScaleFactor
-  )
+  private def estimateMemoryCutoff(estRows: Long, estSize: Long): Double = if estRows * estSize == 0
+  then 0.5
+  else
+    scaledSigmoid(
+      shaperSettings.tableRowCountWeight * log(estRows) + shaperSettings.tableSizeWeight * log(estSize),
+      shaperSettings.tableSizeScaleFactor
+    )
 
   private def estimateRowSize(schema: Schema): Long =
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
