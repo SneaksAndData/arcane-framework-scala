@@ -158,7 +158,6 @@ class MemoryBoundShaper(
 
   private def estimateChunkCost(size: Int): Int =
     val rawCost = size * estimationCache(rowSizeCacheKey) / (runtime.freeMemory() + 1)
-    val cost    = scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
     scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
 
 object MemoryBoundShaper:
