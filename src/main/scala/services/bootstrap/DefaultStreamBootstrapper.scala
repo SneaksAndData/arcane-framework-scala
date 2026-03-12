@@ -39,7 +39,7 @@ class DefaultStreamBootstrapper(
           _      <- zlog("Creating backfill table %s", stagingSettings.table.backfillTableName)
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
-              name = stagingSettings.table.backfillTableName,
+              name = stagingSettings.table.backfillTableName.parts.name,
               schema = schema,
               replace = false
             )

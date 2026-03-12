@@ -6,6 +6,7 @@ import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.settings.*
 import models.settings.TableNaming.*
+import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
 import services.iceberg.base.*
@@ -30,7 +31,7 @@ class MergeBatchProcessor(
     targetTableSettings: SinkSettings,
     declaredMetrics: DeclaredMetrics,
     schemaMigrationEnabled: Boolean,
-    isBackfilling: Boolean
+    isTargetInStaging: Boolean
 ) extends StagedBatchProcessor:
 
   private def alignSchemas(
@@ -59,9 +60,9 @@ class MergeBatchProcessor(
           ZIO.when(!batch.isEmpty && schemaMigrationEnabled) {
             for
               // for streams, we migrate sink table
-              _ <- ZIO.unless(isBackfilling)(alignSchemas(batch, sinkPropertyManager, sinkEntityManager))
+              _ <- ZIO.unless(isTargetInStaging)(alignSchemas(batch, sinkPropertyManager, sinkEntityManager))
               // for backfills, we migrate staging table
-              _ <- ZIO.when(isBackfilling)(alignSchemas(batch, stagingPropertyManager, stagingEntityManager))
+              _ <- ZIO.when(isTargetInStaging)(alignSchemas(batch, stagingPropertyManager, stagingEntityManager))
             yield ()
           }
         )
@@ -157,6 +158,6 @@ object MergeBatchProcessor:
         context.sink,
         declaredMetrics,
         !context.staging.table.isUnifiedSchema,
-        context.isBackfilling
+        context.isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite
       )
     }
