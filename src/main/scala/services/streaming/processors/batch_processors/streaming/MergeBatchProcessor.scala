@@ -4,6 +4,7 @@ package services.streaming.processors.batch_processors.streaming
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
 import models.settings.*
+import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
@@ -43,8 +44,8 @@ class MergeBatchProcessor(
         _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
           ZIO.unless(batch.isEmpty) {
             for
-              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.split('.').last)
-              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.split('.').last)
+              targetSchema <- sinkPropertyManager.getTableSchema(batch.targetTableName.parts.name)
+              _ <- sinkEntityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.parts.name)
             yield ()
           }
         )
