@@ -3,8 +3,14 @@ package tests.mssql
 
 import models.schemas.ArcaneType.*
 import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
-import models.settings.{ExcludeFields, IncludeFields}
-import models.settings.{FieldSelectionRule, FieldSelectionRuleSettings}
+import models.settings.{
+  ExcludeFields,
+  FieldSelectionRule,
+  FieldSelectionRuleSettings,
+  IncludeFields,
+  IncludeFieldsImpl,
+  ExcludeFieldsImpl
+}
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
@@ -156,7 +162,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("QueryProvider handles field selection rule") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
-          override val rule: FieldSelectionRule = ExcludeFields(Set("b", "a", "z", "cd"))
+          override val rule: FieldSelectionRule = ExcludeFieldsImpl(ExcludeFields(Set("b", "a", "z", "cd")))
           override val essentialFields: Set[String] =
             Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
@@ -187,7 +193,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("QueryProvider does not allow PKs in filters") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
-          override val rule: FieldSelectionRule = ExcludeFields(Set("x"))
+          override val rule: FieldSelectionRule = ExcludeFieldsImpl(ExcludeFields(Set("x")))
           override val essentialFields: Set[String] =
             Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
@@ -212,7 +218,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("QueryProvider enforces PKs in include filters") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
-          override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "z"))
+          override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "b", "z")))
           override val essentialFields: Set[String] =
             Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
@@ -299,7 +305,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("MsSqlConnection returns correct number of columns on backfill with filter") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
-          override val rule: FieldSelectionRule = IncludeFields(Set("a", "b", "x"))
+          override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "b", "x")))
           override val essentialFields: Set[String] =
             Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
@@ -349,7 +355,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
     test("MsSqlConnection returns correct number of rows on getChanges with filter") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
-          override val rule: FieldSelectionRule = IncludeFields(Set("a", "x"))
+          override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "x")))
           override val essentialFields: Set[String] =
             Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true

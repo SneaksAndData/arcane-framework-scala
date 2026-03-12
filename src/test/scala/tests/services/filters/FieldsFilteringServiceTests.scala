@@ -4,7 +4,14 @@ package tests.services.filters
 import models.*
 import models.schemas.ArcaneType.{LongType, StringType}
 import models.schemas.{ArcaneSchema, DataCell, DataRow, Field}
-import models.settings.{ExcludeFields, FieldSelectionRule, FieldSelectionRuleSettings, IncludeFields}
+import models.settings.{
+  ExcludeFields,
+  ExcludeFieldsImpl,
+  FieldSelectionRule,
+  FieldSelectionRuleSettings,
+  IncludeFields,
+  IncludeFieldsImpl
+}
 import services.filters.FieldsFilteringService
 
 import org.scalatest.flatspec.AnyFlatSpec
@@ -20,7 +27,7 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       DataCell("versionnumber", LongType, 1L)
     )
 
-    val fieldSelectionRule = ExcludeFields(Set("colA", "colB"))
+    val fieldSelectionRule = ExcludeFieldsImpl(ExcludeFields(Set("colA", "colB")))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
@@ -40,7 +47,7 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       DataCell("versionnumber", LongType, 1L)
     )
 
-    val fieldSelectionRule = IncludeFields(Set("colA", "colB", "Id", "versionnumber"))
+    val fieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("colA", "colB", "Id", "versionnumber")))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
@@ -60,7 +67,7 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       Field("versionnumber", LongType)
     )
 
-    val fieldSelectionRule = ExcludeFields(Set("colA", "colB"))
+    val fieldSelectionRule = ExcludeFieldsImpl(ExcludeFields(Set("colA", "colB")))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
@@ -80,7 +87,7 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       Field("versionnumber", LongType)
     )
 
-    val fieldSelectionRule = IncludeFields(Set("colA", "colB", "Id", "versionnumber"))
+    val fieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("colA", "colB", "Id", "versionnumber")))
     val settings = new FieldSelectionRuleSettings:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
