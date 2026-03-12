@@ -77,7 +77,8 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         sinkPropertyManager,
         tableManager,
         TestSinkSettingsWithMaintenance,
-        declaredMetrics
+        declaredMetrics,
+        true
       )
 
     // Act
@@ -91,7 +92,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     }
   }
 
-  it should "not run optimizations if no settings provided" in {
+  it should "not run optimizations and skip schema migrations on merge if configured so" in {
     // Arrange
     val mergeServiceClient  = mock[MergeServiceClient]
     val sinkPropertyManager = mock[SinkPropertyManager]
@@ -105,10 +106,6 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       sinkPropertyManager
         .getTableSchema(EasyMock.anyString())
         .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
-        .times(40)
-      sinkEntityManager
-        .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
-        .andReturn(ZIO.unit)
         .times(40)
       tableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
@@ -124,7 +121,8 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         sinkPropertyManager,
         tableManager,
         TestSinkSettings,
-        declaredMetrics
+        declaredMetrics,
+        false
       )
 
     // Act
