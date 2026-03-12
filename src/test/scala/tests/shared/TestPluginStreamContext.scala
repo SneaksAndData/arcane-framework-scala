@@ -15,8 +15,14 @@ import models.settings.sources.{
   Unbounded
 }
 import models.settings.staging.StagingSettings
-import models.settings.streaming.Static
-import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
+import models.settings.streaming.{
+  ChangeCaptureSettings,
+  Static,
+  StaticImpl,
+  StreamModeSettings,
+  ThroughputSettings,
+  ThroughputShaperImpl
+}
 
 import java.time.{Duration, OffsetDateTime}
 
@@ -41,7 +47,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   }
   override val sink: SinkSettings = TestSinkSettings
   override val throughput: ThroughputSettings = new ThroughputSettings {
-    override val shaperImpl: ThroughputShaperImpl = Static()
+    override val shaperImpl: ThroughputShaperImpl = StaticImpl(Static())
     override val advisedChunkSize: Int            = 1
     override val advisedRateChunks: Int           = 1
     override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)

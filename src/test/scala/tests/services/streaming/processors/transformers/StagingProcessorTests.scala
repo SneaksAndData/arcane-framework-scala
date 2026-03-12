@@ -12,8 +12,14 @@ import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
 import models.settings.staging.StagingSettings
-import models.settings.streaming.Static
-import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
+import models.settings.streaming.{
+  ChangeCaptureSettings,
+  Static,
+  StaticImpl,
+  StreamModeSettings,
+  ThroughputSettings,
+  ThroughputShaperImpl
+}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
@@ -116,7 +122,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
     override val staging: StagingSettings             = TestStagingSettings()
     override val observability: ObservabilitySettings = TestObservabilitySettings
     override val throughput: ThroughputSettings = new ThroughputSettings {
-      override val shaperImpl: ThroughputShaperImpl = Static()
+      override val shaperImpl: ThroughputShaperImpl = StaticImpl(Static())
       override val advisedChunkSize: Int            = 1
       override val advisedRateChunks: Int           = 1
       override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)

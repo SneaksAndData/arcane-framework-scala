@@ -3,7 +3,6 @@ package models.settings.streaming
 
 import models.serialization.JavaDurationRW.*
 
-import upickle.ReadWriter
 import upickle.default.*
 import upickle.implicits.key
 
@@ -11,7 +10,7 @@ import java.time.Duration
 
 /** Marker for shaper implementations
   */
-sealed trait ThroughputShaperImpl derives ReadWriter
+sealed trait ThroughputShaperImpl
 
 /** Settings for memory bound shaper implementation
   */
@@ -25,17 +24,31 @@ case class MemoryBound(
     tableRowCountWeight: Double,
     tableSizeWeight: Double,
     tableSizeScaleFactor: Int
-) extends ThroughputShaperImpl
+) derives ReadWriter
+
+/** ADT composed with settings class for MemoryBound
+  */
+case class MemoryBoundImpl(memoryBound: MemoryBound) extends ThroughputShaperImpl
 
 /** Settings for the static shaper implementation
   */
-case class Static() extends ThroughputShaperImpl
+case class Static() derives ReadWriter
+
+/** ADT composed with settings class for Static
+  */
+case class StaticImpl(static: Static) extends ThroughputShaperImpl
 
 case class ThroughputShaperImplSettings(
     memoryBound: Option[MemoryBound],
     static: Option[Static]
 ) derives ReadWriter:
-  def resolveShaperImpl: ThroughputShaperImpl = memoryBound.getOrElse(static.getOrElse(Static()))
+  def resolveShaperImpl: ThroughputShaperImpl = memoryBound
+    .map(MemoryBoundImpl(_))
+    .getOrElse(
+      static
+        .map(StaticImpl(_))
+        .getOrElse(StaticImpl(Static()))
+    )
 
 trait ThroughputSettings:
   val shaperImpl: ThroughputShaperImpl

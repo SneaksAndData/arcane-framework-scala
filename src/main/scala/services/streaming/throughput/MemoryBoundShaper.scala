@@ -3,7 +3,7 @@ package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
 import models.settings.sink.SinkSettings
-import models.settings.streaming.{MemoryBound, ThroughputSettings}
+import models.settings.streaming.{MemoryBound, MemoryBoundImpl, ThroughputSettings}
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaper
@@ -33,7 +33,7 @@ class MemoryBoundShaper(
 ) extends ThroughputShaper:
 
   private val shaperSettings = throughputSettings.shaperImpl match
-    case mb: MemoryBound => mb
+    case mb: MemoryBoundImpl => mb.memoryBound
     case _ =>
       throw new RuntimeException("`shaperImpl.$$type` must be set to `MemoryBound` when using MemoryBoundShaper")
 
