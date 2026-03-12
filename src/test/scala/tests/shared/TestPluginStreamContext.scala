@@ -12,7 +12,8 @@ import models.settings.sources.{
   SourceBufferingSettings,
   SourceSettings,
   StreamSourceSettings,
-  Unbounded
+  Unbounded,
+  UnboundedImpl
 }
 import models.settings.staging.StagingSettings
 import models.settings.streaming.{
@@ -61,7 +62,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
     override type SourceSettingsType = SourceSettings
     override val configuration: SourceSettings = new SourceSettings {}
     override val buffering: SourceBufferingSettings = new SourceBufferingSettings {
-      override val bufferingStrategy: BufferingStrategy = Unbounded()
+      override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
       override val bufferingEnabled: Boolean            = false
     }
     override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
