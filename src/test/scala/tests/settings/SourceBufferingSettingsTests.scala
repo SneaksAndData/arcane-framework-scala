@@ -46,7 +46,6 @@ class SourceBufferingSettingsTests extends AnyFlatSpec with Matchers:
 
   it should "serialize correctly" in {
     forAll(testCases) { (settings, expected) =>
-      val x = upickle.write(settings)
       upickle.write(settings) should equal(expected)
     }
   }

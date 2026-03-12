@@ -36,9 +36,9 @@ case class ExcludeFieldsImpl(excludeFields: ExcludeFields) extends FieldSelectio
 /** Proxy class that composes settings and makes them mutually exclusive
   */
 case class FieldSelectionRuleSetting(
-    all: Option[AllFields] = None,
-    include: Option[IncludeFields] = None,
-    exclude: Option[ExcludeFields] = None
+    all: Option[AllFields],
+    include: Option[IncludeFields],
+    exclude: Option[ExcludeFields]
 ) derives ReadWriter:
   def resolveSetting: FieldSelectionRule = all
     .map(AllFieldsImpl(_))
