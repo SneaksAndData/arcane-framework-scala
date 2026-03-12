@@ -141,6 +141,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
         IcebergTablePropertyManager.sinkLayer,
+        IcebergTablePropertyManager.stagingLayer,
         DefaultStreamBootstrapper.layer
       )
 

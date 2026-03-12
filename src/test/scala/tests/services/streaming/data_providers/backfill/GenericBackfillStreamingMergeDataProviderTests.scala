@@ -175,7 +175,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
         DeclaredMetrics.layer,
         ArcaneDimensionsProvider.layer,
         WatermarkProcessor.layer,
-        IcebergTablePropertyManager.sinkLayer
+        IcebergTablePropertyManager.sinkLayer,
+        IcebergTablePropertyManager.stagingLayer
       )
 
     // Act

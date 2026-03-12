@@ -5,7 +5,7 @@ import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.LongType
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.{BatchOptimizationResult, MergeServiceClient}
-import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
@@ -41,11 +41,13 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
 
   it should "run merges, optimizations and schema migrations attempts" in {
     // Arrange
-    val mergeServiceClient  = mock[MergeServiceClient]
-    val sinkPropertyManager = mock[SinkPropertyManager]
-    val sinkEntityManager   = mock[SinkEntityManager]
-    val tableManager        = mock[JdbcTableManager]
-    val declaredMetrics     = DeclaredMetrics(NullDimensionsProvider)
+    val mergeServiceClient     = mock[MergeServiceClient]
+    val sinkPropertyManager    = mock[SinkPropertyManager]
+    val sinkEntityManager      = mock[SinkEntityManager]
+    val stagingPropertyManager = mock[StagingPropertyManager]
+    val stagingEntityManager   = mock[StagingEntityManager]
+    val tableManager           = mock[JdbcTableManager]
+    val declaredMetrics        = DeclaredMetrics(NullDimensionsProvider)
 
     expecting {
       // Calling once for each batch in batch set
@@ -68,17 +70,27 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         .times(20)
       tableManager.analyzeTable(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchOptimizationResult(true))).times(20)
     }
-    replay(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager)
+    replay(
+      mergeServiceClient,
+      tableManager,
+      sinkEntityManager,
+      sinkPropertyManager,
+      stagingEntityManager,
+      stagingPropertyManager
+    )
 
     val mergeBatchProcessor =
       MergeBatchProcessor(
         mergeServiceClient,
         sinkEntityManager,
         sinkPropertyManager,
+        stagingEntityManager,
+        stagingPropertyManager,
         tableManager,
         TestSinkSettingsWithMaintenance,
         declaredMetrics,
-        true
+        true,
+        false
       )
 
     // Act
@@ -94,11 +106,13 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
 
   it should "not run optimizations and skip schema migrations on merge if configured so" in {
     // Arrange
-    val mergeServiceClient  = mock[MergeServiceClient]
-    val sinkPropertyManager = mock[SinkPropertyManager]
-    val sinkEntityManager   = mock[SinkEntityManager]
-    val tableManager        = mock[JdbcTableManager]
-    val declaredMetrics     = DeclaredMetrics(NullDimensionsProvider)
+    val mergeServiceClient     = mock[MergeServiceClient]
+    val sinkPropertyManager    = mock[SinkPropertyManager]
+    val sinkEntityManager      = mock[SinkEntityManager]
+    val stagingPropertyManager = mock[StagingPropertyManager]
+    val stagingEntityManager   = mock[StagingEntityManager]
+    val tableManager           = mock[JdbcTableManager]
+    val declaredMetrics        = DeclaredMetrics(NullDimensionsProvider)
 
     expecting {
       // Calling once for each batch in batch set
@@ -112,16 +126,26 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       tableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.analyzeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
-    replay(mergeServiceClient, tableManager, sinkEntityManager, sinkPropertyManager)
+    replay(
+      mergeServiceClient,
+      tableManager,
+      sinkEntityManager,
+      sinkPropertyManager,
+      stagingEntityManager,
+      stagingPropertyManager
+    )
 
     val mergeBatchProcessor =
       MergeBatchProcessor(
         mergeServiceClient,
         sinkEntityManager,
         sinkPropertyManager,
+        stagingEntityManager,
+        stagingPropertyManager,
         tableManager,
         TestSinkSettings,
         declaredMetrics,
+        false,
         false
       )
 
