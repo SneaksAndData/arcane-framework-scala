@@ -127,7 +127,6 @@ class MemoryBoundShaper(
     )
     _ <- ZIO.succeed(appliedSize._1.toDouble) @@ declaredMetrics.rowChunkSize
     _ <- ZIO.succeed(estMemoryPerChunk.toDouble) @@ declaredMetrics.rowChunkSizeBytes
-    _ <- zlog("Cost: %s", estimateChunkCost(appliedSize._1).toDouble.toString)
     _ <- ZIO.succeed(estimateChunkCost(appliedSize._1).toDouble) @@ declaredMetrics.rowChunkCost
   yield appliedSize
 
