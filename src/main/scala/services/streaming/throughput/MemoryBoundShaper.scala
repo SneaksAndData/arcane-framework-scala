@@ -54,6 +54,7 @@ class MemoryBoundShaper(
   then 0.5
   else
     scaledSigmoid(
+      shaperSettings.chunkCostMax,
       shaperSettings.tableRowCountWeight * log(estRows) + shaperSettings.tableSizeWeight * log(estSize),
       shaperSettings.tableSizeScaleFactor
     )
@@ -147,16 +148,18 @@ class MemoryBoundShaper(
       throughputSettings.advisedRatePeriod
     )
 
-    /** Project (-inf, inf) to (0, 1) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection Higher
-      * values increase sensitivity near 0.
+    /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
+      * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
       */
-  private def scaledSigmoid(value: Double, k: Int): Double = 1.0 / (1.0 + exp(-1.0 * k * value))
+  private def scaledSigmoid(maxBound: Double, value: Double, k: Int): Double =
+    maxBound * (2.0 / (1.0 + exp(-1.0 * k * value)) - 1)
 
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int = estimateChunkCost(ch.size)
 
   private def estimateChunkCost(size: Int): Int =
     val rawCost = size * estimationCache(rowSizeCacheKey) / (runtime.freeMemory() + 1)
-    scaledSigmoid(rawCost, shaperSettings.chunkCostScale).toInt
+    val cost    = scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
+    scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
 
 object MemoryBoundShaper:
   /** Factory method to create MemoryBoundShaper

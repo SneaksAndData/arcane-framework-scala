@@ -20,6 +20,7 @@ case class MemoryBound(
     burstEstimateDivisionFactor: Int,
     rateEstimateDivisionFactor: Int,
     chunkCostScale: Int,
+    chunkCostMax: Int,
     tableRowCountWeight: Double,
     tableSizeWeight: Double,
     tableSizeScaleFactor: Int

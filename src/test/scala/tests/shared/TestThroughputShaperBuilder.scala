@@ -15,7 +15,7 @@ object TestThroughputShaperBuilder:
     ThroughputShaperBuilder(
       new ThroughputSettings {
         override val shaperImpl: ThroughputShaperImpl =
-          MemoryBoundImpl(MemoryBound(1000, 4096, 2, 2, 100, 0.5, 0.5, 2))
+          MemoryBoundImpl(MemoryBound(1000, 4096, 2, 2, 1, 10, 0.5, 0.5, 2))
         override val advisedChunkSize: Int       = 10
         override val advisedRateChunks: Int      = 1
         override val advisedRatePeriod: Duration = Duration.ofSeconds(10)
