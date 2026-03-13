@@ -4,13 +4,14 @@ package tests.mssql
 import models.app.BaseStreamContext
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
-import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
-import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
-import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
+import tests.mssql.util.MsSqlTestServices
+import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
 
 import org.scalatest.matchers.should.Matchers.*
@@ -83,16 +84,22 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlDataProviderTests") {
     test("returns correct number of rows while streaming") {
       for
-        tableName <- ZIO.succeed("streaming_test")
+        testTableName <- ZIO.succeed("streaming_test")
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable(tableName, connection, fieldString, pkString))
-              .flatMap(_ => insertData(connection, tableName))
+              .attemptBlocking(createTable(testTableName, connection, fieldString, pkString))
+              .flatMap(_ => insertData(connection, testTableName))
         )
         connection <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", tableName, None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = testTableName
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -102,15 +109,15 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           MsSqlDataProvider(
             connection,
             icebergUtil.propertyManager,
-            new TestDynamicSinkSettings(s"demo.test.$tableName"),
+            new TestDynamicSinkSettings(s"demo.test.$testTableName"),
             defaultStreamMode,
             TestThroughputShaperBuilder.default(
               icebergUtil.propertyManager,
-              new TestDynamicSinkSettings(s"demo.test.$tableName")
+              new TestDynamicSinkSettings(s"demo.test.$testTableName")
             )
           )
         )
-        _ <- icebergUtil.prepareWatermark(tableName, MsSqlWatermark.epoch)
+        _ <- icebergUtil.prepareWatermark(testTableName, MsSqlWatermark.epoch)
         streamingDataProvider <- ZIO.succeed(
           MsSqlStreamingDataProvider(
             provider,

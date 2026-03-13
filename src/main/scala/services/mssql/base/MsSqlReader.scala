@@ -2,7 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
+import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.SqlSchema.toSchema
@@ -10,13 +12,8 @@ import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
-import services.mssql.{
-  MsSqlQueryResult,
-  QueryProvider,
-  SqlSchema,
-  given_Conversion_SqlDataRow_DataRow,
-  handleSpecialTypes
-}
+import services.mssql.*
+import services.mssql.given_Conversion_SqlDataRow_DataRow
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -37,31 +34,20 @@ type ColumnSummary = (String, Boolean)
   */
 type MsSqlQuery = String
 
-/** Represents the connection options for a Microsoft SQL Server database.
-  *
-  * @param connectionUrl
-  *   The connection URL for the database.
-  * @param schemaName
-  *   The name of the schema.
-  * @param tableName
-  *   The name of the table.
-  */
-case class ConnectionOptions(connectionUrl: String, schemaName: String, tableName: String, fetchSize: Option[Int])
-
 /** Represents a connection to a Microsoft SQL Server database.
   *
-  * @param connectionOptions
+  * @param connectionSettings
   *   The connection options for the database.
   */
 class MsSqlReader(
-    val connectionOptions: ConnectionOptions,
+    val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldsFilteringService: MsSqlServerFieldsFilteringService
 ) extends AutoCloseable
     with SchemaProvider[ArcaneSchema]:
-  lazy val catalog: String = connection.getCatalog
 
+  lazy val catalog: String    = connection.getCatalog
   private val driver          = new SQLServerDriver()
-  private lazy val connection = driver.connect(connectionOptions.connectionUrl, new Properties())
+  private lazy val connection = driver.connect(connectionSettings.getConnectionString, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   implicit val formatter: DateTimeFormatter                  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -72,7 +58,11 @@ class MsSqlReader(
     */
   def getColumnSummaries: Task[List[ColumnSummary]] =
     for
-      query <- QueryProvider.getColumnSummariesQuery(connectionOptions.schemaName, connectionOptions.tableName, catalog)
+      query <- QueryProvider.getColumnSummariesQuery(
+        connectionSettings.schemaName,
+        connectionSettings.tableName,
+        catalog
+      )
       result <- executeColumnSummariesQuery(query)
     yield result
 
@@ -87,7 +77,7 @@ class MsSqlReader(
       statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
       resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
       _         <- zlogStream("Acquired result set with fetch size %s", resultSet.getFetchSize.toString)
-      _         <- ZStream.succeed(resultSet.setFetchSize(connectionOptions.fetchSize.getOrElse(1000)))
+      _         <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
       _         <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
       stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
         if hasNext then
@@ -260,11 +250,12 @@ class MsSqlReader(
 
 object MsSqlReader:
 
-  type Environment = ConnectionOptions & MsSqlServerFieldsFilteringService
+  type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService
+  private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
 
   /** Creates a new Microsoft SQL Server connection.
     *
-    * @param connectionOptions
+    * @param connectionSettings
     *   The connection options for the database.
     * @param fieldsFilteringService
     *   The service that filters the fields in queries.
@@ -272,20 +263,20 @@ object MsSqlReader:
     *   A new Microsoft SQL Server connection.
     */
   def apply(
-      connectionOptions: ConnectionOptions,
+      connectionSettings: MsSqlServerDatabaseSourceSettings,
       fieldsFilteringService: MsSqlServerFieldsFilteringService
   ): MsSqlReader =
-    new MsSqlReader(connectionOptions, fieldsFilteringService)
+    new MsSqlReader(connectionSettings, fieldsFilteringService)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  val layer: ZLayer[Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
+  def getLayer(extractor: SettingsExtractor): ZLayer[Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          connectionOptions      <- ZIO.service[ConnectionOptions]
+          context                <- ZIO.service[PluginStreamContext]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-        yield MsSqlReader(connectionOptions, fieldsFilteringService)
+        yield MsSqlReader(extractor(context), fieldsFilteringService)
       }
     }
 
@@ -298,10 +289,6 @@ object MsSqlReader:
     * by the query if the result set is being closed without cancelling the statement first. see:
     * https://github.com/microsoft/mssql-jdbc/issues/877 for details. ALL RESULT SETS CREATED FROM MS SQL CONNECTION
     * MUST BE CLOSED THIS WAY
-    * @param resultSet
-    *   The result set to close.
-    * @param statement
-    *   The statement to close.
     * @return
     *   Scoped effect that tracks the result set and closes it when the effect is completed.
     */
@@ -315,11 +302,7 @@ object MsSqlReader:
   /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
     * by the query if the result set is being closed without cancelling the statement first. see:
     * https://github.com/microsoft/mssql-jdbc/issues/877 for details. ALL RESULT SETS CREATED FROM MS SQL CONNECTION
-    * MUST BE CLOSED THIS WAY
-    * @param resultSet
-    *   The result set to close.
-    * @param statement
-    *   The statement to close.
+    * MUST BE CLOSED THIS WAY The statement to close.
     * @return
     *   UIO[Unit] that completes when the result set is closed.
     */

@@ -2,6 +2,8 @@ package com.sneaksanddata.arcane.framework
 package models.settings.staging
 
 import models.serialization.ZIODurationRW.*
+import models.settings.database.JdbcConnectionUrl
+import models.settings.database.JdbcConnectionExtensions.*
 
 import upickle.ReadWriter
 import upickle.default.*
@@ -29,7 +31,7 @@ enum JdbcQueryRetryMode derives ReadWriter:
 trait JdbcMergeServiceClientSettings:
   /** The connection URL.
     */
-  val connectionUrl: String
+  val connectionUrl: JdbcConnectionUrl
 
   /** Optional extra connection parameters for the merge client (tags, session properties etc.)
     */
@@ -62,14 +64,7 @@ trait JdbcMergeServiceClientSettings:
     */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
 
-  final def getConnectionString: String = Seq(
-    connectionUrl,
-    extraConnectionParameters
-      .map { case (key, value) =>
-        s"$key=$value"
-      }
-      .mkString("&")
-  ).mkString("&")
+  final def getConnectionString: String = connectionUrl.withParameters(extraConnectionParameters)
 
 case class DefaultJdbcMergeServiceClientSettings(
     override val queryRetryMode: JdbcQueryRetryMode,

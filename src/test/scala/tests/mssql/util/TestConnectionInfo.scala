@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.mssql.util
 
-import services.mssql.base.ConnectionOptions
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.{Task, ZIO}
@@ -10,7 +10,7 @@ import java.sql.Connection
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 
-case class TestConnectionInfo(connectionOptions: ConnectionOptions, connection: Connection)
+case class TestConnectionInfo(connectionOptions: MsSqlServerDatabaseSourceSettings, connection: Connection)
 
 object MsSqlTestServices:
   val connectionUrl =
