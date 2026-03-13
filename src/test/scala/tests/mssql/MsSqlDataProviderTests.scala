@@ -95,10 +95,10 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         connection <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
-              override val connectionUrl: String = connectionUrl
-              override val schemaName: String = "dbo"
-              override val tableName: String = tableName
-              override val fetchSize: Option[Int] = None
+              override val connectionUrl: String                          = connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = tableName
+              override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
             },
             emptyFieldsFilteringService

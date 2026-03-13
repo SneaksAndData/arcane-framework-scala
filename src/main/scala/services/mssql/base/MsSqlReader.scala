@@ -34,19 +34,18 @@ type ColumnSummary = (String, Boolean)
   */
 type MsSqlQuery = String
 
-
 /** Represents a connection to a Microsoft SQL Server database.
   *
   * @param connectionSettings
   *   The connection options for the database.
   */
 class MsSqlReader(
-                   val connectionSettings: MsSqlServerDatabaseSourceSettings,
-                   fieldsFilteringService: MsSqlServerFieldsFilteringService
+    val connectionSettings: MsSqlServerDatabaseSourceSettings,
+    fieldsFilteringService: MsSqlServerFieldsFilteringService
 ) extends AutoCloseable
     with SchemaProvider[ArcaneSchema]:
 
-  lazy val catalog: String = connection.getCatalog
+  lazy val catalog: String    = connection.getCatalog
   private val driver          = new SQLServerDriver()
   private lazy val connection = driver.connect(connectionSettings.getConnectionString, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -59,7 +58,11 @@ class MsSqlReader(
     */
   def getColumnSummaries: Task[List[ColumnSummary]] =
     for
-      query <- QueryProvider.getColumnSummariesQuery(connectionSettings.schemaName, connectionSettings.tableName, catalog)
+      query <- QueryProvider.getColumnSummariesQuery(
+        connectionSettings.schemaName,
+        connectionSettings.tableName,
+        catalog
+      )
       result <- executeColumnSummariesQuery(query)
     yield result
 
@@ -247,7 +250,7 @@ class MsSqlReader(
 
 object MsSqlReader:
 
-  type Environment = PluginStreamContext & MsSqlServerFieldsFilteringService
+  type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
 
   /** Creates a new Microsoft SQL Server connection.
@@ -260,8 +263,8 @@ object MsSqlReader:
     *   A new Microsoft SQL Server connection.
     */
   def apply(
-             connectionSettings: MsSqlServerDatabaseSourceSettings,
-             fieldsFilteringService: MsSqlServerFieldsFilteringService
+      connectionSettings: MsSqlServerDatabaseSourceSettings,
+      fieldsFilteringService: MsSqlServerFieldsFilteringService
   ): MsSqlReader =
     new MsSqlReader(connectionSettings, fieldsFilteringService)
 
@@ -271,7 +274,7 @@ object MsSqlReader:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          context      <- ZIO.service[PluginStreamContext]
+          context                <- ZIO.service[PluginStreamContext]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
         yield MsSqlReader(extractor(context), fieldsFilteringService)
       }
@@ -299,8 +302,7 @@ object MsSqlReader:
   /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
     * by the query if the result set is being closed without cancelling the statement first. see:
     * https://github.com/microsoft/mssql-jdbc/issues/877 for details. ALL RESULT SETS CREATED FROM MS SQL CONNECTION
-    * MUST BE CLOSED THIS WAY
-    *   The statement to close.
+    * MUST BE CLOSED THIS WAY The statement to close.
     * @return
     *   UIO[Unit] that completes when the result set is closed.
     */

@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.schemas.MergeKeyField
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlReader}
 
-import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
@@ -183,12 +183,12 @@ object QueryProvider:
     (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
 
   private def getChangesQuery(
-                               connectionSettings: MsSqlServerDatabaseSourceSettings,
-                               databaseName: String,
-                               mergeExpression: String,
-                               columnStatement: String,
-                               matchStatement: String,
-                               changeTrackingId: Long
+      connectionSettings: MsSqlServerDatabaseSourceSettings,
+      databaseName: String,
+      mergeExpression: String,
+      columnStatement: String,
+      matchStatement: String,
+      changeTrackingId: Long
   ): Task[MsSqlQuery] =
     ZIO.scoped {
       for
@@ -209,10 +209,10 @@ object QueryProvider:
     }
 
   private def getAllQuery(
-                           connectionSettings: MsSqlServerDatabaseSourceSettings,
-                           databaseName: String,
-                           mergeExpression: String,
-                           columnExpression: String
+      connectionSettings: MsSqlServerDatabaseSourceSettings,
+      databaseName: String,
+      mergeExpression: String,
+      columnExpression: String
   ): Task[MsSqlQuery] =
     ZIO.scoped {
       for
