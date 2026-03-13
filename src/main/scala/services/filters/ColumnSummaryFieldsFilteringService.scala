@@ -1,16 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.filters
 
-import models.settings.{
-  FieldSelectionRule,
-  FieldSelectionRuleSettings,
-  IncludeFields,
-  ExcludeFields,
-  AllFields,
-  IncludeFieldsImpl,
-  ExcludeFieldsImpl,
-  AllFieldsImpl
-}
+import models.app.PluginStreamContext
+import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import services.mssql.SqlDataCell.normalizeName
 import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService}
 
@@ -76,7 +68,7 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
 object ColumnSummaryFieldsFilteringService:
   /** The environment for the ColumnSummaryFieldsFilteringService.
     */
-  type Environment = FieldSelectionRuleSettings
+  type Environment = PluginStreamContext
 
   /** Creates a new ColumnSummaryFieldsFilteringService.
     *
@@ -92,6 +84,6 @@ object ColumnSummaryFieldsFilteringService:
     */
   val layer: ZLayer[Environment, Nothing, ColumnSummaryFieldsFilteringService] =
     ZLayer {
-      for fieldSelectionRule <- ZIO.service[FieldSelectionRuleSettings]
-      yield ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+      for context <- ZIO.service[PluginStreamContext]
+      yield ColumnSummaryFieldsFilteringService(context.source.fieldSelectionRule)
     }
