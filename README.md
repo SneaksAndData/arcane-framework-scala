@@ -1,5 +1,5 @@
-# arcane-framework-scala
-Arcane — A simple ZIO-based data streaming framework implemented in Scala
+# Arcane Framework (Scala - ZIO)
+Arcane — A simple ZIO-based data streaming framework that seamlessly runs locally and on Kubernetes with the support of [Arcane Operator](https://github.com/sneaksanddata/arcane-operator)
 
 ## Creating plugins
 Plugins utilize framework to create specific source-to-Iceberg streaming applications.
