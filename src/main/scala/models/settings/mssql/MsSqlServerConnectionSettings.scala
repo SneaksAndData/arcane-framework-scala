@@ -1,19 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.mssql
 
+import models.settings.database.DatabaseSourceSettings
+import models.settings.database.JdbcConnectionExtensions.*
+
 import upickle.ReadWriter
 
 /** Microsoft SQL Server database connection settings
   */
 trait MsSqlServerDatabaseSourceSettings extends DatabaseSourceSettings:
-  final def getConnectionString: String = Seq(
-    connectionUrl,
-    extraConnectionParameters
-      .map { case (key, value) =>
-        s"$key=$value"
-      }
-      .mkString("&")
-  ).mkString("&")
+  final def getConnectionString: String = connectionUrl.withParameters(extraConnectionParameters)
 
   /** Fetch size for ResultSets.
     */

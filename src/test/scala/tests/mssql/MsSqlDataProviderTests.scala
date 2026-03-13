@@ -11,9 +11,8 @@ import services.mssql.*
 import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices
-import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
+import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -95,7 +94,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         connection <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
-              override val connectionUrl: String                          = connectionUrl
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
               override val tableName: String                              = tableName
               override val fetchSize: Option[Int]                         = None
