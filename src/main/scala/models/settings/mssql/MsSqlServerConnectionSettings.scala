@@ -5,6 +5,7 @@ import models.settings.database.DatabaseSourceSettings
 import models.settings.database.JdbcConnectionExtensions.*
 
 import upickle.ReadWriter
+import upickle.implicits.key
 
 /** Microsoft SQL Server database connection settings
   */
@@ -17,8 +18,10 @@ trait MsSqlServerDatabaseSourceSettings extends DatabaseSourceSettings:
 
 case class DefaultMsSqlServerDatabaseSourceSettings(
     override val extraConnectionParameters: Map[String, String],
-    override val connectionUrl: String,
+    @key("connectionUrl") connectionString: Option[String] = None,
     override val schemaName: String,
     override val tableName: String,
     override val fetchSize: Option[Int]
-) extends MsSqlServerDatabaseSourceSettings derives ReadWriter
+) extends MsSqlServerDatabaseSourceSettings derives ReadWriter:
+  override val connectionUrl: String =
+    connectionString.getOrElse(sys.env("ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI"))
