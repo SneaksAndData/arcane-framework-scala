@@ -4,15 +4,16 @@ package tests.mssql
 import models.app.BaseStreamContext
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
 import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
+import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
-import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.*
-import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerConnectionSettings
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -93,7 +94,13 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         )
         connection <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", tableName, None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = tableName
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )

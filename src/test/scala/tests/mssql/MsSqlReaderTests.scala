@@ -3,20 +3,13 @@ package tests.mssql
 
 import models.schemas.ArcaneType.*
 import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
-import models.settings.{
-  ExcludeFields,
-  FieldSelectionRule,
-  FieldSelectionRuleSettings,
-  IncludeFields,
-  IncludeFieldsImpl,
-  ExcludeFieldsImpl
-}
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
+import models.settings.*
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.*
-import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerConnectionSettings
 
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
@@ -97,7 +90,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "columns_query_test", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "columns_query_test"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -115,7 +114,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "schema_query_test", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "schema_query_test"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -138,7 +143,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_query", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "backfill_query"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -173,7 +184,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "field_selection_rule", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "field_selection_rule"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -205,7 +222,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "field_selection_rule_no_pk", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "field_selection_rule_no_pk"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -229,7 +252,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "field_selection_rule_pk", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "field_selection_rule_pk"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -245,7 +274,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "extracts_schema_columns", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "extracts_schema_columns"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -279,7 +314,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_rows", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "backfill_rows"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -296,7 +337,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_columns", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "backfill_columns"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -319,7 +366,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_columns_filtered", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "backfill_columns_filtered"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -339,7 +392,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_rows", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "get_changes_rows"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -379,7 +438,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_rows_filtered", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "get_changes_rows_filtered"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -418,7 +483,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_columns", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "get_changes_columns"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )
@@ -442,7 +513,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_deletes", None),
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String = connectionUrl
+              override val schemaName: String = "dbo"
+              override val tableName: String = "get_changes_deletes"
+              override val fetchSize: Option[Int] = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+            },
             emptyFieldsFilteringService
           )
         )

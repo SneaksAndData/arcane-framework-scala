@@ -1,15 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package tests.mssql.util
 
+import models.settings.mssql.MsSqlServerDatabaseSourceSettings
+
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerConnectionSettings
 import zio.{Task, ZIO}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 
-case class TestConnectionInfo(connectionOptions: MsSqlServerConnectionSettings, connection: Connection)
+case class TestConnectionInfo(connectionOptions: MsSqlServerDatabaseSourceSettings, connection: Connection)
 
 object MsSqlTestServices:
   val connectionUrl =
