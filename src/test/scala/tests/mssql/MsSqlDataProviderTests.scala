@@ -7,11 +7,12 @@ import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
-import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.{connectionUrl, createTable, getConnection}
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.*
+import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerConnectionSettings
 
 import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
@@ -92,7 +93,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
         )
         connection <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", tableName, None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", tableName, None),
             emptyFieldsFilteringService
           )
         )

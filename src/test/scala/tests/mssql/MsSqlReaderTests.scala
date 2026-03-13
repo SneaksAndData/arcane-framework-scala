@@ -13,9 +13,10 @@ import models.settings.{
 }
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
-import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices.*
+import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerConnectionSettings
 
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
@@ -96,13 +97,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "columns_query_test", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "columns_query_test", None),
             emptyFieldsFilteringService
           )
         )
         query <- QueryProvider.getColumnSummariesQuery(
-          connector.connectionOptions.schemaName,
-          connector.connectionOptions.tableName,
+          connector.connectionSettings.schemaName,
+          connector.connectionSettings.tableName,
           connector.catalog
         )
       yield assertTrue(query.contains("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey"))
@@ -114,7 +115,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "schema_query_test", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "schema_query_test", None),
             emptyFieldsFilteringService
           )
         )
@@ -137,7 +138,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "backfill_query", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_query", None),
             emptyFieldsFilteringService
           )
         )
@@ -172,7 +173,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "field_selection_rule", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "field_selection_rule", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -204,7 +205,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_no_pk", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "field_selection_rule_no_pk", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -228,7 +229,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "field_selection_rule_pk", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "field_selection_rule_pk", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -244,7 +245,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "extracts_schema_columns", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "extracts_schema_columns", None),
             emptyFieldsFilteringService
           )
         )
@@ -278,7 +279,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "backfill_rows", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_rows", None),
             emptyFieldsFilteringService
           )
         )
@@ -295,7 +296,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "backfill_columns", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_columns", None),
             emptyFieldsFilteringService
           )
         )
@@ -318,7 +319,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "backfill_columns_filtered", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "backfill_columns_filtered", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -338,7 +339,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "get_changes_rows", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_rows", None),
             emptyFieldsFilteringService
           )
         )
@@ -378,7 +379,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "get_changes_rows_filtered", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_rows_filtered", None),
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
@@ -417,7 +418,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "get_changes_columns", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_columns", None),
             emptyFieldsFilteringService
           )
         )
@@ -441,7 +442,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         connector <- ZIO.succeed(
           MsSqlReader(
-            ConnectionOptions(connectionUrl, "dbo", "get_changes_deletes", None),
+            MsSqlServerConnectionSettings(connectionUrl, "dbo", "get_changes_deletes", None),
             emptyFieldsFilteringService
           )
         )

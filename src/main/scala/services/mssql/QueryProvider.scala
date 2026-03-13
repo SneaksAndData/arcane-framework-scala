@@ -2,8 +2,9 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.schemas.MergeKeyField
-import services.mssql.base.{ColumnSummary, ConnectionOptions, MsSqlQuery, MsSqlReader}
+import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlReader}
 
+import com.sneaksanddata.arcane.framework.models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
@@ -29,7 +30,7 @@ object QueryProvider:
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
-          msSqlConnection.connectionOptions,
+          msSqlConnection.connectionSettings,
           msSqlConnection.catalog,
           mergeExpression,
           columnExpression,
@@ -55,7 +56,7 @@ object QueryProvider:
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
-          msSqlConnection.connectionOptions,
+          msSqlConnection.connectionSettings,
           msSqlConnection.catalog,
           mergeExpression,
           columnExpression,
@@ -78,7 +79,7 @@ object QueryProvider:
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
-          msSqlConnection.connectionOptions,
+          msSqlConnection.connectionSettings,
           msSqlConnection.catalog,
           mergeExpression,
           columnExpression
@@ -182,12 +183,12 @@ object QueryProvider:
     (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
 
   private def getChangesQuery(
-      connectionOptions: ConnectionOptions,
-      databaseName: String,
-      mergeExpression: String,
-      columnStatement: String,
-      matchStatement: String,
-      changeTrackingId: Long
+                               connectionSettings: MsSqlServerDatabaseSourceSettings,
+                               databaseName: String,
+                               mergeExpression: String,
+                               columnStatement: String,
+                               matchStatement: String,
+                               changeTrackingId: Long
   ): Task[MsSqlQuery] =
     ZIO.scoped {
       for
@@ -197,8 +198,8 @@ object QueryProvider:
         baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
-          .replace("{schema}", connectionOptions.schemaName)
-          .replace("{tableName}", connectionOptions.tableName)
+          .replace("{schema}", connectionSettings.schemaName)
+          .replace("{tableName}", connectionSettings.tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnStatement)
           .replace("{ChangeTrackingMatchStatement}", matchStatement)
           .replace("{MERGE_EXPRESSION}", mergeExpression)
@@ -208,10 +209,10 @@ object QueryProvider:
     }
 
   private def getAllQuery(
-      connectionOptions: ConnectionOptions,
-      databaseName: String,
-      mergeExpression: String,
-      columnExpression: String
+                           connectionSettings: MsSqlServerDatabaseSourceSettings,
+                           databaseName: String,
+                           mergeExpression: String,
+                           columnExpression: String
   ): Task[MsSqlQuery] =
     ZIO.scoped {
       for
@@ -221,8 +222,8 @@ object QueryProvider:
         baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
-          .replace("{schema}", connectionOptions.schemaName)
-          .replace("{tableName}", connectionOptions.tableName)
+          .replace("{schema}", connectionSettings.schemaName)
+          .replace("{tableName}", connectionSettings.tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnExpression)
           .replace("{MERGE_EXPRESSION}", mergeExpression)
           .replace("{MERGE_KEY}", MergeKeyField.name)
