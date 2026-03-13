@@ -84,19 +84,19 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlDataProviderTests") {
     test("returns correct number of rows while streaming") {
       for
-        tableName <- ZIO.succeed("streaming_test")
+        testTableName <- ZIO.succeed("streaming_test")
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
-              .attemptBlocking(createTable(tableName, connection, fieldString, pkString))
-              .flatMap(_ => insertData(connection, tableName))
+              .attemptBlocking(createTable(testTableName, connection, fieldString, pkString))
+              .flatMap(_ => insertData(connection, testTableName))
         )
         connection <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
-              override val tableName: String                              = tableName
+              override val tableName: String                              = testTableName
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
             },
@@ -109,15 +109,15 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           MsSqlDataProvider(
             connection,
             icebergUtil.propertyManager,
-            new TestDynamicSinkSettings(s"demo.test.$tableName"),
+            new TestDynamicSinkSettings(s"demo.test.$testTableName"),
             defaultStreamMode,
             TestThroughputShaperBuilder.default(
               icebergUtil.propertyManager,
-              new TestDynamicSinkSettings(s"demo.test.$tableName")
+              new TestDynamicSinkSettings(s"demo.test.$testTableName")
             )
           )
         )
-        _ <- icebergUtil.prepareWatermark(tableName, MsSqlWatermark.epoch)
+        _ <- icebergUtil.prepareWatermark(testTableName, MsSqlWatermark.epoch)
         streamingDataProvider <- ZIO.succeed(
           MsSqlStreamingDataProvider(
             provider,
