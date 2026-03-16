@@ -127,22 +127,16 @@ object ArcaneSchema:
   extension (schema: ArcaneSchema) def toColumnsExpression: String = s"(${schema.map(f => f.name).mkString(", ")})"
 
   /** Gets the fields that are missing in the target schema.
-    *
-    * @param batches
-    *   The schema to compare.
-    * @param targetSchema
-    *   The target schema.
     * @return
     *   The missing fields.
     */
   extension (targetSchema: ArcaneSchema)
-    def getMissingFields(batches: ArcaneSchema): Seq[ArcaneSchemaField] =
-      batches.filter { batchField =>
-        !targetSchema.exists(targetField =>
-          targetField.name.toLowerCase() == batchField.name.toLowerCase()
-            && targetField.fieldType == batchField.fieldType
-        )
-      }
+    def getMissingFields(sourceSchema: ArcaneSchema): Seq[ArcaneSchemaField] =
+      sourceSchema.filter { sourceField => !targetSchema.contains(sourceField) }
+
+  extension (targetSchema: ArcaneSchema)
+    def getMissingFields(sourceFields: Seq[ArcaneSchemaField]): Seq[ArcaneSchemaField] =
+      sourceFields.filter { sourceField => !targetSchema.contains(sourceField) }
 
 given NamedCell[ArcaneSchemaField] with
   extension (field: ArcaneSchemaField) def name: String = field.name
