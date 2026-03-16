@@ -2,8 +2,9 @@ package com.sneaksanddata.arcane.framework
 package tests.models
 
 import models.cdm.{SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
-import models.schemas.ArcaneSchema
+import models.schemas.{ArcaneSchema, IndexedMergeKeyField}
 
+import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
@@ -36,5 +37,6 @@ class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
     val result: Seq[ArcaneSchema] = read[SimpleCdmModel](serialized).entities.map(implicitly)
 
     noException should be thrownBy result.map(schema => schema.mergeKey).toList
+    forAll(result.map(schema => schema.mergeKey.asInstanceOf[IndexedMergeKeyField].fieldId == schema.length))
   }
 }

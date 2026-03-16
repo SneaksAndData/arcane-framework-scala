@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.cdm
 
 import models.*
-import models.schemas.*
+import models.schemas.{given_CanAdd_ArcaneSchema, *}
 
 import upickle.default.*
 
@@ -49,6 +49,8 @@ case class SimpleCdmEntity(
 case class SimpleCdmModel(name: String, description: String, version: String, entities: Seq[SimpleCdmEntity])
     derives ReadWriter
 
+type IndexedSimpleCdmAttribute = (SimpleCdmAttribute, Int)
+
 given Conversion[SimpleCdmAttribute, ArcaneSchemaField] with
   override def apply(entity: SimpleCdmAttribute): ArcaneSchemaField = entity.dataType match
     case "guid"           => Field(name = entity.name, fieldType = ArcaneType.StringType)
@@ -60,8 +62,21 @@ given Conversion[SimpleCdmAttribute, ArcaneSchemaField] with
     case "boolean"        => Field(name = entity.name, fieldType = ArcaneType.BooleanType)
     case _                => Field(name = entity.name, fieldType = ArcaneType.StringType)
 
+given Conversion[IndexedSimpleCdmAttribute, IndexedField] with
+  override def apply(indexedAttribute: (SimpleCdmAttribute, Int)): IndexedField =
+    val field: ArcaneSchemaField = indexedAttribute._1
+    IndexedField(name = field.name, fieldType = field.fieldType, fieldId = indexedAttribute._2)
+
 given Conversion[SimpleCdmEntity, ArcaneSchema] with
-  override def apply(entity: SimpleCdmEntity): ArcaneSchema = entity.attributes.map(implicitly) :+ MergeKeyField
+  override def apply(entity: SimpleCdmEntity): ArcaneSchema =
+    val baseSchema = entity.attributes
+      .foldLeft((ArcaneSchema.empty(), 0)) { case ((agg, fieldIndex), attribute) =>
+        val indexedAttr: IndexedField = (attribute, fieldIndex)
+        (agg.addIndexedField(indexedAttr.name, indexedAttr.fieldType, indexedAttr.fieldId), fieldIndex + 1)
+      }
+      ._1
+
+    baseSchema.addIndexedField(MergeKeyField.name, MergeKeyField.fieldType, baseSchema.length)
 
 object SimpleCdmModel:
   // number of fields in the schema of each entity which do not originate from CDM
