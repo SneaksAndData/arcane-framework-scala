@@ -63,6 +63,8 @@ class DefaultStreamBootstrapper(
     _ <- ZIO.when(stagingSettings.table.isUnifiedSchema) {
       for
         targetSchema <- sinkPropertyManager.getTableSchema(sinkSettings.targetTableFullName.parts.name)
+        // note that if a table was not created by Arcane, this will lead to merge failure later on, as we assume target schema has MergeKeyField
+        // in case when a target was not created by Arcane, it should be dropped and re-created by the bootstrapper
         _ <- sinkEntityManager.migrateSchema(targetSchema, schema, sinkSettings.targetTableFullName.parts.name)
       yield ()
     }

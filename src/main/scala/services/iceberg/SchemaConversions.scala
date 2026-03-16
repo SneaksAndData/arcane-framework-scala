@@ -178,17 +178,24 @@ def inferMergeKeyIndex(lastField: NestedField): Int = lastField.`type`() match {
   case _                   => lastField.fieldId() + 1
 }
 
+private def mapFields(icebergSchema: Schema): Seq[IndexedField] = icebergSchema
+  .columns()
+  .asScala
+  .map { nf =>
+    IndexedField(name = nf.name(), fieldType = nf.`type`(), fieldId = nf.fieldId())
+  }
+  .toSeq
+
+/** This conversion allows to perform a pure cast to ArcaneSchema, however this will not guarantee that such schema will
+  * be mergeable. In the future versions we will start distinguishing between mergeable and pure schemas via types.
+  */
+given Conversion[Schema, Seq[IndexedField]] with
+  override def apply(icebergSchema: Schema): Seq[IndexedField] = mapFields(icebergSchema)
+
 given Conversion[Schema, ArcaneSchema] with
-  override def apply(icebergSchema: Schema): ArcaneSchema = {
+  override def apply(icebergSchema: Schema): ArcaneSchema =
     ArcaneSchema(
-      icebergSchema
-        .columns()
-        .asScala
-        .map { nf =>
-          IndexedField(name = nf.name(), fieldType = nf.`type`(), fieldId = nf.fieldId())
-        }
-        .toSeq ++ Seq(
+      mapFields(icebergSchema) ++ Seq(
         IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
       )
     )
-  }

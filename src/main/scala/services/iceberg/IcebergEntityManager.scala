@@ -10,7 +10,7 @@ import services.iceberg.SchemaConversions.toIcebergType
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
 
 import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
-import org.apache.iceberg.{PartitionSpec, SortOrder, Table}
+import org.apache.iceberg.{PartitionSpec, SortOrder}
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*
