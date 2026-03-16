@@ -39,6 +39,12 @@ trait ArcaneSchemaField:
   val name: String
   val fieldType: ArcaneType
 
+  /** Field comparison that ignored field indexes. Needed to prevent reordering from triggering schema changes.
+    * @return
+    */
+  final def identical(other: ArcaneSchemaField): Boolean =
+    other.name.toLowerCase() == name.toLowerCase() && other.fieldType == fieldType
+
 /** A field in the schema definition that carries index information from the source that can be re-applied when
   * converting to Iceberg
   */
@@ -132,11 +138,11 @@ object ArcaneSchema:
     */
   extension (targetSchema: ArcaneSchema)
     def getMissingFields(sourceSchema: ArcaneSchema): Seq[ArcaneSchemaField] =
-      sourceSchema.filter { sourceField => !targetSchema.contains(sourceField) }
+      sourceSchema.filter { sourceField => !targetSchema.exists(_.identical(sourceField)) }
 
   extension (targetSchema: ArcaneSchema)
     def getMissingFields(sourceFields: Seq[ArcaneSchemaField]): Seq[ArcaneSchemaField] =
-      sourceFields.filter { sourceField => !targetSchema.contains(sourceField) }
+      sourceFields.filter { sourceField => !targetSchema.exists(_.identical(sourceField)) }
 
 given NamedCell[ArcaneSchemaField] with
   extension (field: ArcaneSchemaField) def name: String = field.name
