@@ -47,6 +47,13 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
           ArcaneSchema(
             Seq(IndexedMergeKeyField(1), IndexedField("colA", StringType, 2), IndexedField("colB", IntType, 3))
           ),
+          Seq()
+        ),
+        (
+          ArcaneSchema(
+            Seq(IndexedMergeKeyField(1), IndexedField("colA", StringType, 2), IndexedField("colB", IntType, 3))
+          ),
+          ArcaneSchema(Seq(IndexedMergeKeyField(0), IndexedField("colA", StringType, 1))),
           Seq(IndexedField("colB", IntType, 3))
         )
       )
