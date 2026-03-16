@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.models
 
 import models.schemas.ArcaneType.{BigDecimalType, IntType, ListType, StringType}
-import models.schemas.{ArcaneSchema, IndexedField, MergeKeyField}
+import models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField, MergeKeyField}
 
 import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -41,6 +41,13 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
           ArcaneSchema(Seq(MergeKeyField)),
           ArcaneSchema(Seq(IndexedField("colA", StringType, 1), IndexedField("colB", IntType, 2))),
           Seq(MergeKeyField)
+        ),
+        (
+          ArcaneSchema(Seq(IndexedMergeKeyField(0), IndexedField("colA", StringType, 1))),
+          ArcaneSchema(
+            Seq(IndexedMergeKeyField(1), IndexedField("colA", StringType, 2), IndexedField("colB", IntType, 3))
+          ),
+          Seq(IndexedField("colB", IntType, 3))
         )
       )
     ) { case (schemaA, schemaB, expected) =>
