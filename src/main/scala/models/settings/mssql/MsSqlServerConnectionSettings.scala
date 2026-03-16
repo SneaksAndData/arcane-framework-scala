@@ -10,7 +10,7 @@ import upickle.implicits.key
 /** Microsoft SQL Server database connection settings
   */
 trait MsSqlServerDatabaseSourceSettings extends DatabaseSourceSettings:
-  final def getConnectionString: String = connectionUrl.withParameters(extraConnectionParameters)
+  final def getConnectionString: String = connectionUrl.withConnectionParameters(extraConnectionParameters)
 
   /** Fetch size for ResultSets.
     */
