@@ -7,7 +7,7 @@ import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.base.SchemaProvider
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
-import services.mssql.SqlSchema.toSchema
+import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
@@ -196,10 +196,9 @@ class MsSqlReader(
     */
   override lazy val getSchema: Task[this.SchemaType] =
     for
-      query        <- this.getSchemaQuery
-      sqlSchema    <- getSqlSchema(query)
-      arcaneSchema <- ZIO.fromTry(toSchema(sqlSchema, empty))
-    yield arcaneSchema
+      query     <- this.getSchemaQuery
+      sqlSchema <- getSqlSchema(query)
+    yield sqlSchema
 
   private def getSqlSchema(query: String): Task[SqlSchema] =
     ZIO.scoped {

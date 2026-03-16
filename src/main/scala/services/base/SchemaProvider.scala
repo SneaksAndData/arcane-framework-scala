@@ -17,6 +17,8 @@ trait CanAdd[Schema]:
     */
   extension (a: Schema) def addField(fieldName: String, fieldType: ArcaneType): Schema
 
+  extension (a: Schema) def addIndexedField(fieldName: String, fieldType: ArcaneType, fieldId: Int): Schema
+
 /** Represents a provider of a schema for a data produced by Arcane.
   *
   * @tparam Schema

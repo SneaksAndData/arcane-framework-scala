@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.mssql
 
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchemaField, DataCell, Field, MergeKeyField}
+import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField}
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.filters.ColumnSummaryFieldsFilteringService
@@ -287,17 +287,17 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
         expected <- ZIO.succeed(
           List(
-            Field("x", IntType),
-            Field("SYS_CHANGE_VERSION", LongType),
-            Field("SYS_CHANGE_OPERATION", StringType),
-            Field("y", IntType),
-            Field("z", BigDecimalType(30, 6)),
-            Field("a", ByteArrayType),
-            Field("b", TimestampType),
-            Field("cd", IntType),
-            Field("e", FloatType),
-            Field("ChangeTrackingVersion", LongType),
-            MergeKeyField
+            IndexedField("x", IntType, 0),
+            IndexedField("SYS_CHANGE_VERSION", LongType, 1),
+            IndexedField("SYS_CHANGE_OPERATION", StringType, 2),
+            IndexedField("y", IntType, 3),
+            IndexedField("z", BigDecimalType(30, 6), 4),
+            IndexedField("a", ByteArrayType, 5),
+            IndexedField("b", TimestampType, 6),
+            IndexedField("cd", IntType, 7),
+            IndexedField("e", FloatType, 8),
+            IndexedField("ChangeTrackingVersion", LongType, 9),
+            IndexedMergeKeyField(10)
           )
         )
         schema <- connector.getSchema
