@@ -64,7 +64,7 @@ trait JdbcMergeServiceClientSettings:
     */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
 
-  final def getConnectionString: String = connectionUrl.withParameters(extraConnectionParameters)
+  final def getConnectionString: String = connectionUrl.withUrlParameters(extraConnectionParameters)
 
 case class DefaultJdbcMergeServiceClientSettings(
     override val queryRetryMode: JdbcQueryRetryMode,
