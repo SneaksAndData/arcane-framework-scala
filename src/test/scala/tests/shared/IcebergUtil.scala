@@ -17,24 +17,27 @@ import services.iceberg.{
 }
 import services.streaming.base.JsonWatermark
 
-import zio.{Task, ZIO}
+import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class IcebergUtil(catalogSettings: IcebergCatalogSettings):
-  def getSinkPropertyManager: Task[IcebergSinkTablePropertyManager] = ZIO.scoped {
+  def getSinkTablePropertyManager: ZIO[Scope, Throwable, IcebergSinkTablePropertyManager] =
     for
       factory <- IcebergCatalogFactory.live(catalogSettings)
       result = IcebergSinkTablePropertyManager(catalogSettings, factory)
     yield result
-  }
 
-  def getSinkEntityManager: Task[IcebergSinkEntityManager] = ZIO.scoped {
+  def getSinkTablePropertyManagerLayer: ZLayer[Any, Throwable, IcebergSinkTablePropertyManager] =
+    ZLayer.scoped(getSinkTablePropertyManager)
+
+  def getSinkEntityManager: ZIO[Scope, Throwable, IcebergSinkEntityManager] =
     for
       factory <- IcebergCatalogFactory.live(catalogSettings)
       result = IcebergSinkEntityManager(catalogSettings, factory)
     yield result
-  }
+
+  def getSinkEntityManagerLayer: ZLayer[Any, Throwable, IcebergSinkEntityManager] = ZLayer.scoped(getSinkEntityManager)
 
   def getWriter: Task[IcebergS3CatalogWriter] = ZIO.scoped {
     for
@@ -45,16 +48,21 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
     yield result
   }
 
-  def prepareWatermark(tableName: String, value: JsonWatermark): Task[Unit] =
-    for
-      targetName      <- ZIO.succeed(tableName)
-      entityManager   <- getSinkEntityManager
-      propertyManager <- getSinkPropertyManager
-      // prepare target table metadata
-      watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-      _ <- entityManager.createTable(CreateTableRequest(targetName, ArcaneSchema(Seq(Field("test", StringType))), true))
-      _ <- propertyManager.comment(targetName, value.toJson)
-    yield ()
+  def prepareWatermark(tableName: String, value: JsonWatermark): Task[Unit] = ZIO
+    .scoped {
+      for
+        targetName      <- ZIO.succeed(tableName)
+        entityManager   <- ZIO.service[IcebergSinkEntityManager]
+        propertyManager <- ZIO.service[IcebergSinkTablePropertyManager]
+        // prepare target table metadata
+        watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
+        _ <- entityManager.createTable(
+          CreateTableRequest(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
+        )
+        _ <- propertyManager.comment(targetName, value.toJson)
+      yield ()
+    }
+    .provide(getSinkTablePropertyManagerLayer, getSinkEntityManagerLayer)
 
 object IcebergUtil:
   def apply(catalogSettings: IcebergCatalogSettings): IcebergUtil = new IcebergUtil(catalogSettings)

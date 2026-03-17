@@ -62,7 +62,7 @@ object IcebergCatalogFactory:
         result.initialize(name, (properties ++ Map("header.X-Arcane-Runner-Identifier" -> name)).asJava)
       )
     yield result)(catalog =>
-      zlog("Closing expired RESTSessionCatalog %s", catalog.name()) *> ZIO
+      zlog("Closing RESTSessionCatalog %s due to cache expiry or application shutdown", catalog.name()) *> ZIO
         .attemptBlocking(catalog.close())
         .orDieWith(e => new Throwable("Unable to close RESTSessionCatalog instance correctly", e))
     )

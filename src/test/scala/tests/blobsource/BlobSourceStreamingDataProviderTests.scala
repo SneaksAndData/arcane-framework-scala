@@ -64,7 +64,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
-        propertyManager <- icebergUtil.getSinkPropertyManager
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
@@ -94,7 +94,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
-        propertyManager <- icebergUtil.getSinkPropertyManager
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
@@ -128,7 +128,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           "test",
           BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
         )
-        propertyManager <- icebergUtil.getSinkPropertyManager
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,

@@ -14,11 +14,6 @@ trait CatalogFactory:
     */
   def getSessionContext: SessionContext
 
-//  /** Create a new RESTSessionCatalog isntance
-//    * @return
-//    */
-//  protected def newCatalog: ZIO[Scope, Throwable, RESTSessionCatalog]
-
   /** Retrieve current active RESTSessionCatalog instance
     * @return
     */
