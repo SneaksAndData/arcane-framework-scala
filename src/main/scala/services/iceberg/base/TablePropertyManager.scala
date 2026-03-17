@@ -7,10 +7,6 @@ import zio.Task
 /** Object responsible for managing table properties in Iceberg Catalog
   */
 trait TablePropertyManager:
-  /** Catalog connection factory
-    */
-  val catalogFactory: CatalogFactory
-
   /** Adds or updates a comment on the table
     *
     * @param tableName

@@ -12,8 +12,8 @@ import zio.{Task, ZIO, ZLayer}
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
-trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings) extends TablePropertyManager:
-  override val catalogFactory = new IcebergCatalogFactory(catalogSettings)
+trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
+    extends TablePropertyManager:
 
   private def loadTable(tableName: String): Task[Table] = for
     tableId <- ZIO.succeed(
@@ -72,24 +72,28 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings) exten
   override def getTableSchema(tableName: String): Task[Schema] = for table <- loadTable(tableName)
   yield table.schema()
 
-class IcebergSinkTablePropertyManager(catalogSettings: IcebergCatalogSettings)
-    extends IcebergTablePropertyManager(catalogSettings)
+class IcebergSinkTablePropertyManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
+    extends IcebergTablePropertyManager(catalogSettings, catalogFactory)
     with SinkPropertyManager
 
-class IcebergStagingTablePropertyManager(catalogSettings: IcebergCatalogSettings)
-    extends IcebergTablePropertyManager(catalogSettings)
+class IcebergStagingTablePropertyManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
+    extends IcebergTablePropertyManager(catalogSettings, catalogFactory)
     with StagingPropertyManager
 
 object IcebergTablePropertyManager:
 
-  val sinkLayer =
-    ZLayer {
-      for context <- ZIO.service[PluginStreamContext]
-      yield IcebergSinkTablePropertyManager(context.sink.icebergCatalog)
+  val sinkLayer: ZLayer[PluginStreamContext, Throwable, IcebergSinkTablePropertyManager] =
+    ZLayer.scoped {
+      for
+        context <- ZIO.service[PluginStreamContext]
+        factory <- IcebergCatalogFactory.live(context.sink.icebergCatalog)
+      yield IcebergSinkTablePropertyManager(context.sink.icebergCatalog, factory)
     }
 
-  val stagingLayer =
-    ZLayer {
-      for context <- ZIO.service[PluginStreamContext]
-      yield IcebergStagingTablePropertyManager(context.staging.icebergCatalog)
+  val stagingLayer: ZLayer[PluginStreamContext, Throwable, IcebergStagingTablePropertyManager] =
+    ZLayer.scoped {
+      for
+        context <- ZIO.service[PluginStreamContext]
+        factory <- IcebergCatalogFactory.live(context.staging.icebergCatalog)
+      yield IcebergStagingTablePropertyManager(context.staging.icebergCatalog, factory)
     }

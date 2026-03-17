@@ -83,15 +83,16 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           tableSinkSettings.targetTableFullName.parts.name,
           SynapseWatermark.epoch
         )
+        propertyManager <- icebergUtilBackfill.getSinkPropertyManager
         shaperBuilder <- ZIO.succeed(
-          TestThroughputShaperBuilder.default(icebergUtilBackfill.propertyManager, tableSinkSettings)
+          TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            icebergUtilBackfill.propertyManager,
+            propertyManager,
             TestSinkSettings,
             defaultStreamMode,
             shaperBuilder
@@ -121,16 +122,17 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         watermarkTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
         azPrefixes        <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
         icebergUtil       <- ZIO.succeed(getIcebergUtilStream(tableName))
+        propertyManager   <- icebergUtil.getSinkPropertyManager
         _                 <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
         shaperBuilder <- ZIO.succeed(
-          TestThroughputShaperBuilder.default(icebergUtil.propertyManager, tableSinkSettings)
+          TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            icebergUtil.propertyManager,
+            propertyManager,
             tableSinkSettings,
             defaultStreamMode,
             shaperBuilder
@@ -157,19 +159,20 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         tableName         <- ZIO.succeed("target_table_stream_ordered")
         tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"demo.test.$tableName"))
         // prepare target table metadata
-        watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
-        azPrefixes    <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
-        icebergUtil   <- ZIO.succeed(getIcebergUtilStream(tableName))
-        _             <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
+        watermarkTime   <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
+        azPrefixes      <- storageReader.streamPrefixes(sourceRoot + s"${watermarkTime.getYear}-").runCollect
+        icebergUtil     <- ZIO.succeed(getIcebergUtilStream(tableName))
+        propertyManager <- icebergUtil.getSinkPropertyManager
+        _               <- icebergUtil.prepareWatermark(tableName, azPrefixes.init.last.asWatermark)
         shaperBuilder <- ZIO.succeed(
-          TestThroughputShaperBuilder.default(icebergUtil.propertyManager, tableSinkSettings)
+          TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
-            icebergUtil.propertyManager,
+            propertyManager,
             tableSinkSettings,
             defaultStreamMode,
             shaperBuilder

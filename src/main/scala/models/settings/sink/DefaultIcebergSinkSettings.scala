@@ -1,18 +1,19 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import models.serialization.ZIODurationRW.*
 import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.IcebergCatalogCredential
 import services.iceberg.base.S3CatalogFileIO
 
 import upickle.ReadWriter
-import upickle.implicits.key
 
 case class DefaultIcebergSinkSettings(
     catalogProperties: Map[String, String],
     override val namespace: String,
     override val catalogUri: String,
-    override val warehouse: String
+    override val warehouse: String,
+    override val maxCatalogInstanceLifetime: zio.Duration
 ) extends IcebergCatalogSettings derives ReadWriter:
   /** Important to note that currently we do not provide separation between Sink and Staging catalog auth and FileIO
     * implementations. This should be fixed in the future.

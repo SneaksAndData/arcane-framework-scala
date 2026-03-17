@@ -19,3 +19,7 @@ trait IcebergCatalogSettings:
   /** The catalog additional properties.
     */
   val additionalProperties: Map[String, String]
+
+  /** Maximum lifetime of a RESTSessionCatalog instance
+    */
+  val maxCatalogInstanceLifetime: zio.Duration

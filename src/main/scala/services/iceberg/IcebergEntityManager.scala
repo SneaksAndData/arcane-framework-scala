@@ -10,14 +10,13 @@ import services.iceberg.SchemaConversions.toIcebergType
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
 
 import org.apache.iceberg.catalog.{Namespace, TableIdentifier}
-import org.apache.iceberg.{PartitionSpec, SortOrder}
+import org.apache.iceberg.{PartitionSpec, SortOrder, Table}
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*
 
-trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends CatalogEntityManager:
-  override val catalogFactory = new IcebergCatalogFactory(catalogSettings)
-
+trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
+    extends CatalogEntityManager:
   private def delete(tableId: TableIdentifier): Task[Boolean] = for
     _       <- zlog("Deleting table %s", tableId.name())
     catalog <- catalogFactory.getCatalog
@@ -34,6 +33,18 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
   override def delete(tableName: String): Task[Boolean] = for
     tableId <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, tableName))
     result  <- delete(tableId)
+  yield result
+
+  override def getTableRef(tableName: String): Task[Table] = for
+    tableId  <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, tableName))
+    catalog  <- catalogFactory.getCatalog
+    tableRef <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
+  yield tableRef
+
+  override def tableExists(tableName: String): Task[Boolean] = for
+    tableId <- ZIO.succeed(TableIdentifier.of(catalogSettings.namespace, tableName))
+    catalog <- catalogFactory.getCatalog
+    result  <- ZIO.attemptBlocking(catalog.tableExists(catalogFactory.getSessionContext, tableId))
   yield result
 
   /** Creates a new table in the Iceberg catalog, using the provided schema
@@ -92,21 +103,25 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings) extends Cata
     }
   yield ()
 
-class IcebergSinkEntityManager(catalogSettings: IcebergCatalogSettings)
-    extends IcebergEntityManager(catalogSettings)
+class IcebergSinkEntityManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
+    extends IcebergEntityManager(catalogSettings, catalogFactory)
     with SinkEntityManager
 
-class IcebergStagingEntityManager(catalogSettings: IcebergCatalogSettings)
-    extends IcebergEntityManager(catalogSettings)
+class IcebergStagingEntityManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
+    extends IcebergEntityManager(catalogSettings, catalogFactory)
     with StagingEntityManager
 
 object IcebergEntityManager:
-  val sinkLayer = ZLayer {
-    for context <- ZIO.service[PluginStreamContext]
-    yield IcebergSinkEntityManager(context.sink.icebergCatalog)
+  val sinkLayer: ZLayer[PluginStreamContext, Throwable, IcebergSinkEntityManager] = ZLayer.scoped {
+    for
+      context <- ZIO.service[PluginStreamContext]
+      factory <- IcebergCatalogFactory.live(context.sink.icebergCatalog)
+    yield IcebergSinkEntityManager(context.sink.icebergCatalog, factory)
   }
 
-  val stagingLayer = ZLayer {
-    for context <- ZIO.service[PluginStreamContext]
-    yield IcebergStagingEntityManager(context.staging.icebergCatalog)
+  val stagingLayer: ZLayer[PluginStreamContext, Throwable, IcebergStagingEntityManager] = ZLayer.scoped {
+    for
+      context <- ZIO.service[PluginStreamContext]
+      factory <- IcebergCatalogFactory.live(context.staging.icebergCatalog)
+    yield IcebergStagingEntityManager(context.staging.icebergCatalog, factory)
   }
