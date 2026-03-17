@@ -131,7 +131,7 @@ object IcebergS3CatalogWriter:
   def apply(entityManager: StagingEntityManager, stagingSettings: StagingSettings): IcebergS3CatalogWriter =
     new IcebergS3CatalogWriter(entityManager, stagingSettings)
 
-  def layer = ZLayer {
+  def layer: ZLayer[StagingEntityManager & PluginStreamContext, Nothing, IcebergS3CatalogWriter] = ZLayer.scoped {
     for
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       context              <- ZIO.service[PluginStreamContext]
