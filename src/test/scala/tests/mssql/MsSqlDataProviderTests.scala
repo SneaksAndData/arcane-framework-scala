@@ -103,16 +103,17 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         numberRowsToTake =
           5 // if set to 20, will run indefinitely since no elements will be emitted and cancelled will not be called
         provider <- ZIO.succeed(
           MsSqlDataProvider(
             connection,
-            icebergUtil.propertyManager,
+            propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$testTableName"),
             defaultStreamMode,
             TestThroughputShaperBuilder.default(
-              icebergUtil.propertyManager,
+              propertyManager,
               new TestDynamicSinkSettings(s"demo.test.$testTableName")
             )
           )

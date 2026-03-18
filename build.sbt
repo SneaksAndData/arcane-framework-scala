@@ -43,6 +43,7 @@ lazy val root = (project in file("."))
     // Framework dependencies
     libraryDependencies += "dev.zio" %% "zio" % "2.1.24",
     libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.24",
+      libraryDependencies += "dev.zio" %% "zio-cache" % "0.2.8",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.2.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.33.13",
     libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.3",

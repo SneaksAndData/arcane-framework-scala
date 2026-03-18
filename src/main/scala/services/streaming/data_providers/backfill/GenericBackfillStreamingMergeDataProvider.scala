@@ -68,7 +68,7 @@ object GenericBackfillStreamingMergeDataProvider:
   /** The ZLayer for the GenericBackfillStreamingMergeDataProvider.
     */
   val layer: ZLayer[Environment, Nothing, GenericBackfillStreamingMergeDataProvider] =
-    ZLayer {
+    ZLayer.scoped {
       for
         streamingGraphBuilder <- ZIO.service[BackfillSubStream]
         lifetimeService       <- ZIO.service[StreamLifetimeService]

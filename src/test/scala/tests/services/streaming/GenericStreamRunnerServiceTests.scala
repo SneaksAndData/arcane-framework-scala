@@ -2,10 +2,9 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.app.{BaseStreamContext, PluginStreamContext}
+import models.app.PluginStreamContext
 import models.batches.SqlServerChangeTrackingMergeBatch
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
-import models.settings.sources.StreamSourceSettings
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
@@ -29,13 +28,8 @@ import services.streaming.processors.transformers.FieldFilteringTransformer.Envi
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.*
 import services.bootstrap.DefaultStreamBootstrapper
 
-import models.settings.observability.ObservabilitySettings
-import models.settings.sink.SinkSettings
-import models.settings.staging.StagingSettings
-import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -108,46 +102,48 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     }
     replay(streamDataProvider, hookManager, jdbcTableManager)
 
-    val streamRunnerService = ZIO
-      .service[StreamRunnerService]
-      .provide(
-        // Real services
-        GenericStreamRunnerService.layer,
-        GenericStreamingGraphBuilder.layer,
-        DisposeBatchProcessor.layer,
-        FieldFilteringTransformer.layer,
-        MergeBatchProcessor.layer,
-        StagingProcessor.layer,
-        FieldsFilteringService.layer,
-        IcebergEntityManager.sinkLayer,
-        IcebergEntityManager.stagingLayer,
-        IcebergS3CatalogWriter.layer,
+    val streamRunnerService = ZLayer.make[StreamRunnerService](
+      // Real services
+      GenericStreamRunnerService.layer,
+      GenericStreamingGraphBuilder.layer,
+      DisposeBatchProcessor.layer,
+      FieldFilteringTransformer.layer,
+      MergeBatchProcessor.layer,
+      StagingProcessor.layer,
+      FieldsFilteringService.layer,
+      IcebergEntityManager.sinkLayer,
+      IcebergEntityManager.stagingLayer,
+      IcebergS3CatalogWriter.layer,
 
-        // Mocks
-        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
-        ZLayer.succeed(disposeServiceClient),
-        ZLayer.succeed(mergeServiceClient),
-        ZLayer.succeed(jdbcTableManager),
-        ZLayer.succeed(hookManager),
-        ZLayer.succeed(new SchemaProvider[ArcaneSchema] {
-          override type SchemaType = ArcaneSchema
-          override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
+      // Mocks
+      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
+      ZLayer.succeed(disposeServiceClient),
+      ZLayer.succeed(mergeServiceClient),
+      ZLayer.succeed(jdbcTableManager),
+      ZLayer.succeed(hookManager),
+      ZLayer.succeed(new SchemaProvider[ArcaneSchema] {
+        override type SchemaType = ArcaneSchema
+        override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
 
-          override def empty: SchemaType = ArcaneSchema.empty()
-        }),
-        ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(TestPluginStreamContext),
-        DeclaredMetrics.layer,
-        ArcaneDimensionsProvider.layer,
-        WatermarkProcessor.layer,
-        IcebergTablePropertyManager.sinkLayer,
-        IcebergTablePropertyManager.stagingLayer,
-        DefaultStreamBootstrapper.layer
-      )
+        override def empty: SchemaType = ArcaneSchema.empty()
+      }),
+      ZLayer.succeed(streamDataProvider),
+      ZLayer.succeed(TestPluginStreamContext),
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer,
+      WatermarkProcessor.layer,
+      IcebergTablePropertyManager.sinkLayer,
+      IcebergTablePropertyManager.stagingLayer,
+      DefaultStreamBootstrapper.layer
+    )
 
     // Act
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(streamRunnerService.flatMap(_.run))).map { _ =>
-      // Assert
-      noException should be thrownBy verify(streamDataProvider, hookManager)
-    }
+    Unsafe
+      .unsafe(implicit unsafe =>
+        runtime.unsafe.runToFuture(ZIO.service[StreamRunnerService].flatMap(_.run).provideLayer(streamRunnerService))
+      )
+      .map { _ =>
+        // Assert
+        noException should be thrownBy verify(streamDataProvider, hookManager)
+      }
   }

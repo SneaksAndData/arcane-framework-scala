@@ -28,7 +28,7 @@ given Conversion[ArcaneSchema, Schema] with
   def apply(schema: ArcaneSchema): Schema = SchemaConversions.toIcebergSchema(schema)
 
 // https://www.tabular.io/blog/java-api-part-3/
-class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, stagingSettings: StagingSettings)
+class IcebergS3CatalogWriter(entityManager: StagingEntityManager, stagingSettings: StagingSettings)
     extends CatalogWriter[RESTCatalog, Table, Schema]:
 
   private val maxRowsPerFile = stagingSettings.table.maxRowsPerFile.getOrElse(10000)
@@ -101,25 +101,13 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, stagingSetting
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[Table] =
     for
-      _       <- entityManager.createTable(CreateTableRequest(name, schema, false))
-      _       <- zlog("Created a staging table %s, waiting for commit", logAnnotations, name)
-      catalog <- entityManager.catalogFactory.getCatalog
+      _ <- entityManager.createTable(CreateTableRequest(name, schema, false))
+      _ <- zlog("Created a staging table %s, waiting for commit", logAnnotations, name)
       _ <- ZIO
         .sleep(zio.Duration.fromSeconds(1))
-        .repeatUntil(_ =>
-          catalog
-            .tableExists(
-              entityManager.catalogFactory.getSessionContext,
-              TableIdentifier.of(stagingSettings.icebergCatalog.namespace, name)
-            )
-        )
-      _ <- zlog("Staging table %s created, appending data", logAnnotations, name)
-      table <- ZIO.attemptBlocking(
-        catalog.loadTable(
-          entityManager.catalogFactory.getSessionContext,
-          TableIdentifier.of(stagingSettings.icebergCatalog.namespace, name)
-        )
-      )
+        .repeatUntilZIO(_ => entityManager.tableExists(name).orDie)
+      _            <- zlog("Staging table %s created, appending data", logAnnotations, name)
+      table        <- entityManager.getTableRef(name)
       updatedTable <- appendData(data, schema, false, table, logAnnotations)
       _            <- zlog("Staging table %s ready for merge", logAnnotations, name)
     yield updatedTable
@@ -130,9 +118,7 @@ class IcebergS3CatalogWriter(entityManager: CatalogEntityManager, stagingSetting
       schema: Schema,
       logAnnotations: Seq[(LogAnnotation[String], String)]
   ): Task[Table] = for
-    tableId      <- ZIO.succeed(TableIdentifier.of(stagingSettings.icebergCatalog.namespace, name))
-    catalog      <- entityManager.catalogFactory.getCatalog
-    table        <- ZIO.attemptBlocking(catalog.loadTable(entityManager.catalogFactory.getSessionContext, tableId))
+    table        <- entityManager.getTableRef(name)
     updatedTable <- appendData(data, schema, false, table, logAnnotations)
   yield updatedTable
 
@@ -142,10 +128,10 @@ object IcebergS3CatalogWriter:
     * @return
     *   The initialized IcebergS3CatalogWriter instance
     */
-  def apply(entityManager: CatalogEntityManager, stagingSettings: StagingSettings): IcebergS3CatalogWriter =
+  def apply(entityManager: StagingEntityManager, stagingSettings: StagingSettings): IcebergS3CatalogWriter =
     new IcebergS3CatalogWriter(entityManager, stagingSettings)
 
-  def layer = ZLayer {
+  def layer: ZLayer[StagingEntityManager & PluginStreamContext, Nothing, IcebergS3CatalogWriter] = ZLayer.scoped {
     for
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       context              <- ZIO.service[PluginStreamContext]

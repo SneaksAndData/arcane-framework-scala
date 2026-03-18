@@ -213,46 +213,49 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     }
     replay(streamDataProvider, hookManager, jdbcTableManager, mergeServiceClient)
 
-    val gb = ZIO
-      .service[BackfillStreamingOverwriteDataProvider]
-      .provide(
-        // Real services
-        GenericStreamingGraphBuilder.layer,
-        DisposeBatchProcessor.layer,
-        FieldFilteringTransformer.layer,
-        MergeBatchProcessor.layer,
-        StagingProcessor.layer,
-        FieldsFilteringService.layer,
-        GenericBackfillStreamingOverwriteDataProvider.layer,
-        IcebergEntityManager.stagingLayer,
-        IcebergEntityManager.sinkLayer,
-        IcebergS3CatalogWriter.layer,
+    val gb = ZLayer.make[BackfillStreamingOverwriteDataProvider](
+      // Real services
+      GenericStreamingGraphBuilder.layer,
+      DisposeBatchProcessor.layer,
+      FieldFilteringTransformer.layer,
+      MergeBatchProcessor.layer,
+      StagingProcessor.layer,
+      FieldsFilteringService.layer,
+      GenericBackfillStreamingOverwriteDataProvider.layer,
+      IcebergEntityManager.stagingLayer,
+      IcebergEntityManager.sinkLayer,
+      IcebergS3CatalogWriter.layer,
 
-        // Mocks
-        ZLayer.succeed(new BackfillOverwriteBatchFactory {
-          override def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
-            ZIO.succeed(
-              SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-            )
-        }),
-        ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
-        ZLayer.succeed(disposeServiceClient),
-        ZLayer.succeed(mergeServiceClient),
-        ZLayer.succeed(jdbcTableManager),
-        ZLayer.succeed(hookManager),
-        ZLayer.succeed(streamDataProvider),
-        ZLayer.succeed(TestPluginStreamContext),
-        DeclaredMetrics.layer,
-        ArcaneDimensionsProvider.layer,
-        WatermarkProcessor.layer,
-        IcebergTablePropertyManager.sinkLayer,
-        IcebergTablePropertyManager.stagingLayer
-      )
+      // Mocks
+      ZLayer.succeed(new BackfillOverwriteBatchFactory {
+        override def createBackfillBatch(watermark: Option[String]): Task[StagedBackfillOverwriteBatch] =
+          ZIO.succeed(
+            SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
+          )
+      }),
+      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
+      ZLayer.succeed(disposeServiceClient),
+      ZLayer.succeed(mergeServiceClient),
+      ZLayer.succeed(jdbcTableManager),
+      ZLayer.succeed(hookManager),
+      ZLayer.succeed(streamDataProvider),
+      ZLayer.succeed(TestPluginStreamContext),
+      DeclaredMetrics.layer,
+      ArcaneDimensionsProvider.layer,
+      WatermarkProcessor.layer,
+      IcebergTablePropertyManager.sinkLayer,
+      IcebergTablePropertyManager.stagingLayer
+    )
 
     // Act
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.flatMap(_.requestBackfill))).map { result =>
-      // Assert
-      verify(hookManager)
-      result shouldBe a[Unit]
-    }
+    Unsafe
+      .unsafe(implicit unsafe =>
+        runtime.unsafe
+          .runToFuture(ZIO.service[BackfillStreamingOverwriteDataProvider].flatMap(_.requestBackfill).provideLayer(gb))
+      )
+      .map { result =>
+        // Assert
+        verify(hookManager)
+        result shouldBe a[Unit]
+      }
   }

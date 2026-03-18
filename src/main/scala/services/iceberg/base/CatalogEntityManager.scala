@@ -8,10 +8,6 @@ import org.apache.iceberg.Table
 import zio.Task
 
 trait CatalogEntityManager:
-  /** Catalog connection factory
-    */
-  val catalogFactory: CatalogFactory
-
   /** Deletes the specified table from the catalog
     *
     * @param tableName
@@ -37,6 +33,16 @@ trait CatalogEntityManager:
     * @return
     */
   def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Unit]
+
+  /** Retrieve catalog factory used by this entity manager
+    * @return
+    */
+  def getTableRef(tableName: String): Task[Table]
+
+  /** Check if a specified table exists in the catalog
+    * @return
+    */
+  def tableExists(tableName: String): Task[Boolean]
 
 /** Entity manager for sink catalog
   */

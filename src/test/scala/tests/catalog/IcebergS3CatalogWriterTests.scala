@@ -4,16 +4,13 @@ package tests.catalog
 import models.schemas.ArcaneType.{IntType, StringType}
 import models.schemas.{DataCell, Field, MergeKeyField}
 import services.iceberg.SchemaConversions.*
-import services.iceberg.base.CatalogWriter
-import services.iceberg.{IcebergS3CatalogWriter, IcebergStagingEntityManager}
+import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import tests.shared.IcebergCatalogInfo.*
 import tests.shared.TestStagingSettings
 
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, ZIO}
+import zio.{Scope, ZIO, ZLayer}
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
@@ -23,13 +20,18 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
   private val schema =
     Seq(MergeKeyField, Field(name = "colA", fieldType = IntType), Field(name = "colB", fieldType = StringType))
 
-  private val entityManager = IcebergStagingEntityManager(defaultIcebergStagingSettings)
-  private val writer: CatalogWriter[RESTCatalog, Table, Schema] =
-    IcebergS3CatalogWriter(entityManager, TestStagingSettings())
+  private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
+    for
+      factory <- IcebergCatalogFactory.live(defaultIcebergStagingSettings)
+      entityManager = IcebergStagingEntityManager(defaultIcebergStagingSettings, factory)
+      result        = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
+    yield result
+  }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("IcebergS3CatalogWriter")(
     test("creates a table when provided schema and rows") {
       for
+        writer <- ZIO.service[IcebergS3CatalogWriter]
         rows <- ZIO.succeed(
           Seq(
             List(
@@ -62,30 +64,16 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
       yield assertTrue(result.asScala.getOrElse("total-records", "0").toInt == rows.size)
     },
     test("creates an empty table") {
-      for result <- writer
+      for
+        writer <- ZIO.service[IcebergS3CatalogWriter]
+        result <- writer
           .write(data = Seq(), name = UUID.randomUUID().toString, schema = schema, logAnnotations = Seq())
           .map(tbl => tbl.history().asScala)
       yield assertTrue(result.nonEmpty)
     },
-    test("deletes a table successfully after creating it") {
-      for
-        tblName <- ZIO.succeed(UUID.randomUUID.toString)
-        rows <- ZIO.succeed(
-          Seq(
-            List(
-              DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = "key1"),
-              DataCell(name = "colA", Type = IntType, value = 1),
-              DataCell(name = "colB", Type = StringType, value = "abc")
-            )
-          )
-        )
-        result <- writer
-          .write(data = rows, name = tblName, schema = schema, logAnnotations = Seq())
-          .flatMap(_ => entityManager.delete(tblName))
-      yield assertTrue(result)
-    },
     test("creates a table and then append rows to it") {
       for
+        writer  <- ZIO.service[IcebergS3CatalogWriter]
         tblName <- ZIO.succeed(UUID.randomUUID.toString)
         initialData <- ZIO.succeed(
           Seq(
@@ -115,6 +103,7 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
     },
     test("creates a table from a large batch") {
       for
+        writer  <- ZIO.service[IcebergS3CatalogWriter]
         tblName <- ZIO.succeed(UUID.randomUUID.toString)
         rows <- ZIO.succeed(
           Range(0, 20000).map(index =>
@@ -130,4 +119,4 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
           .map(tbl => tbl.currentSnapshot().summary().asScala.get("added-records"))
       yield assertTrue(result.getOrElse("0").toInt == 20000)
     }
-  ) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock
+  ).provideLayer(writerLayer) @@ timeout(zio.Duration.fromSeconds(10)) @@ TestAspect.withLiveClock

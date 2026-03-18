@@ -61,17 +61,18 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("streams rows in backfill mode correctly") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            icebergUtil.propertyManager,
+            propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             defaultStreamMode,
             TestThroughputShaperBuilder.default(
-              icebergUtil.propertyManager,
+              propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             )
           )
@@ -90,17 +91,18 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream changes correctly") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            icebergUtil.propertyManager,
+            propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             defaultStreamMode,
             TestThroughputShaperBuilder.default(
-              icebergUtil.propertyManager,
+              propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             )
           )
@@ -126,14 +128,15 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
           "test",
           BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
         )
+        propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
             source,
-            icebergUtil.propertyManager,
+            propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
             defaultStreamMode,
             TestThroughputShaperBuilder.default(
-              icebergUtil.propertyManager,
+              propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             )
           )

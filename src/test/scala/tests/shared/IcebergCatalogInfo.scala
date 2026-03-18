@@ -16,9 +16,11 @@ object IcebergCatalogInfo:
     override val catalogUri: String = defaultCatalogUri
     override val additionalProperties: Map[String, String] =
       S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties
+    override val maxCatalogInstanceLifetime: zio.Duration = zio.Duration.fromSeconds(3600)
 
   val defaultSinkSettings: IcebergCatalogSettings = new IcebergCatalogSettings:
     override val namespace: String                         = defaultNamespace
     override val warehouse: String                         = defaultWarehouse
     override val catalogUri: String                        = defaultCatalogUri
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+    override val maxCatalogInstanceLifetime: zio.Duration  = zio.Duration.fromSeconds(3600)
