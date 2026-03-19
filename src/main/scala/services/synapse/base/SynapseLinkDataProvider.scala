@@ -4,6 +4,7 @@ package services.synapse.base
 import models.app.PluginStreamContext
 import models.schemas.DataRow
 import models.settings.sink.SinkSettings
+import models.settings.sources.SourceBufferingSettings
 import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.base.DefaultSourceDataProvider
@@ -21,12 +22,14 @@ class SynapseLinkDataProvider(
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     streamModeSettings: StreamModeSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[SynapseWatermark](
       sinkPropertyManager,
       sinkSettings,
       streamModeSettings,
-      throughputShaperBuilder
+      throughputShaperBuilder,
+      sourceBufferingSettings
     ):
 
   override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow] =
@@ -69,6 +72,7 @@ object SynapseLinkDataProvider:
       propertyManager,
       context.sink,
       context.streamMode,
-      shaperBuilder
+      shaperBuilder,
+      context.source.buffering
     )
   }
