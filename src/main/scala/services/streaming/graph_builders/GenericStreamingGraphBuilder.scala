@@ -7,7 +7,6 @@ import models.schemas.DataCell
 import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, HookManager, StreamDataProvider, StreamingGraphBuilder}
-import services.streaming.graph_builders.GenericStreamingGraphBuilder.trySetBuffering
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -27,8 +26,7 @@ class GenericStreamingGraphBuilder(
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
     disposeBatchProcessor: DisposeBatchProcessor,
-    watermarkProcessor: WatermarkProcessor,
-    sourceBufferingSettings: SourceBufferingSettings
+    watermarkProcessor: WatermarkProcessor
 ) extends StreamingGraphBuilder
     with BackfillSubStream:
 
@@ -40,7 +38,6 @@ class GenericStreamingGraphBuilder(
     */
   override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream
-      .trySetBuffering(sourceBufferingSettings)
       .via(fieldFilteringProcessor.process)
       .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged))
       .via(mergeProcessor.process)
@@ -48,22 +45,6 @@ class GenericStreamingGraphBuilder(
       .via(disposeBatchProcessor.process)
 
 object GenericStreamingGraphBuilder:
-
-  extension (stream: ZStream[Any, Throwable, List[DataCell]])
-    /** Configures the upstream to buffer the data in memory.
-      * @return
-      *   The ZStream of DisposeBatchProcessor#BatchType.
-      */
-    def trySetBuffering(settings: SourceBufferingSettings): ZStream[Any, Throwable, List[DataCell]] =
-      (settings.bufferingEnabled, settings.bufferingStrategy) match
-        case (true, UnboundedImpl(_)) =>
-          zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
-
-        case (true, BufferingImpl(buffering)) =>
-          zlogStream("Running stream with bound source buffer size %s", buffering.maxBufferSize.toString) *> stream
-            .buffer(buffering.maxBufferSize)
-
-        case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream
 
   /** The environment required for the GenericStreamingGraphBuilder.
     */
@@ -90,7 +71,6 @@ object GenericStreamingGraphBuilder:
       stagingProcessor: StagingProcessor,
       mergeProcessor: MergeBatchProcessor,
       disposeBatchProcessor: DisposeBatchProcessor,
-      sourceBufferingSettings: SourceBufferingSettings,
       watermarkProcessor: WatermarkProcessor
   ): GenericStreamingGraphBuilder =
     new GenericStreamingGraphBuilder(
@@ -99,8 +79,7 @@ object GenericStreamingGraphBuilder:
       stagingProcessor,
       mergeProcessor,
       disposeBatchProcessor,
-      watermarkProcessor,
-      sourceBufferingSettings
+      watermarkProcessor
     )
 
   /** The ZLayer for the GenericStreamingGraphBuilder. This layer is used to inject the GenericStreamingGraphBuilder
@@ -122,7 +101,6 @@ object GenericStreamingGraphBuilder:
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
-        context.source.buffering,
         watermarkProcessor
       )
     }
@@ -148,7 +126,6 @@ object GenericStreamingGraphBuilder:
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
-        context.source.buffering,
         watermarkProcessor
       )
     }

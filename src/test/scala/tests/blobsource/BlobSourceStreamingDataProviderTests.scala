@@ -20,6 +20,7 @@ import tests.shared.{
   IcebergUtil,
   NullDimensionsProvider,
   TestDynamicSinkSettings,
+  TestSourceBufferingSettings,
   TestStagingSettings,
   TestThroughputShaperBuilder
 }
@@ -74,7 +75,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             TestThroughputShaperBuilder.default(
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
-            )
+            ),
+            TestSourceBufferingSettings
           )
         )
         sdp <- ZIO.succeed(
@@ -104,7 +106,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             TestThroughputShaperBuilder.default(
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
-            )
+            ),
+            TestSourceBufferingSettings
           )
         )
         sdp <- ZIO.succeed(
@@ -138,7 +141,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             TestThroughputShaperBuilder.default(
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
-            )
+            ),
+            TestSourceBufferingSettings
           )
         )
         sdp <- ZIO.succeed(

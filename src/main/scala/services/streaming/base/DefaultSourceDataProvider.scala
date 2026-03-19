@@ -1,12 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{DataRow, JsonWatermarkRow}
-import models.settings.backfill.BackfillSettings
-import models.settings.sink.SinkSettings
-import models.settings.streaming.StreamModeSettings
 import models.settings.TableNaming.*
+import models.settings.sink.SinkSettings
+import models.settings.sources.SourceBufferingSettings
+import models.settings.streaming.StreamModeSettings
+import models.settings.sources.{UnboundedImpl, BufferingImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -24,7 +25,8 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     streamMode: StreamModeSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 )(implicit rw: ReadWriter[WatermarkType])
     extends VersionedDataProvider[WatermarkType, DataRow]
     with BackfillDataProvider[DataRow]:
@@ -59,14 +61,14 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
       previousVersion: WatermarkType,
       nextVersion: WatermarkType
   ): ZStream[Any, Throwable, DataRow] = throughputShaper
-    .shapeStream(changeStream(previousVersion))
+    .shapeStream(trySetBuffering(changeStream(previousVersion)))
     .concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
 
   final override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
     .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
     .flatMap(version =>
       throughputShaper
-        .shapeStream(backfillStream(streamMode.backfill.backfillStartDate))
+        .shapeStream(trySetBuffering(backfillStream(streamMode.backfill.backfillStartDate)))
         .concat(ZStream.succeed(JsonWatermarkRow(version)))
     )
 
@@ -82,3 +84,14 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
         )
       )
   yield watermark
+
+  private def trySetBuffering(stream: ZStream[Any, Throwable, DataRow]): ZStream[Any, Throwable, DataRow] =
+    (sourceBufferingSettings.bufferingEnabled, sourceBufferingSettings.bufferingStrategy) match
+      case (true, UnboundedImpl(_)) =>
+        zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
+
+      case (true, BufferingImpl(buffering)) =>
+        zlogStream("Running stream with bound source buffer size %s", buffering.maxBufferSize.toString) *> stream
+          .buffer(buffering.maxBufferSize)
+
+      case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream

@@ -4,6 +4,7 @@ package services.mssql
 import models.app.PluginStreamContext
 import models.schemas.DataRow
 import models.settings.sink.SinkSettings
+import models.settings.sources.SourceBufferingSettings
 import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
@@ -26,12 +27,14 @@ class MsSqlDataProvider(
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     streamModeSettings: StreamModeSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,
       streamModeSettings,
-      throughputShaperBuilder
+      throughputShaperBuilder,
+      sourceBufferingSettings
     ):
 
   def hasChanges(previousVersion: MsSqlWatermark): Task[Boolean] = reader.hasChanges(previousVersion)
@@ -76,6 +79,7 @@ object MsSqlDataProvider:
         propertyManager,
         context.sink,
         context.streamMode,
-        shaperBuilder
+        shaperBuilder,
+        context.source.buffering
       )
     }

@@ -5,6 +5,7 @@ import models.app.PluginStreamContext
 import models.schemas.DataRow
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.sources.SourceBufferingSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
@@ -24,12 +25,14 @@ class BlobSourceDataProvider(
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     streamMode: StreamModeSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
       sinkPropertyManager,
       sinkSettings,
       streamMode,
-      throughputShaperBuilder
+      throughputShaperBuilder,
+      sourceBufferingSettings
     ):
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
@@ -63,6 +66,7 @@ object BlobSourceDataProvider:
       propertyManager,
       context.sink,
       context.streamMode,
-      throughputBuilder
+      throughputBuilder,
+      context.source.buffering
     )
   }
