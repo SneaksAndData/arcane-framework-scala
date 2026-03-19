@@ -61,7 +61,7 @@ class MemoryBoundShaper(
 
   private def estimateRowSize(schema: Schema): Long =
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
-      tp.typeId() match
+      val typeSize = tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
         case TypeID.TIME    => 4L + 8L
         case TypeID.INTEGER => 4L + 8L
@@ -76,6 +76,8 @@ class MemoryBoundShaper(
         case TypeID.TIMESTAMP_NANO => 8L + 8L
         case _ =>
           8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+
+      agg + typeSize
     }
 
   override def estimateChunkSize: Task[(Elements: Int, ElementSize: Long)] = for
