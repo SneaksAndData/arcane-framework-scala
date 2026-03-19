@@ -26,7 +26,7 @@ trait ThroughputShaper:
           burst     <- estimateShapeBurst(chunkSize.Elements, chunkSize.ElementSize)
           rate      <- estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
           _ <- zlog(
-            "Shaping stream using chunkSize %s, burst %s and rate %s/%s (chunks/s)",
+            "Shaping stream using chunkSize %s, burst %s and rate %s/%s (elements/s)",
             chunkSize.Elements.toString,
             burst.toString,
             rate.Elements.toString,
@@ -35,5 +35,5 @@ trait ThroughputShaper:
         yield (Size = chunkSize, Burst = burst, Rate = rate)
       }
       .flatMap { case (size, burst, rate) =>
-        stream.rechunk(size.Elements).throttleShape(rate.Elements, rate.Period, burst)(estimateChunkCost)
+        stream.throttleShape(rate.Elements, rate.Period, burst)(estimateChunkCost).rechunk(size.Elements)
       }
