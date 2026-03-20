@@ -35,15 +35,13 @@ final class AzureBlobStorageReader(
     val builder = storageConnectionSettings.credentialType match
       case SharedKeyImpl(sharedKey) =>
         new BlobServiceClientBuilder().credential(
-          StorageSharedKeyCredential(storageConnectionSettings.accountName, sharedKey.value)
+          StorageSharedKeyCredential(storageConnectionSettings.accountName, sharedKey.accessKey)
         )
       case DefaultImpl(_) => new BlobServiceClientBuilder().credential(defaultCredential)
 
     builder
       .endpoint(
-        storageConnectionSettings.endpoint.getOrElse(
-          s"https://${storageConnectionSettings.accountName}.blob.core.windows.net/"
-        )
+        storageConnectionSettings.endpoint
       )
       .retryOptions(
         RequestRetryOptions(
