@@ -38,8 +38,8 @@ trait AzureStorageConnectionSettings:
   val httpClient: AzureHttpClientSettings
 
 case class CredentialTypeSetting(
-    sharedKey: Option[SharedKey],
-    default: Option[Default]
+    sharedKey: Option[SharedKey] = None,
+    default: Option[Default] = None
 ) derives ReadWriter:
   def resolveCredentialType: CredentialType = sharedKey
     .map(SharedKeyImpl(_))

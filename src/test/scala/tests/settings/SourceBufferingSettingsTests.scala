@@ -20,7 +20,7 @@ class SourceBufferingSettingsTests extends AnyFlatSpec with Matchers:
         ),
         bufferingEnabled = true
       ),
-      """{"strategy":{"unbounded":null,"buffered":{"maxBufferSize":10000}},"enabled":true}"""
+      """{"strategy":{"buffered":{"maxBufferSize":10000}},"enabled":true}"""
     ),
     (
       DefaultSourceBufferingSettings(
@@ -30,7 +30,7 @@ class SourceBufferingSettingsTests extends AnyFlatSpec with Matchers:
         ),
         bufferingEnabled = true
       ),
-      """{"strategy":{"unbounded":{},"buffered":null},"enabled":true}"""
+      """{"strategy":{"unbounded":{}},"enabled":true}"""
     ),
     (
       DefaultSourceBufferingSettings(
@@ -40,7 +40,7 @@ class SourceBufferingSettingsTests extends AnyFlatSpec with Matchers:
         ),
         bufferingEnabled = false
       ),
-      """{"strategy":{"unbounded":null,"buffered":null},"enabled":false}"""
+      """{"strategy":{},"enabled":false}"""
     )
   )
 
