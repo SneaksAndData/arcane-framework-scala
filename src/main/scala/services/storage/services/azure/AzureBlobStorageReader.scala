@@ -2,17 +2,20 @@ package com.sneaksanddata.arcane.framework
 package services.storage.services.azure
 
 import logging.ZIOLogAnnotations.zlog
+import models.settings.azure.AzureStorageConnectionSettings
+import models.settings.azure.{SharedKeyImpl, DefaultImpl}
 import services.storage.base.BlobStorageReader
+import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.azure.AzureModelConversions.given
-import services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
-import services.storage.models.base.{BlobPath, StoredBlob}
+import services.storage.models.base.StoredBlob
 
-import com.azure.core.credential.TokenCredential
+import com.azure.core.credential.{AccessToken, TokenCredential, TokenRequestContext}
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
+import reactor.core.publisher.Mono
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO}
 
@@ -22,38 +25,26 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
 /** Blob reader implementation for Azure. Relies on the default credential chain if no added credentials are provided.
-  * @param accountName
-  *   Storage account name
-  * @param tokenCredential
-  *   Optional token credential provider
-  * @param sharedKeyCredential
-  *   Optional access key credential
   */
 final class AzureBlobStorageReader(
-    accountName: String,
-    endpoint: Option[String],
-    tokenCredential: Option[TokenCredential],
-    sharedKeyCredential: Option[StorageSharedKeyCredential],
-    settings: Option[AzureBlobStorageReaderSettings] = None
+                                    storageConnectionSettings: AzureStorageConnectionSettings
 ) extends BlobStorageReader[AdlsStoragePath]:
 
-  private val serviceClientSettings  = settings.getOrElse(AzureBlobStorageReaderSettings.default)
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val serviceClient =
-    val builder = (tokenCredential, sharedKeyCredential) match
-      case (Some(credential), _)    => new BlobServiceClientBuilder().credential(credential)
-      case (None, Some(credential)) => new BlobServiceClientBuilder().credential(credential)
-      case (None, None)             => new BlobServiceClientBuilder().credential(defaultCredential)
+    val builder = storageConnectionSettings.credentialType match
+      case SharedKeyImpl(sharedKey) => new BlobServiceClientBuilder().credential(StorageSharedKeyCredential(storageConnectionSettings.accountName, sharedKey.value))
+      case DefaultImpl(_) => new BlobServiceClientBuilder().credential(defaultCredential)
 
     builder
-      .endpoint(endpoint.getOrElse(s"https://$accountName.blob.core.windows.net/"))
+      .endpoint(storageConnectionSettings.endpoint.getOrElse(s"https://${storageConnectionSettings.accountName}.blob.core.windows.net/"))
       .retryOptions(
         RequestRetryOptions(
           RetryPolicyType.EXPONENTIAL,
-          serviceClientSettings.httpMaxRetries,
-          serviceClientSettings.httpRetryTimeout.toSeconds.toInt,
-          serviceClientSettings.httpMinRetryDelay.toMillis,
-          serviceClientSettings.httpMaxRetryDelay.toMillis,
+          storageConnectionSettings.httpClient.httpMaxRetries,
+          storageConnectionSettings.httpClient.httpRetryTimeout.toSeconds.toInt,
+          storageConnectionSettings.httpClient.httpMinRetryDelay.toMillis,
+          storageConnectionSettings.httpClient.httpMaxRetryDelay.toMillis,
           null
         )
       )
@@ -63,8 +54,8 @@ final class AzureBlobStorageReader(
 
   private def getBlobClient(blobPath: AdlsStoragePath): BlobClient =
     require(
-      blobPath.accountName == accountName,
-      s"Account name in the path `${blobPath.accountName}` does not match account name `$accountName` initialized for this reader"
+      blobPath.accountName == storageConnectionSettings.accountName,
+      s"Account name in the path `${blobPath.accountName}` does not match account name `${storageConnectionSettings.accountName}` initialized for this reader"
     )
     getBlobContainerClient(blobPath).getBlobClient(blobPath.blobPrefix)
 
@@ -89,7 +80,7 @@ final class AzureBlobStorageReader(
     val client = serviceClient.getBlobContainerClient(rootPrefix.container)
     val listOptions = new ListBlobsOptions()
       .setPrefix(rootPrefix.blobPrefix)
-      .setMaxResultsPerPage(serviceClientSettings.maxResultsPerPage)
+      .setMaxResultsPerPage(storageConnectionSettings.httpClient.maxResultsPerPage)
       .setDetails(
         BlobListDetails()
           .setRetrieveMetadata(false)
@@ -128,62 +119,6 @@ final class AzureBlobStorageReader(
   override def downloadRandomBlob(rootPath: AdlsStoragePath, localPath: String): Task[Option[String]] = ???
 
 object AzureBlobStorageReader:
-  /** Create AzureBlobStorageReader for the account using TokenCredential
-    * @param accountName
-    *   Storage account name
-    * @param credential
-    *   TokenCredential (accessToken provider)
-    * @return
-    *   AzureBlobStorageReader instance
-    */
   def apply(
-      accountName: String,
-      credential: TokenCredential,
-      settings: Option[AzureBlobStorageReaderSettings]
-  ): AzureBlobStorageReader =
-    new AzureBlobStorageReader(accountName, None, Some(credential), None, settings)
-
-  /** Create AzureBlobStorageReader for the account using StorageSharedKeyCredential
-    *
-    * @param accountName
-    *   Storage account name
-    * @param credential
-    *   StorageSharedKeyCredential (account key)
-    * @return
-    *   AzureBlobStorageReader instance
-    */
-  def apply(
-      accountName: String,
-      credential: StorageSharedKeyCredential,
-      settings: Option[AzureBlobStorageReaderSettings]
-  ): AzureBlobStorageReader =
-    new AzureBlobStorageReader(accountName, None, None, Some(credential), settings)
-
-  /** Create AzureBlobStorageReader for the account using StorageSharedKeyCredential and custom endpoint
-    *
-    * @param accountName
-    *   Storage account name
-    * @param endpoint
-    *   Storage account endpoint
-    * @param credential
-    *   StorageSharedKeyCredential (account key)
-    * @return
-    *   AzureBlobStorageReader instance
-    */
-  def apply(
-      accountName: String,
-      endpoint: String,
-      credential: StorageSharedKeyCredential,
-      settings: Option[AzureBlobStorageReaderSettings]
-  ): AzureBlobStorageReader =
-    new AzureBlobStorageReader(accountName, Some(endpoint), None, Some(credential), settings)
-
-  /** Create AzureBlobStorageReader for the account using default credential chain
-    *
-    * @param accountName
-    *   Storage account name
-    * @return
-    *   AzureBlobStorageReader instance
-    */
-  def apply(accountName: String, settings: Option[AzureBlobStorageReaderSettings]): AzureBlobStorageReader =
-    new AzureBlobStorageReader(accountName, None, None, None, settings)
+             storageConnectionSettings: AzureStorageConnectionSettings
+           ): AzureBlobStorageReader = new AzureBlobStorageReader(storageConnectionSettings)
