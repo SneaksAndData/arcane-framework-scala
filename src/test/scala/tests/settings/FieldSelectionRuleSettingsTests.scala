@@ -22,7 +22,7 @@ class FieldSelectionRuleSettingsTests extends AnyFlatSpec with Matchers:
         ),
         isServerSide = false
       ),
-      """{"essentialFields":["colA"],"rule":{"all":{},"include":null,"exclude":null},"isServerSide":false}"""
+      """{"essentialFields":["colA"],"rule":{"all":{}},"isServerSide":false}"""
     ),
     (
       DefaultFieldSelectionRuleSettings(
@@ -34,7 +34,7 @@ class FieldSelectionRuleSettingsTests extends AnyFlatSpec with Matchers:
         ),
         isServerSide = false
       ),
-      """{"essentialFields":["colA"],"rule":{"all":null,"include":{"fields":["colB"]},"exclude":null},"isServerSide":false}"""
+      """{"essentialFields":["colA"],"rule":{"include":{"fields":["colB"]}},"isServerSide":false}"""
     ),
     (
       DefaultFieldSelectionRuleSettings(
@@ -46,7 +46,7 @@ class FieldSelectionRuleSettingsTests extends AnyFlatSpec with Matchers:
         ),
         isServerSide = true
       ),
-      """{"essentialFields":[],"rule":{"all":null,"include":null,"exclude":null},"isServerSide":true}"""
+      """{"essentialFields":[],"rule":{},"isServerSide":true}"""
     )
   )
 

@@ -26,8 +26,8 @@ case class Buffering(maxBufferSize: Int) derives ReadWriter
 case class BufferingImpl(buffering: Buffering) extends BufferingStrategy
 
 case class BufferingSettings(
-    unbounded: Option[Unbounded],
-    buffered: Option[Buffering]
+    unbounded: Option[Unbounded] = None,
+    buffered: Option[Buffering] = None
 ) derives ReadWriter:
   def resolveStrategy: BufferingStrategy = unbounded
     .map(UnboundedImpl(_))

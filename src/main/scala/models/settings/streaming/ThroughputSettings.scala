@@ -39,8 +39,8 @@ case class Static() derives ReadWriter
 case class StaticImpl(static: Static) extends ThroughputShaperImpl
 
 case class ThroughputShaperImplSettings(
-    memoryBound: Option[MemoryBound],
-    static: Option[Static]
+    memoryBound: Option[MemoryBound] = None,
+    static: Option[Static] = None
 ) derives ReadWriter:
   def resolveShaperImpl: ThroughputShaperImpl = memoryBound
     .map(MemoryBoundImpl(_))
