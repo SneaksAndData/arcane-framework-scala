@@ -30,7 +30,7 @@ object TestAzureStorageInfo:
         1000
       ),
       CredentialTypeSetting(
-        Some(SharedKey(accessKey)),
+        Some(SharedKey(Some(accessKey))),
         None
       )
     )

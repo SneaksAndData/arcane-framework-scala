@@ -8,7 +8,11 @@ sealed trait CredentialType
 
 /** SharedKeyCredential
   */
-case class SharedKey(value: String) derives ReadWriter
+case class SharedKey(
+    @key("accessKey") accessKeySetting: Option[String]
+) derives ReadWriter:
+  val accessKey: String = accessKeySetting.getOrElse(sys.env("ARCANE_FRAMEWORK__AZURE_STORAGE_ACCESS_KEY"))
+
 case class SharedKeyImpl(sharedKey: SharedKey) extends CredentialType
 
 /** Default credential chain
@@ -21,9 +25,9 @@ trait AzureStorageConnectionSettings:
     */
   val accountName: String
 
-  /** Optional storage endpoint
+  /** Storage endpoint
     */
-  val endpoint: Option[String]
+  val endpoint: String
 
   /** Azure credential type to use
     */
@@ -47,8 +51,9 @@ case class CredentialTypeSetting(
 
 case class DefaultAzureStorageConnectionSettings(
     override val accountName: String,
-    override val endpoint: Option[String],
+    @key("endpoint") endpointSetting: Option[String],
     override val httpClient: DefaultAzureHttpClientSettings,
     @key("credentialType") credentialTypeSetting: CredentialTypeSetting
 ) extends AzureStorageConnectionSettings derives ReadWriter:
   override val credentialType: CredentialType = credentialTypeSetting.resolveCredentialType
+  override val endpoint: String = endpointSetting.getOrElse(s"https://$accountName.blob.core.windows.net/")
