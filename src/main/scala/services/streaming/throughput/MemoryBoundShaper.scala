@@ -54,7 +54,7 @@ class MemoryBoundShaper(
   then 0.5
   else
     scaledSigmoid(
-      shaperSettings.chunkCostMax,
+      0.8,
       shaperSettings.tableRowCountWeight * log(estRows) + shaperSettings.tableSizeWeight * log(estSize),
       shaperSettings.tableSizeScaleFactor
     )
