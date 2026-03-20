@@ -39,12 +39,12 @@ trait AzureStorageConnectionSettings:
 
 case class CredentialTypeSetting(
     sharedKey: Option[SharedKey] = None,
-    default: Option[Default] = None
+    credentialChain: Option[Default] = None
 ) derives ReadWriter:
   def resolveCredentialType: CredentialType = sharedKey
     .map(SharedKeyImpl(_))
     .getOrElse(
-      default
+      credentialChain
         .map(DefaultImpl(_))
         .getOrElse(DefaultImpl(Default()))
     )
