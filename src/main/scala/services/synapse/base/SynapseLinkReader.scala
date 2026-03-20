@@ -3,10 +3,11 @@ package services.synapse.base
 
 import extensions.BufferedReaderExtensions.*
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
+import models.app.PluginStreamContext
 import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
-import models.settings.sources.synapse.SynapseSourceSettings
+import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
@@ -22,7 +23,7 @@ import java.io.{BufferedReader, IOException}
 import java.time.*
 import java.time.format.DateTimeFormatter
 
-final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, reader: AzureBlobStorageReader)
+final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, reader: AzureBlobStorageReader)
     extends SchemaProvider[ArcaneSchema]:
 
   /** Schema here comes from root-level model.json
@@ -30,7 +31,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     *   A future containing the schema for the data produced by Arcane.
     */
   override def getSchema: Task[ArcaneSchema] =
-    SynapseEntitySchemaProvider(reader, storagePath.toHdfsPath, entityName).getSchema
+    SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
@@ -39,14 +40,14 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     * @return
     */
   private def hasSchemaFile(batchFolderName: String): Task[Boolean] =
-    reader.blobExists(storagePath + batchFolderName + "model.json")
+    reader.blobExists(location + batchFolderName + "model.json")
 
   /** Get files that belong to the current Synapse batch
     * @param batchFolderName
     * @return
     */
   private def getBatchFiles(batchFolderName: String): ZStream[Any, Throwable, StoredBlob] = reader
-    .streamPrefixes(storagePath + batchFolderName + entityName + "/")
+    .streamPrefixes(location + batchFolderName + entityName + "/")
     .filter(sb => sb.name.endsWith(".csv"))
 
   private def enrichWithSchema(prefix: String): ZStream[Any, Throwable, SchemaEnrichedBlob] = {
@@ -66,7 +67,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
             // this allows to separate batch filtering for eligibility for processing, from batch data correctness checks
             orderedFiles <- SynapseEntitySchemaProvider(
               reader,
-              (storagePath + prefix).toHdfsPath,
+              (location + prefix).toHdfsPath,
               entityName
             ).getSchema.map(schema =>
               files
@@ -102,7 +103,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       seb: SchemaEnrichedBlob
   ): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob)] =
     reader
-      .streamBlobContent(storagePath + seb.blob.name)
+      .streamBlobContent(location + seb.blob.name)
       .map(javaReader => (javaReader, seb.schema, seb.blob))
       .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
@@ -127,7 +128,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     * @return
     */
   def getCurrentVersion(previousVersion: SynapseWatermark): Task[SynapseWatermark] =
-    for synapseBlob <- reader.getCurrentBatch(storagePath).map {
+    for synapseBlob <- reader.getCurrentBatch(location).map {
         // in case of a read failure, fallback to previous version - should never happen, but framework expects this method to always succeed
         case version if version.interpretAsDate.isDefined => Some(version)
         case _                                            => None
@@ -146,7 +147,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     * @return
     */
   def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, DataRow] = reader
-    .getEligibleDates(storagePath = storagePath, startFrom = version.timestamp)
+    .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
     .flatMap(getChangesForVersion)
 
@@ -164,7 +165,7 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
       .map(convertRow)
 
   def getData(startFrom: OffsetDateTime): ZStream[Any, Throwable, DataRow] = reader
-    .getEligibleDates(storagePath, startFrom)
+    .getEligibleDates(location, startFrom)
     .map(_.asWatermark)
     .filterZIO(wm => isValidSynapseBatch(wm.prefix))
     .flatMap(getChangesForVersion)
@@ -233,16 +234,22 @@ final class SynapseLinkReader(entityName: String, storagePath: AdlsStoragePath, 
     case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
 object SynapseLinkReader:
-  def apply(blobStorageReader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkReader =
-    new SynapseLinkReader(name, location, blobStorageReader)
+  def apply(reader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkReader =
+    new SynapseLinkReader(location, name, reader)
 
-  val layer: ZLayer[SynapseSourceSettings & AzureBlobStorageReader, IllegalArgumentException, SynapseLinkReader] =
+  private type SettingsExtractor = PluginStreamContext => MicrosoftSynapseLinkConnectionSettings
+
+  /** ZLayer for SynapseLinkReader, using custom context extractor.
+    * @return
+    */
+  def getLayer(extractor: SettingsExtractor): ZLayer[PluginStreamContext, Throwable, SynapseLinkReader] =
     ZLayer {
       for
-        blobReader     <- ZIO.service[AzureBlobStorageReader]
-        sourceSettings <- ZIO.service[SynapseSourceSettings]
-        adlsLocation <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid ADLSGen2 path provided"))(
-          AdlsStoragePath(sourceSettings.baseLocation).toOption
-        )
-      yield SynapseLinkReader(blobReader, sourceSettings.entityName, adlsLocation)
+        context  <- ZIO.service[PluginStreamContext]
+        settings <- ZIO.attempt(extractor(context))
+      yield SynapseLinkReader(
+        AzureBlobStorageReader(settings.storageConnection),
+        settings.entityName,
+        settings.baseLocation
+      )
     }
