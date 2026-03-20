@@ -73,8 +73,8 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
           _ <- zlog(
             "No changes in source data found between watermark value %s and current moment, next check in %s seconds",
             Seq(getAnnotation("processor", "StreamProcessor")),
-            nextSleepDuration.toSeconds.toString,
-            previousVersion.version
+            previousVersion.version,
+            nextSleepDuration.toSeconds.toString
           ) *> ZIO.sleep(
             nextSleepDuration
           )
