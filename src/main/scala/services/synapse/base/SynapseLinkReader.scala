@@ -25,7 +25,7 @@ import java.time.format.DateTimeFormatter
 
 final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, reader: AzureBlobStorageReader)
     extends SchemaProvider[ArcaneSchema]:
-  
+
   /** Schema here comes from root-level model.json
     * @return
     *   A future containing the schema for the data produced by Arcane.
@@ -239,14 +239,17 @@ object SynapseLinkReader:
 
   private type SettingsExtractor = PluginStreamContext => MicrosoftSynapseLinkConnectionSettings
 
-  /**
-   * ZLayer for SynapseLinkReader, using custom context extractor.
-   * @return
-   */
+  /** ZLayer for SynapseLinkReader, using custom context extractor.
+    * @return
+    */
   def getLayer(extractor: SettingsExtractor): ZLayer[PluginStreamContext, Throwable, SynapseLinkReader] =
     ZLayer {
       for
-        context <- ZIO.service[PluginStreamContext]
+        context  <- ZIO.service[PluginStreamContext]
         settings <- ZIO.attempt(extractor(context))
-      yield SynapseLinkReader(AzureBlobStorageReader(settings.storageConnection), settings.entityName, settings.baseLocation)
+      yield SynapseLinkReader(
+        AzureBlobStorageReader(settings.storageConnection),
+        settings.entityName,
+        settings.baseLocation
+      )
     }

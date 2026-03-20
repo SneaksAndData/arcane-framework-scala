@@ -1,7 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.azure.{CredentialTypeSetting, DefaultAzureHttpClientSettings, DefaultAzureStorageConnectionSettings, SharedKey}
+import models.settings.azure.{
+  CredentialTypeSetting,
+  DefaultAzureHttpClientSettings,
+  DefaultAzureStorageConnectionSettings,
+  SharedKey
+}
 import services.storage.services.azure.AzureBlobStorageReader
 
 import java.time.Duration
@@ -13,7 +18,7 @@ object TestAzureStorageInfo:
   val storageAccount           = "devstoreaccount1"
   val accessKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
-  val storageReader: AzureBlobStorageReader  = AzureBlobStorageReader(
+  val storageReader: AzureBlobStorageReader = AzureBlobStorageReader(
     DefaultAzureStorageConnectionSettings(
       storageAccount,
       Some(endpoint),

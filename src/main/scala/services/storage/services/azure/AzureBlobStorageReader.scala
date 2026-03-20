@@ -27,17 +27,24 @@ import scala.language.implicitConversions
 /** Blob reader implementation for Azure. Relies on the default credential chain if no added credentials are provided.
   */
 final class AzureBlobStorageReader(
-                                    storageConnectionSettings: AzureStorageConnectionSettings
+    storageConnectionSettings: AzureStorageConnectionSettings
 ) extends BlobStorageReader[AdlsStoragePath]:
 
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val serviceClient =
     val builder = storageConnectionSettings.credentialType match
-      case SharedKeyImpl(sharedKey) => new BlobServiceClientBuilder().credential(StorageSharedKeyCredential(storageConnectionSettings.accountName, sharedKey.value))
+      case SharedKeyImpl(sharedKey) =>
+        new BlobServiceClientBuilder().credential(
+          StorageSharedKeyCredential(storageConnectionSettings.accountName, sharedKey.value)
+        )
       case DefaultImpl(_) => new BlobServiceClientBuilder().credential(defaultCredential)
 
     builder
-      .endpoint(storageConnectionSettings.endpoint.getOrElse(s"https://${storageConnectionSettings.accountName}.blob.core.windows.net/"))
+      .endpoint(
+        storageConnectionSettings.endpoint.getOrElse(
+          s"https://${storageConnectionSettings.accountName}.blob.core.windows.net/"
+        )
+      )
       .retryOptions(
         RequestRetryOptions(
           RetryPolicyType.EXPONENTIAL,
@@ -120,5 +127,5 @@ final class AzureBlobStorageReader(
 
 object AzureBlobStorageReader:
   def apply(
-             storageConnectionSettings: AzureStorageConnectionSettings
-           ): AzureBlobStorageReader = new AzureBlobStorageReader(storageConnectionSettings)
+      storageConnectionSettings: AzureStorageConnectionSettings
+  ): AzureBlobStorageReader = new AzureBlobStorageReader(storageConnectionSettings)
