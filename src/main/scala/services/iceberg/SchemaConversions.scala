@@ -169,7 +169,9 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
     case t: Types.ListType                                => ListType(apply(t.elementType()), t.elementId())
-    case t: Types.StructType                              => StructType(t.asSchema())
+    case t: Types.StructType =>
+      val converted: ArcaneSchema = t.asSchema()
+      StructType(converted.pure)
 
 @tailrec
 def inferMergeKeyIndex(lastField: NestedField): Int = lastField.`type`() match {
@@ -182,12 +184,7 @@ private def mapFields(icebergSchema: Schema): Seq[IndexedField] = icebergSchema
   .columns()
   .asScala
   .map { nf =>
-    // TODO: in 2.3 with introduction of IndexedArcaneSchema this should not be necessary
-    val fieldTypeConverted: ArcaneType = (nf.`type`(): ArcaneType) match {
-      case StructType(nestedSchema) => StructType(nestedSchema.pure)
-      case other                    => other
-    }
-    IndexedField(name = nf.name(), fieldType = fieldTypeConverted, fieldId = nf.fieldId())
+    IndexedField(name = nf.name(), fieldType = nf.`type`(), fieldId = nf.fieldId())
   }
   .toSeq
 
