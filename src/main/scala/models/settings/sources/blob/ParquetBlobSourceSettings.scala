@@ -24,10 +24,10 @@ trait ParquetBlobSourceSettings extends BlobSourceSettings:
   val sourceSchema: Option[String]
 
 case class DefaultParquetBlobSourceSettings(
-    override val sourceSchema: Option[String],
     override val primaryKeys: List[String],
     override val useNameMapping: Boolean,
     override val sourcePath: String,
     override val tempStoragePath: String,
-    @key("s3") override val s3ClientSettings: S3ClientSettings
+    @key("s3") override val s3ClientSettings: S3ClientSettings,
+    override val sourceSchema: Option[String] = None
 ) extends ParquetBlobSourceSettings derives ReadWriter
