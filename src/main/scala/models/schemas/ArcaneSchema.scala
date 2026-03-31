@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.schemas
 
-import ArcaneType.StringType
+import ArcaneType.{StringType, StructType}
 import models.*
 import services.base.CanAdd
 
@@ -42,8 +42,12 @@ trait ArcaneSchemaField:
   /** Field comparison that ignored field indexes. Needed to prevent reordering from triggering schema changes.
     * @return
     */
-  final def identical(other: ArcaneSchemaField): Boolean =
-    other.name.toLowerCase() == name.toLowerCase() && other.fieldType == fieldType
+  final def identical(other: ArcaneSchemaField): Boolean = {
+    (fieldType, other.fieldType) match
+      case (thisType: StructType, otherType: StructType) =>
+        other.name.toLowerCase() == name.toLowerCase() && thisType.schema.getMissingFields(otherType.schema).isEmpty
+      case _ => other.name.toLowerCase() == name.toLowerCase() && other.fieldType == fieldType
+  }
 
 /** A field in the schema definition that carries index information from the source that can be re-applied when
   * converting to Iceberg
