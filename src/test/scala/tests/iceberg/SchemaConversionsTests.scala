@@ -1,8 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package tests.iceberg
 
-import models.schemas.ArcaneType.{BigDecimalType, ListType, StringType}
-import models.schemas.{ArcaneSchema, IndexedMergeKeyField, MergeKeyField}
+import models.schemas.ArcaneType.{BigDecimalType, ListType, StringType, StructType}
+import models.schemas.{ArcaneSchema, IndexedArcaneSchemaField, IndexedMergeKeyField, MergeKeyField}
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema, inferMergeKeyIndex}
 
 import org.apache.iceberg.Schema
@@ -130,7 +130,13 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
 
       (
         iceberg2.columns().size() should be(iceberg.columns().size()),
-        iceberg2.idToName().asScala should equal(iceberg.idToName().asScala)
+        iceberg2.idToName().asScala should equal(iceberg.idToName().asScala),
+        // merge key field should only be present at top level
+        arcaneSchema.forall { case f: IndexedArcaneSchemaField =>
+          f.fieldType match
+            case t: StructType => !t.schema.exists(_.isInstanceOf[IndexedMergeKeyField])
+            case _             => true
+        } should be(true)
       )
     }
   }

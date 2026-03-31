@@ -169,7 +169,9 @@ given Conversion[org.apache.iceberg.types.Type, ArcaneType] with
     case _: Types.FloatType                               => FloatType
     case _: Types.TimeType                                => TimeType
     case t: Types.ListType                                => ListType(apply(t.elementType()), t.elementId())
-    case t: Types.StructType                              => StructType(t.asSchema())
+    case t: Types.StructType =>
+      val converted: ArcaneSchema = t.asSchema()
+      StructType(converted.pure)
 
 @tailrec
 def inferMergeKeyIndex(lastField: NestedField): Int = lastField.`type`() match {
