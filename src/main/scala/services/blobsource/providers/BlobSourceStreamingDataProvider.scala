@@ -43,11 +43,12 @@ object BlobSourceStreamingDataProvider:
         context         <- ZIO.service[PluginStreamContext]
         dataProvider    <- ZIO.service[BlobSourceDataProvider]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
+        isBackfilling   <- context.isBackfilling.orElseSucceed(false)
       yield BlobSourceStreamingDataProvider(
         dataProvider,
         context.streamMode.changeCapture,
         context.streamMode.backfill,
-        context.isBackfilling,
+        isBackfilling,
         declaredMetrics
       )
     }

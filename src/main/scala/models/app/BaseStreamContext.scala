@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.app
 
 import upickle.ReadWriter
-import zio.ZLayer
+import zio.{IO, ZIO, ZLayer}
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
@@ -15,15 +15,28 @@ trait BaseStreamContext:
 
   /** The id of the stream.
     */
-  def streamId: String = sys.env("STREAMCONTEXT__STREAM_ID")
+  def streamId: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_ID").map {
+    case Some(value) => value
+    case None =>
+      throw new RuntimeException(
+        "Unable to bootstrap the stream, missing required STREAMCONTEXT__STREAM_ID environment variable"
+      )
+  }
 
   /** True if the stream is running in backfill mode.
     */
-  def isBackfilling: Boolean = sys.env.getOrElse("STREAMCONTEXT__BACKFILL", "false").toLowerCase() == "true"
+  def isBackfilling: ZIO[Any, SecurityException, Boolean] =
+    zio.System.envOrElse("STREAMCONTEXT__BACKFILL", "false").map(_.toLowerCase() == "true")
 
   /** Kind of the stream
     */
-  def streamKind: String = sys.env("STREAMCONTEXT__STREAM_KIND")
+  def streamKind: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_KIND").map {
+    case Some(value) => value
+    case None =>
+      throw new RuntimeException(
+        "Unable to bootstrap the stream, missing required STREAMCONTEXT__STREAM_KIND environment variable"
+      )
+  }
 
   val datadogSocketPath: String =
     sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog/dsd.socket")

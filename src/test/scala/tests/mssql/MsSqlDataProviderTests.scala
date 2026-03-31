@@ -54,7 +54,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
     Success(fields)
 
   private val streamContext = new BaseStreamContext:
-    override val isBackfilling = false
+    override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
 
   private val defaultSinkSettings = TestDynamicSinkSettings(stagingSettings.table.backfillTableName)
   private val icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)

@@ -25,14 +25,16 @@ import models.settings.streaming.{
   ThroughputShaperImpl
 }
 
+import zio.{IO, ZIO}
+
 import java.time.{Duration, OffsetDateTime}
 
 abstract class TestPluginStreamContextImpl extends PluginStreamContext:
-  override def isBackfilling: Boolean = false
+  override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
 
-  override def streamId: String = "test-stream-id"
+  override def streamId: IO[SecurityException, String] = ZIO.succeed("test-stream-id")
 
-  override def streamKind: String = "test-stream-kind"
+  override def streamKind: IO[SecurityException, String] = ZIO.succeed("test-stream-kind")
 
   override val observability: ObservabilitySettings = TestObservabilitySettings
   override val streamMode: StreamModeSettings = new StreamModeSettings {
@@ -69,13 +71,13 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   }
 
 object TestPluginStreamContext extends TestPluginStreamContextImpl:
-  override def isBackfilling: Boolean = false
+  override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
 
 object TestPluginBackfillOverwriteStreamContext extends TestPluginStreamContextImpl:
-  override def isBackfilling: Boolean = true
+  override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(true)
 
 object TestPluginBackfillMergeStreamContext extends TestPluginStreamContextImpl:
-  override def isBackfilling: Boolean = true
+  override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(true)
 
   override val streamMode: StreamModeSettings = new StreamModeSettings {
     override val backfill: BackfillSettings = new BackfillSettings {
