@@ -136,7 +136,6 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
         )
       )
     ) { case (schemaA, schemaB, expected) =>
-      val f = schemaB.getMissingFields(schemaA)
       schemaB.getMissingFields(schemaA) should be(expected)
     }
   }
