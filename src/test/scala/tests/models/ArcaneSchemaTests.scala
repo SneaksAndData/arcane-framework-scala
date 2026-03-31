@@ -17,7 +17,37 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
         (StringType, IntType, false),
         (BigDecimalType(16, 3), BigDecimalType(16, 3), true),
         (BigDecimalType(16, 3), BigDecimalType(16, 2), false),
-        (ListType(StringType, 3), ListType(StringType, 2), true)
+        (ListType(StringType, 3), ListType(StringType, 2), true),
+        (
+          ListType(
+            StructType(ArcaneSchema(Seq(IndexedField("colA", StringType, 1), IndexedField("colB", IntType, 2)))),
+            1
+          ),
+          ListType(
+            StructType(ArcaneSchema(Seq(IndexedField("colB", IntType, 2), IndexedField("colA", StringType, 1)))),
+            2
+          ),
+          true
+        ),
+        (
+          ListType(
+            StructType(
+              ArcaneSchema(
+                Seq(
+                  IndexedField("colA", StringType, 1),
+                  IndexedField("colB", IntType, 2),
+                  IndexedField("colC", IntType, 3)
+                )
+              )
+            ),
+            2
+          ),
+          ListType(
+            StructType(ArcaneSchema(Seq(IndexedField("colA", StringType, 1), IndexedField("colB", IntType, 2)))),
+            1
+          ),
+          false
+        )
       )
     ) { case (typeA, typeB, expectedResult) =>
       (typeA == typeB) should be(expectedResult)

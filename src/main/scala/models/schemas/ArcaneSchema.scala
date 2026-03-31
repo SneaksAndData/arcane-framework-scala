@@ -30,7 +30,9 @@ enum ArcaneType:
   override def equals(obj: Any): Boolean = (this, obj) match {
     case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType
     case (ListType, _)                => false
-    case _                            => this.toString == obj.toString
+    case (t1: StructType, t2: StructType) =>
+      t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
+    case _ => this.toString == obj.toString
   }
 
 /** A field in the schema definition that will require indexing when converting to Iceberg
@@ -45,7 +47,9 @@ trait ArcaneSchemaField:
   final def identical(other: ArcaneSchemaField): Boolean = {
     (fieldType, other.fieldType) match
       case (thisType: StructType, otherType: StructType) =>
-        other.name.toLowerCase() == name.toLowerCase() && thisType.schema.getMissingFields(otherType.schema).isEmpty
+        other.name.toLowerCase() == name.toLowerCase() && thisType.schema
+          .getMissingFields(otherType.schema)
+          .isEmpty && otherType.schema.getMissingFields(thisType.schema).isEmpty
       case _ => other.name.toLowerCase() == name.toLowerCase() && other.fieldType == fieldType
   }
 
