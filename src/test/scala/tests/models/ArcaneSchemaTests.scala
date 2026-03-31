@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.models
 
-import models.schemas.ArcaneType.{BigDecimalType, IntType, ListType, StringType}
+import models.schemas.ArcaneType.{BigDecimalType, IntType, ListType, StringType, StructType}
 import models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField, MergeKeyField}
 
 import org.scalatest.Inspectors.forAll
@@ -55,6 +55,84 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
           ),
           ArcaneSchema(Seq(IndexedMergeKeyField(0), IndexedField("colA", StringType, 1))),
           Seq(IndexedField("colB", IntType, 3))
+        ),
+        (
+          ArcaneSchema(
+            Seq(
+              IndexedMergeKeyField(1),
+              IndexedField(
+                "colA",
+                StructType(
+                  ArcaneSchema(Seq(IndexedField("nestedColA", StringType, 2), IndexedField("nestedColB", IntType, 3)))
+                ),
+                4
+              ),
+              IndexedField("colB", IntType, 5)
+            )
+          ),
+          ArcaneSchema(
+            Seq(
+              IndexedMergeKeyField(1),
+              IndexedField(
+                "colA",
+                StructType(
+                  ArcaneSchema(Seq(IndexedField("nestedColB", IntType, 2), IndexedField("nestedColA", StringType, 3)))
+                ),
+                4
+              ),
+              IndexedField("colB", IntType, 5)
+            )
+          ),
+          Seq()
+        ),
+        (
+          ArcaneSchema(
+            Seq(
+              IndexedMergeKeyField(1),
+              IndexedField(
+                "colA",
+                StructType(
+                  ArcaneSchema(
+                    Seq(
+                      IndexedField("nestedColA", StringType, 2),
+                      IndexedField("nestedColB", IntType, 3),
+                      IndexedField("nestedColC", IntType, 4)
+                    )
+                  )
+                ),
+                5
+              ),
+              IndexedField("colB", IntType, 6)
+            )
+          ),
+          ArcaneSchema(
+            Seq(
+              IndexedMergeKeyField(1),
+              IndexedField(
+                "colA",
+                StructType(
+                  ArcaneSchema(Seq(IndexedField("nestedColA", StringType, 2), IndexedField("nestedColB", IntType, 3)))
+                ),
+                4
+              ),
+              IndexedField("colB", IntType, 5)
+            )
+          ),
+          Seq(
+            IndexedField(
+              "colA",
+              StructType(
+                ArcaneSchema(
+                  Seq(
+                    IndexedField("nestedColA", StringType, 2),
+                    IndexedField("nestedColB", IntType, 3),
+                    IndexedField("nestedColC", IntType, 4)
+                  )
+                )
+              ),
+              5
+            )
+          )
         )
       )
     ) { case (schemaA, schemaB, expected) =>
