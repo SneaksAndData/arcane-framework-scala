@@ -28,6 +28,25 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
             2
           ),
           true
+        ),
+        (
+          ListType(
+            StructType(
+              ArcaneSchema(
+                Seq(
+                  IndexedField("colA", StringType, 1),
+                  IndexedField("colB", IntType, 2),
+                  IndexedField("colC", IntType, 3)
+                )
+              )
+            ),
+            2
+          ),
+          ListType(
+            StructType(ArcaneSchema(Seq(IndexedField("colA", StringType, 1), IndexedField("colB", IntType, 2)))),
+            1
+          ),
+          false
         )
       )
     ) { case (typeA, typeB, expectedResult) =>
