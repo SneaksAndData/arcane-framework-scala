@@ -182,7 +182,12 @@ private def mapFields(icebergSchema: Schema): Seq[IndexedField] = icebergSchema
   .columns()
   .asScala
   .map { nf =>
-    IndexedField(name = nf.name(), fieldType = nf.`type`(), fieldId = nf.fieldId())
+    // TODO: in 2.3 with introduction of IndexedArcaneSchema this should not be necessary
+    val fieldTypeConverted: ArcaneType = (nf.`type`(): ArcaneType) match {
+      case StructType(nestedSchema) => StructType(nestedSchema.pure)
+      case other                    => other
+    }
+    IndexedField(name = nf.name(), fieldType = fieldTypeConverted, fieldId = nf.fieldId())
   }
   .toSeq
 
