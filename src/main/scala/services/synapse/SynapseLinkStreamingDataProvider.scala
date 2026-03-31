@@ -55,11 +55,12 @@ object SynapseLinkStreamingDataProvider:
         context         <- ZIO.service[PluginStreamContext]
         dataProvider    <- ZIO.service[SynapseLinkDataProvider]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
+        isBackfilling   <- context.isBackfilling.orElseSucceed(false)
       yield SynapseLinkStreamingDataProvider(
         dataProvider,
         context.streamMode.changeCapture,
         context.streamMode.backfill,
-        context.isBackfilling,
+        isBackfilling,
         declaredMetrics
       )
     }

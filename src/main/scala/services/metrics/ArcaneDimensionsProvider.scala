@@ -58,6 +58,10 @@ object ArcaneDimensionsProvider:
     */
   val layer: ZLayer[Environment, Nothing, DimensionsProvider] =
     ZLayer {
-      for context <- ZIO.service[PluginStreamContext]
-      yield ArcaneDimensionsProvider(context.streamKind, context.isBackfilling, context.streamId, context.observability)
+      for
+        context       <- ZIO.service[PluginStreamContext]
+        kind          <- context.streamKind.orDie
+        streamId      <- context.streamId.orDie
+        isBackfilling <- context.isBackfilling.orElseSucceed(false)
+      yield ArcaneDimensionsProvider(kind, isBackfilling, streamId, context.observability)
     }

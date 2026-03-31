@@ -20,24 +20,29 @@ class DisposeBatchProcessor(disposeServiceClient: DisposeServiceClient, streamCo
     *   ZPipeline (stream source for the stream graph).
     */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
-    ZPipeline.mapZIO(batchesSet =>
-      if streamContext.isBackfilling then
-        for _ <- zlog(
-            "Running in backfill mode. Skipping dispose of batch set with index %s",
-            Seq(getAnnotation("processor", "DisposeBatchProcessor")),
-            batchesSet.batchIndex.toString
-          )
-        yield batchesSet
-      else
-        for
-          _ <- zlog(
-            "Disposing batch set with index %s",
-            Seq(getAnnotation("processor", "DisposeBatchProcessor")),
-            batchesSet.batchIndex.toString
-          )
-          _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => disposeServiceClient.disposeBatch(batch))
-        yield batchesSet
-    )
+    ZPipeline.mapZIO { batchesSet =>
+      for
+        isBackfilling <- streamContext.isBackfilling.orElseSucceed(false)
+        _ <- ZIO.when(isBackfilling) {
+          for _ <- zlog(
+              "Running in backfill mode. Skipping dispose of batch set with index %s",
+              Seq(getAnnotation("processor", "DisposeBatchProcessor")),
+              batchesSet.batchIndex.toString
+            )
+          yield ()
+        }
+        _ <- ZIO.unless(isBackfilling) {
+          for
+            _ <- zlog(
+              "Disposing batch set with index %s",
+              Seq(getAnnotation("processor", "DisposeBatchProcessor")),
+              batchesSet.batchIndex.toString
+            )
+            _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch => disposeServiceClient.disposeBatch(batch))
+          yield ()
+        }
+      yield batchesSet
+    }
 
 object DisposeBatchProcessor:
 

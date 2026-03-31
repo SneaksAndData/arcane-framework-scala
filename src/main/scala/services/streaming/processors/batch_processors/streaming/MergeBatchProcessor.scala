@@ -148,6 +148,7 @@ object MergeBatchProcessor:
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
         tableManager           <- ZIO.service[JdbcTableManager]
         declaredMetrics        <- ZIO.service[DeclaredMetrics]
+        isBackfilling          <- context.isBackfilling.orElseSucceed(false)
       yield MergeBatchProcessor(
         jdbcConsumer,
         sinkEntityManager,
@@ -158,6 +159,6 @@ object MergeBatchProcessor:
         context.sink,
         declaredMetrics,
         !context.staging.table.isUnifiedSchema,
-        context.isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite
+        isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite
       )
     }

@@ -70,11 +70,12 @@ object MsSqlStreamingDataProvider:
         context         <- ZIO.service[PluginStreamContext]
         dataProvider    <- ZIO.service[MsSqlDataProvider]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
+        isBackfilling   <- context.isBackfilling.orElseSucceed(false)
       yield MsSqlStreamingDataProvider(
         dataProvider,
         context.streamMode.changeCapture,
         context.streamMode.backfill,
-        context.isBackfilling,
+        isBackfilling,
         declaredMetrics
       )
     }
