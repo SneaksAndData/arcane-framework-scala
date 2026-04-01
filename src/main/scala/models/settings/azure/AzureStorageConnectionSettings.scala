@@ -9,7 +9,7 @@ sealed trait CredentialType
 /** SharedKeyCredential
   */
 case class SharedKey(
-    @key("accessKey") accessKeySetting: Option[String]
+    @key("accessKey") accessKeySetting: Option[String] = None
 ) derives ReadWriter:
   val accessKey: String = accessKeySetting.getOrElse(sys.env("ARCANE_FRAMEWORK__AZURE_STORAGE_ACCESS_KEY"))
 
