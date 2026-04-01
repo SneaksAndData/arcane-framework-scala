@@ -15,18 +15,39 @@ import scala.util.Try
 
 /** Retry modes available for the client
   */
-enum JdbcQueryRetryMode derives ReadWriter:
-  /** Always retry
-    */
-  case Always
+sealed trait JdbcQueryRetryMode
 
-  /** Only retry in backfill mode
-    */
-  case BackfillOnly
+/** Always retry
+  */
+case class Always() derives ReadWriter
+case class AlwaysImpl(alwaysMode: Always) extends JdbcQueryRetryMode
 
-  /** Never retry
-    */
-  case Never
+/** Never retry
+  */
+case class Never() derives ReadWriter
+case class NeverImpl(neverMode: Never) extends JdbcQueryRetryMode
+
+/** Only retry in backfill mode
+  */
+case class BackfillOnly() derives ReadWriter
+case class BackfillOnlyImpl(backfillOnly: BackfillOnly) extends JdbcQueryRetryMode
+
+case class JdbcQueryRetryModeSettings(
+    always: Option[Always] = None,
+    never: Option[Never] = None,
+    backfillOnly: Option[BackfillOnly] = None
+) derives ReadWriter:
+  def resolveRetryMode: JdbcQueryRetryMode = never
+    .map(NeverImpl(_))
+    .getOrElse(
+      backfillOnly
+        .map(BackfillOnlyImpl(_))
+        .getOrElse(
+          always
+            .map(AlwaysImpl(_))
+            .getOrElse(NeverImpl(Never()))
+        )
+    )
 
 trait JdbcMergeServiceClientSettings:
   /** The connection URL.
@@ -67,7 +88,7 @@ trait JdbcMergeServiceClientSettings:
   final def getConnectionString: String = connectionUrl.withUrlParameters(extraConnectionParameters)
 
 case class DefaultJdbcMergeServiceClientSettings(
-    override val queryRetryMode: JdbcQueryRetryMode,
+    @key("queryRetryMode") queryRetryModeSettings: JdbcQueryRetryModeSettings,
     override val queryRetryBaseDuration: Duration,
     override val queryRetryOnMessageContents: List[String],
     override val queryRetryScaleFactor: Double,
@@ -77,3 +98,4 @@ case class DefaultJdbcMergeServiceClientSettings(
 ) extends JdbcMergeServiceClientSettings derives ReadWriter:
   override val connectionUrl: String =
     connectionString.getOrElse(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI"))
+  override val queryRetryMode: JdbcQueryRetryMode = queryRetryModeSettings.resolveRetryMode

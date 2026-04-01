@@ -5,7 +5,6 @@ import models.app.BaseStreamContext
 import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
-import models.settings.staging.JdbcQueryRetryMode.Never
 import models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
