@@ -51,9 +51,9 @@ case class CredentialTypeSetting(
 
 case class DefaultAzureStorageConnectionSettings(
     override val accountName: String,
-    @key("endpoint") endpointSetting: Option[String],
     override val httpClient: DefaultAzureHttpClientSettings,
-    @key("credentialType") credentialTypeSetting: CredentialTypeSetting
+    @key("credentialType") credentialTypeSetting: CredentialTypeSetting,
+    @key("endpoint") endpointSetting: Option[String] = None
 ) extends AzureStorageConnectionSettings derives ReadWriter:
   override val credentialType: CredentialType = credentialTypeSetting.resolveCredentialType
   override val endpoint: String = endpointSetting.getOrElse(s"https://$accountName.blob.core.windows.net/")
