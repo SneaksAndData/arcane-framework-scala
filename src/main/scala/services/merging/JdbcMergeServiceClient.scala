@@ -3,8 +3,7 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
-import models.settings.staging.JdbcMergeServiceClientSettings
-import models.settings.staging.JdbcQueryRetryMode.{Always, BackfillOnly, Never}
+import models.settings.staging.{AlwaysImpl, BackfillOnlyImpl, JdbcMergeServiceClientSettings, NeverImpl}
 import services.base.*
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
@@ -65,10 +64,10 @@ class JdbcMergeServiceClient(
       }
 
     options.queryRetryMode match
-      case Never                         => Schedule.stop
-      case Always                        => backoffPolicy
-      case BackfillOnly if isBackfilling => backoffPolicy
-      case _                             => Schedule.stop
+      case NeverImpl(_)                         => Schedule.stop
+      case AlwaysImpl(_)                        => backoffPolicy
+      case BackfillOnlyImpl(_) if isBackfilling => backoffPolicy
+      case _                                    => Schedule.stop
 
   /** @inheritdoc
     */
