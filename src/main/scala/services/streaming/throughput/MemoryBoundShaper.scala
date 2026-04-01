@@ -46,7 +46,12 @@ class MemoryBoundShaper(
   private val memCacheKey     = "memcutoff"
   private val partsCacheKey   = "partitions"
 
-  private def getUsedMemoryShare = (maxAvailableMemory - runtime.freeMemory()) / maxAvailableMemory.toDouble
+  private def getTotalFreeMemory =
+    val allocatedTotal = runtime.totalMemory()
+    val freeOutOfTotal = runtime.freeMemory()
+
+    // unallocated + free in the allocated
+    maxAvailableMemory - allocatedTotal + freeOutOfTotal
 
   /** Estimate memory pool available for chunks. Larger tables get larger pool to allow bigger chunks
     */
@@ -107,7 +112,7 @@ class MemoryBoundShaper(
     }
 
     chunkSizeFromRowSize <- ZIO.succeed(
-      runtime.freeMemory() * estimationCache(memCacheKey) / (estimationCache(rowSizeCacheKey) + 1)
+      getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(rowSizeCacheKey) + 1)
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
     appliedSize <- ZIO.succeed(
@@ -134,14 +139,14 @@ class MemoryBoundShaper(
   yield appliedSize
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
-    for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))
+    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
     yield Seq(
       chunksToFit.toDouble / shaperSettings.burstEstimateDivisionFactor,
       throughputSettings.advisedChunksBurst.toDouble
     ).max.toInt
 
   override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
-    for chunksToFit <- ZIO.attempt(runtime.maxMemory() / (chunkSize * chunkElementSize + 1))
+    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
     yield (
       Seq(
         chunksToFit.toDouble / shaperSettings.rateEstimateDivisionFactor,
@@ -159,7 +164,7 @@ class MemoryBoundShaper(
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int = estimateChunkCost(ch.size)
 
   private def estimateChunkCost(size: Int): Int =
-    val rawCost = size * estimationCache(rowSizeCacheKey) / (runtime.freeMemory() + 1)
+    val rawCost = size * estimationCache(rowSizeCacheKey) / (getTotalFreeMemory + 1)
     scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
 
 object MemoryBoundShaper:
