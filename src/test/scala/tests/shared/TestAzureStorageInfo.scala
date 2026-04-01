@@ -21,7 +21,6 @@ object TestAzureStorageInfo:
   val storageReader: AzureBlobStorageReader = AzureBlobStorageReader(
     DefaultAzureStorageConnectionSettings(
       storageAccount,
-      Some(endpoint),
       DefaultAzureHttpClientSettings(
         3,
         Duration.ofSeconds(1),
@@ -32,6 +31,7 @@ object TestAzureStorageInfo:
       CredentialTypeSetting(
         Some(SharedKey(Some(accessKey))),
         None
-      )
+      ),
+      Some(endpoint)
     )
   )
