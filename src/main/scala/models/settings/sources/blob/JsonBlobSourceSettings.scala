@@ -1,6 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources.blob
 
+import services.storage.models.s3.S3ClientSettings
+
+import upickle.ReadWriter
+import upickle.implicits.key
+
 /** Json source specific source settings
   */
 trait JsonBlobSourceSettings extends BlobSourceSettings:
@@ -25,3 +30,13 @@ trait JsonBlobSourceSettings extends BlobSourceSettings:
     * target table will require readers to support Iceberg V3 or later.
     */
   val jsonArrayPointers: Map[String, Map[String, String]]
+
+case class DefaultJsonBlobSourceSettings(
+    override val avroSchemaString: String,
+    override val jsonPointerExpression: String,
+    override val jsonArrayPointers: Map[String, Map[String, String]],
+    override val primaryKeys: List[String],
+    override val sourcePath: String,
+    override val tempStoragePath: String,
+    @key("s3") override val s3ClientSettings: S3ClientSettings
+) extends JsonBlobSourceSettings derives ReadWriter
