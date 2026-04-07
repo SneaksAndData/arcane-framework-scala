@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
+import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.sources.blob.JsonBlobSourceSettings
@@ -79,14 +80,17 @@ object BlobListingJsonSource:
       jsonArrayPointers
     )
 
+  private type SettingsExtractor = PluginStreamContext => JsonBlobSourceSettings
+
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
-  val layer: ZLayer[JsonBlobSourceSettings & S3BlobStorageReader, IllegalArgumentException, BlobListingJsonSource[
-    S3StoragePath
-  ]] = ZLayer {
+  def getLayer(
+      extractor: SettingsExtractor
+  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingJsonSource[S3StoragePath]] = ZLayer {
     for
+      context        <- ZIO.service[PluginStreamContext]
       blobReader     <- ZIO.service[S3BlobStorageReader]
-      sourceSettings <- ZIO.service[JsonBlobSourceSettings]
+      sourceSettings <- ZIO.attempt(extractor(context))
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
         S3StoragePath(sourceSettings.sourcePath).toOption
       )
@@ -96,7 +100,7 @@ object BlobListingJsonSource:
       sourceSettings.tempStoragePath,
       sourceSettings.primaryKeys,
       sourceSettings.avroSchemaString,
-      if (sourceSettings.jsonPointerExpression.isEmpty) None else Some(sourceSettings.jsonPointerExpression),
+      sourceSettings.jsonPointerExpression,
       sourceSettings.jsonArrayPointers
     )
   }
