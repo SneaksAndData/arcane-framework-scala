@@ -61,8 +61,14 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings, catalogFacto
     )
     replacedRef <- ZIO.when(request.replace) {
       for
-        _ <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction().commitTransaction())
-        _ <- ZIO.attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
+        parentTransaction <- ZIO.attemptBlocking(tableBuilder.createOrReplaceTransaction())
+        _ <- ZIO.attemptBlocking(
+          parentTransaction
+            .newOverwrite()
+            .overwriteByRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue())
+            .commit()
+        )
+        _ <- ZIO.attemptBlocking(parentTransaction.commitTransaction())
       yield ()
     }
     tableRef <- ZIO.unless(request.replace) {
