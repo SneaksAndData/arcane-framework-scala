@@ -47,5 +47,5 @@ jobs:
         run: sbt scalafmtCheckAll
       - uses: 5monkeys/cobertura-action@v14
         with:
-          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
+          path: ./target/scala-3.8.3/coverage-report/cobertura.xml
           minimum_coverage: 40
