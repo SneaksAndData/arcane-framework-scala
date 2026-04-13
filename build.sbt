@@ -88,9 +88,9 @@ lazy val root = (project in file("."))
 
 
     // Test dependencies
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
-    libraryDependencies += "org.scalatestplus" %% "easymock-5-3" % "3.2.19.0" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
+    libraryDependencies += "org.scalatestplus" %% "easymock-5-6" % "3.2.20.0" % Test,
     libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
     libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
 
