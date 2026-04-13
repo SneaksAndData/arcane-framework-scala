@@ -54,7 +54,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
       sinkPropertyManager
         .getTableSchema(EasyMock.anyString())
-        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .andReturn(ZIO.succeed(implicitly[Schema](using ArcaneSchema(Seq(MergeKeyField)))))
         .times(40)
       sinkEntityManager
         .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
@@ -119,7 +119,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
       sinkPropertyManager
         .getTableSchema(EasyMock.anyString())
-        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .andReturn(ZIO.succeed(implicitly[Schema](using ArcaneSchema(Seq(MergeKeyField)))))
         .times(40)
       tableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()

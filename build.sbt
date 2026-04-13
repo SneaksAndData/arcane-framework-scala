@@ -1,9 +1,9 @@
 import sbtrelease.ReleaseStateTransformations.{checkSnapshotDependencies, inquireVersions, publishArtifacts, runClean, setReleaseVersion}
 
-val scala361 = "3.6.1"
+val scala383 = "3.8.3"
 
 ThisBuild / organization := "com.sneaksanddata"
-ThisBuild / scalaVersion := scala361
+ThisBuild / scalaVersion := scala383
 
 credentials += Credentials(
     "GitHub Package Registry",

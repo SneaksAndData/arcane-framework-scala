@@ -101,7 +101,8 @@ object QueryProvider:
     ZIO.scoped {
       for
         source <- ZIO.fromAutoCloseable(ZIO.attempt(Source.fromResource("get_column_summaries.sql")))
-        query = source.getLines
+        query = source
+          .getLines()
           .mkString("\n")
           .replace("{dbName}", databaseName)
           .replace("{schema}", schemaName)
@@ -195,7 +196,7 @@ object QueryProvider:
         querySource <- ZIO.fromAutoCloseable {
           ZIO.attempt(Source.fromResource("get_select_delta_query.sql"))
         }
-        baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
+        baseQuery <- ZIO.attempt(querySource.getLines().mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
           .replace("{schema}", connectionSettings.schemaName)
@@ -219,7 +220,7 @@ object QueryProvider:
         querySource <- ZIO.fromAutoCloseable {
           ZIO.attempt(Source.fromResource("get_select_all_query.sql"))
         }
-        baseQuery <- ZIO.attempt(querySource.getLines.mkString("\n"))
+        baseQuery <- ZIO.attempt(querySource.getLines().mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
           .replace("{schema}", connectionSettings.schemaName)

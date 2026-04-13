@@ -22,7 +22,10 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 
 import scala.collection.parallel.CollectionConverters.*
 
-trait IndexedStagedBatches(val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch], val batchIndex: Long)
+abstract class IndexedStagedBatches(
+    val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
+    val batchIndex: Long
+)
 
 class StagingProcessor(
     stagingDataSettings: StagingTableSettings,
@@ -113,7 +116,7 @@ class StagingProcessor(
       onStagingTablesComplete: OnStagingTablesComplete,
       onBatchStaged: OnBatchStaged
   ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
-    ZPipeline[IncomingElement]()
+    ZPipeline[IncomingElement]
       .mapChunksZIO(elements =>
         for staged <- ZIO.when(elements.nonEmpty)(
             processChunk(elements, onBatchStaged).gaugeDuration(declaredMetrics.batchStageDuration)
