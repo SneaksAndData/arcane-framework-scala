@@ -65,69 +65,68 @@ class MemoryBoundShaper(
     )
 
   private def estimateRowSize(schema: Schema): Long =
-    schema.columns().asScala.map(_.`type`()).foldLeft(0L) {
-      case (agg, tp) =>
-        val typeSize = tp.typeId() match
-          // 8L added to each type to hold pointer, since all types are objects
-          // 16L for Java object header, ignore COH to be on the safe side
-          // add 4L for padding for all except boolean
-          case TypeID.TIME =>
-            4L      // data
-              + 8L  // pointer
-              + 16L // header
-              + 4L  // padding
-          case TypeID.INTEGER =>
-            4L     // data
-              + 8L // pointer
-        + 16L      // header
-          + 4L     // padding
-      case TypeID.BOOLEAN =>
-        1L      // data
-          + 8L  // pointer
-          + 16L // header
-          + 11L // padding
-      case TypeID.LONG =>
-        8L      // data
-          + 8L  // pointer
-          + 16L // header
-          + 4L  // padding
-      case TypeID.FLOAT =>
-        4L      // data
-          + 8L  // pointer
-          + 16L // header
-          + 4L  // padding
-      case TypeID.DOUBLE =>
-        8L      // data
-          + 8L  // pointer
-          + 16L // header
-          + 4L  // padding
-      case TypeID.STRING =>
-        32L                                                       // wrapper type
-          + 16L                                                   // array header
-          + 2L * shaperSettings.meanStringTypeSizeEstimate.toLong // conservative over-estimation for varchar types
-      case TypeID.DECIMAL =>
-        16L         // header
-          + 8L      // bigint pointer
-          + 4L + 4L // scale and precision
-          + 16L     // bingint wrapper header
-          + 8L      // array pointer
-          + 4L + 4L // sign and length
-          + 16L     // extra metadata
-          + 32L     // data array
-      case TypeID.TIMESTAMP =>
-        8L      // data
-          + 8L  // pointer
-          + 16L // header
-          + 4L  // padding
-      case TypeID.TIMESTAMP_NANO =>
-        8L      // data
-          + 8L  // pointer
-          + 16L // header
-          + 4L  // padding
-      case _ =>
-        16L + 4L + 8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+    schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
+      val typeSize = tp.typeId() match
+        // 8L added to each type to hold pointer, since all types are objects
+        // 16L for Java object header, ignore COH to be on the safe side
+        // add 4L for padding for all except boolean
+        case TypeID.TIME =>
+          4L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.INTEGER =>
+          4L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.BOOLEAN =>
+          1L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 11L // padding
+        case TypeID.LONG =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.FLOAT =>
+          4L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.DOUBLE =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.STRING =>
+          32L                                                       // wrapper type
+            + 16L                                                   // array header
+            + 2L * shaperSettings.meanStringTypeSizeEstimate.toLong // conservative over-estimation for varchar types
+        case TypeID.DECIMAL =>
+          16L         // header
+            + 8L      // bigint pointer
+            + 4L + 4L // scale and precision
+            + 16L     // bingint wrapper header
+            + 8L      // array pointer
+            + 4L + 4L // sign and length
+            + 16L     // extra metadata
+            + 32L     // data array
+        case TypeID.TIMESTAMP =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.TIMESTAMP_NANO =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case _ =>
+          16L + 4L + 8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
 
-        agg + typeSize
+      agg + typeSize
     }
 
   override def estimateChunkSize: Task[(Elements: Int, ElementSize: Long)] = for
