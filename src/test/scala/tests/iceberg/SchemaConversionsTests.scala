@@ -46,7 +46,7 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
 
     val mergeKeyIndex = inferMergeKeyIndex(iceberg.columns().getLast)
 
-    val arcaneSchema: ArcaneSchema = implicitly(iceberg)
+    val arcaneSchema: ArcaneSchema = implicitly(using iceberg)
     (
       arcaneSchema.length should be(iceberg.columns().size + 1),
       arcaneSchema.reverse.head should be(IndexedMergeKeyField(mergeKeyIndex)),
@@ -65,7 +65,7 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
       Types.NestedField.optional(6, "event_time_2", Types.TimestampType.withZone())
     )
 
-    val arcaneSchema: ArcaneSchema = implicitly(iceberg)
+    val arcaneSchema: ArcaneSchema = implicitly(using iceberg)
     val mergeKeyIndex              = inferMergeKeyIndex(iceberg.columns().getLast)
 
     (
@@ -125,8 +125,8 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     ) { iceberg =>
 
       val mergeKeyIndex              = inferMergeKeyIndex(iceberg.columns().getLast)
-      val arcaneSchema: ArcaneSchema = implicitly(iceberg)
-      val iceberg2: Schema           = implicitly(arcaneSchema.pure)
+      val arcaneSchema: ArcaneSchema = implicitly(using iceberg)
+      val iceberg2: Schema           = implicitly(using arcaneSchema.pure)
 
       (
         iceberg2.columns().size() should be(iceberg.columns().size()),

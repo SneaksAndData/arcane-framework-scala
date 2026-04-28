@@ -59,7 +59,7 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(testInput.length)
       sinkPropertyManager
         .getTableSchema(EasyMock.anyString())
-        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .andReturn(ZIO.succeed(implicitly[Schema](using ArcaneSchema(Seq(MergeKeyField)))))
         .times(testInput.length)
       sinkEntityManager
         .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())

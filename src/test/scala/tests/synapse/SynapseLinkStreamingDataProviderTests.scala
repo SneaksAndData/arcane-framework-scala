@@ -109,7 +109,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics(NullDimensionsProvider)
           )
         )
-        rows <- provider.stream.runCollect()
+        rows <- provider.stream.runCollect
       // expect 30 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // 1 file skipped as it is the latest one
