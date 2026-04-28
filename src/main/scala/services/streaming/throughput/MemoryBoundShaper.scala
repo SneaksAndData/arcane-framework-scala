@@ -68,19 +68,63 @@ class MemoryBoundShaper(
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
       val typeSize = tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
-        case TypeID.TIME    => 4L + 8L
-        case TypeID.INTEGER => 4L + 8L
-        case TypeID.BOOLEAN => 1L + 8L
-        case TypeID.LONG    => 8L + 8L
-        case TypeID.FLOAT   => 4L + 8L
-        case TypeID.DOUBLE  => 8L + 8L
+        // 16L for Java object header, ignore COH to be on the safe side
+        // add 4L for padding for all except boolean
+        case TypeID.TIME =>
+          4L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.INTEGER =>
+          4L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.BOOLEAN =>
+          1L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 11L // padding
+        case TypeID.LONG =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.FLOAT =>
+          4L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.DOUBLE =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
         case TypeID.STRING =>
-          2L * shaperSettings.meanStringTypeSizeEstimate.toLong + 8L // conservative over-estimation for varchar types
-        case TypeID.DECIMAL        => 8L + 8L + 8L
-        case TypeID.TIMESTAMP      => 8L + 8L
-        case TypeID.TIMESTAMP_NANO => 8L + 8L
+          32L                                                       // wrapper type
+            + 16L                                                   // array header
+            + 2L * shaperSettings.meanStringTypeSizeEstimate.toLong // conservative over-estimation for varchar types
+        case TypeID.DECIMAL =>
+          16L         // header
+            + 8L      // bigint pointer
+            + 4L + 4L // scale and precision
+            + 16L     // bingint wrapper header
+            + 8L      // array pointer
+            + 4L + 4L // sign and length
+            + 16L     // extra metadata
+            + 32L     // data array
+        case TypeID.TIMESTAMP =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
+        case TypeID.TIMESTAMP_NANO =>
+          8L      // data
+            + 8L  // pointer
+            + 16L // header
+            + 4L  // padding
         case _ =>
-          8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+          16L + 4L + 8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
 
       agg + typeSize
     }
@@ -112,7 +156,9 @@ class MemoryBoundShaper(
     }
 
     chunkSizeFromRowSize <- ZIO.succeed(
-      getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(rowSizeCacheKey) + 1)
+      getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(
+        rowSizeCacheKey
+      ) + 1) / 2 // estimate for 2 chunks in memory at all times
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
     appliedSize <- ZIO.succeed(
@@ -164,7 +210,7 @@ class MemoryBoundShaper(
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int = estimateChunkCost(ch.size)
 
   private def estimateChunkCost(size: Int): Int =
-    val rawCost = size * estimationCache(rowSizeCacheKey) / (getTotalFreeMemory + 1)
+    val rawCost = 2 * size * estimationCache(rowSizeCacheKey) / (getTotalFreeMemory + 1)
     scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
 
 object MemoryBoundShaper:
