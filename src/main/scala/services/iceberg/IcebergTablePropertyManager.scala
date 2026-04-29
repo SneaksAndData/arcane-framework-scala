@@ -45,12 +45,16 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     properties <- ZIO.attemptBlocking(table.properties())
   yield properties.get(propertyName)
 
+  private def getTableScan(tableName: String) = for
+    table <- loadPartitionsTable(tableName)
+    scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
+      ZIO.attemptBlocking(fileScans.close()).orDie
+    }
+  yield scanOps
+
   override def getTableSize(tableName: String): Task[(Records: Long, Size: Long)] = ZIO.scoped {
     for
-      table <- loadPartitionsTable(tableName)
-      scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
-        ZIO.attemptBlocking(fileScans.close()).orDie
-      }
+      scanOps <- getTableScan(tableName)
       result <- ZIO.foldLeft(scanOps.asScala)((0L, 0L)) { case (agg, el) =>
         ZIO.succeed(agg._1 + el.file.recordCount(), agg._2 + el.file().fileSizeInBytes())
       }
@@ -59,12 +63,26 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
 
   override def getPartitionCount(tableName: String): Task[Int] = ZIO.scoped {
     for
-      table <- loadPartitionsTable(tableName)
-      scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
-        ZIO.attemptBlocking(fileScans.close()).orDie
-      }
+      scanOps <- getTableScan(tableName)
       result <- ZIO.foldLeft(scanOps.asScala)(0) { case (agg, _) =>
         ZIO.succeed(agg + 1)
+      }
+    yield result
+  }
+
+  override def getColumnSizes(tableName: String): Task[Map[Int, Long]] = ZIO.scoped {
+    for
+      scanOps <- getTableScan(tableName)
+      result <- ZIO.foldLeft(scanOps.asScala)(Map.empty[Int, Long]) { case (agg, scanOp) =>
+        val fieldSizes = Option(scanOp.file().columnSizes()) match {
+          case Some(sizes) => sizes.asScala.map(v => (v._1.toInt, v._2.toLong))
+          case None        => Map.empty
+        }
+
+        ZIO.succeed(fieldSizes.foldLeft(agg) { case (result, element) =>
+          if !result.contains(element._1) then result ++ Map(element)
+          else result ++ Map(element._1 -> (result(element._1) + element._2))
+        })
       }
     yield result
   }

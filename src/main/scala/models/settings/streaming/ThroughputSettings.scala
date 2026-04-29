@@ -15,7 +15,7 @@ sealed trait ThroughputShaperImpl
 /** Settings for memory bound shaper implementation
   */
 case class MemoryBound(
-    meanStringTypeSizeEstimate: Int,
+    fallbackStringTypeSizeEstimate: Int,
     meanObjectTypeSizeEstimate: Int,
     burstEstimateDivisionFactor: Int,
     rateEstimateDivisionFactor: Int,
@@ -23,7 +23,8 @@ case class MemoryBound(
     chunkCostMax: Int,
     tableRowCountWeight: Double,
     tableSizeWeight: Double,
-    tableSizeScaleFactor: Int
+    tableSizeScaleFactor: Int,
+    dataCompressionFactor: Double
 ) derives ReadWriter
 
 /** ADT composed with settings class for MemoryBound
