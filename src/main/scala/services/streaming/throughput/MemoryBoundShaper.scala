@@ -35,7 +35,7 @@ class MemoryBoundShaper(
   private val shaperSettings = throughputSettings.shaperImpl match
     case mb: MemoryBoundImpl => mb.memoryBound
     case _ =>
-      throw new RuntimeException("`shaperImpl.$$type` must be set to `MemoryBound` when using MemoryBoundShaper")
+      throw new RuntimeException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
 
   private val runtime            = Runtime.getRuntime
   private val maxAvailableMemory = runtime.maxMemory()
