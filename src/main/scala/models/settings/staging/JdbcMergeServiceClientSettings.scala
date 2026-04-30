@@ -54,6 +54,10 @@ trait JdbcMergeServiceClientSettings:
     */
   val connectionUrl: JdbcConnectionUrl
 
+  /** Credential type to be used by JDBC client
+    */
+  val credentialType: JdbcCredentialType
+
   /** Optional extra connection parameters for the merge client (tags, session properties etc.)
     */
   val extraConnectionParameters: Map[String, String]
@@ -85,9 +89,20 @@ trait JdbcMergeServiceClientSettings:
     */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
 
-  final def getConnectionString: String = connectionUrl.withUrlParameters(extraConnectionParameters)
+  final def getConnectionString(catalog: String, schema: String, credential: JdbcCredentialType): String = {
+    val baseUrl = connectionUrl
+      .withDefaultCatalog(catalog)
+      .withDefaultSchema(schema)
+      .withUrlParameters(extraConnectionParameters)
+
+    credential match {
+      case AnonymousCredentialImpl(_)           => baseUrl
+      case BasicCredentialImpl(basicCredential) => baseUrl.withUrlParameters(basicCredential.asParameters)
+    }
+  }
 
 case class DefaultJdbcMergeServiceClientSettings(
+    @key("credentialType") credentialSetting: JdbcCredentialTypeSetting,
     @key("queryRetryMode") queryRetryModeSettings: JdbcQueryRetryModeSettings,
     override val queryRetryBaseDuration: Duration,
     override val queryRetryOnMessageContents: List[String],
@@ -99,3 +114,4 @@ case class DefaultJdbcMergeServiceClientSettings(
   override val connectionUrl: String =
     connectionString.getOrElse(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI"))
   override val queryRetryMode: JdbcQueryRetryMode = queryRetryModeSettings.resolveRetryMode
+  override val credentialType: JdbcCredentialType = credentialSetting.resolveCredentialType
