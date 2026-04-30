@@ -3,7 +3,13 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
-import models.settings.staging.{AlwaysImpl, BackfillOnlyImpl, JdbcMergeServiceClientSettings, NeverImpl}
+import models.settings.staging.{
+  AlwaysImpl,
+  BackfillOnlyImpl,
+  JdbcCredentialType,
+  JdbcMergeServiceClientSettings,
+  NeverImpl
+}
 import services.base.*
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
@@ -40,6 +46,8 @@ trait JdbcTableManager extends TableManager:
   */
 class JdbcMergeServiceClient(
     options: JdbcMergeServiceClientSettings,
+    defaultCatalogName: String,
+    defaultSchemaName: String,
     declaredMetrics: DeclaredMetrics,
     isBackfilling: Boolean
 ) extends MergeServiceClient
@@ -49,7 +57,9 @@ class JdbcMergeServiceClient(
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
-  private lazy val sqlConnection: Connection = DriverManager.getConnection(options.getConnectionString)
+  private lazy val sqlConnection: Connection = DriverManager.getConnection(
+    options.getConnectionString(defaultCatalogName, defaultSchemaName, options.credentialType)
+  )
 
   private val retryPolicy =
     val backoffPolicy =
@@ -160,37 +170,6 @@ class JdbcMergeServiceClient(
       case _ => ZIO.succeed(BatchOptimizationResult(true))
 
 object JdbcMergeServiceClient:
-
-  // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
-  extension (icebergType: Type)
-    private def convertType: String = icebergType.typeId() match {
-      case TypeID.BOOLEAN => "BOOLEAN"
-      case TypeID.INTEGER => "INTEGER"
-      case TypeID.LONG    => "BIGINT"
-      case TypeID.FLOAT   => "REAL"
-      case TypeID.DOUBLE  => "DOUBLE"
-      case TypeID.DECIMAL =>
-        s"DECIMAL(${icebergType.asInstanceOf[DecimalType].precision}, ${icebergType.asInstanceOf[DecimalType].scale})"
-      case TypeID.DATE => "DATE"
-      case TypeID.TIME => "TIME(6)"
-      case TypeID.TIMESTAMP
-          if icebergType.isInstanceOf[TimestampType] && icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() =>
-        "TIMESTAMP(6) WITH TIME ZONE"
-      case TypeID.TIMESTAMP
-          if icebergType.isInstanceOf[TimestampType] && !icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() =>
-        "TIMESTAMP(6)"
-      case TypeID.STRING => "VARCHAR"
-      case TypeID.UUID   => "UUID"
-      case TypeID.BINARY => "VARBINARY"
-      case TypeID.LIST   => s"ARRAY(${icebergType.asInstanceOf[ListType].elementType().convertType})"
-      // https://trino.io/docs/current/language/types.html#row
-      // struct<1002: colA: optional long, 1003: colB: optional string> -> ROW(colA BIGINT, colB VARCHAR)
-      // nested supported via recursion as well
-      case TypeID.STRUCT =>
-        s"ROW(${icebergType.asInstanceOf[StructType].fields().asScala.map(f => s"${f.name()} ${f.`type`().convertType}").mkString(",")})"
-      case _ => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
-    }
-
   /** The environment type for the JdbcConsumer.
     */
   private type Environment = PluginStreamContext & DeclaredMetrics
@@ -203,11 +182,15 @@ object JdbcMergeServiceClient:
     */
   def apply(
       options: JdbcMergeServiceClientSettings,
+      defaultCatalogName: String,
+      defaultSchemaName: String,
       isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): JdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       options,
+      defaultCatalogName,
+      defaultSchemaName,
       declaredMetrics,
       isBackfilling
     )
@@ -223,6 +206,8 @@ object JdbcMergeServiceClient:
           isBackfilling   <- context.isBackfilling.orElseSucceed(false)
         yield JdbcMergeServiceClient(
           context.sink.mergeServiceClient,
+          context.staging.table.stagingCatalogName,
+          context.staging.table.stagingSchemaName,
           isBackfilling,
           declaredMetrics
         )
