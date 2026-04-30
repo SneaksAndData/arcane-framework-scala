@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import models.schemas.{DataRow, MergeKeyField}
-import models.settings.*
 import models.settings.TableNaming.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}

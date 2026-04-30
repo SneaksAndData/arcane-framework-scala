@@ -15,8 +15,8 @@ sealed trait ThroughputShaperImpl
 /** Settings for memory bound shaper implementation
   */
 case class MemoryBound(
-    meanStringTypeSizeEstimate: Int,
-    meanObjectTypeSizeEstimate: Int,
+    fallbackStringTypeSizeEstimate: Int,
+    objectTypeSizeEstimate: Int,
     burstEstimateDivisionFactor: Int,
     rateEstimateDivisionFactor: Int,
     chunkCostScale: Int,

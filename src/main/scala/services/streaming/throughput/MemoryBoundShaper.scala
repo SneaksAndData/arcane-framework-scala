@@ -35,16 +35,17 @@ class MemoryBoundShaper(
   private val shaperSettings = throughputSettings.shaperImpl match
     case mb: MemoryBoundImpl => mb.memoryBound
     case _ =>
-      throw new RuntimeException("`shaperImpl.$$type` must be set to `MemoryBound` when using MemoryBoundShaper")
+      throw new RuntimeException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
 
   private val runtime            = Runtime.getRuntime
   private val maxAvailableMemory = runtime.maxMemory()
   private val mib                = 1024 * 1024
   private val estimationCache    = TrieMap[String, Double]()
 
-  private val rowSizeCacheKey = "rowsize"
-  private val memCacheKey     = "memcutoff"
-  private val partsCacheKey   = "partitions"
+  private val rowSizeCacheKey    = "rowsize"
+  private val memCacheKey        = "memcutoff"
+  private val partsCacheKey      = "partitions"
+  private val stringSizeCacheKey = "stringsize"
 
   private def getTotalFreeMemory =
     val allocatedTotal = runtime.totalMemory()
@@ -64,7 +65,22 @@ class MemoryBoundShaper(
       shaperSettings.tableSizeScaleFactor
     )
 
-  private def estimateRowSize(schema: Schema): Long =
+  /** Estimate string length in the file. Sum uncompressed size of all string fields, divide by record count -> avg
+    * field size in bytes, divide by 2L to get length
+    * @return
+    */
+  private def estimateStringLength(schema: Schema, sizes: Map[Int, Long], recordCount: Long): Long =
+    if sizes.isEmpty || recordCount == 0L then shaperSettings.fallbackStringTypeSizeEstimate.toLong
+    else
+      (schema
+        .columns()
+        .asScala
+        .filter(_.`type`().typeId() == TypeID.STRING)
+        .map(v => sizes.getOrElse(v.fieldId(), 0L))
+        // find avg field size and multiply by 1.5 to reserve slightly more memory for extra safety
+        .sum * 1.5 / recordCount / 2L).toLong
+
+  private def estimateRowSize(schema: Schema, estimatedStringLength: Long): Long =
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
       val typeSize = tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
@@ -101,9 +117,9 @@ class MemoryBoundShaper(
             + 16L // header
             + 4L  // padding
         case TypeID.STRING =>
-          32L                                                       // wrapper type
-            + 16L                                                   // array header
-            + 2L * shaperSettings.meanStringTypeSizeEstimate.toLong // conservative over-estimation for varchar types
+          32L     // wrapper type
+            + 16L // array header
+            + 2L * estimatedStringLength
         case TypeID.DECIMAL =>
           16L         // header
             + 8L      // bigint pointer
@@ -124,7 +140,7 @@ class MemoryBoundShaper(
             + 16L // header
             + 4L  // padding
         case _ =>
-          16L + 4L + 8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+          16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
 
       agg + typeSize
     }
@@ -133,24 +149,30 @@ class MemoryBoundShaper(
     _ <- zlog("Estimating chunk size for the stream")
     _ <- ZIO.when(estimationCache.isEmpty) {
       for
-        tableSizeEstimate   <- tablePropertyManager.getTableSize(targetTableShortName)
+        tableSizeEstimate <- tablePropertyManager
+          .getTableSize(targetTableShortName)
         tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
         tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
+        stringSize <- tablePropertyManager
+          .getColumnSizes(targetTableShortName)
+          .map(v => estimateStringLength(tableSchema, v, tableSizeEstimate.Records))
 
         memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(tableSizeEstimate.Records, tableSizeEstimate.Size))
         rowsSize <- ZIO.succeed(
           Seq(
-            estimateRowSize(tableSchema).toDouble,
+            estimateRowSize(tableSchema, stringSize).toDouble,
             tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
           ).max
         )
         _ <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
         _ <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, rowsSize)))
         _ <- ZIO.succeed(estimationCache.addOne((partsCacheKey, tablePartitionCount.toDouble)))
+        _ <- ZIO.succeed(estimationCache.addOne((stringSizeCacheKey, stringSize.toDouble)))
         _ <- zlog(
-          "Computed baseline estimation parameters: memory cutoff %s and row size %s",
+          "Computed baseline estimation parameters: memory cutoff %s, row size %s (bytes), string field size %s (characters)",
           memoryCutoff.toString,
-          rowsSize.toString
+          rowsSize.toString,
+          stringSize.toString
         )
       yield ()
     }

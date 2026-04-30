@@ -39,6 +39,13 @@ trait TablePropertyManager:
     */
   def getTableSize(tableName: String): Task[(Records: Long, Size: Long)]
 
+  /** Return physical size of each column in bytes.
+    * @param tableName
+    *   Name of the table
+    * @return
+    */
+  def getColumnSizes(tableName: String): Task[Map[Int, Long]]
+
   /** Return schema from catalog metadata
     * @param tableName
     *   Name of the table
