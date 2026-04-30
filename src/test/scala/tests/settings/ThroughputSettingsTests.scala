@@ -27,8 +27,7 @@ class ThroughputSettingsTests extends AnyFlatSpec with Matchers:
               chunkCostMax = 1,
               tableRowCountWeight = 1,
               tableSizeWeight = 1,
-              tableSizeScaleFactor = 1,
-              dataCompressionFactor = 5
+              tableSizeScaleFactor = 1
             )
           ),
           static = None

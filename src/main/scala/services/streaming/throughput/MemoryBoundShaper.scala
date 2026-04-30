@@ -151,7 +151,6 @@ class MemoryBoundShaper(
       for
         tableSizeEstimate <- tablePropertyManager
           .getTableSize(targetTableShortName)
-          .map(v => (Records = v.Records, Size = (v.Size * shaperSettings.dataCompressionFactor).toLong))
         tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
         tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
         stringSize <- tablePropertyManager
