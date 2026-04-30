@@ -89,7 +89,7 @@ trait JdbcMergeServiceClientSettings:
     */
   final def isValid: Boolean = Try(DriverManager.getDriver(connectionUrl)).isSuccess
 
-  final def getConnectionString(catalog: String, schema: String, credential: JdbcCredentialType): String = {
+  final def getConnectionString(catalog: String, schema: String, credential: JdbcCredentialType): String =
     val baseUrl = connectionUrl
       .withDefaultCatalog(catalog)
       .withDefaultSchema(schema)
@@ -99,7 +99,6 @@ trait JdbcMergeServiceClientSettings:
       case AnonymousCredentialImpl(_)           => baseUrl
       case BasicCredentialImpl(basicCredential) => baseUrl.withUrlParameters(basicCredential.asParameters)
     }
-  }
 
 case class DefaultJdbcMergeServiceClientSettings(
     @key("credentialType") credentialSetting: JdbcCredentialTypeSetting,

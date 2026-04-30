@@ -26,7 +26,7 @@ object JdbcConnectionExtensions:
       * @return
       */
     def withUrlParameters(extraParameters: Map[String, String]): String = if extraParameters.isEmpty then url
-    else {
+    else
       val paramString = extraParameters
         .map { case (key, value) =>
           s"$key=$value"
@@ -44,8 +44,6 @@ object JdbcConnectionExtensions:
             url,
             paramString
           ).mkString("&")
-
-    }
 
     /** Attaches extra parameters as connection string parameters with `;` separator
       */
