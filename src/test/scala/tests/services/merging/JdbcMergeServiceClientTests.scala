@@ -47,6 +47,8 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(
       TestJdbcMergeServiceClientSettings,
+      "iceberg",
+      "test",
       DeclaredMetrics(ArcaneDimensionsProvider("test", false, "test", TestObservabilitySettings)),
       false
     )

@@ -17,10 +17,13 @@ case class BasicCredential(
   private val user: String     = userSetting.getOrElse(sys.env("ARCANE_FRAMEWORK__JDBC_MERGE_SERVICE_USER"))
   private val password: String = passwordSetting.getOrElse(sys.env("ARCANE_FRAMEWORK__JDBC_MERGE_SERVICE_PASSWORD"))
 
-  def asParameters: Map[String, String] = Map(
-    "user"     -> user,
-    "password" -> password
-  )
+  def asParameters: Map[String, String] =
+    if password.isEmpty then Map("user" -> user)
+    else
+      Map(
+        "user"     -> user,
+        "password" -> password
+      )
 
 /** ADT proxy for BasicCredential
   */
