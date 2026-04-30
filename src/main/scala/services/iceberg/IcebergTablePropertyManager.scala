@@ -7,6 +7,8 @@ import services.iceberg.base.{SinkPropertyManager, StagingPropertyManager, Table
 
 import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
+import org.apache.iceberg.parquet.ParquetUtil
+import org.apache.parquet.format.converter.ParquetMetadataConverter
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*
@@ -28,12 +30,12 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
       .orDieWith(e => Throwable(s"Unable to load target table $tableName to read its properties", e))
   yield table
 
-  private def loadPartitionsTable(tableName: String): Task[Table] = for
+  private def loadMetadataTable(tableName: String, tableType: MetadataTableType): Task[Table] = for
     table <- loadTable(tableName)
-    partitionsTable <- ZIO.attemptBlocking(
-      MetadataTableUtils.createMetadataTableInstance(table, MetadataTableType.PARTITIONS)
+    metadataTable <- ZIO.attemptBlocking(
+      MetadataTableUtils.createMetadataTableInstance(table, tableType)
     )
-  yield partitionsTable
+  yield metadataTable
 
   override def comment(tableName: String, text: String): Task[Unit] = for
     table <- loadTable(tableName)
@@ -45,8 +47,8 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     properties <- ZIO.attemptBlocking(table.properties())
   yield properties.get(propertyName)
 
-  private def getTableScan(tableName: String) = for
-    table <- loadPartitionsTable(tableName)
+  private def getTableMetadataScan(tableName: String, tableType: MetadataTableType) = for
+    table <- loadMetadataTable(tableName, tableType)
     scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
       ZIO.attemptBlocking(fileScans.close()).orDie
     }
@@ -54,7 +56,7 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
 
   override def getTableSize(tableName: String): Task[(Records: Long, Size: Long)] = ZIO.scoped {
     for
-      scanOps <- getTableScan(tableName)
+      scanOps <- getTableMetadataScan(tableName, MetadataTableType.PARTITIONS)
       result <- ZIO.foldLeft(scanOps.asScala)((0L, 0L)) { case (agg, el) =>
         ZIO.succeed(agg._1 + el.file.recordCount(), agg._2 + el.file().fileSizeInBytes())
       }
@@ -63,7 +65,7 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
 
   override def getPartitionCount(tableName: String): Task[Int] = ZIO.scoped {
     for
-      scanOps <- getTableScan(tableName)
+      scanOps <- getTableMetadataScan(tableName, MetadataTableType.PARTITIONS)
       result <- ZIO.foldLeft(scanOps.asScala)(0) { case (agg, _) =>
         ZIO.succeed(agg + 1)
       }
@@ -72,7 +74,8 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
 
   override def getColumnSizes(tableName: String): Task[Map[Int, Long]] = ZIO.scoped {
     for
-      scanOps <- getTableScan(tableName)
+      table   <- loadTable(tableName)
+      scanOps <- ZIO.attempt(table.newScan().includeColumnStats().planFiles())
       result <- ZIO.foldLeft(scanOps.asScala)(Map.empty[Int, Long]) { case (agg, scanOp) =>
         val fieldSizes = Option(scanOp.file().columnSizes()) match {
           case Some(sizes) => sizes.asScala.map(v => (v._1.toInt, v._2.toLong))
