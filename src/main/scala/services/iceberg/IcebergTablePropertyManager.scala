@@ -49,14 +49,15 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
 
   private def getTableMetadataScan(tableName: String, tableType: MetadataTableType) = for
     table <- loadMetadataTable(tableName, tableType)
-    scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().planFiles())) { fileScans =>
+    scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().includeColumnStats().planFiles())) { fileScans =>
       ZIO.attemptBlocking(fileScans.close()).orDie
     }
   yield scanOps
 
   override def getTableSize(tableName: String): Task[(Records: Long, Size: Long)] = ZIO.scoped {
     for
-      scanOps <- getTableMetadataScan(tableName, MetadataTableType.PARTITIONS)
+      table   <- loadTable(tableName)
+      scanOps <- ZIO.attempt(table.newScan().planFiles())
       result <- ZIO.foldLeft(scanOps.asScala)((0L, 0L)) { case (agg, el) =>
         ZIO.succeed(agg._1 + el.file.recordCount(), agg._2 + el.file().fileSizeInBytes())
       }

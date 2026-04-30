@@ -17,7 +17,7 @@ import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSetting
 import io.trino.jdbc.TrinoDriver
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, Task, ZIO}
+import zio.{Schedule, Scope, Task, ZIO}
 
 import java.time.Duration
 import java.util.Properties
@@ -55,20 +55,21 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
     yield (propertyManager, entityManager)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MemoryBoundShaperTests")(
-//    test("correctly estimate on empty target") {
-//      for
-//        tableName <- ZIO.succeed("mbs_empty_table")
-//        (propertyManager, entityManager) <- getIcebergManagers(tableName)
-//
-//        _ <- entityManager.createTable(CreateTableRequest(tableName, ArcaneSchema(Seq(MergeKeyField)), true))
-//
-//        shaper           <- ZIO.succeed(getShaper(tableName, propertyManager))
-//        chunkSize        <- shaper.estimateChunkSize
-//        currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
-//        expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
-//        expectedElements <- ZIO.succeed(0.5 * currentMemory / (expectedRowSize + 1) / 2)
-//      yield assertTrue((chunkSize.Elements - expectedElements).abs < 5000 && chunkSize.ElementSize == expectedRowSize)
-//    },
+    // retries are added since tests depend on current memory on the machine running CI
+    test("correctly estimate on empty target") {
+      for
+        tableName                        <- ZIO.succeed("mbs_empty_table")
+        (propertyManager, entityManager) <- getIcebergManagers(tableName)
+
+        _ <- entityManager.createTable(CreateTableRequest(tableName, ArcaneSchema(Seq(MergeKeyField)), true))
+
+        shaper           <- ZIO.succeed(getShaper(tableName, propertyManager))
+        chunkSize        <- shaper.estimateChunkSize
+        currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
+        expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
+        expectedElements <- ZIO.succeed(0.5 * currentMemory / (expectedRowSize + 1) / 2)
+      yield assertTrue((chunkSize.Elements - expectedElements).abs < 1000 && chunkSize.ElementSize == expectedRowSize)
+    } @@ TestAspect.retry(Schedule.recurs(5)),
     test("correctly estimate on non-empty target") {
       for
         // prep iceberg
@@ -81,6 +82,8 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
           driver.connect("jdbc:trino://localhost:8080/iceberg/test?user=test", new Properties())
         )
         statement <- ZIO.attemptBlocking(connection.createStatement())
+        dropTableStatement = s"DROP TABLE IF EXISTS iceberg.test.$tableName"
+        _ <- ZIO.attemptBlocking(statement.execute(dropTableStatement))
         createTableStatement =
           s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, colA VARCHAR, colB INT)"
         _ <- ZIO.attemptBlocking(statement.execute(createTableStatement))
@@ -100,11 +103,12 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
         _ <- ZIO.attemptBlocking(statement.close())
 
         // check
-        shaper    <- ZIO.succeed(getShaper(tableName, propertyManager))
-        chunkSize <- shaper.estimateChunkSize
-//        currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
-//        expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
-//        expectedElements <- ZIO.succeed(0.5 * currentMemory / (expectedRowSize + 1) / 2)
-      yield assertTrue(chunkSize.Elements == 1 && chunkSize.ElementSize == 1)
-    }
+        shaper        <- ZIO.succeed(getShaper(tableName, propertyManager))
+        chunkSize     <- shaper.estimateChunkSize
+        currentMemory <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
+        // 2 strings of length 10 with 50% buffer and one integer
+        expectedRowSize  <- ZIO.succeed(2 * ((10 * 1.5) * 2 + 32 + 16) + (4 + 8 + 16 + 4))
+        expectedElements <- ZIO.succeed(0.8 * currentMemory / (expectedRowSize + 1) / 2)
+      yield assertTrue((chunkSize.Elements - expectedElements).abs < 1000 && chunkSize.ElementSize == expectedRowSize)
+    } @@ TestAspect.retry(Schedule.recurs(5))
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

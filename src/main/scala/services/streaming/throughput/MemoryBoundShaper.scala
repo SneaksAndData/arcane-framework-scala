@@ -77,7 +77,8 @@ class MemoryBoundShaper(
         .asScala
         .filter(_.`type`().typeId() == TypeID.STRING)
         .map(v => sizes.getOrElse(v.fieldId(), 0L))
-        .sum * 5.5 / recordCount / 2L).toLong
+        // find avg field size and multiply by 1.5 to reserve slightly more memory for extra safety
+        .sum * 1.5 / recordCount / 2L).toLong
 
   private def estimateRowSize(schema: Schema, estimatedStringLength: Long): Long =
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
