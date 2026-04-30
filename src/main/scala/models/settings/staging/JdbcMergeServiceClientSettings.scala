@@ -101,16 +101,14 @@ trait JdbcMergeServiceClientSettings:
     }
 
 case class DefaultJdbcMergeServiceClientSettings(
+    override val connectionUrl: JdbcConnectionUrl,
     @key("credentialType") credentialSetting: JdbcCredentialTypeSetting,
     @key("queryRetryMode") queryRetryModeSettings: JdbcQueryRetryModeSettings,
     override val queryRetryBaseDuration: Duration,
     override val queryRetryOnMessageContents: List[String],
     override val queryRetryScaleFactor: Double,
     override val queryRetryMaxAttempts: Int,
-    override val extraConnectionParameters: Map[String, String],
-    @key("connectionUrl") connectionString: Option[String] = None
+    override val extraConnectionParameters: Map[String, String]
 ) extends JdbcMergeServiceClientSettings derives ReadWriter:
-  override val connectionUrl: String =
-    connectionString.getOrElse(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI"))
   override val queryRetryMode: JdbcQueryRetryMode = queryRetryModeSettings.resolveRetryMode
   override val credentialType: JdbcCredentialType = credentialSetting.resolveCredentialType
