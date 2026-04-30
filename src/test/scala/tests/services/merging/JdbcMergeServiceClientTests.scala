@@ -1,11 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.merging
 
-import models.app.BaseStreamContext
 import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
-import models.settings.staging.{JdbcMergeServiceClientSettings, JdbcQueryRetryMode}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
@@ -16,20 +14,13 @@ import services.merging.maintenance.{
 }
 import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import tests.services.merging.JdbcMergeServiceClientTests.test
-import tests.shared.{
-  TestBackfillTableSettings,
-  TestJdbcMergeServiceClientSettings,
-  TestObservabilitySettings,
-  TestSinkSettings,
-  TestTablePropertiesSettings
-}
+import tests.shared.{TestJdbcMergeServiceClientSettings, TestObservabilitySettings, TestTablePropertiesSettings}
 
 import io.trino.jdbc.TrinoDriver
-import org.scalatestplus.easymock.EasyMockSugar
 import org.scalatestplus.easymock.EasyMockSugar.mock
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, Task, Unsafe, ZIO}
+import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.util.Properties

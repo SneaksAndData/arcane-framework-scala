@@ -34,12 +34,12 @@ object JdbcConnectionExtensions:
         .mkString("&")
       // check if URL has parameters
       Option(new URI(url).getQuery) match
-        case Some(_) =>
+        case None =>
           Seq(
             s"$url/?",
             paramString
           ).mkString("")
-        case None =>
+        case Some(_) =>
           Seq(
             url,
             paramString
