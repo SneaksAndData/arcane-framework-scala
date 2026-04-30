@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import models.app.PluginStreamContext
-import models.settings.FieldSelectionRuleSettings
+import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
@@ -52,9 +52,8 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   override val throughput: ThroughputSettings = new ThroughputSettings {
     override val shaperImpl: ThroughputShaperImpl = StaticImpl(Static())
     override val advisedChunkSize: Int            = 1
-    override val advisedRateChunks: Int           = 1
-    override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)
-    override val advisedChunksBurst: Int          = 1
+    override val advisedRate: FlowRate            = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
+    override val advisedBurst: Int                = 1
   }
   override val staging: StagingSettings = TestStagingSettings()
 

@@ -3,6 +3,7 @@ package tests.services.streaming.throughput
 
 import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, MergeKeyField}
+import models.settings.FlowRate
 import models.settings.streaming.{MemoryBound, MemoryBoundImpl, ThroughputSettings, ThroughputShaperImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.{
@@ -31,11 +32,10 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
     targetTableShortName = tableName,
     memoryBoundShaperSettings = new ThroughputSettings {
       override val shaperImpl: ThroughputShaperImpl =
-        MemoryBoundImpl(MemoryBound(stringSize, 4096, 2, 2, 1, 10, 0.5, 0.5, 2))
-      override val advisedChunkSize: Int       = 10
-      override val advisedRateChunks: Int      = 1
-      override val advisedRatePeriod: Duration = Duration.ofSeconds(1)
-      override val advisedChunksBurst: Int     = 10
+        MemoryBoundImpl(MemoryBound(stringSize, 4096, 1, 10, 0.5, 0.5, 2))
+      override val advisedChunkSize: Int = 10
+      override val advisedRate: FlowRate = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
+      override val advisedBurst: Int     = 10
     },
     declaredMetrics = DeclaredMetrics(NullDimensionsProvider)
   )

@@ -5,7 +5,7 @@ import models.*
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
-import models.settings.FieldSelectionRuleSettings
+import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
@@ -124,9 +124,8 @@ object StagingProcessorTests extends ZIOSpecDefault:
     override val throughput: ThroughputSettings = new ThroughputSettings {
       override val shaperImpl: ThroughputShaperImpl = StaticImpl(Static())
       override val advisedChunkSize: Int            = 1
-      override val advisedRateChunks: Int           = 1
-      override val advisedRatePeriod: Duration      = Duration.ofSeconds(1)
-      override val advisedChunksBurst: Int          = 10
+      override val advisedRate: FlowRate            = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
+      override val advisedBurst: Int                = 10
     }
 
     override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???

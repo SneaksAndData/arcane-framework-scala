@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.sink.SinkSettings
-import models.settings.streaming.{MemoryBound, MemoryBoundImpl, ThroughputSettings}
+import models.settings.FlowRate
+import models.settings.streaming.{MemoryBoundImpl, ThroughputSettings}
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaper
@@ -12,6 +12,7 @@ import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type.TypeID
 import zio.{Chunk, Task, ZIO}
 
+import java.lang.management.ManagementFactory
 import java.time.Duration
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
@@ -207,20 +208,29 @@ class MemoryBoundShaper(
   yield appliedSize
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
-    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
+    for rowsToFit <- ZIO.attempt(getTotalFreeMemory / (chunkElementSize + 1))
     yield Seq(
-      chunksToFit.toDouble / shaperSettings.burstEstimateDivisionFactor,
-      throughputSettings.advisedChunksBurst.toDouble
+      rowsToFit.toDouble,
+      throughputSettings.advisedBurst.toDouble
     ).max.toInt
 
-  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
-    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
-    yield (
-      Seq(
-        chunksToFit.toDouble / shaperSettings.rateEstimateDivisionFactor,
-        throughputSettings.advisedRateChunks.toDouble
-      ).max.toInt,
-      throughputSettings.advisedRatePeriod
+  private def getTotalGCCount: Long =
+    ManagementFactory.getGarbageCollectorMXBeans.asScala.foldLeft(0L) { case (_, bean) =>
+      val gcs = bean.getCollectionCount
+      if gcs >= 0 then gcs
+      else 0
+    }
+
+  private def getUptime: Long = ManagementFactory.getRuntimeMXBean.getUptime / 1000
+
+  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate] =
+    for
+      gcFrequency   <- ZIO.attempt(getTotalGCCount.toDouble / getUptime.toDouble)
+      capacity      <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
+      gcProbability <- ZIO.succeed(1 - Math.exp(-1 * gcFrequency * throughputSettings.advisedRate.interval.toSeconds))
+    yield FlowRate(
+      elements = (capacity * gcProbability / throughputSettings.advisedRate.interval.toSeconds).toInt,
+      interval = Duration.ofSeconds(1)
     )
 
     /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
