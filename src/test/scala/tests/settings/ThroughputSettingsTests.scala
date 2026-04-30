@@ -20,7 +20,7 @@ class ThroughputSettingsTests extends AnyFlatSpec with Matchers:
           memoryBound = Some(
             MemoryBound(
               fallbackStringTypeSizeEstimate = 1,
-              meanObjectTypeSizeEstimate = 1,
+              objectTypeSizeEstimate = 1,
               burstEstimateDivisionFactor = 1,
               rateEstimateDivisionFactor = 1,
               chunkCostScale = 1,
@@ -38,7 +38,7 @@ class ThroughputSettingsTests extends AnyFlatSpec with Matchers:
         advisedRateChunks = 1,
         advisedChunksBurst = 1
       ),
-      """{"shaperImpl":{"memoryBound":{"fallbackStringTypeSizeEstimate":1,"meanObjectTypeSizeEstimate":1,"burstEstimateDivisionFactor":1,"rateEstimateDivisionFactor":1,"chunkCostScale":1,"chunkCostMax":1,"tableRowCountWeight":1,"tableSizeWeight":1,"tableSizeScaleFactor":1}},"advisedRatePeriod":"1 second","advisedChunksBurst":1,"advisedChunkSize":1,"advisedRateChunks":1}"""
+      """{"shaperImpl":{"memoryBound":{"fallbackStringTypeSizeEstimate":1,"objectTypeSizeEstimate":1,"burstEstimateDivisionFactor":1,"rateEstimateDivisionFactor":1,"chunkCostScale":1,"chunkCostMax":1,"tableRowCountWeight":1,"tableSizeWeight":1,"tableSizeScaleFactor":1}},"advisedRatePeriod":"1 second","advisedChunksBurst":1,"advisedChunkSize":1,"advisedRateChunks":1}"""
     ),
     (
       DefaultThroughputSettings(

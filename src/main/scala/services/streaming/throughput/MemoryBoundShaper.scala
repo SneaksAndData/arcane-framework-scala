@@ -140,7 +140,7 @@ class MemoryBoundShaper(
             + 16L // header
             + 4L  // padding
         case _ =>
-          16L + 4L + 8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+          16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
 
       agg + typeSize
     }
