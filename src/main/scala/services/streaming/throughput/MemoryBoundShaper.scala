@@ -231,6 +231,8 @@ class MemoryBoundShaper(
       // assume GC frees at least one chunk out
       currentUptime <- ZIO.succeed(getUptime)
       gcFrequency   <- ZIO.attempt((getTotalGCCount.toDouble + 1.0) / currentUptime.toDouble)
+      // assume near-constant GC rate and estimate probability with Poisson
+      // reduce probability until uptime reaches at least 1 x `advistedRate.interval`
       gcProbability <- ZIO.succeed(
         Seq(1, currentUptime.toDouble / throughputSettings.advisedRate.interval.toSeconds).min *
           (1 - Math.exp(
@@ -242,8 +244,8 @@ class MemoryBoundShaper(
       _ <- ZIO.succeed(gcFrequency) @@ declaredMetrics.mbsGCFrequency
       _ <- ZIO.succeed(gcProbability) @@ declaredMetrics.mbsGCProbability
 
-    // add 1 + hold 1: chunkSize + chunkSize
-    // leak: chunkSize * gcProbability
+    // always hold 1 x `chunkSize` in memory
+    // leak: 1 x `chunkSize` with `gcProbability`
     yield FlowRate(
       elements = ((chunkSize * (1 + gcProbability)) / throughputSettings.advisedRate.interval.toSeconds).toInt + 1,
       interval = Duration.ofSeconds(1)
