@@ -211,6 +211,7 @@ class MemoryBoundShaper(
     for rowsToFit <- ZIO.attempt(getTotalFreeMemory / (chunkElementSize + 1))
     yield Seq(
       rowsToFit.toDouble,
+      0.1 * chunkSize,
       throughputSettings.advisedBurst.toDouble
     ).max.toInt
 
@@ -223,19 +224,34 @@ class MemoryBoundShaper(
 
   private def getUptime: Long = ManagementFactory.getRuntimeMXBean.getUptime / 1000
 
-  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate] =
+  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate] = {
+    // utilize leaking bucket model for memory
     for
-      gcFrequency   <- ZIO.attempt(getTotalGCCount.toDouble / getUptime.toDouble)
-      capacity      <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
-      gcProbability <- ZIO.succeed(1 - Math.exp(-1 * gcFrequency * throughputSettings.advisedRate.interval.toSeconds))
+      // assume GC "leaks" out of the memory bucket with certain probability
+      // assume GC frees at least one chunk out
+      currentUptime <- ZIO.succeed(getUptime)
+      gcFrequency   <- ZIO.attempt((getTotalGCCount.toDouble + 1.0) / currentUptime.toDouble)
+      gcProbability <- ZIO.succeed(
+        1 - Math.exp(
+          -1 * gcFrequency * Seq(1, currentUptime.toDouble / throughputSettings.advisedRate.interval.toSeconds).min
+        )
+      ) // in relation to uptime!
+
+      // report metrics so calculations can be traced
+      _ <- ZIO.succeed(gcFrequency) @@ declaredMetrics.mbsGCFrequency
+      _ <- ZIO.succeed(gcProbability) @@ declaredMetrics.mbsGCProbability
+
+    // add 1 + hold 1: chunkSize + chunkSize
+    // leak: chunkSize * gcProbability
     yield FlowRate(
-      elements = (capacity * gcProbability / throughputSettings.advisedRate.interval.toSeconds).toInt,
+      elements = ((chunkSize * (1 + gcProbability)) / throughputSettings.advisedRate.interval.toSeconds).toInt + 1,
       interval = Duration.ofSeconds(1)
     )
+  }
 
-    /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
-      * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
-      */
+  /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
+    * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
+    */
   private def scaledSigmoid(maxBound: Double, value: Double, k: Int): Double =
     maxBound * (2.0 / (1.0 + exp(-1.0 * k * value)) - 1)
 

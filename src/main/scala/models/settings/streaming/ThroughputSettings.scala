@@ -1,14 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.streaming
 
-import models.serialization.JavaDurationRW.*
 import models.serialization.FlowRateRW.*
 import models.settings.FlowRate
 
 import upickle.default.*
 import upickle.implicits.key
-
-import java.time.Duration
 
 /** Marker for shaper implementations
   */
