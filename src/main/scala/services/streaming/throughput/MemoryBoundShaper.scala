@@ -232,9 +232,10 @@ class MemoryBoundShaper(
       currentUptime <- ZIO.succeed(getUptime)
       gcFrequency   <- ZIO.attempt((getTotalGCCount.toDouble + 1.0) / currentUptime.toDouble)
       gcProbability <- ZIO.succeed(
-        1 - Math.exp(
-          -1 * gcFrequency * Seq(1, currentUptime.toDouble / throughputSettings.advisedRate.interval.toSeconds).min
-        )
+        Seq(1, currentUptime.toDouble / throughputSettings.advisedRate.interval.toSeconds).min *
+          (1 - Math.exp(
+            -1 * gcFrequency * throughputSettings.advisedRate.interval.toSeconds
+          ))
       ) // in relation to uptime!
 
       // report metrics so calculations can be traced
