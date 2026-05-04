@@ -56,22 +56,24 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MemoryBoundShaperTests")(
     // retries are added since tests depend on current memory on the machine running CI
-//    test("correctly estimate on empty target") {
-//      for
-//        tableName                        <- ZIO.succeed("mbs_empty_table")
-//        (propertyManager, entityManager) <- getIcebergManagers(tableName)
-//
-//        _ <- entityManager.createTable(CreateTableRequest(tableName, ArcaneSchema(Seq(MergeKeyField)), true))
-//
-//        shaper           <- ZIO.succeed(getShaper(tableName, propertyManager))
-//        chunkSize        <- shaper.estimateChunkSize
-//        flowRate <- shaper.estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
-//        currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
-//        expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
-//        expectedElements <- ZIO.succeed(0.5 * currentMemory / (expectedRowSize + 1) / 2)
-//        expectedFlowRate <- ZIO.succeed(chunkSize.Elements * 0.15) // no GC - default 1 for count -> 0.999 probability / 10s interval -> 10% rate uplift
-//      yield assertTrue((chunkSize.Elements - expectedElements).abs < 1000 && chunkSize.ElementSize == expectedRowSize && (flowRate.elements - chunkSize.Elements) < expectedFlowRate)
-//    } @@ TestAspect.retry(Schedule.recurs(5)),
+    test("correctly estimate on empty target") {
+      for
+        tableName                        <- ZIO.succeed("mbs_empty_table")
+        (propertyManager, entityManager) <- getIcebergManagers(tableName)
+
+        _ <- entityManager.createTable(CreateTableRequest(tableName, ArcaneSchema(Seq(MergeKeyField)), true))
+
+        shaper           <- ZIO.succeed(getShaper(tableName, propertyManager))
+        chunkSize        <- shaper.estimateChunkSize
+        flowRate         <- shaper.estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
+        currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
+        expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
+        expectedElements <- ZIO.succeed(0.5 * currentMemory / (expectedRowSize + 1) / 2)
+      // no GC - default 1 for count -> 0.999 probability / 10s interval -> 10% rate uplift
+      yield assertTrue(
+        (1 - chunkSize.Elements.toDouble / expectedElements) < 0.01 && chunkSize.ElementSize == expectedRowSize && (flowRate.elements.toDouble / chunkSize.Elements) < 0.15
+      )
+    } @@ TestAspect.retry(Schedule.recurs(5)),
     test("correctly estimate on non-empty target") {
       for
         // prep iceberg
@@ -114,7 +116,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
         _                <- ZIO.attempt(javaRuntime.gc())
         flowRate         <- shaper.estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
       yield assertTrue(
-        (chunkSize.Elements - expectedElements).abs < 1000 && chunkSize.ElementSize == expectedRowSize && (flowRate.elements - chunkSize.Elements) < 0.1
+        (1 - chunkSize.Elements.toDouble / expectedElements) < 0.01 && chunkSize.ElementSize == expectedRowSize && (flowRate.elements.toDouble / chunkSize.Elements) < 0.15
       )
     } @@ TestAspect.retry(Schedule.recurs(5))
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
