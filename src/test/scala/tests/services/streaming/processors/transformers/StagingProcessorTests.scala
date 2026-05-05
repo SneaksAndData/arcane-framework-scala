@@ -68,7 +68,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       TestSinkSettingsWithMaintenance.targetTableFullName,
       TestIcebergStagingSettings,
       catalogWriterService,
-      DeclaredMetrics(NullDimensionsProvider)
+      DeclaredMetrics()
     )
   } yield stagingProcessor
 

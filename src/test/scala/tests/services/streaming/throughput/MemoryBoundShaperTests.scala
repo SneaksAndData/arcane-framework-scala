@@ -13,7 +13,7 @@ import services.iceberg.{
 }
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.MemoryBoundShaper
-import tests.shared.{IcebergUtil, NullDimensionsProvider, TestDynamicSinkSettings}
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
 
 import io.trino.jdbc.TrinoDriver
 import zio.test.*
@@ -37,7 +37,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
       override val advisedRate: FlowRate = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
       override val advisedBurst: Int     = 10
     },
-    declaredMetrics = DeclaredMetrics(NullDimensionsProvider)
+    declaredMetrics = DeclaredMetrics()
   )
 
   private def getIcebergManagers(

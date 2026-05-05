@@ -16,7 +16,7 @@ import services.iceberg.{
   IcebergTablePropertyManager
 }
 import services.merging.JdbcTableManager
-import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.{HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.streaming.{
@@ -130,7 +130,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,
-      ArcaneDimensionsProvider.layer,
+      GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,
       IcebergTablePropertyManager.stagingLayer,

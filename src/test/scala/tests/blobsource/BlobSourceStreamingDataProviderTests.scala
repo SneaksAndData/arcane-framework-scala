@@ -18,7 +18,6 @@ import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
 import tests.shared.{
   IcebergUtil,
-  NullDimensionsProvider,
   TestDynamicSinkSettings,
   TestSourceBufferingSettings,
   TestStagingSettings,
@@ -85,7 +84,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             true,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- sdp.stream.runCollect
@@ -116,7 +115,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- sdp.stream.filter(!_.isWatermark).timeout(zio.Duration.fromSeconds(10)).runCount
@@ -151,7 +150,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount
