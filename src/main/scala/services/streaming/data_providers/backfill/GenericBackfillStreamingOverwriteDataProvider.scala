@@ -15,6 +15,8 @@ import org.apache.iceberg.Table
 import zio.stream.ZPipeline
 import zio.{Chunk, Task, ZIO, ZIOAspect, ZLayer}
 
+import scala.collection.SortedMap
+
 /** Provides the backfill data stream for the streaming process. It is utilized when the backfill process begins with
   * the `overwrite` behavior. An important distinction between this and the GenericBackfillStreamingMergeDataProvider is
   * that this provider overrides the table used by the basic streamGraphBuilder, replacing it with the intermediate
@@ -58,7 +60,7 @@ class GenericBackfillStreamingOverwriteDataProvider(
                   .flatMap(_.completedWatermarkValue)
               )
             )
-      yield backfillBatch) @@ ZIOAspect.tagged(tags.toList*)
+      yield backfillBatch) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
     }
 
   private def streamLifetimeGuard =

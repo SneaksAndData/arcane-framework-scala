@@ -14,6 +14,8 @@ import services.streaming.base.{
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZIOAspect, ZLayer}
 
+import scala.collection.SortedMap
+
 /** Provides the backfill data stream for the streaming process. This data provider is used when backfill started with
   * the `Merge` behavior.
   * @param streamingGraphBuilder
@@ -38,7 +40,7 @@ class GenericBackfillStreamingMergeDataProvider(
         _ <- zlog("Starting backfill process")
         _ <- streamingGraphBuilder.produce(hookManager).via(streamLifetimeGuard).runDrain
         _ <- zlog("Backfill process completed")
-      yield ()) @@ ZIOAspect.tagged(tags.toList*)
+      yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
     }
 
   private def streamLifetimeGuard = ZPipeline.takeUntil(_ => lifetimeService.cancelled)

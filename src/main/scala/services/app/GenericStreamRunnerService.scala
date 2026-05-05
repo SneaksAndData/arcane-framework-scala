@@ -12,6 +12,8 @@ import services.streaming.base.{HookManager, StreamingGraphBuilder}
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZIOAspect, ZLayer}
 
+import scala.collection.SortedMap
+
 /** A service that can be used to run a stream.
   *
   * @param builder
@@ -48,7 +50,7 @@ class GenericStreamRunnerService(
           _ <- bootstrapper.createBackFillTable
           _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults)
           _ <- zlog("Stream completed")
-        yield ()) @@ ZIOAspect.tagged(tags.toList*)
+        yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
       )
 
   /** The stage that completes the stream until the lifetime service is cancelled.
