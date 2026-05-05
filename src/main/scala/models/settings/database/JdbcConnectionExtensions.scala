@@ -36,7 +36,7 @@ object JdbcConnectionExtensions:
       Option(new URI(url).getQuery) match
         case None =>
           Seq(
-            s"$url/?",
+            s"$url?",
             paramString
           ).mkString("")
         case Some(_) =>
