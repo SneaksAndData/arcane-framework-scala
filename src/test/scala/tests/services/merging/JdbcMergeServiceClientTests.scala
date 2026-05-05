@@ -12,7 +12,7 @@ import services.merging.maintenance.{
   JdbcOrphanFilesExpirationRequest,
   JdbcSnapshotExpirationRequest
 }
-import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import services.metrics.DeclaredMetrics
 import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{TestJdbcMergeServiceClientSettings, TestObservabilitySettings, TestTablePropertiesSettings}
 
@@ -40,7 +40,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       TestJdbcMergeServiceClientSettings,
       "iceberg",
       "test",
-      DeclaredMetrics(ArcaneDimensionsProvider("test", false, "test", TestObservabilitySettings)),
+      DeclaredMetrics(),
       false
     )
 

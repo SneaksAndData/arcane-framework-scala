@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.PluginStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
@@ -13,7 +12,8 @@ import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServic
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
-import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import services.metrics.base.MetricTagProvider
+import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
 import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
@@ -22,7 +22,6 @@ import services.streaming.processors.batch_processors.streaming.{
   MergeBatchProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
@@ -31,7 +30,7 @@ import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
-import org.scalatest.matchers.should.Matchers.{should, shouldBe}
+import org.scalatest.matchers.should.Matchers.shouldBe
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
@@ -52,7 +51,12 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     replay(streamingGraphBuilder)
 
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
-    val gb = GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, mock[HookManager])
+    val gb = GenericBackfillStreamingMergeDataProvider(
+      streamingGraphBuilder,
+      lifetimeService,
+      mock[HookManager],
+      mock[MetricTagProvider]
+    )
 
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.requestBackfill)).map { result =>
@@ -75,7 +79,12 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     replay(streamingGraphBuilder)
 
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
-    val gb = GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, mock[HookManager])
+    val gb = GenericBackfillStreamingMergeDataProvider(
+      streamingGraphBuilder,
+      lifetimeService,
+      mock[HookManager],
+      mock[MetricTagProvider]
+    )
     // Act
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.requestBackfill)).map { result =>
       // Assert
@@ -171,7 +180,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,
-      ArcaneDimensionsProvider.layer,
+      GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,
       IcebergTablePropertyManager.stagingLayer

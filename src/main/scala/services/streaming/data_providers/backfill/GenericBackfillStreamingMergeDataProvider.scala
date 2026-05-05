@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.data_providers.backfill
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.backfill.BackfillSettings
 import services.app.base.StreamLifetimeService
+import services.metrics.base.MetricTagProvider
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,
   BackfillStreamingMergeDataProvider,
@@ -12,7 +12,7 @@ import services.streaming.base.{
 }
 
 import zio.stream.ZPipeline
-import zio.{Task, ZIO, ZLayer}
+import zio.{Task, ZIO, ZIOAspect, ZLayer}
 
 /** Provides the backfill data stream for the streaming process. This data provider is used when backfill started with
   * the `Merge` behavior.
@@ -26,17 +26,20 @@ import zio.{Task, ZIO, ZLayer}
 class GenericBackfillStreamingMergeDataProvider(
     streamingGraphBuilder: BackfillSubStream,
     lifetimeService: StreamLifetimeService,
-    hookManager: HookManager
+    hookManager: HookManager,
+    tagProvider: MetricTagProvider
 ) extends BackfillStreamingMergeDataProvider:
 
   /** @inheritdoc
     */
   def requestBackfill: Task[Unit] =
-    for
-      _ <- zlog("Starting backfill process")
-      _ <- streamingGraphBuilder.produce(hookManager).via(streamLifetimeGuard).runDrain
-      _ <- zlog("Backfill process completed")
-    yield ()
+    ZIO.attempt(tagProvider.getTags).flatMap { tags =>
+      (for
+        _ <- zlog("Starting backfill process")
+        _ <- streamingGraphBuilder.produce(hookManager).via(streamLifetimeGuard).runDrain
+        _ <- zlog("Backfill process completed")
+      yield ()) @@ ZIOAspect.tagged(tags.toList*)
+    }
 
   private def streamLifetimeGuard = ZPipeline.takeUntil(_ => lifetimeService.cancelled)
 
@@ -46,7 +49,8 @@ object GenericBackfillStreamingMergeDataProvider:
 
   /** The environment required for the GenericBackfillStreamingMergeDataProvider.
     */
-  type Environment = BackfillSubStream & StreamLifetimeService & BackfillOverwriteBatchFactory & HookManager
+  type Environment = BackfillSubStream & StreamLifetimeService & BackfillOverwriteBatchFactory & HookManager &
+    MetricTagProvider
 
   /** Creates a new GenericBackfillStreamingMergeDataProvider.
     * @param streamingGraphBuilder
@@ -61,9 +65,15 @@ object GenericBackfillStreamingMergeDataProvider:
   def apply(
       streamingGraphBuilder: BackfillSubStream,
       lifetimeService: StreamLifetimeService,
-      hookManager: HookManager
+      hookManager: HookManager,
+      metricTagProvider: MetricTagProvider
   ): GenericBackfillStreamingMergeDataProvider =
-    new GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, hookManager)
+    new GenericBackfillStreamingMergeDataProvider(
+      streamingGraphBuilder,
+      lifetimeService,
+      hookManager,
+      metricTagProvider
+    )
 
   /** The ZLayer for the GenericBackfillStreamingMergeDataProvider.
     */
@@ -73,5 +83,11 @@ object GenericBackfillStreamingMergeDataProvider:
         streamingGraphBuilder <- ZIO.service[BackfillSubStream]
         lifetimeService       <- ZIO.service[StreamLifetimeService]
         hookManager           <- ZIO.service[HookManager]
-      yield GenericBackfillStreamingMergeDataProvider(streamingGraphBuilder, lifetimeService, hookManager)
+        metricTagProvider     <- ZIO.service[MetricTagProvider]
+      yield GenericBackfillStreamingMergeDataProvider(
+        streamingGraphBuilder,
+        lifetimeService,
+        hookManager,
+        metricTagProvider
+      )
     }

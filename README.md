@@ -54,6 +54,7 @@ object MyPluginStreamContext:
 ### Entrypoint
 
 Now you can add `main.scala` and work is done:
+
 ```scala 3
 package com.sneaksanddata.arcane.sql_server_change_tracking
 
@@ -72,7 +73,7 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergTablePropertyManager
 }
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import com.sneaksanddata.arcane.framework.services.metrics.{GlobalMetricTagProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -107,11 +108,11 @@ object main extends ZIOAppDefault {
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   val appLayer: ZIO[StreamRunnerService, Throwable, Unit] = for
-    _            <- zlog("Application starting")
+    _ <- zlog("Application starting")
     streamRunner <- ZIO.service[StreamRunnerService]
-    _            <- streamRunner.run
+    _ <- streamRunner.run
   yield ()
-  
+
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,
     GenericGraphBuilderFactory.composedLayer,
@@ -141,7 +142,7 @@ object main extends ZIOAppDefault {
     BackfillOverwriteWatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,
     ThroughputShaperBuilder.layer,
-    ArcaneDimensionsProvider.layer,
+    GlobalMetricTagProvider.layer,
     DefaultJvmMetrics.liveV2.unit
   )
 

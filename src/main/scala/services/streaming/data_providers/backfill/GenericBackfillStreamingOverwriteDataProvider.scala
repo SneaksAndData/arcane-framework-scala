@@ -5,15 +5,15 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
-import models.settings.backfill.BackfillSettings
 import models.settings.staging.StagingTableSettings
 import services.app.base.StreamLifetimeService
+import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 
 import org.apache.iceberg.Table
 import zio.stream.ZPipeline
-import zio.{Chunk, Task, ZIO, ZLayer}
+import zio.{Chunk, Task, ZIO, ZIOAspect, ZLayer}
 
 /** Provides the backfill data stream for the streaming process. It is utilized when the backfill process begins with
   * the `overwrite` behavior. An important distinction between this and the GenericBackfillStreamingMergeDataProvider is
@@ -32,31 +32,34 @@ class GenericBackfillStreamingOverwriteDataProvider(
     stagingTableSettings: StagingTableSettings,
     lifetimeService: StreamLifetimeService,
     baseHookManager: HookManager,
-    backfillBatchFactory: BackfillOverwriteBatchFactory
+    backfillBatchFactory: BackfillOverwriteBatchFactory,
+    metricTagProvider: MetricTagProvider
 ) extends BackfillStreamingOverwriteDataProvider:
 
   /** @inheritdoc
     */
   def requestBackfill: Task[BatchType] =
-    for
-      _ <- zlog("Starting backfill process")
-      lastBatchSet <- streamingGraphBuilder
-        .produce(BackfillHookManager(baseHookManager, stagingTableSettings.backfillTableName))
-        .via(streamLifetimeGuard)
-        .runLast // ensure watermark is emitted at the end
-      _ <- zlog("Backfill process completed")
+    ZIO.attempt(metricTagProvider.getTags).flatMap { tags =>
+      (for
+        _ <- zlog("Starting backfill process")
+        lastBatchSet <- streamingGraphBuilder
+          .produce(BackfillHookManager(baseHookManager, stagingTableSettings.backfillTableName))
+          .via(streamLifetimeGuard)
+          .runLast // ensure watermark is emitted at the end
+        _ <- zlog("Backfill process completed")
 
-      backfillBatch <-
-        if lifetimeService.cancelled then ZIO.unit
-        else
-          backfillBatchFactory.createBackfillBatch(
-            lastBatchSet.flatMap(batchSet =>
-              batchSet.groupedBySchema
-                .find(batch => batch.completedWatermarkValue.isDefined)
-                .flatMap(_.completedWatermarkValue)
+        backfillBatch <-
+          if lifetimeService.cancelled then ZIO.unit
+          else
+            backfillBatchFactory.createBackfillBatch(
+              lastBatchSet.flatMap(batchSet =>
+                batchSet.groupedBySchema
+                  .find(batch => batch.completedWatermarkValue.isDefined)
+                  .flatMap(_.completedWatermarkValue)
+              )
             )
-          )
-    yield backfillBatch
+      yield backfillBatch) @@ ZIOAspect.tagged(tags.toList*)
+    }
 
   private def streamLifetimeGuard =
     ZPipeline[BackfillSubStream#ProcessedBatch].takeUntil(_ => lifetimeService.cancelled)
@@ -68,13 +71,11 @@ object GenericBackfillStreamingOverwriteDataProvider:
   /** The environment required for the GenericBackfillStreamingOverwriteDataProvider.
     */
   type Environment = BackfillSubStream & PluginStreamContext & StreamLifetimeService & BackfillOverwriteBatchFactory &
-    HookManager
+    HookManager & MetricTagProvider
 
   /** Creates a new GenericBackfillStreamingOverwriteDataProvider.
     * @param streamingGraphBuilder
     *   The streaming graph builder.
-    * @param backfillTableSettings
-    *   The backfill table settings.
     * @param lifetimeService
     *   The stream lifetime service.
     * @param baseHookManager
@@ -87,14 +88,16 @@ object GenericBackfillStreamingOverwriteDataProvider:
       stagingTableSettings: StagingTableSettings,
       lifetimeService: StreamLifetimeService,
       baseHookManager: HookManager,
-      backfillBatchFactory: BackfillOverwriteBatchFactory
+      backfillBatchFactory: BackfillOverwriteBatchFactory,
+      metricTagProvider: MetricTagProvider
   ): GenericBackfillStreamingOverwriteDataProvider =
     new GenericBackfillStreamingOverwriteDataProvider(
       streamingGraphBuilder,
       stagingTableSettings,
       lifetimeService,
       baseHookManager,
-      backfillBatchFactory
+      backfillBatchFactory,
+      metricTagProvider
     )
 
   /** The ZLayer for the GenericBackfillStreamingOverwriteDataProvider.
@@ -107,12 +110,14 @@ object GenericBackfillStreamingOverwriteDataProvider:
         lifetimeService       <- ZIO.service[StreamLifetimeService]
         backfillBatchFactory  <- ZIO.service[BackfillOverwriteBatchFactory]
         hookManager           <- ZIO.service[HookManager]
+        metricTagProvider     <- ZIO.service[MetricTagProvider]
       yield GenericBackfillStreamingOverwriteDataProvider(
         streamingGraphBuilder,
         context.staging.table,
         lifetimeService,
         hookManager,
-        backfillBatchFactory
+        backfillBatchFactory,
+        metricTagProvider
       )
     }
 

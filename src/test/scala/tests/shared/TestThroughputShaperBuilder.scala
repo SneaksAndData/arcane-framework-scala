@@ -23,5 +23,5 @@ object TestThroughputShaperBuilder:
       },
       propertyManager,
       sinkSettings.targetTableFullName.parts.name,
-      DeclaredMetrics(NullDimensionsProvider)
+      DeclaredMetrics()
     )

@@ -11,7 +11,7 @@ import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.{NullDimensionsProvider, TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
+import tests.shared.{TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
 
 import org.apache.iceberg.Schema
 import org.easymock.EasyMock
@@ -47,7 +47,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     val stagingPropertyManager = mock[StagingPropertyManager]
     val stagingEntityManager   = mock[StagingEntityManager]
     val tableManager           = mock[JdbcTableManager]
-    val declaredMetrics        = DeclaredMetrics(NullDimensionsProvider)
+    val declaredMetrics        = DeclaredMetrics()
 
     expecting {
       // Calling once for each batch in batch set
@@ -112,7 +112,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     val stagingPropertyManager = mock[StagingPropertyManager]
     val stagingEntityManager   = mock[StagingEntityManager]
     val tableManager           = mock[JdbcTableManager]
-    val declaredMetrics        = DeclaredMetrics(NullDimensionsProvider)
+    val declaredMetrics        = DeclaredMetrics()
 
     expecting {
       // Calling once for each batch in batch set

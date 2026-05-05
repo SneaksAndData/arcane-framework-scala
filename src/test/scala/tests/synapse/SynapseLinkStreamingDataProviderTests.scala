@@ -105,7 +105,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             true,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- provider.stream.runCollect
@@ -146,7 +146,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- provider.stream.timeout(zio.Duration.fromSeconds(4)).runCount
@@ -187,7 +187,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(4)).runCollect

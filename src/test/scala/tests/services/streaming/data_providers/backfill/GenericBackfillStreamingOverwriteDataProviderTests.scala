@@ -14,7 +14,7 @@ import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServic
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
-import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,
   BackfillStreamingOverwriteDataProvider,
@@ -30,6 +30,7 @@ import services.streaming.processors.batch_processors.streaming.{
 }
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.metrics.base.MetricTagProvider
 import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
 import tests.shared.*
 
@@ -87,7 +88,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       (watermark: Option[String]) =>
         ZIO.succeed(
           SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-        )
+        ),
+      mock[MetricTagProvider]
     )
 
     // Act
@@ -138,7 +140,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       (watermark: Option[String]) =>
         ZIO.succeed(
           SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-        )
+        ),
+      mock[MetricTagProvider]
     )
 
     // Act
@@ -241,7 +244,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,
-      ArcaneDimensionsProvider.layer,
+      GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,
       IcebergTablePropertyManager.stagingLayer
