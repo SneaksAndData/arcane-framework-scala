@@ -39,6 +39,18 @@ class DeclaredMetrics(dimensionsProvider: DimensionsProvider):
     .gauge(s"$metricsNamespace.rows.chunk_cost")
     .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
 
+  /** Memory bound shaper - estimated garbage collection frequency
+    */
+  val mbsGCFrequency: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.mbs.gc_frequency")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
+  /** Memory bound shaper - estimated garbage collection probability
+    */
+  val mbsGCProbability: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.mbs.gc_probability")
+    .tagged(dimensionsProvider.getDimensions.toMetricsLabelSet)
+
   /** Time it takes to transform a source rows into a mergeable batch
     */
   val batchTransformDuration: Gauge[Double] = Metric

@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.sink.SinkSettings
-import models.settings.streaming.{MemoryBound, MemoryBoundImpl, ThroughputSettings}
+import models.settings.FlowRate
+import models.settings.streaming.{MemoryBoundImpl, ThroughputSettings}
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaper
@@ -12,6 +12,7 @@ import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type.TypeID
 import zio.{Chunk, Task, ZIO}
 
+import java.lang.management.ManagementFactory
 import java.time.Duration
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
@@ -207,25 +208,53 @@ class MemoryBoundShaper(
   yield appliedSize
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
-    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
+    for rowsToFit <- ZIO.attempt(getTotalFreeMemory / (chunkElementSize + 1))
     yield Seq(
-      chunksToFit.toDouble / shaperSettings.burstEstimateDivisionFactor,
-      throughputSettings.advisedChunksBurst.toDouble
+      rowsToFit.toDouble,
+      0.1 * chunkSize,
+      throughputSettings.advisedBurst.toDouble
     ).max.toInt
 
-  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
-    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
-    yield (
-      Seq(
-        chunksToFit.toDouble / shaperSettings.rateEstimateDivisionFactor,
-        throughputSettings.advisedRateChunks.toDouble
-      ).max.toInt,
-      throughputSettings.advisedRatePeriod
-    )
+  private def getTotalGCCount: Long =
+    ManagementFactory.getGarbageCollectorMXBeans.asScala.foldLeft(0L) { case (_, bean) =>
+      val gcs = bean.getCollectionCount
+      if gcs >= 0 then gcs
+      else 0
+    }
 
-    /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
-      * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
-      */
+  private def getUptime: Long = ManagementFactory.getRuntimeMXBean.getUptime / 1000
+
+  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate] = {
+    // utilize leaking bucket model for memory
+    for
+      // assume GC "leaks" out of the memory bucket with certain probability
+      // assume GC frees at least one chunk out
+      currentUptime <- ZIO.succeed(getUptime)
+      gcFrequency   <- ZIO.attempt((getTotalGCCount.toDouble + 1.0) / currentUptime.toDouble)
+      // assume near-constant GC rate and estimate probability with Poisson
+      // reduce probability until uptime reaches at least 1 x `advistedRate.interval`
+      gcProbability <- ZIO.succeed(
+        Seq(1, currentUptime.toDouble / throughputSettings.advisedRate.interval.toSeconds).min *
+          (1 - Math.exp(
+            -1 * gcFrequency * throughputSettings.advisedRate.interval.toSeconds
+          ))
+      ) // in relation to uptime!
+
+      // report metrics so calculations can be traced
+      _ <- ZIO.succeed(gcFrequency) @@ declaredMetrics.mbsGCFrequency
+      _ <- ZIO.succeed(gcProbability) @@ declaredMetrics.mbsGCProbability
+
+    // always hold 1 x `chunkSize` in memory
+    // leak: 1 x `chunkSize` with `gcProbability`
+    yield FlowRate(
+      elements = ((chunkSize * (1 + gcProbability)) / throughputSettings.advisedRate.interval.toSeconds).toInt + 1,
+      interval = Duration.ofSeconds(1)
+    )
+  }
+
+  /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
+    * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
+    */
   private def scaledSigmoid(maxBound: Double, value: Double, k: Int): Double =
     maxBound * (2.0 / (1.0 + exp(-1.0 * k * value)) - 1)
 

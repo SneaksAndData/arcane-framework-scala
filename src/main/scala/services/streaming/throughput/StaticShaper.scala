@@ -1,12 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
+import models.settings.FlowRate
 import models.settings.streaming.ThroughputSettings
 import services.streaming.throughput.base.ThroughputShaper
 
 import zio.{Chunk, Task, ZIO}
-
-import java.time.Duration
 
 /** Simple shaper that applies static values from the configuration. Chunk cost is set to 1 for all chunks.
   * @param throughputSettings
@@ -17,9 +16,9 @@ class StaticShaper(throughputSettings: ThroughputSettings) extends ThroughputSha
     ZIO.succeed((throughputSettings.advisedChunkSize, 1))
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
-    ZIO.succeed(throughputSettings.advisedChunksBurst)
+    ZIO.succeed(throughputSettings.advisedBurst)
 
-  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
-    ZIO.succeed((throughputSettings.advisedRateChunks, throughputSettings.advisedRatePeriod))
+  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate] =
+    ZIO.succeed(throughputSettings.advisedRate)
 
   override def estimateChunkCost[Element](ch: Chunk[Element]): Int = 1
