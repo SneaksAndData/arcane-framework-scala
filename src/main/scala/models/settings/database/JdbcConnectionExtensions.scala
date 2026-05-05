@@ -10,7 +10,7 @@ object JdbcConnectionExtensions:
       */
     def withDefaultCatalog(catalog: String): String =
       // only allow this for base URI
-      val uri = new URI(url)
+      val uri = new URI(url.stripPrefix("jdbc:"))
       require(
         uri.isAbsolute && Option(uri.getFragment).isEmpty,
         "Cannot attach catalog to the provided JDBC URL. Please provide an absolute URL with an empty path."
@@ -33,10 +33,10 @@ object JdbcConnectionExtensions:
         }
         .mkString("&")
       // check if URL has parameters
-      Option(new URI(url).getQuery) match
+      Option(new URI(url.stripPrefix("jdbc:")).getQuery) match
         case None =>
           Seq(
-            s"$url/?",
+            s"$url?",
             paramString
           ).mkString("")
         case Some(_) =>
