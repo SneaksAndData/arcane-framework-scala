@@ -36,9 +36,8 @@ extension (row: DataRow)
       case DataCell(name, ArcaneType.ByteArrayType, value) if value == null =>
         DataCell(name, ArcaneType.ByteArrayType, null)
 
-      // convert all int-like types (short, tiny)
-      case DataCell(name, ArcaneType.IntType, value) =>
-        DataCell(name, ArcaneType.IntType, value.asInstanceOf[Int])
+      case DataCell(name, ArcaneType.ShortType, value) =>
+        DataCell(name, ArcaneType.IntType, value.asInstanceOf[Short].toInt)
 
       case DataCell(name, ArcaneType.DateType, value) =>
         DataCell(name, ArcaneType.DateType, value.asInstanceOf[java.sql.Date].toLocalDate)
