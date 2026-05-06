@@ -32,9 +32,12 @@ enum ArcaneType:
     case (ListType, _)                => false
     case (t1: StructType, t2: StructType) =>
       t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
-    case (IntType, ShortType) => true
-    case (ShortType, IntType) => true
-    case _                    => this.toString == obj.toString
+    case _ =>
+      (this.toString, obj.toString) match {
+        case ("IntType", "ShortType") => true
+        case ("ShortType", "IntType") => true
+        case _                        => this.toString == obj.toString
+      }
   }
 
 /** A field in the schema definition that will require indexing when converting to Iceberg
