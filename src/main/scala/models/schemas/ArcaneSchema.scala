@@ -32,12 +32,17 @@ enum ArcaneType:
     case (ListType, _)                => false
     case (t1: StructType, t2: StructType) =>
       t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
-    case _ =>
-      (this.toString, obj.toString) match {
-        case ("IntType", "ShortType") => true
-        case ("ShortType", "IntType") => true
-        case _                        => this.toString == obj.toString
-      }
+    case _ => this.toString == obj.toString
+  }
+
+  def typeEquals(other: ArcaneType): Boolean = (this, other) match {
+    case (IntType, ShortType)         => true
+    case (ShortType, IntType)         => true
+    case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType
+    case (ListType, _)                => false
+    case (t1: StructType, t2: StructType) =>
+      t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
+    case _ => this.toString == other.toString
   }
 
 /** A field in the schema definition that will require indexing when converting to Iceberg
@@ -55,7 +60,7 @@ trait ArcaneSchemaField:
         other.name.toLowerCase() == name.toLowerCase() && thisType.schema
           .getMissingFields(otherType.schema)
           .isEmpty && otherType.schema.getMissingFields(thisType.schema).isEmpty
-      case _ => other.name.toLowerCase() == name.toLowerCase() && other.fieldType == fieldType
+      case _ => other.name.toLowerCase() == name.toLowerCase() && other.fieldType.typeEquals(fieldType)
   }
 
 /** A field in the schema definition that carries index information from the source that can be re-applied when
