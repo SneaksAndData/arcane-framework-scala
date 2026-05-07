@@ -30,7 +30,7 @@ enum ArcaneType:
   def typeEquals(other: ArcaneType): Boolean = (this, other) match {
     case (IntType, ShortType)         => true
     case (ShortType, IntType)         => true
-    case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType
+    case (t1: ListType, t2: ListType) => t1.elementType.typeEquals(t2.elementType)
     case (ListType, _)                => false
     case (t1: StructType, t2: StructType) =>
       t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
@@ -65,14 +65,14 @@ trait IndexedArcaneSchemaField extends ArcaneSchemaField:
   */
 final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField:
   override def equals(obj: Any): Boolean = obj match
-    case Field(n, t) => n.toLowerCase() == name.toLowerCase() && t == fieldType
+    case Field(n, t) => n.toLowerCase() == name.toLowerCase() && t.typeEquals(fieldType)
     case _           => false
 
 /** Field is a case class that represents a field in ArcaneSchema
   */
 final case class IndexedField(name: String, fieldType: ArcaneType, fieldId: Int) extends IndexedArcaneSchemaField:
   override def equals(obj: Any): Boolean = obj match
-    case IndexedField(n, t, id) => n.toLowerCase() == name.toLowerCase() && t == fieldType && id == fieldId
+    case IndexedField(n, t, id) => n.toLowerCase() == name.toLowerCase() && t.typeEquals(fieldType) && id == fieldId
     case _                      => false
 
 /** MergeKeyField represents a field used for batch merges

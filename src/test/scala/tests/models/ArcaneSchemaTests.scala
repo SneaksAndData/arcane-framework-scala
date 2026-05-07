@@ -50,7 +50,7 @@ class ArcaneSchemaTests extends AnyFlatSpec with Matchers {
         )
       )
     ) { case (typeA, typeB, expectedResult) =>
-      (typeA == typeB) should be(expectedResult)
+      typeA.typeEquals(typeB) should be(expectedResult)
     }
   }
 
