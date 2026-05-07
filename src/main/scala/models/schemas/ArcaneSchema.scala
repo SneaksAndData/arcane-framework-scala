@@ -5,6 +5,7 @@ import ArcaneType.{StringType, StructType}
 import models.*
 import services.base.CanAdd
 
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 /** Types of fields in ArcaneSchema.
@@ -27,7 +28,8 @@ enum ArcaneType:
   case ObjectType
   case StructType(schema: ArcaneSchema)
 
-  def typeEquals(other: ArcaneType): Boolean = (this, other) match {
+  @tailrec
+  final def typeEquals(other: ArcaneType): Boolean = (this, other) match {
     case (IntType, ShortType)         => true
     case (ShortType, IntType)         => true
     case (t1: ListType, t2: ListType) => t1.elementType.typeEquals(t2.elementType)
