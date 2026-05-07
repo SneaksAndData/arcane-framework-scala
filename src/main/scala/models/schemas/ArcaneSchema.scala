@@ -27,14 +27,6 @@ enum ArcaneType:
   case ObjectType
   case StructType(schema: ArcaneSchema)
 
-  override def equals(obj: Any): Boolean = (this, obj) match {
-    case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType
-    case (ListType, _)                => false
-    case (t1: StructType, t2: StructType) =>
-      t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
-    case _ => this.toString == obj.toString
-  }
-
   def typeEquals(other: ArcaneType): Boolean = (this, other) match {
     case (IntType, ShortType)         => true
     case (ShortType, IntType)         => true
