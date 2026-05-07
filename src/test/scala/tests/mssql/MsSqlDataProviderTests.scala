@@ -126,7 +126,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))

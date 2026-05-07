@@ -6,10 +6,13 @@ import models.app.PluginStreamContext
 import models.settings.staging.StagingTableSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.bootstrap.base.StreamBootstrapper
+import services.metrics.base.MetricTagProvider
 import services.streaming.base.{HookManager, StreamingGraphBuilder}
 
 import zio.stream.{ZPipeline, ZSink}
-import zio.{Tag, ZIO, ZLayer}
+import zio.{Tag, ZIO, ZIOAspect, ZLayer}
+
+import scala.collection.SortedMap
 
 /** A service that can be used to run a stream.
   *
@@ -23,7 +26,8 @@ class GenericStreamRunnerService(
     lifetimeService: StreamLifetimeService,
     stagingDataSettings: StagingTableSettings,
     hookManager: HookManager,
-    bootstrapper: StreamBootstrapper
+    bootstrapper: StreamBootstrapper,
+    tagProvider: MetricTagProvider
 ) extends StreamRunnerService:
 
   /** Runs the stream.
@@ -33,17 +37,21 @@ class GenericStreamRunnerService(
     */
   def run: ZIO[Any, Throwable, Unit] =
     lifetimeService.start()
-    for
-      _ <- zlog("Starting the stream runner")
-      _ <- bootstrapper.cleanupStagingTables(
-        stagingDataSettings.stagingTablePrefix
-      )
+    ZIO
+      .attempt(tagProvider.getTags)
+      .flatMap(tags =>
+        (for
+          _ <- zlog("Starting the stream runner")
+          _ <- bootstrapper.cleanupStagingTables(
+            stagingDataSettings.stagingTablePrefix
+          )
 
-      _ <- bootstrapper.createTargetTable
-      _ <- bootstrapper.createBackFillTable
-      _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults)
-      _ <- zlog("Stream completed")
-    yield ()
+          _ <- bootstrapper.createTargetTable
+          _ <- bootstrapper.createBackFillTable
+          _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults)
+          _ <- zlog("Stream completed")
+        yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
+      )
 
   /** The stage that completes the stream until the lifetime service is cancelled.
     */
@@ -60,7 +68,7 @@ object GenericStreamRunnerService:
   /** The required environment for the GenericStreamRunnerService.
     */
   type Environment = StreamLifetimeService & StreamingGraphBuilder & PluginStreamContext & StreamBootstrapper &
-    HookManager
+    HookManager & MetricTagProvider
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
@@ -76,9 +84,17 @@ object GenericStreamRunnerService:
       lifetimeService: StreamLifetimeService,
       stagingDataSettings: StagingTableSettings,
       hookManager: HookManager,
-      bootstrapper: StreamBootstrapper
+      bootstrapper: StreamBootstrapper,
+      tagProvider: MetricTagProvider
   ): GenericStreamRunnerService =
-    new GenericStreamRunnerService(builder, lifetimeService, stagingDataSettings, hookManager, bootstrapper)
+    new GenericStreamRunnerService(
+      builder,
+      lifetimeService,
+      stagingDataSettings,
+      hookManager,
+      bootstrapper,
+      tagProvider
+    )
 
   /** The ZLayer for the GenericStreamRunnerService.
     */
@@ -90,5 +106,13 @@ object GenericStreamRunnerService:
         context         <- ZIO.service[PluginStreamContext]
         hookManager     <- ZIO.service[HookManager]
         bootstrapper    <- ZIO.service[StreamBootstrapper]
-      yield GenericStreamRunnerService(builder, lifetimeService, context.staging.table, hookManager, bootstrapper)
+        tagProvider     <- ZIO.service[MetricTagProvider]
+      yield GenericStreamRunnerService(
+        builder,
+        lifetimeService,
+        context.staging.table,
+        hookManager,
+        bootstrapper,
+        tagProvider
+      )
     }

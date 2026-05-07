@@ -73,7 +73,7 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
               files
                 // we need to emit deletions, which are in files named 1.csv, last
                 // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
-                .sortBy(b => b.name.split("/").last.replace(".csv", "").toInt)(Ordering.Int.reverse)
+                .sortBy(b => b.name.split("/").last.replace(".csv", "").toInt)(using Ordering.Int.reverse)
                 .map(csvBlob => SchemaEnrichedBlob(csvBlob, schema))
             )
           yield orderedFiles
@@ -117,7 +117,7 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
       .flatMap(javaReader => javaReader.streamMultilineCsv)
       .map(_.replace("\n", ""))
       .map(content => SchemaEnrichedContent(content, fileSchema))
-      .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
+      .mapZIO(sec => ZIO.attempt(implicitly[DataRow](using sec.content, sec.schema)))
       .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName with", e))
 
   private def isValidSynapseBatch(prefix: String): ZIO[Any, Throwable, Boolean] = hasSchemaFile(prefix)

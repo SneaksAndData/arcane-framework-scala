@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.app.PluginStreamContext
 import models.batches.{
   SqlServerChangeTrackingMergeBatch,
   StagedBackfillOverwriteBatch,
@@ -14,7 +13,8 @@ import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServic
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcTableManager
-import services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import services.metrics.base.MetricTagProvider
+import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.{
   BackfillOverwriteBatchFactory,
   BackfillStreamingOverwriteDataProvider,
@@ -28,7 +28,6 @@ import services.streaming.processors.batch_processors.streaming.{
   MergeBatchProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
 import tests.shared.*
@@ -36,9 +35,8 @@ import tests.shared.*
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers
 import org.scalatest.matchers.must.Matchers
-import org.scalatest.matchers.should.Matchers.{should, shouldBe, shouldEqual}
+import org.scalatest.matchers.should.Matchers.shouldBe
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
@@ -87,7 +85,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       (watermark: Option[String]) =>
         ZIO.succeed(
           SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-        )
+        ),
+      mock[MetricTagProvider]
     )
 
     // Act
@@ -138,7 +137,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       (watermark: Option[String]) =>
         ZIO.succeed(
           SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
-        )
+        ),
+      mock[MetricTagProvider]
     )
 
     // Act
@@ -241,7 +241,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,
-      ArcaneDimensionsProvider.layer,
+      GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,
       IcebergTablePropertyManager.stagingLayer

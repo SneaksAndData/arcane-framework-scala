@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.throughput.base
 
 import logging.ZIOLogAnnotations.zlog
+import models.settings.FlowRate
 
 import zio.stream.ZStream
 import zio.{Chunk, Task}
@@ -14,7 +15,7 @@ trait ThroughputShaper:
 
   def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int]
 
-  def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)]
+  def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate]
 
   def estimateChunkCost[Element](ch: Chunk[Element]): Int
 
@@ -29,11 +30,11 @@ trait ThroughputShaper:
             "Shaping stream using chunkSize %s, burst %s and rate %s/%s (elements/s)",
             chunkSize.Elements.toString,
             burst.toString,
-            rate.Elements.toString,
-            rate.Period.toSeconds.toString
+            rate.elements.toString,
+            rate.interval.toSeconds.toString
           )
         yield (Size = chunkSize, Burst = burst, Rate = rate)
       }
       .flatMap { case (size, burst, rate) =>
-        stream.throttleShape(rate.Elements, rate.Period, burst)(estimateChunkCost).rechunk(size.Elements)
+        stream.rechunk(1).throttleShape(rate.elements, rate.interval, burst)(estimateChunkCost).rechunk(size.Elements)
       }

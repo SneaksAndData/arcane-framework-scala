@@ -11,7 +11,7 @@ import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
-import tests.shared.{NullDimensionsProvider, TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
+import tests.shared.{TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
 
 import org.apache.iceberg.Schema
 import org.easymock.EasyMock
@@ -47,14 +47,14 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     val stagingPropertyManager = mock[StagingPropertyManager]
     val stagingEntityManager   = mock[StagingEntityManager]
     val tableManager           = mock[JdbcTableManager]
-    val declaredMetrics        = DeclaredMetrics(NullDimensionsProvider)
+    val declaredMetrics        = DeclaredMetrics()
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
       sinkPropertyManager
         .getTableSchema(EasyMock.anyString())
-        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .andReturn(ZIO.succeed(implicitly[Schema](using ArcaneSchema(Seq(MergeKeyField)))))
         .times(40)
       sinkEntityManager
         .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
@@ -112,14 +112,14 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     val stagingPropertyManager = mock[StagingPropertyManager]
     val stagingEntityManager   = mock[StagingEntityManager]
     val tableManager           = mock[JdbcTableManager]
-    val declaredMetrics        = DeclaredMetrics(NullDimensionsProvider)
+    val declaredMetrics        = DeclaredMetrics()
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
       sinkPropertyManager
         .getTableSchema(EasyMock.anyString())
-        .andReturn(ZIO.succeed(implicitly[Schema](ArcaneSchema(Seq(MergeKeyField)))))
+        .andReturn(ZIO.succeed(implicitly[Schema](using ArcaneSchema(Seq(MergeKeyField)))))
         .times(40)
       tableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
       tableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()

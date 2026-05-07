@@ -104,12 +104,16 @@ class IcebergS3CatalogWriter(entityManager: StagingEntityManager, stagingSetting
       _ <- entityManager.createTable(CreateTableRequest(name, schema, false))
       _ <- zlog("Created a staging table %s, waiting for commit", logAnnotations, name)
       _ <- ZIO
-        .sleep(zio.Duration.fromSeconds(1))
+        .sleep(zio.Duration.fromMillis(100))
         .repeatUntilZIO(_ => entityManager.tableExists(name).orDie)
       _            <- zlog("Staging table %s created, appending data", logAnnotations, name)
       table        <- entityManager.getTableRef(name)
       updatedTable <- appendData(data, schema, false, table, logAnnotations)
-      _            <- zlog("Staging table %s ready for merge", logAnnotations, name)
+      _            <- zlog("Waiting for fast append into %s to propagate in the catalog database", logAnnotations, name)
+      _ <- ZIO
+        .sleep(zio.Duration.fromMillis(100))
+        .repeatUntilZIO(_ => entityManager.getTableRef(name).map(_.snapshots().asScala.size == 1).orDie)
+      _ <- zlog("Staging table %s ready for merge", logAnnotations, name)
     yield updatedTable
 
   def append(

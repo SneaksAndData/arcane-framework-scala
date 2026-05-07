@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import models.schemas.{DataRow, MergeKeyField}
-import models.settings.*
 import models.settings.TableNaming.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
@@ -106,10 +105,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             true,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
-        rows <- provider.stream.runCollect()
+        rows <- provider.stream.runCollect
       // expect 30 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // 1 file skipped as it is the latest one
@@ -147,7 +146,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- provider.stream.timeout(zio.Duration.fromSeconds(4)).runCount
@@ -188,7 +187,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.changeCapture,
             defaultStreamMode.backfill,
             false,
-            DeclaredMetrics(NullDimensionsProvider)
+            DeclaredMetrics()
           )
         )
         rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(4)).runCollect

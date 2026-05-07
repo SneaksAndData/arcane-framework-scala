@@ -19,6 +19,7 @@ case class SynapseWatermark(version: SynapseVersionType, timestamp: OffsetDateTi
       case (x, y) if x < y  => -1
       case (x, y) if x == y => 0
       case (x, y) if x > y  => 1
+      case (_, _)           => 0
 
   override def toJson: String = upickle.write(this)
 

@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
 import logging.ZIOLogAnnotations.zlog
-import models.settings.sink.SinkSettings
-import models.settings.streaming.{MemoryBound, MemoryBoundImpl, ThroughputSettings}
+import models.settings.FlowRate
+import models.settings.streaming.{MemoryBoundImpl, ThroughputSettings}
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaper
@@ -12,6 +12,7 @@ import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type.TypeID
 import zio.{Chunk, Task, ZIO}
 
+import java.lang.management.ManagementFactory
 import java.time.Duration
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
@@ -35,16 +36,17 @@ class MemoryBoundShaper(
   private val shaperSettings = throughputSettings.shaperImpl match
     case mb: MemoryBoundImpl => mb.memoryBound
     case _ =>
-      throw new RuntimeException("`shaperImpl.$$type` must be set to `MemoryBound` when using MemoryBoundShaper")
+      throw new RuntimeException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
 
   private val runtime            = Runtime.getRuntime
   private val maxAvailableMemory = runtime.maxMemory()
   private val mib                = 1024 * 1024
   private val estimationCache    = TrieMap[String, Double]()
 
-  private val rowSizeCacheKey = "rowsize"
-  private val memCacheKey     = "memcutoff"
-  private val partsCacheKey   = "partitions"
+  private val rowSizeCacheKey    = "rowsize"
+  private val memCacheKey        = "memcutoff"
+  private val partsCacheKey      = "partitions"
+  private val stringSizeCacheKey = "stringsize"
 
   private def getTotalFreeMemory =
     val allocatedTotal = runtime.totalMemory()
@@ -64,7 +66,22 @@ class MemoryBoundShaper(
       shaperSettings.tableSizeScaleFactor
     )
 
-  private def estimateRowSize(schema: Schema): Long =
+  /** Estimate string length in the file. Sum uncompressed size of all string fields, divide by record count -> avg
+    * field size in bytes, divide by 2L to get length
+    * @return
+    */
+  private def estimateStringLength(schema: Schema, sizes: Map[Int, Long], recordCount: Long): Long =
+    if sizes.isEmpty || recordCount == 0L then shaperSettings.fallbackStringTypeSizeEstimate.toLong
+    else
+      (schema
+        .columns()
+        .asScala
+        .filter(_.`type`().typeId() == TypeID.STRING)
+        .map(v => sizes.getOrElse(v.fieldId(), 0L))
+        // find avg field size and multiply by 1.5 to reserve slightly more memory for extra safety
+        .sum * 1.5 / recordCount / 2L).toLong
+
+  private def estimateRowSize(schema: Schema, estimatedStringLength: Long): Long =
     schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
       val typeSize = tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
@@ -101,9 +118,9 @@ class MemoryBoundShaper(
             + 16L // header
             + 4L  // padding
         case TypeID.STRING =>
-          32L                                                       // wrapper type
-            + 16L                                                   // array header
-            + 2L * shaperSettings.meanStringTypeSizeEstimate.toLong // conservative over-estimation for varchar types
+          32L     // wrapper type
+            + 16L // array header
+            + 2L * estimatedStringLength
         case TypeID.DECIMAL =>
           16L         // header
             + 8L      // bigint pointer
@@ -124,7 +141,7 @@ class MemoryBoundShaper(
             + 16L // header
             + 4L  // padding
         case _ =>
-          16L + 4L + 8L + shaperSettings.meanObjectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+          16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
 
       agg + typeSize
     }
@@ -133,24 +150,30 @@ class MemoryBoundShaper(
     _ <- zlog("Estimating chunk size for the stream")
     _ <- ZIO.when(estimationCache.isEmpty) {
       for
-        tableSizeEstimate   <- tablePropertyManager.getTableSize(targetTableShortName)
+        tableSizeEstimate <- tablePropertyManager
+          .getTableSize(targetTableShortName)
         tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
         tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
+        stringSize <- tablePropertyManager
+          .getColumnSizes(targetTableShortName)
+          .map(v => estimateStringLength(tableSchema, v, tableSizeEstimate.Records))
 
         memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(tableSizeEstimate.Records, tableSizeEstimate.Size))
         rowsSize <- ZIO.succeed(
           Seq(
-            estimateRowSize(tableSchema).toDouble,
+            estimateRowSize(tableSchema, stringSize).toDouble,
             tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
           ).max
         )
         _ <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
         _ <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, rowsSize)))
         _ <- ZIO.succeed(estimationCache.addOne((partsCacheKey, tablePartitionCount.toDouble)))
+        _ <- ZIO.succeed(estimationCache.addOne((stringSizeCacheKey, stringSize.toDouble)))
         _ <- zlog(
-          "Computed baseline estimation parameters: memory cutoff %s and row size %s",
+          "Computed baseline estimation parameters: memory cutoff %s, row size %s (bytes), string field size %s (characters)",
           memoryCutoff.toString,
-          rowsSize.toString
+          rowsSize.toString,
+          stringSize.toString
         )
       yield ()
     }
@@ -185,25 +208,53 @@ class MemoryBoundShaper(
   yield appliedSize
 
   override def estimateShapeBurst(chunkSize: Int, chunkElementSize: Long): Task[Int] =
-    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
+    for rowsToFit <- ZIO.attempt(getTotalFreeMemory / (chunkElementSize + 1))
     yield Seq(
-      chunksToFit.toDouble / shaperSettings.burstEstimateDivisionFactor,
-      throughputSettings.advisedChunksBurst.toDouble
+      rowsToFit.toDouble,
+      0.1 * chunkSize,
+      throughputSettings.advisedBurst.toDouble
     ).max.toInt
 
-  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[(Elements: Int, Period: Duration)] =
-    for chunksToFit <- ZIO.attempt(getTotalFreeMemory / (chunkSize * chunkElementSize + 1))
-    yield (
-      Seq(
-        chunksToFit.toDouble / shaperSettings.rateEstimateDivisionFactor,
-        throughputSettings.advisedRateChunks.toDouble
-      ).max.toInt,
-      throughputSettings.advisedRatePeriod
-    )
+  private def getTotalGCCount: Long =
+    ManagementFactory.getGarbageCollectorMXBeans.asScala.foldLeft(0L) { case (_, bean) =>
+      val gcs = bean.getCollectionCount
+      if gcs >= 0 then gcs
+      else 0
+    }
 
-    /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
-      * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
-      */
+  private def getUptime: Long = ManagementFactory.getRuntimeMXBean.getUptime / 1000
+
+  override def estimateShapeRate(chunkSize: Int, chunkElementSize: Long): Task[FlowRate] = {
+    // utilize leaking bucket model for memory
+    for
+      // assume GC "leaks" out of the memory bucket with certain probability
+      // assume GC frees at least one chunk out
+      currentUptime <- ZIO.succeed(getUptime)
+      gcFrequency   <- ZIO.attempt((getTotalGCCount.toDouble + 1.0) / currentUptime.toDouble)
+      // assume near-constant GC rate and estimate probability with Poisson
+      // reduce probability until uptime reaches at least 1 x `advistedRate.interval`
+      gcProbability <- ZIO.succeed(
+        Seq(1, currentUptime.toDouble / throughputSettings.advisedRate.interval.toSeconds).min *
+          (1 - Math.exp(
+            -1 * gcFrequency * throughputSettings.advisedRate.interval.toSeconds
+          ))
+      ) // in relation to uptime!
+
+      // report metrics so calculations can be traced
+      _ <- ZIO.succeed(gcFrequency) @@ declaredMetrics.mbsGCFrequency
+      _ <- ZIO.succeed(gcProbability) @@ declaredMetrics.mbsGCProbability
+
+    // always hold 1 x `chunkSize` in memory
+    // leak: 1 x `chunkSize` with `gcProbability`
+    yield FlowRate(
+      elements = ((chunkSize * (1 + gcProbability)) / throughputSettings.advisedRate.interval.toSeconds).toInt + 1,
+      interval = Duration.ofSeconds(1)
+    )
+  }
+
+  /** Project (-inf, inf) to (0, maxBound) https://en.wikipedia.org/wiki/Sigmoid_function factor for range projection
+    * Higher values increase sensitivity near 0. Midpoint is shifted as our value is always greater than 0
+    */
   private def scaledSigmoid(maxBound: Double, value: Double, k: Int): Double =
     maxBound * (2.0 / (1.0 + exp(-1.0 * k * value)) - 1)
 
