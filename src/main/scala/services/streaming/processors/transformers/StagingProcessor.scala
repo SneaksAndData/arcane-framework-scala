@@ -39,7 +39,8 @@ class StagingProcessor(
 
   private def processChunk(
       elements: Chunk[IncomingElement],
-      onBatchStaged: OnBatchStaged
+      onBatchStaged: OnBatchStaged,
+      schema: ArcaneSchema
   ): ZIO[Any, Throwable, Chunk[Iterable[StagedVersionedBatch & MergeableBatch]]] = for
     _ <- zlog(
       "Started preparing a batch of size %s for staging",
@@ -54,31 +55,6 @@ class StagingProcessor(
       yield filtered
     }
     _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsIncoming
-    groupedBySchema <-
-      (if stagingDataSettings.isUnifiedSchema then
-         ZIO.succeed(
-           Map(
-             filteredElements
-               .getOrElse(elements)
-               .headOption
-               .map(_.schema)
-               .getOrElse(ArcaneSchema.empty()) -> filteredElements.getOrElse(elements)
-           )
-         )
-       else
-         ZIO.succeed(
-           filteredElements
-             .getOrElse(elements)
-             .toArray
-             .par
-             .map(r => r.schema -> r)
-             .aggregate(Map.empty[ArcaneSchema, Chunk[IncomingElement]])(
-               (agg, element) => mergeGroupedChunks(agg, element.toChunkMap),
-               mergeGroupedChunks
-             )
-         )
-      ).gaugeDuration(declaredMetrics.batchTransformDuration)
-
     _ <- ZIO.when((maybeWatermark.isDefined && filteredElements.exists(_.nonEmpty)) || maybeWatermark.isEmpty)(
       zlog(
         "Batch of size %s is ready for staging",
@@ -93,11 +69,9 @@ class StagingProcessor(
       )
     )
 
-    stagedBatches <- ZIO.foreach(groupedBySchema.keys)(schema =>
-      writeDataRows(groupedBySchema(schema), schema, onBatchStaged, maybeWatermark)
-    )
+    stagedChunk <- writeDataRows(filteredElements.getOrElse(elements), schema, onBatchStaged, maybeWatermark)
   yield
-    if groupedBySchema.keys.nonEmpty then Chunk(stagedBatches.map(batches => batches))
+    if filteredElements.nonEmpty then Chunk(Seq(stagedChunk))
     else
       Chunk(
         Seq(
@@ -114,12 +88,13 @@ class StagingProcessor(
 
   override def process(
       onStagingTablesComplete: OnStagingTablesComplete,
-      onBatchStaged: OnBatchStaged
+      onBatchStaged: OnBatchStaged,
+      schema: ArcaneSchema
   ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
     ZPipeline[IncomingElement]
       .mapChunksZIO(elements =>
         for staged <- ZIO.when(elements.nonEmpty)(
-            processChunk(elements, onBatchStaged).gaugeDuration(declaredMetrics.batchStageDuration)
+            processChunk(elements, onBatchStaged, schema).gaugeDuration(declaredMetrics.batchStageDuration)
           )
         yield staged.getOrElse(Chunk.empty)
       )

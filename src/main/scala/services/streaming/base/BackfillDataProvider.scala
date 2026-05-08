@@ -5,11 +5,11 @@ import zio.stream.ZStream
 
 /** A trait that represents a backfill data provider.
   */
-trait BackfillDataProvider[DataBatchType]:
+trait BackfillDataProvider:
 
   /** Provides the backfill data.
     *
     * @return
     *   A task that represents the backfill data.
     */
-  def requestBackfill: ZStream[Any, Throwable, DataBatchType]
+  def requestBackfill: ZStream[Any, Throwable, StructuredZStream]

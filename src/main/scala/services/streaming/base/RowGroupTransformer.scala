@@ -10,21 +10,6 @@ import org.apache.iceberg.Table
 import zio.Chunk
 import zio.stream.ZPipeline
 
-trait ToInFlightBatch[T]:
-  /** Converts the staged batches to the outgoing type.
-    *
-    * @param batches
-    *   The staged batches.
-    * @param batchIndex
-    *   The batch index.
-    * @param others
-    *   The other elements.
-    * @return
-    *   The outgoing type.
-    */
-  extension (batches: Iterable[StagedVersionedBatch])
-    def toBatch[Element: MetadataEnrichedRowStreamElement](batchIndex: Long, others: Chunk[Element]): T
-
 /** A trait that represents a row processor.
   */
 trait RowGroupTransformer:
@@ -51,5 +36,6 @@ trait RowGroupTransformer:
     */
   def process(
       onStagingTablesComplete: OnStagingTablesComplete,
-      onBatchStaged: OnBatchStaged
+      onBatchStaged: OnBatchStaged,
+      schema: ArcaneSchema
   ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement]

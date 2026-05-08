@@ -4,7 +4,6 @@ package services.blobsource.providers
 import models.app.{BaseStreamContext, PluginStreamContext}
 import models.settings.backfill.BackfillSettings
 import models.settings.streaming.ChangeCaptureSettings
-import services.blobsource.BlobSourceBatch
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
@@ -17,7 +16,7 @@ class BlobSourceStreamingDataProvider(
     backfillSettings: BackfillSettings,
     isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[BlobSourceWatermark, BlobSourceBatch](
+) extends DefaultStreamDataProvider[BlobSourceWatermark](
       dataProvider,
       settings,
       backfillSettings,

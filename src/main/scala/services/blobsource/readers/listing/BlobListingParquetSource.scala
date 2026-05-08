@@ -15,6 +15,7 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
+import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -68,18 +69,16 @@ class BlobListingParquetSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow] = for
-    sourceFile <- reader
-      .streamPrefixes(sourcePath)
-      .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-    downloadedFile <- ZStream.fromZIO(
-      reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
-    )
-    scanner <- ZStream.fromZIO(ZIO.attempt(ParquetScanner(downloadedFile, useNameMapping)))
-    row <- scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
-    )
-  yield row
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
+    .streamPrefixes(sourcePath)
+    .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
+    .mapZIO { sourceFile =>
+      reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath).map(filePath => (ParquetScanner(filePath, useNameMapping), sourceFile))
+    }.mapZIO { case (scanner, sourceFile) =>
+      scanner.getIcebergSchema.map(implicitly).map(schema => (scanner.getRows.map(
+        BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+      ), schema))
+    }
 
 object BlobListingParquetSource:
   def apply(
