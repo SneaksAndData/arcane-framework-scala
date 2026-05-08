@@ -3,26 +3,16 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
-import models.settings.staging.{
-  AlwaysImpl,
-  BackfillOnlyImpl,
-  JdbcCredentialType,
-  JdbcMergeServiceClientSettings,
-  NeverImpl
-}
+import models.settings.staging.{AlwaysImpl, BackfillOnlyImpl, JdbcMergeServiceClientSettings, NeverImpl}
 import services.base.*
 import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 
-import org.apache.iceberg.types.Type
-import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.{DecimalType, ListType, StructType, TimestampType}
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.io.IOException
 import java.sql.*
-import scala.jdk.CollectionConverters.*
 
 trait JdbcTableManager extends TableManager:
   /** @inheritdoc
@@ -52,8 +42,7 @@ class JdbcMergeServiceClient(
     isBackfilling: Boolean
 ) extends MergeServiceClient
     with JdbcTableManager
-    with AutoCloseable
-    with DisposeServiceClient:
+    with AutoCloseable:
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
@@ -88,16 +77,6 @@ class JdbcMergeServiceClient(
   override def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     executeBatchQuery(batch.batchQuery.query, batch.name, "Applying", _ => true)
       .gaugeDuration(declaredMetrics.batchMergeDuration)
-
-  /** @inheritdoc
-    */
-  override def disposeBatch(batch: Batch): Task[BatchDisposeResult] =
-    ZIO
-      .unless(batch.isEmpty)(
-        executeBatchQuery(batch.disposeExpr, batch.name, "Disposing", _ => new BatchDisposeResult)
-          .gaugeDuration(declaredMetrics.batchDisposeDuration)
-      )
-      .map(_.getOrElse(new BatchDisposeResult))
 
   /** @inheritdoc
     */

@@ -104,27 +104,6 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         _  <- ZIO.attemptBlocking(rs.next())
       yield assertTrue(rs.getInt(1) == 10)
     },
-    test("disposes of a batch") {
-      for
-        tableName <- ZIO.succeed("table_disposed")
-        batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(
-            s"test.staged_$tableName",
-            schema,
-            s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
-          )
-        )
-        _ <- setupTable(tableName)
-
-        connection <- getConnection
-        mergeServiceClient = getJdbcMergeServiceClient
-        _  <- mergeServiceClient.disposeBatch(batch)
-        rs <- ZIO.attemptBlocking(connection.getMetaData.getTables(null, null, s"staged_$tableName", null))
-        stagingTableExists <- ZIO.attemptBlocking(rs.next())
-      yield assertTrue(!stagingTableExists)
-    },
     test("optimizes a table") {
       for
         tableName <- ZIO.succeed("table_optimized")
