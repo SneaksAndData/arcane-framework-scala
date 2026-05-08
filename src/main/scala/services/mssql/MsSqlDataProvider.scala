@@ -52,7 +52,9 @@ class MsSqlDataProvider(
         }
     yield version
 
-  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, StructuredZStream] =
+  override protected def backfillStream(
+      backfillStartDate: Option[OffsetDateTime]
+  ): ZStream[Any, Throwable, StructuredZStream] =
     reader.backfill
 
   override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =

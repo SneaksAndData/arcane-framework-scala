@@ -56,12 +56,24 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   final override def requestChanges(
       previousVersion: WatermarkType,
       nextVersion: WatermarkType
-  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet => (throughputShaper.shapeStream(trySetBuffering(changeSet._1)).concat(ZStream.succeed(JsonWatermarkRow(nextVersion))), changeSet._2))
+  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
+    (
+      throughputShaper
+        .shapeStream(trySetBuffering(changeSet._1))
+        .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
+      changeSet._2
+    )
+  )
 
   final override def requestBackfill: ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
     .flatMap { version =>
-      backfillStream(streamMode.backfill.backfillStartDate).map(rowSet => (throughputShaper.shapeStream(trySetBuffering(rowSet._1)).concat(ZStream.succeed(JsonWatermarkRow(version))), rowSet._2))
+      backfillStream(streamMode.backfill.backfillStartDate).map(rowSet =>
+        (
+          throughputShaper.shapeStream(trySetBuffering(rowSet._1)).concat(ZStream.succeed(JsonWatermarkRow(version))),
+          rowSet._2
+        )
+      )
     }
 
   override def firstVersion: Task[WatermarkType] = for

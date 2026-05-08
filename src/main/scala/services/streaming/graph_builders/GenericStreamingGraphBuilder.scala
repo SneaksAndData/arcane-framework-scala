@@ -37,15 +37,15 @@ class GenericStreamingGraphBuilder(
   /** @inheritdoc
     */
   override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
-    streamDataProvider.stream.flatMap {
-        case (subStream, schema) => subStream.via(fieldFilteringProcessor.process)
+    streamDataProvider.stream.flatMap { case (subStream, schema) =>
+      subStream
+        .via(fieldFilteringProcessor.process)
         .via(stagingProcessor.process(hookManager.onStagingTablesComplete, hookManager.onBatchStaged, schema))
-          // TODO: add schema processor to handle schema migration
+        // TODO: add schema processor to handle schema migration
         .via(mergeProcessor.process)
         .via(watermarkProcessor.process)
-        .via(disposeBatchProcessor.process) 
-      }
-      
+        .via(disposeBatchProcessor.process)
+    }
 
 object GenericStreamingGraphBuilder:
 

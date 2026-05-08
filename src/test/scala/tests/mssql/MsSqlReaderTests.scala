@@ -455,7 +455,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               version = "1",
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
-          ).flatMap(_._1)
+          )
+          .flatMap(_._1)
           .runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },

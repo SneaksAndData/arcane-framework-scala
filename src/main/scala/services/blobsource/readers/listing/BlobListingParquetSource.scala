@@ -14,8 +14,8 @@ import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
+import services.streaming.base.StructuredZStream
 
-import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -73,11 +73,21 @@ class BlobListingParquetSource[PathType <: BlobPath](
     .streamPrefixes(sourcePath)
     .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
     .mapZIO { sourceFile =>
-      reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath).map(filePath => (ParquetScanner(filePath, useNameMapping), sourceFile))
-    }.mapZIO { case (scanner, sourceFile) =>
-      scanner.getIcebergSchema.map(implicitly).map(schema => (scanner.getRows.map(
-        BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
-      ), schema))
+      reader
+        .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+        .map(filePath => (ParquetScanner(filePath, useNameMapping), sourceFile))
+    }
+    .mapZIO { case (scanner, sourceFile) =>
+      scanner.getIcebergSchema
+        .map(implicitly)
+        .map(schema =>
+          (
+            scanner.getRows.map(
+              BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+            ),
+            schema
+          )
+        )
     }
 
 object BlobListingParquetSource:

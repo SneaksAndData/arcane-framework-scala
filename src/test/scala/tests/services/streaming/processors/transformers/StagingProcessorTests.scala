@@ -1,18 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
-import models.*
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, IndexedField, IndexedMergeKeyField, MergeKeyField}
-import models.settings.{FieldSelectionRuleSettings, FlowRate}
+import models.schemas.*
+import models.schemas.ArcaneType.StringType
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
 import models.settings.staging.StagingSettings
-import models.settings.streaming.{ChangeCaptureSettings, Static, StaticImpl, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
+import models.settings.streaming.*
+import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
@@ -21,9 +21,7 @@ import services.streaming.processors.transformers.StagingProcessor
 import services.synapse.SynapseHookManager
 import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.*
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.StringType
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.{ZSink, ZStream}
@@ -41,10 +39,12 @@ given MetadataEnrichedRowStreamElement[TestInput] with
   extension (element: DataRow) def fromDataRow: TestInput = element
 
 object StagingProcessorTests extends ZIOSpecDefault:
-  private val testSchema: ArcaneSchema = ArcaneSchema(Seq(
-    IndexedMergeKeyField(1),
-    IndexedField("name", StringType, 2)
-  ))
+  private val testSchema: ArcaneSchema = ArcaneSchema(
+    Seq(
+      IndexedMergeKeyField(1),
+      IndexedField("name", StringType, 2)
+    )
+  )
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(
     List(
       List(

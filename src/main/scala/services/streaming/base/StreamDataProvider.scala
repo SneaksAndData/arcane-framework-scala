@@ -10,4 +10,3 @@ trait StreamDataProvider:
   /** Returns the stream of elements.
     */
   def stream: ZStream[Any, Throwable, StructuredZStream]
-

@@ -12,11 +12,11 @@ import services.base.SchemaProvider
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
+import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.versioning.SynapseWatermark
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 
-import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -32,9 +32,8 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
   override def getSchema: Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
 
-  /**
-   * Schema from batch-level model.json
-   */  
+  /** Schema from batch-level model.json
+    */
   private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, (location + batchFolderName).toHdfsPath, entityName).getSchema
 

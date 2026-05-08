@@ -32,7 +32,9 @@ class SynapseLinkDataProvider(
       sourceBufferingSettings
     ):
 
-  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, StructuredZStream] =
+  override protected def backfillStream(
+      backfillStartDate: Option[OffsetDateTime]
+  ): ZStream[Any, Throwable, StructuredZStream] =
     backfillStartDate match
       case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
       case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))

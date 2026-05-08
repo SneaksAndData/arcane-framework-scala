@@ -41,7 +41,9 @@ class BlobSourceDataProvider(
   override def getCurrentVersion(previousVersion: BlobSourceWatermark): Task[BlobSourceWatermark] =
     sourceReader.getLatestVersion
 
-  override protected def changeStream(previousVersion: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] =
+  override protected def changeStream(
+      previousVersion: BlobSourceWatermark
+  ): ZStream[Any, Throwable, StructuredZStream] =
     sourceReader.getChanges(previousVersion)
 
   override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): BlobSourceWatermark =
@@ -49,7 +51,9 @@ class BlobSourceDataProvider(
       startTime.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).toInstant.toEpochMilli / 1000
     )
 
-  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, StructuredZStream] =
+  override protected def backfillStream(
+      backfillStartDate: Option[OffsetDateTime]
+  ): ZStream[Any, Throwable, StructuredZStream] =
     sourceReader.getChanges(getBackfillStartWatermark(backfillStartDate))
 
 object BlobSourceDataProvider:
