@@ -16,6 +16,7 @@ import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.versioning.SynapseWatermark
 import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
 
+import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -27,23 +28,25 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
     extends SchemaProvider[ArcaneSchema]:
 
   /** Schema here comes from root-level model.json
-    * @return
-    *   A future containing the schema for the data produced by Arcane.
     */
   override def getSchema: Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
 
+  /**
+   * Schema from batch-level model.json
+   */  
+  private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] =
+    SynapseEntitySchemaProvider(reader, (location + batchFolderName).toHdfsPath, entityName).getSchema
+
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
   /** Check if the provided candidate for a Synapse batch has a model.json file which contains batch schema.
-    * @param batchFolderName
     * @return
     */
   private def hasSchemaFile(batchFolderName: String): Task[Boolean] =
     reader.blobExists(location + batchFolderName + "model.json")
 
   /** Get files that belong to the current Synapse batch
-    * @param batchFolderName
     * @return
     */
   private def getBatchFiles(batchFolderName: String): ZStream[Any, Throwable, StoredBlob] = reader
@@ -146,10 +149,10 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
     * deleted records. Start date to get changes from
     * @return
     */
-  def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, DataRow] = reader
+  def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
-    .flatMap(getChangesForVersion)
+    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm), batchSchema)))
 
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
     * deleted records. Start date to get changes from
@@ -164,11 +167,11 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
       }
       .map(convertRow)
 
-  def getData(startFrom: OffsetDateTime): ZStream[Any, Throwable, DataRow] = reader
+  def getData(startFrom: OffsetDateTime): ZStream[Any, Throwable, StructuredZStream] = reader
     .getEligibleDates(location, startFrom)
     .map(_.asWatermark)
     .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-    .flatMap(getChangesForVersion)
+    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm), batchSchema)))
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125

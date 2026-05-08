@@ -31,15 +31,6 @@ object DataCell:
     value
   )
 
-  /** Extension method to get the schema of a DataRow.
-    */
-  extension (row: DataRow)
-    def schema: ArcaneSchema =
-      row.foldLeft(ArcaneSchema.empty()) {
-        case (schema, cell) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
-        case (schema, cell)                                    => schema ++ Seq(Field(cell.name, cell.Type))
-      }
-
   /** Checks if the cell holds a watermark
     */
   extension (cell: DataCell) def isWatermark: Boolean = cell.name == watermarkCellName

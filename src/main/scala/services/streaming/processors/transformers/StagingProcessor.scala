@@ -4,7 +4,6 @@ package services.streaming.processors.transformers
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.schemas.DataCell.schema
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.staging.StagingTableSettings
@@ -13,7 +12,6 @@ import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
-import utils.CollectionUtils.*
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

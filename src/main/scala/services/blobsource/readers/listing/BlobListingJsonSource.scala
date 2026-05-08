@@ -14,6 +14,7 @@ import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 
+import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -46,19 +47,21 @@ class BlobListingJsonSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, DataRow] = for
-    sourceFile <- reader
-      .streamPrefixes(sourcePath)
-      .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-    downloadedFile <- ZStream.fromZIO(
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
+    .streamPrefixes(sourcePath)
+    .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
+    .mapZIO { sourceFile =>
       reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
-    )
-    schema  <- ZStream.fromZIO(sourceSchema)
-    scanner <- ZStream.succeed(JsonScanner(downloadedFile, schema, jsonPointerExpr, jsonArrayPointers))
-    row <- scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
-    )
-  yield row
+        .flatMap(v => sourceSchema.map(schema => (schema, v)))
+        .map { case (schema, filePath) => (JsonScanner(filePath, schema, jsonPointerExpr, jsonArrayPointers), sourceFile) }
+    }
+    .mapZIO { case (scanner, sourceFile) =>
+      getSchema.map {schema =>
+        (scanner.getRows.map(
+          BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+        ), schema) 
+      }
+    }
 
 object BlobListingJsonSource:
   def apply(

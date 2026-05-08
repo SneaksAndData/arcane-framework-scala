@@ -380,7 +380,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         expected <- ZIO.succeed(
           List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion", "ARCANE_MERGE_KEY")
         )
-        rows <- connector.backfill.runCollect
+        rows <- connector.backfill.flatMap(_._1).runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection returns correct number of rows on getChanges") {
@@ -455,7 +455,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               version = "1",
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
-          )
+          ).flatMap(_._1)
           .runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
@@ -501,6 +501,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
+          .flatMap(_._1)
           .runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
@@ -536,6 +537,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
 
         rowsAfterDelete <- connector
           .getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, nextTime))
+          .flatMap(_._1)
           .runCollect
       yield assertTrue(
         rowsAfterDelete.exists(row =>

@@ -16,6 +16,7 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -71,8 +72,8 @@ class MsSqlReader(
     * @return
     *   A stream containing the result of a backfill query.
     */
-  def backfill: ZStream[Any, Throwable, DataRow] =
-    for
+  def backfill: ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
+    (for
       query     <- ZStream.fromZIO(this.getBackfillQuery)
       statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
       resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
@@ -88,7 +89,7 @@ class MsSqlReader(
           yield Some((row.handleSpecialTypes, hasNextRow))
         else ZIO.succeed(None)
       }
-    yield stream
+    yield stream, schema)}
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
       batch: T
@@ -105,8 +106,8 @@ class MsSqlReader(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
-    ZStream
+  def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
+    (ZStream
       .fromZIO(ZIO.scoped {
         for
           changesQuery <- this.getChangesQuery(latestVersion - 1)
@@ -117,7 +118,7 @@ class MsSqlReader(
         yield MsSqlReader.ensureHead(result)
       })
       .flatMap(batch => unfoldBatch(batch))
-      .map(_.handleSpecialTypes)
+      .map(_.handleSpecialTypes), schema) }
 
   def hasChanges(latestVersion: MsSqlWatermark): Task[Boolean] =
     ZIO.scoped {
