@@ -6,7 +6,7 @@
 - Throughput Shaper (Memory Bound): Removed settings with no visible effect and refined naming to better reflect each setting's purpose.
 - Throughput Shaper (Memory Bound): `meanStringTypeSizeEstimate` renamed to `fallbackStringTypeSizeEstimate` and is now only used when string length cannot be determined automatically.
 - Iceberg REST API: Fixed an issue that can cause Trino to merge an empty staging table due to a delay in fast append propagation between catalog backend database replicas.
-  - This change resolve a potential *data loss* with certain catalog backends like Aurora PostgreSQL. 
+  - This change resolves a potential *data loss* with certain catalog backends like Aurora PostgreSQL. 
 - Merge Service: Schema name and catalog removed from JDBC (Trino) connection strings.
   - This change requires plugins to update their *CRD*.
   - This change requires plugins to update *JDBC secret format*.
