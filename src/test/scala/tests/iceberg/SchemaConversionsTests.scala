@@ -1,8 +1,24 @@
 package com.sneaksanddata.arcane.framework
 package tests.iceberg
 
-import models.schemas.ArcaneType.{BigDecimalType, ListType, StringType, StructType}
-import models.schemas.{ArcaneSchema, IndexedArcaneSchemaField, IndexedMergeKeyField, MergeKeyField}
+import models.schemas.ArcaneType.{
+  BigDecimalType,
+  BooleanType,
+  ByteArrayType,
+  DateTimeOffsetType,
+  DateType,
+  DoubleType,
+  FloatType,
+  IntType,
+  ListType,
+  LongType,
+  ShortType,
+  StringType,
+  StructType,
+  TimeType,
+  TimestampType
+}
+import models.schemas.{ArcaneSchema, IndexedArcaneSchemaField, IndexedField, IndexedMergeKeyField, MergeKeyField}
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema, inferMergeKeyIndex}
 
 import org.apache.iceberg.Schema
@@ -52,7 +68,7 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
       arcaneSchema.reverse.head should be(IndexedMergeKeyField(mergeKeyIndex)),
       arcaneSchema
         .find(f => f.name == "event_value_bigdecimal")
-        .map(f => f.fieldType == BigDecimalType(16, 4)) should be(Some(true))
+        .map(f => f.fieldType.typeEquals(BigDecimalType(16, 4))) should be(Some(true))
     )
   }
 
@@ -71,10 +87,14 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
     (
       arcaneSchema.length should be(iceberg.columns().size() + 1),
       arcaneSchema.reverse.head should be(IndexedMergeKeyField(mergeKeyIndex)),
-      arcaneSchema.find(f => f.name == "call_stack_1").map(f => f.fieldType == ListType(StringType, 3)) should be(
+      arcaneSchema
+        .find(f => f.name == "call_stack_1")
+        .map(f => f.fieldType.typeEquals(ListType(StringType, 3))) should be(
         Some(true)
       ),
-      arcaneSchema.find(f => f.name == "call_stack_2").map(f => f.fieldType == ListType(StringType, 5)) should be(
+      arcaneSchema
+        .find(f => f.name == "call_stack_2")
+        .map(f => f.fieldType.typeEquals(ListType(StringType, 5))) should be(
         Some(true)
       )
     )
@@ -138,6 +158,41 @@ class SchemaConversionsTests extends AnyFlatSpec with Matchers {
             case _             => true
         } should be(true)
       )
+    }
+  }
+
+  it should "convert from ArcaneSchema to Iceberg and back" in {
+    forAll(
+      Seq(
+        ArcaneSchema(
+          List(
+            IndexedMergeKeyField(1),
+            IndexedField("col1", IntType, 2),
+            IndexedField("col2", LongType, 3),
+            IndexedField("col3", ByteArrayType, 4),
+            IndexedField("col4", BooleanType, 5),
+            IndexedField("col5", StringType, 6),
+            IndexedField("col6", DateType, 7),
+            IndexedField("col7", TimestampType, 8),
+            IndexedField("col8", DateTimeOffsetType, 9),
+            IndexedField("col9", BigDecimalType(16, 4), 10),
+            IndexedField("col10", DoubleType, 11),
+            IndexedField("col11", FloatType, 12),
+            IndexedField("col12", ShortType, 13),
+            IndexedField("col13", TimeType, 14)
+          )
+        ),
+        ArcaneSchema(
+          List(
+            IndexedMergeKeyField(1)
+          )
+        )
+      )
+    ) { arcaneSchema =>
+      val iceberg1: Schema            = implicitly(using arcaneSchema)
+      val arcaneSchema2: ArcaneSchema = implicitly(using iceberg1)
+
+      arcaneSchema2.getMissingFields(arcaneSchema).isEmpty should be(true)
     }
   }
 }

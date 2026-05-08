@@ -5,6 +5,7 @@ import ArcaneType.{StringType, StructType}
 import models.*
 import services.base.CanAdd
 
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 /** Types of fields in ArcaneSchema.
@@ -27,12 +28,15 @@ enum ArcaneType:
   case ObjectType
   case StructType(schema: ArcaneSchema)
 
-  override def equals(obj: Any): Boolean = (this, obj) match {
-    case (t1: ListType, t2: ListType) => t1.elementType == t2.elementType
+  @tailrec
+  final def typeEquals(other: ArcaneType): Boolean = (this, other) match {
+    case (IntType, ShortType)         => true
+    case (ShortType, IntType)         => true
+    case (t1: ListType, t2: ListType) => t1.elementType.typeEquals(t2.elementType)
     case (ListType, _)                => false
     case (t1: StructType, t2: StructType) =>
       t1.schema.getMissingFields(t2.schema).isEmpty && t2.schema.getMissingFields(t1.schema).isEmpty
-    case _ => this.toString == obj.toString
+    case _ => this.toString == other.toString
   }
 
 /** A field in the schema definition that will require indexing when converting to Iceberg
@@ -50,7 +54,7 @@ trait ArcaneSchemaField:
         other.name.toLowerCase() == name.toLowerCase() && thisType.schema
           .getMissingFields(otherType.schema)
           .isEmpty && otherType.schema.getMissingFields(thisType.schema).isEmpty
-      case _ => other.name.toLowerCase() == name.toLowerCase() && other.fieldType == fieldType
+      case _ => other.name.toLowerCase() == name.toLowerCase() && other.fieldType.typeEquals(fieldType)
   }
 
 /** A field in the schema definition that carries index information from the source that can be re-applied when
@@ -63,14 +67,14 @@ trait IndexedArcaneSchemaField extends ArcaneSchemaField:
   */
 final case class Field(name: String, fieldType: ArcaneType) extends ArcaneSchemaField:
   override def equals(obj: Any): Boolean = obj match
-    case Field(n, t) => n.toLowerCase() == name.toLowerCase() && t == fieldType
+    case Field(n, t) => n.toLowerCase() == name.toLowerCase() && t.typeEquals(fieldType)
     case _           => false
 
 /** Field is a case class that represents a field in ArcaneSchema
   */
 final case class IndexedField(name: String, fieldType: ArcaneType, fieldId: Int) extends IndexedArcaneSchemaField:
   override def equals(obj: Any): Boolean = obj match
-    case IndexedField(n, t, id) => n.toLowerCase() == name.toLowerCase() && t == fieldType && id == fieldId
+    case IndexedField(n, t, id) => n.toLowerCase() == name.toLowerCase() && t.typeEquals(fieldType) && id == fieldId
     case _                      => false
 
 /** MergeKeyField represents a field used for batch merges
