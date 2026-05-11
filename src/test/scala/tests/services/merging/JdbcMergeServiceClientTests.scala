@@ -7,14 +7,10 @@ import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
-import services.merging.maintenance.{
-  JdbcOptimizationRequest,
-  JdbcOrphanFilesExpirationRequest,
-  JdbcSnapshotExpirationRequest
-}
 import services.metrics.DeclaredMetrics
 import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{TestJdbcMergeServiceClientSettings, TestObservabilitySettings, TestTablePropertiesSettings}
+import com.sneaksanddata.arcane.framework.models.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar.mock

@@ -76,12 +76,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
   ): StagedBatchProcessor#BatchType =
     new TestIndexedStagedBatches(batches, index)
 
-  class IndexedStagedBatchesWithMetadata(
-      override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
-      override val batchIndex: Long,
-      val others: Chunk[String]
-  ) extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
-
   private def toInFlightBatchWithMetadata(
       batches: Iterable[StagedVersionedBatch & MergeableBatch],
       index: Long,

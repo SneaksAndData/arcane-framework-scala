@@ -12,7 +12,7 @@ case class BatchDisposeResult(isSuccess: Boolean)
 /** A service client that disposes of data batches.
   */
 trait DisposeServiceClient:
-  type Batch = StagedBatch
+  type Batch >: StagedBatch
 
   /** Disposes of a batch.
     *

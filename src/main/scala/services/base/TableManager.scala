@@ -5,44 +5,6 @@ import models.schemas.ArcaneSchema
 
 import zio.Task
 
-/** A type class that converts a value to a SQL expression.
-  *
-  * @tparam A
-  *   The type of the value to convert.
-  */
-trait SqlExpressionConvertable[A]:
-  /** Converts a value to a SQL expression.
-    *
-    * @param a
-    *   The value to convert.
-    * @return
-    *   The SQL expression.
-    */
-  extension (a: A) def toSqlExpression: String
-
-  /** Gets the name of the value.
-    *
-    * @param a
-    *   The value to convert.
-    * @return
-    *   The SQL expression.
-    */
-  extension (a: A) def name: String
-
-/** A type class that converts a value to a SQL expression.
-  *
-  * @tparam A
-  *   The type of the value to convert.
-  */
-trait ConditionallyApplicable[A]:
-  /** Converts a value to a SQL expression.
-    *
-    * @param a
-    *   The value to convert.
-    * @return
-    *   The SQL expression.
-    */
-  extension (a: A) def isApplicable: Boolean
 
 /** The result of a table optimization operation.
   */

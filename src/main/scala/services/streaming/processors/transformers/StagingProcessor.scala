@@ -20,11 +20,6 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 
 import scala.collection.parallel.CollectionConverters.*
 
-abstract class IndexedStagedBatches(
-    val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
-    val batchIndex: Long
-)
-
 class StagingProcessor(
     stagingDataSettings: StagingTableSettings,
     targetTableFullName: String,

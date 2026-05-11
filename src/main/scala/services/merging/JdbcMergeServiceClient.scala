@@ -3,9 +3,9 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
+import models.maintenance.{JdbcAnalyzeRequest, JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import models.settings.staging.{AlwaysImpl, BackfillOnlyImpl, JdbcMergeServiceClientSettings, NeverImpl}
 import services.base.*
-import services.merging.maintenance.{*, given}
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 
@@ -41,7 +41,6 @@ class JdbcMergeServiceClient(
     declaredMetrics: DeclaredMetrics,
     isBackfilling: Boolean
 ) extends MergeServiceClient
-    with JdbcTableManager
     with AutoCloseable:
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
@@ -80,45 +79,6 @@ class JdbcMergeServiceClient(
 
   /** @inheritdoc
     */
-  override def optimizeTable(maybeRequest: Option[TableOptimizationRequest]): Task[BatchOptimizationResult] =
-    maybeRequest match
-      case Some(request) if request.isApplicable && !isBackfilling =>
-        executeBatchQuery(
-          request.toSqlExpression,
-          maybeRequest.get.name,
-          "Optimizing",
-          _ => BatchOptimizationResult(false)
-        ).gaugeDuration(declaredMetrics.targetOptimizeDuration)
-      case _ => ZIO.succeed(BatchOptimizationResult(true))
-
-  /** @inheritdoc
-    */
-  override def expireSnapshots(maybeRequest: Option[SnapshotExpirationRequest]): Task[BatchOptimizationResult] =
-    maybeRequest match
-      case Some(request) if request.isApplicable && !isBackfilling =>
-        executeBatchQuery(
-          request.toSqlExpression,
-          request.name,
-          "Expiring old snapshots",
-          _ => BatchOptimizationResult(false)
-        ).gaugeDuration(declaredMetrics.targetSnapshotExpireDuration)
-      case _ => ZIO.succeed(BatchOptimizationResult(true))
-
-  /** @inheritdoc
-    */
-  override def expireOrphanFiles(maybeRequest: Option[OrphanFilesExpirationRequest]): Task[BatchOptimizationResult] =
-    maybeRequest match
-      case Some(request) if request.isApplicable && !isBackfilling =>
-        executeBatchQuery(
-          request.toSqlExpression,
-          request.name,
-          "Removing orphan files",
-          _ => BatchOptimizationResult(false)
-        ).gaugeDuration(declaredMetrics.targetRemoveOrphanDuration)
-      case _ => ZIO.succeed(BatchOptimizationResult(true))
-
-  /** @inheritdoc
-    */
   override def close(): Unit = sqlConnection.close()
 
   private type ResultMapper[Result] = Boolean => Result
@@ -136,17 +96,6 @@ class JdbcMergeServiceClient(
         applicationResult <- ZIO.attempt(statement.execute()).retry(retryPolicy)
       yield resultMapper(applicationResult)
     }
-
-  override def analyzeTable(request: Option[TableAnalyzeRequest]): Task[BatchOptimizationResult] =
-    request match
-      case Some(request) if request.isApplicable && !isBackfilling =>
-        executeBatchQuery(
-          request.toSqlExpression,
-          request.name,
-          "Running ANALYZE",
-          _ => BatchOptimizationResult(false)
-        ).gaugeDuration(declaredMetrics.targetAnalyzeDuration)
-      case _ => ZIO.succeed(BatchOptimizationResult(true))
 
 object JdbcMergeServiceClient:
   /** The environment type for the JdbcConsumer.

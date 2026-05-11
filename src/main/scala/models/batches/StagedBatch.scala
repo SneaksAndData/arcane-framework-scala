@@ -21,10 +21,6 @@ trait StagedBatch:
     */
   val name: String
 
-  /** Schema for the table that holds batch data
-    */
-  val schema: ArcaneSchema
-
   /** Query to be used to process this batch
     */
   val batchQuery: Query
@@ -39,10 +35,10 @@ trait StagedBatch:
     */
   def reduceExpr: String
 
-  /** Check if current batch is an empty batch - batch without schema or name is empty and should be discarded
+  /** Check if current batch is an empty batch - batch without name is empty and should be discarded
     * @return
     */
-  def isEmpty: Boolean = name.isBlank || schema.isEmpty
+  def isEmpty: Boolean = name.isBlank
 
 /** Common trait for StagedBatch that performs a backfill operation on the table.
   */

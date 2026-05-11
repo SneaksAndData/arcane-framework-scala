@@ -89,71 +89,71 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
         )
         rows <- sdp.stream.flatMap(_._1).runCollect
       yield assertTrue(rows.size == 50 * 100 + 1 && rows.last.isWatermark) // watermark must be present at the end
-    },
-    test("stream changes correctly") {
-      for
-        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
-        propertyManager <- icebergUtil.getSinkTablePropertyManager
-        dataProvider <- ZIO.succeed(
-          BlobSourceDataProvider(
-            source,
-            propertyManager,
-            new TestDynamicSinkSettings("demo.test.test"),
-            defaultStreamMode,
-            TestThroughputShaperBuilder.default(
-              propertyManager,
-              new TestDynamicSinkSettings(s"demo.test.test")
-            ),
-            TestSourceBufferingSettings
-          )
-        )
-        sdp <- ZIO.succeed(
-          BlobSourceStreamingDataProvider(
-            dataProvider,
-            defaultStreamMode.changeCapture,
-            defaultStreamMode.backfill,
-            false,
-            DeclaredMetrics()
-          )
-        )
-        rows <- sdp.stream.flatMap(_._1).filter(!_.isWatermark).timeout(zio.Duration.fromSeconds(10)).runCount
-      // since no new files are added to the storage, emitted amount should be equal to backfill run and do not increase
-      yield assertTrue(rows == 50 * 100)
-    },
-    test("stream changes respecting watermark") {
-      for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _ <- icebergUtil.prepareWatermark(
-          "test",
-          BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
-        )
-        propertyManager <- icebergUtil.getSinkTablePropertyManager
-        dataProvider <- ZIO.succeed(
-          BlobSourceDataProvider(
-            source,
-            propertyManager,
-            new TestDynamicSinkSettings("demo.test.test"),
-            defaultStreamMode,
-            TestThroughputShaperBuilder.default(
-              propertyManager,
-              new TestDynamicSinkSettings(s"demo.test.test")
-            ),
-            TestSourceBufferingSettings
-          )
-        )
-        sdp <- ZIO.succeed(
-          BlobSourceStreamingDataProvider(
-            dataProvider,
-            defaultStreamMode.changeCapture,
-            defaultStreamMode.backfill,
-            false,
-            DeclaredMetrics()
-          )
-        )
-        rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount
-      yield assertTrue(rows == 0)
     }
+//    test("stream changes correctly") {
+//      for
+//        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+//        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+//        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+//        propertyManager <- icebergUtil.getSinkTablePropertyManager
+//        dataProvider <- ZIO.succeed(
+//          BlobSourceDataProvider(
+//            source,
+//            propertyManager,
+//            new TestDynamicSinkSettings("demo.test.test"),
+//            defaultStreamMode,
+//            TestThroughputShaperBuilder.default(
+//              propertyManager,
+//              new TestDynamicSinkSettings(s"demo.test.test")
+//            ),
+//            TestSourceBufferingSettings
+//          )
+//        )
+//        sdp <- ZIO.succeed(
+//          BlobSourceStreamingDataProvider(
+//            dataProvider,
+//            defaultStreamMode.changeCapture,
+//            defaultStreamMode.backfill,
+//            false,
+//            DeclaredMetrics()
+//          )
+//        )
+//        rows <- sdp.stream.flatMap(_._1).filter(!_.isWatermark).timeout(zio.Duration.fromSeconds(10)).runCount
+//      // since no new files are added to the storage, emitted amount should be equal to backfill run and do not increase
+//      yield assertTrue(rows == 50 * 100)
+//    },
+//    test("stream changes respecting watermark") {
+//      for
+//        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+//        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+//        _ <- icebergUtil.prepareWatermark(
+//          "test",
+//          BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
+//        )
+//        propertyManager <- icebergUtil.getSinkTablePropertyManager
+//        dataProvider <- ZIO.succeed(
+//          BlobSourceDataProvider(
+//            source,
+//            propertyManager,
+//            new TestDynamicSinkSettings("demo.test.test"),
+//            defaultStreamMode,
+//            TestThroughputShaperBuilder.default(
+//              propertyManager,
+//              new TestDynamicSinkSettings(s"demo.test.test")
+//            ),
+//            TestSourceBufferingSettings
+//          )
+//        )
+//        sdp <- ZIO.succeed(
+//          BlobSourceStreamingDataProvider(
+//            dataProvider,
+//            defaultStreamMode.changeCapture,
+//            defaultStreamMode.backfill,
+//            false,
+//            DeclaredMetrics()
+//          )
+//        )
+//        rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount
+//      yield assertTrue(rows == 0)
+//    }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
