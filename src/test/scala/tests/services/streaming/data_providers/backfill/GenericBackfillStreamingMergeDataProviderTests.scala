@@ -14,8 +14,7 @@ import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTa
 import services.merging.JdbcTableManager
 import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.{BackfillOverwriteBatchFactory, HookManager, StreamDataProvider}
-import services.streaming.data_providers.backfill.GenericBackfillStreamingMergeDataProvider
+import services.streaming.base.{BackfillOverwriteBatchFactory, GenericBackfillStreamingMergeDataProvider, HookManager, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,

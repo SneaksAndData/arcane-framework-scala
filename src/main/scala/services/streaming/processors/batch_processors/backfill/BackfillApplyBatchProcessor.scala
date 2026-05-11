@@ -9,6 +9,7 @@ import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StreamingBatchProcessor
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -32,8 +33,6 @@ class BackfillApplyBatchProcessor(
     ZPipeline.mapZIO(batch =>
       for
         _            <- zlog("Applying backfill batch with name to %s", batch.targetTableName)
-        targetSchema <- propertyManager.getTableSchema(batch.targetTableName.parts.name)
-        _            <- entityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.parts.name)
         _            <- mergeServiceClient.applyBatch(batch)
       yield batch
     )

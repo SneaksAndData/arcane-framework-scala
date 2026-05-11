@@ -11,7 +11,8 @@ import services.streaming.base.StagedBatchProcessor
 import zio.stream.ZPipeline
 import zio.{Cached, Scope, Task, ZIO}
 
-class SchemaMigrationProcessor(sinkEntityManager: SinkEntityManager, stagingEntityManager: StagingEntityManager, schemaCacheRef: Cached[Throwable, ArcaneSchema], schemaMigrationEnabled: Boolean, isTargetInStaging: Boolean) extends StagedBatchProcessor:
+class SchemaMigrationProcessor(sinkEntityManager: SinkEntityManager, stagingEntityManager: StagingEntityManager, schemaCacheRef: Cached[Throwable, ArcaneSchema], schemaMigrationEnabled: Boolean, isTargetInStaging: Boolean) 
+  extends StagedBatchProcessor:
 
   private def alignSchemas(
                             batchSchema: ArcaneSchema,
@@ -23,18 +24,19 @@ class SchemaMigrationProcessor(sinkEntityManager: SinkEntityManager, stagingEnti
     _ <- ZIO.when(needsUpdate)(schemaCacheRef.refresh)
   yield ()
 
-  override def process(streamSchema: ArcaneSchema): ZPipeline[Any, Throwable, StagedVersionedBatch & MergeableBatch, StagedVersionedBatch & MergeableBatch] = ZPipeline.mapZIO { batch =>
+  override def process: ZPipeline[Any, Throwable, StagedVersionedBatch & MergeableBatch, StagedVersionedBatch & MergeableBatch] = ZPipeline.mapZIO { batch =>
     for
       _ <- ZIO.when(!batch.isEmpty && schemaMigrationEnabled) {
             for
               // for streams, we migrate sink table
-              _ <- ZIO.unless(isTargetInStaging)(alignSchemas(streamSchema, sinkEntityManager, batch.targetTableName))
+              _ <- ZIO.unless(isTargetInStaging)(alignSchemas(batch.schema, sinkEntityManager, batch.targetTableName))
               // for backfills, we migrate staging table
-              _ <- ZIO.when(isTargetInStaging)(alignSchemas(streamSchema, stagingEntityManager, batch.targetTableName))
+              _ <- ZIO.when(isTargetInStaging)(alignSchemas(batch.schema, stagingEntityManager, batch.targetTableName))
             yield ()
       }
     yield batch 
   }
+
 
 object SchemaMigrationProcessor:
   private def getSchema(tableName: String, sinkPropertyManager: SinkPropertyManager): Task[ArcaneSchema] = sinkPropertyManager.getTableSchema(tableName).map(implicitly)

@@ -100,8 +100,7 @@ class SynapseLinkMergeBatch(
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String,
-    watermarkValue: Option[String]
+    mergeKey: String
 ) extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String            = batchName
@@ -125,25 +124,49 @@ class SynapseLinkMergeBatch(
         columns = schema.map(f => f.name)
       )
 
-  override val completedWatermarkValue: Option[String] = watermarkValue
+  override val completedWatermarkValue: Option[String] = None
+
+/**
+ * Watermark-only batch
+ */
+class SynapseLinkWatermarkBatch(
+                                 watermarkValue: String,
+                                 targetName: String
+                               ) extends StagedVersionedBatch with MergeableBatch:
+  override val name: String = "watermark"
+  override val schema: ArcaneSchema = ArcaneSchema.empty()
+  override val targetTableName: String = targetName
+
+  override def reduceExpr: String = ""
+
+  override val batchQuery: MergeQuery = SynapseLinkMergeQuery.empty
+
+  override val completedWatermarkValue: Option[String] = Some(watermarkValue)
+
+object SynapseLinkWatermarkBatch:
+  def apply(
+             watermarkValue: String,
+             targetName: String
+           ): SynapseLinkWatermarkBatch =
+    new SynapseLinkWatermarkBatch(
+      watermarkValue, targetName
+    )  
 
 object SynapseLinkMergeBatch:
   def empty(watermarkValue: Option[String]): SynapseLinkMergeBatch =
-    new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
+    new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "")
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      watermarkValue: Option[String]
+      tablePropertiesSettings: TablePropertiesSettings
   ): SynapseLinkMergeBatch =
     new SynapseLinkMergeBatch(
       batchName,
       batchSchema,
       targetName,
       tablePropertiesSettings,
-      batchSchema.mergeKey.name,
-      watermarkValue
+      batchSchema.mergeKey.name
     )
 
 class SynapseLinkBackfillMergeBatch(

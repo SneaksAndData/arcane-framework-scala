@@ -15,6 +15,7 @@ import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 import services.streaming.base.StagedBatchProcessor
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 

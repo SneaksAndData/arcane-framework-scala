@@ -12,6 +12,7 @@ import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
+import services.streaming.batching.StagedBatchFactory
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -25,6 +26,7 @@ class StagingProcessor(
     targetTableFullName: String,
     icebergCatalogSettings: IcebergCatalogSettings,
     catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+    batchFactory: StagedBatchFactory,
     declaredMetrics: DeclaredMetrics
 ) extends RowGroupTransformer:
 
@@ -32,9 +34,8 @@ class StagingProcessor(
 
   private def processChunk(
       elements: Chunk[IncomingElement],
-      onBatchStaged: OnBatchStaged,
       schema: ArcaneSchema
-  ): ZIO[Any, Throwable, Chunk[Iterable[StagedVersionedBatch & MergeableBatch]]] = for
+  ): ZIO[Any, Throwable, Chunk[StagedVersionedBatch & MergeableBatch]] = for
     _ <- zlog(
       "Started preparing a batch of size %s for staging",
       Seq(getAnnotation("processor", "StagingProcessor")),
@@ -62,63 +63,42 @@ class StagingProcessor(
       )
     )
 
-    stagedChunk <- writeDataRows(filteredElements.getOrElse(elements), schema, onBatchStaged, maybeWatermark)
-  yield
-    if filteredElements.nonEmpty then Chunk(Seq(stagedChunk))
-    else
-      Chunk(
-        Seq(
-          onBatchStaged(
-            None,
-            icebergCatalogSettings.namespace,
-            icebergCatalogSettings.warehouse,
-            ArcaneSchema.empty(),
-            targetTableFullName,
-            maybeWatermark
-          )
-        )
-      )
+    dataBatch <- writeDataRows(filteredElements.getOrElse(elements), schema)
+    watermarkBatch <- ZIO.when(maybeWatermark.isDefined)(batchFactory.createWatermarkBatch(targetTableFullName, maybeWatermark.get))
+  yield Chunk.fromIterable(Seq(dataBatch, watermarkBatch).filter(_.isDefined).map(_.get))
 
   override def process(
-      onStagingTablesComplete: OnStagingTablesComplete,
-      onBatchStaged: OnBatchStaged,
-      schema: ArcaneSchema
+                        streamSchema: ArcaneSchema
   ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
     ZPipeline[IncomingElement]
       .mapChunksZIO(elements =>
         for staged <- ZIO.when(elements.nonEmpty)(
-            processChunk(elements, onBatchStaged, schema).gaugeDuration(declaredMetrics.batchStageDuration)
+            processChunk(elements, streamSchema).gaugeDuration(declaredMetrics.batchStageDuration)
           )
         yield staged.getOrElse(Chunk.empty)
       )
-      .filter(_.nonEmpty)
-      .zipWithIndex
-      .map { case (batches, index) => onStagingTablesComplete(batches, index, Chunk()) }
+      .filter(!_.isEmpty)
 
   private def writeDataRows(
-      rows: Chunk[DataRow],
-      arcaneSchema: ArcaneSchema,
-      onBatchStaged: OnBatchStaged,
-      watermarkValue: Option[String]
-  ): Task[StagedVersionedBatch & MergeableBatch] =
+                             rows: Chunk[DataRow],
+                             rowSchema: ArcaneSchema
+  ): Task[Option[StagedVersionedBatch & MergeableBatch]] =
     for
-      table <- ZIO.when(rows.nonEmpty)(
-        catalogWriter.write(
-          rows,
-          stagingDataSettings.newStagingTableName,
-          arcaneSchema,
-          Seq(getAnnotation("processor", "StagingProcessor"))
-        )
-      )
-      batch = onBatchStaged(
-        table,
-        icebergCatalogSettings.namespace,
-        icebergCatalogSettings.warehouse,
-        arcaneSchema,
-        targetTableFullName,
-        watermarkValue
-      )
-    yield batch
+      staged <- ZIO.when(rows.nonEmpty) {
+        for
+          tableName <- ZIO.succeed(stagingDataSettings.newStagingTableName)
+          table <- ZIO.when(rows.nonEmpty)(
+            catalogWriter.write(
+              rows,
+              stagingDataSettings.newStagingTableName,
+              rowSchema,
+              Seq(getAnnotation("processor", "StagingProcessor"))
+            )
+          )
+          batch <- batchFactory.createDataBatch(tableName, targetTableFullName, rowSchema)
+        yield batch 
+      }
+    yield staged
 
 object StagingProcessor:
 
@@ -127,6 +107,7 @@ object StagingProcessor:
       targetTableFullName: String,
       icebergCatalogSettings: IcebergCatalogSettings,
       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+      batchFactory: StagedBatchFactory,
       declaredMetrics: DeclaredMetrics
   ): StagingProcessor =
     new StagingProcessor(
@@ -134,22 +115,25 @@ object StagingProcessor:
       targetTableFullName,
       icebergCatalogSettings,
       catalogWriter,
+      batchFactory,
       declaredMetrics
     )
 
-  type Environment = PluginStreamContext & CatalogWriter[RESTCatalog, Table, Schema] & DeclaredMetrics
+  type Environment = PluginStreamContext & CatalogWriter[RESTCatalog, Table, Schema] & StagedBatchFactory & DeclaredMetrics
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
       for
         context         <- ZIO.service[PluginStreamContext]
         catalogWriter   <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        stagedBatchFactory <- ZIO.service[StagedBatchFactory]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
       yield StagingProcessor(
         context.staging.table,
         context.sink.targetTableFullName,
         context.staging.icebergCatalog,
         catalogWriter,
+        stagedBatchFactory,
         declaredMetrics
       )
     }
