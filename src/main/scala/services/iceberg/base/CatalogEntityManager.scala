@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.iceberg.base
 
 import models.ddl.CreateTableRequest
-import models.schemas.ArcaneSchema
+import models.schemas.{ArcaneSchema, ArcaneSchemaField}
 
 import org.apache.iceberg.Table
 import zio.Task
@@ -32,7 +32,7 @@ trait CatalogEntityManager:
     * deletion
     * @return
     */
-  def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Unit]
+  def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Seq[ArcaneSchemaField]]
 
   /** Retrieve catalog factory used by this entity manager
     * @return

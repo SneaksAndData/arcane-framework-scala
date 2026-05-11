@@ -14,22 +14,7 @@ import zio.{Schedule, Task, ZIO, ZLayer}
 import java.io.IOException
 import java.sql.*
 
-trait JdbcTableManager extends TableManager:
-  /** @inheritdoc
-    */
-  override type TableOptimizationRequest = JdbcOptimizationRequest
-
-  /** @inheritdoc
-    */
-  override type SnapshotExpirationRequest = JdbcSnapshotExpirationRequest
-
-  /** @inheritdoc
-    */
-  override type OrphanFilesExpirationRequest = JdbcOrphanFilesExpirationRequest
-
-  override type TableAnalyzeRequest = JdbcAnalyzeRequest
-
-/** A consumer that consumes batches from a JDBC source.
+/** Merge Service client that uses JDBC-compliant engine to perform batch merge operations.
   *
   * @param options
   *   The options for the consumer.

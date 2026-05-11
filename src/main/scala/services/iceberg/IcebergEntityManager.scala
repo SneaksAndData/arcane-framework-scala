@@ -4,7 +4,7 @@ package services.iceberg
 import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
-import models.schemas.ArcaneSchema
+import models.schemas.{ArcaneSchema, ArcaneSchemaField}
 import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.SchemaConversions.toIcebergType
 import services.iceberg.base.{CatalogEntityManager, SinkEntityManager, StagingEntityManager}
@@ -88,7 +88,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings, catalogFacto
     _ <- ZIO.foreachPar(matchingTables)(delete)
   yield ()
 
-  override def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Unit] = for
+  override def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Seq[ArcaneSchemaField]] = for
     diff <- ZIO.succeed(oldSchema.getMissingFields(newSchema))
     _ <- ZIO.when(diff.nonEmpty) {
       for
@@ -107,7 +107,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings, catalogFacto
         _ <- zlog("Schema of %s successfully updated", tableName)
       yield ()
     }
-  yield ()
+  yield diff
 
 class IcebergSinkEntityManager(catalogSettings: IcebergCatalogSettings, catalogFactory: IcebergCatalogFactory)
     extends IcebergEntityManager(catalogSettings, catalogFactory)

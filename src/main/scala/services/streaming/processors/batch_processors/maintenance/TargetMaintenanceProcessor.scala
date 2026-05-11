@@ -8,7 +8,6 @@ import models.settings.staging.JdbcMergeServiceClientSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.StagedBatchProcessor
 
-import com.sneaksanddata.arcane.framework.services.base.BatchOptimizationResult
 import zio.stream.ZPipeline
 import zio.{Cached, Ref, Task, ZIO}
 
@@ -36,7 +35,7 @@ class TargetMaintenanceProcessor(counterRef: Ref[Long],
       yield ()
     }
   
-  private def optimizeTable(tableName: String, settings: OptimizeSettings): Task[BatchOptimizationResult] = for
+  private def optimizeTable(tableName: String, settings: OptimizeSettings): Task[Unit] = for
     batchCount <- counterRef.get
     request <- ZIO.succeed(JdbcOptimizationRequest(
       tableName = tableName,
@@ -44,13 +43,10 @@ class TargetMaintenanceProcessor(counterRef: Ref[Long],
       fileSizeThreshold = settings.fileSizeThreshold, 
       batchCount = batchCount
     ))
-    resultExecuted <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(false)))
-    resultSkipped <- ZIO.when(request.isEmpty)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(true)))
-  yield resultExecuted match
-    case Some(executed) => executed
-    case None => resultSkipped.get
+    _ <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression))
+  yield ()
 
-  private def expireOrphanFiles(tableName: String, settings: OrphanFilesExpirationSettings): Task[BatchOptimizationResult] = for
+  private def expireOrphanFiles(tableName: String, settings: OrphanFilesExpirationSettings): Task[Unit] = for
     batchCount <- counterRef.get
     request <- ZIO.succeed(JdbcOrphanFilesExpirationRequest(
       tableName = tableName,
@@ -58,14 +54,11 @@ class TargetMaintenanceProcessor(counterRef: Ref[Long],
       retentionThreshold = settings.retentionThreshold,
       batchCount = batchCount
     ))
-    resultExecuted <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(false)))
-    resultSkipped <- ZIO.when(request.isEmpty)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(true)))
-  yield resultExecuted match
-    case Some(executed) => executed
-    case None => resultSkipped.get
+    _ <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression))
+  yield ()
 
 
-  private def expireSnapshots(tableName: String, settings: SnapshotExpirationSettings): Task[BatchOptimizationResult] = for
+  private def expireSnapshots(tableName: String, settings: SnapshotExpirationSettings): Task[Unit] = for
     batchCount <- counterRef.get
     request <- ZIO.succeed(JdbcSnapshotExpirationRequest(
       tableName = tableName,
@@ -73,14 +66,11 @@ class TargetMaintenanceProcessor(counterRef: Ref[Long],
       retentionThreshold = settings.retentionThreshold,
       batchCount = batchCount
     ))
-    resultExecuted <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(false)))
-    resultSkipped <- ZIO.when(request.isEmpty)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(true)))
-  yield resultExecuted match
-    case Some(executed) => executed
-    case None => resultSkipped.get
+    _ <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression))
+  yield ()
 
 
-  private def analyzeTable(tableName: String, settings: AnalyzeSettings): Task[BatchOptimizationResult] = for
+  private def analyzeTable(tableName: String, settings: AnalyzeSettings): Task[Unit] = for
     batchCount <- counterRef.get
     request <- ZIO.succeed(JdbcAnalyzeRequest(
       tableName = tableName,
@@ -88,13 +78,8 @@ class TargetMaintenanceProcessor(counterRef: Ref[Long],
       includedColumns = settings.includedColumns,
       batchCount = batchCount
     ))
-    resultExecuted <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(false)))
-    resultSkipped <- ZIO.when(request.isEmpty)(executeMaintenanceQuery(request.get.toSqlExpression)).map(v => v.map(_ => BatchOptimizationResult(true)))
-  yield resultExecuted match
-    case Some(executed) => executed
-    case None => resultSkipped.get
-
-
+    _ <- ZIO.when(request.isDefined)(executeMaintenanceQuery(request.get.toSqlExpression))
+  yield ()
 
   override def process: ZPipeline[Any, Throwable, StagedVersionedBatch & MergeableBatch, StagedVersionedBatch & MergeableBatch] = ZPipeline.mapZIO { batch =>
     for
