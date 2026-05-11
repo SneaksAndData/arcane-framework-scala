@@ -39,12 +39,6 @@ trait StagedBatch:
     */
   def reduceExpr: String
 
-  /** Query that should be used to dispose of this batch data.
-    * @return
-    *   SQL query text
-    */
-  def disposeExpr: String = s"DROP TABLE $name"
-
   /** Check if current batch is an empty batch - batch without schema or name is empty and should be discarded
     * @return
     */
