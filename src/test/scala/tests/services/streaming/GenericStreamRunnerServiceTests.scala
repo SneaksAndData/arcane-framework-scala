@@ -7,7 +7,7 @@ import models.batches.SqlServerChangeTrackingMergeBatch
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
-import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
+import services.base.{DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
 import services.iceberg.{
   IcebergEntityManager,
@@ -15,9 +15,8 @@ import services.iceberg.{
   IcebergStagingEntityManager,
   IcebergTablePropertyManager
 }
-import services.merging.JdbcTableManager
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.{HookManager, StreamDataProvider}
+import services.streaming.base.StreamDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
@@ -26,7 +25,6 @@ import services.streaming.processors.batch_processors.streaming.{
 }
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 import services.bootstrap.DefaultStreamBootstrapper
 
@@ -59,8 +57,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
 
     val disposeServiceClient = mock[DisposeServiceClient]
     val mergeServiceClient   = mock[MergeServiceClient]
-    val jdbcTableManager     = mock[JdbcTableManager]
-    val hookManager          = mock[HookManager]
     val streamDataProvider   = mock[StreamDataProvider]
 
     expecting {
@@ -71,36 +67,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
       // It produces the empty set of staged batches, so the rest  of the pipeline can continue
       // but no further stages being invoked
-      hookManager
-        .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
-        .times(streamRepeatCount)
-      hookManager
-        .onBatchStaged(
-          EasyMock.anyObject(),
-          EasyMock.anyString(),
-          EasyMock.anyString(),
-          EasyMock.anyObject(),
-          EasyMock.anyString(),
-          EasyMock.anyObject()
-        )
-        .andReturn(
-          SqlServerChangeTrackingMergeBatch(
-            "test",
-            ArcaneSchema(Seq(MergeKeyField)),
-            "test",
-            TablePropertiesSettings,
-            None
-          )
-        )
-        .times(streamRepeatCount)
-
-      jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-      jdbcTableManager.analyzeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
     }
-    replay(streamDataProvider, hookManager, jdbcTableManager)
+    replay(streamDataProvider)
 
     val streamRunnerService = ZLayer.make[StreamRunnerService](
       // Real services
@@ -119,8 +87,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
-      ZLayer.succeed(hookManager),
       ZLayer.succeed(new SchemaProvider[ArcaneSchema] {
         override type SchemaType = ArcaneSchema
         override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
@@ -144,6 +110,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       )
       .map { _ =>
         // Assert
-        noException should be thrownBy verify(streamDataProvider, hookManager)
+        noException should be thrownBy verify(streamDataProvider)
       }
   }

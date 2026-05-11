@@ -18,8 +18,6 @@ import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
-import services.synapse.SynapseHookManager
-import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -57,7 +55,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
       )
     )
   )
-  private val hookManager = SynapseHookManager()
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(

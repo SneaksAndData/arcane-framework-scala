@@ -9,13 +9,12 @@ import models.batches.{
 }
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
-import services.base.{BatchOptimizationResult, DisposeServiceClient, MergeServiceClient}
+import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
-import services.merging.JdbcTableManager
 import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, GenericBackfillStreamingOverwriteDataProvider, HookManager, StreamDataProvider}
+import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, GenericBackfillStreamingOverwriteDataProvider, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
@@ -23,7 +22,7 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.services.streaming.processors.utils.{TestIndexedStagedBatches, TestStageVersionedBatch}
+import tests.services.streaming.processors.utils.TestStageVersionedBatch
 import tests.shared.*
 
 import org.easymock.EasyMock
@@ -45,7 +44,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
     expecting {
       streamingGraphBuilder
-        .produce(EasyMock.anyObject())
+        .produce()
         .andReturn(
           ZStream.fromIterable(
             Seq(
@@ -75,7 +74,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       streamingGraphBuilder,
       TestStagingTableSettings,
       lifetimeService,
-      mock[HookManager],
       (watermark: Option[String]) =>
         ZIO.succeed(
           SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)

@@ -150,11 +150,9 @@ object SynapseLinkWatermarkBatch:
            ): SynapseLinkWatermarkBatch =
     new SynapseLinkWatermarkBatch(
       watermarkValue, targetName
-    )  
+    )
 
 object SynapseLinkMergeBatch:
-  def empty(watermarkValue: Option[String]): SynapseLinkMergeBatch =
-    new SynapseLinkMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "")
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,

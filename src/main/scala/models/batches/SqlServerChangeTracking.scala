@@ -103,8 +103,7 @@ class SqlServerChangeTrackingMergeBatch(
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String,
-    watermarkValue: Option[String]
+    mergeKey: String
 ) extends StagedVersionedBatch
     with MergeableBatch:
 
@@ -128,29 +127,39 @@ class SqlServerChangeTrackingMergeBatch(
         columns = schema.map(f => f.name)
       )
 
-  override val completedWatermarkValue: Option[String] = watermarkValue
+  override val completedWatermarkValue: Option[String] = None
 
 object SqlServerChangeTrackingMergeBatch:
-  def empty(watermarkValue: Option[String]): SqlServerChangeTrackingMergeBatch = new SqlServerChangeTrackingMergeBatch(
-    "",
-    ArcaneSchema.empty(),
-    "",
-    EmptyTablePropertiesSettings,
-    "",
-    watermarkValue
-  )
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      watermarkValue: Option[String]
+      tablePropertiesSettings: TablePropertiesSettings
   ): SqlServerChangeTrackingMergeBatch =
     new SqlServerChangeTrackingMergeBatch(
       batchName,
       batchSchema,
       targetName,
       tablePropertiesSettings,
-      batchSchema.mergeKey.name,
-      watermarkValue
+      batchSchema.mergeKey.name
     )
+
+class SqlServerChangeTrackingWatermarkBatch(
+                                         targetName: String,
+                                         watermarkValue: String
+                                       ) extends StagedVersionedBatch
+  with MergeableBatch:
+
+  override val name: String            = "watermark"
+  override val schema: ArcaneSchema    = ArcaneSchema.empty()
+  override val targetTableName: String = targetName
+
+  override def reduceExpr: String = ""
+
+  override val batchQuery: MergeQuery = SqlServerChangeTrackingMergeQuery.empty
+
+  override val completedWatermarkValue: Option[String] = Some(watermarkValue)
+  
+object SqlServerChangeTrackingWatermarkBatch:
+  def apply(targetName: String,
+            watermarkValue: String): SqlServerChangeTrackingWatermarkBatch = new SqlServerChangeTrackingWatermarkBatch(targetName, watermarkValue)

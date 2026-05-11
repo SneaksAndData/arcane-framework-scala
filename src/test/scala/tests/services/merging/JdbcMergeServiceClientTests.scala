@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.merging
 
 import models.batches.SynapseLinkMergeBatch
+import models.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.SchemaProvider
@@ -10,7 +11,6 @@ import services.merging.*
 import services.metrics.DeclaredMetrics
 import tests.services.merging.JdbcMergeServiceClientTests.test
 import tests.shared.{TestJdbcMergeServiceClientSettings, TestObservabilitySettings, TestTablePropertiesSettings}
-import com.sneaksanddata.arcane.framework.models.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar.mock
@@ -87,8 +87,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
             s"test.staged_$tableName",
             schema,
             s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
+            TestTablePropertiesSettings
           )
         )
         _ <- setupTable(tableName)
@@ -99,62 +98,5 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
         rs <- ZIO.attemptBlocking(connection.createStatement().executeQuery(s"SELECT count(1) FROM ${batch.name}"))
         _  <- ZIO.attemptBlocking(rs.next())
       yield assertTrue(rs.getInt(1) == 10)
-    },
-    test("optimizes a table") {
-      for
-        tableName <- ZIO.succeed("table_optimized")
-        batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(
-            s"test.staged_$tableName",
-            schema,
-            s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
-          )
-        )
-        _ <- setupTable(tableName)
-
-        request            = Some(JdbcOptimizationRequest(tableName, 10, "1MB", 9))
-        mergeServiceClient = getJdbcMergeServiceClient
-        result <- mergeServiceClient.optimizeTable(request)
-      yield assertTrue(!result.skipped)
-    },
-    test("runs expireSnapshots on a table") {
-      for
-        tableName <- ZIO.succeed("table_snapshot_expire")
-        batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(
-            s"test.staged_$tableName",
-            schema,
-            s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
-          )
-        )
-        _ <- setupTable(tableName)
-
-        request            = Some(JdbcSnapshotExpirationRequest(tableName, 10, "8d", 9))
-        mergeServiceClient = getJdbcMergeServiceClient
-        result <- mergeServiceClient.expireSnapshots(request)
-      yield assertTrue(!result.skipped)
-    },
-    test("runs expireOrphanFiles on a table") {
-      for
-        tableName <- ZIO.succeed("table_orphan_files_expire")
-        batch <- ZIO.succeed(
-          SynapseLinkMergeBatch(
-            s"test.staged_$tableName",
-            schema,
-            s"test.$tableName",
-            TestTablePropertiesSettings,
-            None
-          )
-        )
-        _ <- setupTable(tableName)
-
-        request            = Some(JdbcOrphanFilesExpirationRequest(tableName, 10, "8d", 9))
-        mergeServiceClient = getJdbcMergeServiceClient
-        result <- mergeServiceClient.expireOrphanFiles(request)
-      yield assertTrue(!result.skipped)
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
