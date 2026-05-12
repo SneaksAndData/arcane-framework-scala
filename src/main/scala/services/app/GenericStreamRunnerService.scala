@@ -66,7 +66,8 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & PluginStreamContext & StreamBootstrapper & MetricTagProvider
+  type Environment = StreamLifetimeService & StreamingGraphBuilder & PluginStreamContext & StreamBootstrapper &
+    MetricTagProvider
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *

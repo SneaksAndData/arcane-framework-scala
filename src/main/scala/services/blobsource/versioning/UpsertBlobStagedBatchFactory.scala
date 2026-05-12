@@ -9,10 +9,14 @@ import services.streaming.batching.StagedBatchFactory
 import zio.{Task, ZIO}
 
 class UpsertBlobStagedBatchFactory extends StagedBatchFactory:
-  override type OutputBatch = UpsertBlobMergeBatch
+  override type OutputBatch    = UpsertBlobMergeBatch
   override type WatermarkBatch = UpsertBlobWatermarkBatch
 
-  override def createDataBatch(stagedTableName: String, targetTableName: String, batchSchema: ArcaneSchema): Task[UpsertBlobMergeBatch] =
+  override def createDataBatch(
+      stagedTableName: String,
+      targetTableName: String,
+      batchSchema: ArcaneSchema
+  ): Task[UpsertBlobMergeBatch] =
     ZIO.succeed(UpsertBlobMergeBatch(stagedTableName, batchSchema, targetTableName, EmptyTablePropertiesSettings))
 
   override def createWatermarkBatch(targetTableName: String, watermark: String): Task[UpsertBlobWatermarkBatch] =

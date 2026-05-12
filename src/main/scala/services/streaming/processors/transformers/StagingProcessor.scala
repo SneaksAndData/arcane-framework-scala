@@ -64,11 +64,13 @@ class StagingProcessor(
     )
 
     dataBatch <- writeDataRows(filteredElements.getOrElse(elements), schema)
-    watermarkBatch <- ZIO.when(maybeWatermark.isDefined)(batchFactory.createWatermarkBatch(targetTableFullName, maybeWatermark.get))
+    watermarkBatch <- ZIO.when(maybeWatermark.isDefined)(
+      batchFactory.createWatermarkBatch(targetTableFullName, maybeWatermark.get)
+    )
   yield Chunk.fromIterable(Seq(dataBatch, watermarkBatch).filter(_.isDefined).map(_.get))
 
   override def process(
-                        streamSchema: ArcaneSchema
+      streamSchema: ArcaneSchema
   ): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
     ZPipeline[IncomingElement]
       .mapChunksZIO(elements =>
@@ -80,11 +82,10 @@ class StagingProcessor(
       .filter(!_.isEmpty)
 
   private def writeDataRows(
-                             rows: Chunk[DataRow],
-                             rowSchema: ArcaneSchema
+      rows: Chunk[DataRow],
+      rowSchema: ArcaneSchema
   ): Task[Option[StagedVersionedBatch & MergeableBatch]] =
-    for
-      staged <- ZIO.when(rows.nonEmpty) {
+    for staged <- ZIO.when(rows.nonEmpty) {
         for
           tableName <- ZIO.succeed(stagingDataSettings.newStagingTableName)
           table <- ZIO.when(rows.nonEmpty)(
@@ -96,7 +97,7 @@ class StagingProcessor(
             )
           )
           batch <- batchFactory.createDataBatch(tableName, targetTableFullName, rowSchema)
-        yield batch 
+        yield batch
       }
     yield staged
 
@@ -119,15 +120,16 @@ object StagingProcessor:
       declaredMetrics
     )
 
-  type Environment = PluginStreamContext & CatalogWriter[RESTCatalog, Table, Schema] & StagedBatchFactory & DeclaredMetrics
+  type Environment = PluginStreamContext & CatalogWriter[RESTCatalog, Table, Schema] & StagedBatchFactory &
+    DeclaredMetrics
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
       for
-        context         <- ZIO.service[PluginStreamContext]
-        catalogWriter   <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        context            <- ZIO.service[PluginStreamContext]
+        catalogWriter      <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         stagedBatchFactory <- ZIO.service[StagedBatchFactory]
-        declaredMetrics <- ZIO.service[DeclaredMetrics]
+        declaredMetrics    <- ZIO.service[DeclaredMetrics]
       yield StagingProcessor(
         context.staging.table,
         context.sink.targetTableFullName,

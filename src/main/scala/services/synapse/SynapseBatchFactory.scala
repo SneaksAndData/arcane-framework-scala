@@ -9,10 +9,14 @@ import services.streaming.batching.StagedBatchFactory
 import zio.{Task, ZIO}
 
 class SynapseBatchFactory extends StagedBatchFactory:
-  override type OutputBatch = SynapseLinkMergeBatch
+  override type OutputBatch    = SynapseLinkMergeBatch
   override type WatermarkBatch = SynapseLinkWatermarkBatch
 
-  override def createDataBatch(stagedTableName: String, targetTableName: String, batchSchema: ArcaneSchema): Task[SynapseLinkMergeBatch] =
+  override def createDataBatch(
+      stagedTableName: String,
+      targetTableName: String,
+      batchSchema: ArcaneSchema
+  ): Task[SynapseLinkMergeBatch] =
     ZIO.succeed(SynapseLinkMergeBatch(stagedTableName, batchSchema, targetTableName, EmptyTablePropertiesSettings))
 
   override def createWatermarkBatch(targetTableName: String, watermark: String): Task[SynapseLinkWatermarkBatch] =

@@ -3,7 +3,12 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
-import models.maintenance.{JdbcAnalyzeRequest, JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import models.maintenance.{
+  JdbcAnalyzeRequest,
+  JdbcOptimizationRequest,
+  JdbcOrphanFilesExpirationRequest,
+  JdbcSnapshotExpirationRequest
+}
 import models.settings.staging.{AlwaysImpl, BackfillOnlyImpl, JdbcMergeServiceClientSettings, NeverImpl}
 import services.base.*
 import services.metrics.DeclaredMetrics

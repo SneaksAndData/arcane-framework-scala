@@ -13,24 +13,24 @@ case class JdbcAnalyzeRequest(
 
 object JdbcAnalyzeRequest:
   /** A request to analyze a table.
-   *
-   * @param tableName
-   * The name of the table to optimize.
-   * @param optimizeThreshold
-   * Columns to run ANALYZE on.
-   * @param includedColumns
-   * The file size threshold.
-   * @param batchCount
-   * The current batch counter.
-   */
-  def apply(tableName: String,
-            optimizeThreshold: Long,
-            includedColumns: Seq[String],
-            batchCount: Long): Option[JdbcAnalyzeRequest] =
+    *
+    * @param tableName
+    *   The name of the table to optimize.
+    * @param optimizeThreshold
+    *   Columns to run ANALYZE on.
+    * @param includedColumns
+    *   The file size threshold.
+    * @param batchCount
+    *   The current batch counter.
+    */
+  def apply(
+      tableName: String,
+      optimizeThreshold: Long,
+      includedColumns: Seq[String],
+      batchCount: Long
+  ): Option[JdbcAnalyzeRequest] =
 
     require(optimizeThreshold > 0, "Optimize threshold must be greater than 0")
 
-    if (batchCount + 1) % optimizeThreshold == 0 then
-      Some(JdbcAnalyzeRequest(tableName, includedColumns))
-    else
-      None  
+    if (batchCount + 1) % optimizeThreshold == 0 then Some(JdbcAnalyzeRequest(tableName, includedColumns))
+    else None

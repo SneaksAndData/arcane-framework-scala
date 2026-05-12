@@ -9,11 +9,20 @@ import services.streaming.batching.StagedBatchFactory
 import zio.{Task, ZIO}
 
 class MsSqlStagedBatchFactory extends StagedBatchFactory:
-  override type OutputBatch = SqlServerChangeTrackingMergeBatch
+  override type OutputBatch    = SqlServerChangeTrackingMergeBatch
   override type WatermarkBatch = SqlServerChangeTrackingWatermarkBatch
 
-  override def createDataBatch(stagedTableName: String, targetTableName: String, batchSchema: ArcaneSchema): Task[SqlServerChangeTrackingMergeBatch] =
-    ZIO.succeed(SqlServerChangeTrackingMergeBatch(stagedTableName, batchSchema, targetTableName, EmptyTablePropertiesSettings))
-  
-  override def createWatermarkBatch(targetTableName: String, watermark: String): Task[SqlServerChangeTrackingWatermarkBatch] =
-    ZIO.succeed(SqlServerChangeTrackingWatermarkBatch(targetTableName, watermark))  
+  override def createDataBatch(
+      stagedTableName: String,
+      targetTableName: String,
+      batchSchema: ArcaneSchema
+  ): Task[SqlServerChangeTrackingMergeBatch] =
+    ZIO.succeed(
+      SqlServerChangeTrackingMergeBatch(stagedTableName, batchSchema, targetTableName, EmptyTablePropertiesSettings)
+    )
+
+  override def createWatermarkBatch(
+      targetTableName: String,
+      watermark: String
+  ): Task[SqlServerChangeTrackingWatermarkBatch] =
+    ZIO.succeed(SqlServerChangeTrackingWatermarkBatch(targetTableName, watermark))

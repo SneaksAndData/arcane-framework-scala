@@ -145,10 +145,10 @@ object SqlServerChangeTrackingMergeBatch:
     )
 
 class SqlServerChangeTrackingWatermarkBatch(
-                                         targetName: String,
-                                         watermarkValue: String
-                                       ) extends StagedVersionedBatch
-  with MergeableBatch:
+    targetName: String,
+    watermarkValue: String
+) extends StagedVersionedBatch
+    with MergeableBatch:
 
   override val name: String            = "watermark"
   override val schema: ArcaneSchema    = ArcaneSchema.empty()
@@ -159,7 +159,7 @@ class SqlServerChangeTrackingWatermarkBatch(
   override val batchQuery: MergeQuery = SqlServerChangeTrackingMergeQuery.empty
 
   override val completedWatermarkValue: Option[String] = Some(watermarkValue)
-  
+
 object SqlServerChangeTrackingWatermarkBatch:
-  def apply(targetName: String,
-            watermarkValue: String): SqlServerChangeTrackingWatermarkBatch = new SqlServerChangeTrackingWatermarkBatch(targetName, watermarkValue)
+  def apply(targetName: String, watermarkValue: String): SqlServerChangeTrackingWatermarkBatch =
+    new SqlServerChangeTrackingWatermarkBatch(targetName, watermarkValue)

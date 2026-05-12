@@ -21,9 +21,8 @@ trait StagedBatch:
     */
   val name: String
 
-  /**
-   * Schema of the staging table created fo this batch
-   */
+  /** Schema of the staging table created fo this batch
+    */
   val schema: ArcaneSchema
 
   /** Query to be used to process this batch

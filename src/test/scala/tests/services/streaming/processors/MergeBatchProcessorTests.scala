@@ -57,7 +57,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
         .andReturn(ZIO.unit)
         .times(40)
-      
+
     }
     replay(
       mergeServiceClient,

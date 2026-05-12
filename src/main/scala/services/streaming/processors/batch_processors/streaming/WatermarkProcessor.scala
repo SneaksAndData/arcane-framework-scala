@@ -19,11 +19,11 @@ class WatermarkProcessor(
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batch =>
     for _ <- batch.applyWatermark(
-          propertyManager,
-          targetTableShortName,
-          declaredMetrics,
-          "WatermarkProcessor"
-        )
+        propertyManager,
+        targetTableShortName,
+        declaredMetrics,
+        "WatermarkProcessor"
+      )
     yield batch
   }
 

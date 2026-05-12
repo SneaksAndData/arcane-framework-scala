@@ -66,6 +66,6 @@ object DisposeBatchProcessor:
       for
         disposeServiceClient <- ZIO.service[DisposeServiceClient]
         streamContext        <- ZIO.service[PluginStreamContext]
-        isBackfilling <- streamContext.isBackfilling
+        isBackfilling        <- streamContext.isBackfilling
       yield DisposeBatchProcessor(disposeServiceClient, isBackfilling)
     }

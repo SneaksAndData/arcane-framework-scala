@@ -61,7 +61,8 @@ object GenericBackfillStreamingOverwriteDataProvider:
 
   /** The environment required for the GenericBackfillStreamingOverwriteDataProvider.
     */
-  type Environment = BackfillSubStream & PluginStreamContext & StreamLifetimeService & BackfillOverwriteBatchFactory & MetricTagProvider
+  type Environment = BackfillSubStream & PluginStreamContext & StreamLifetimeService & BackfillOverwriteBatchFactory &
+    MetricTagProvider
 
   /** Creates a new GenericBackfillStreamingOverwriteDataProvider.
     * @param streamingGraphBuilder

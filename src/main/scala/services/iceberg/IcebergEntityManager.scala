@@ -88,7 +88,11 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings, catalogFacto
     _ <- ZIO.foreachPar(matchingTables)(delete)
   yield ()
 
-  override def migrateSchema(oldSchema: ArcaneSchema, newSchema: ArcaneSchema, tableName: String): Task[Seq[ArcaneSchemaField]] = for
+  override def migrateSchema(
+      oldSchema: ArcaneSchema,
+      newSchema: ArcaneSchema,
+      tableName: String
+  ): Task[Seq[ArcaneSchemaField]] = for
     diff <- ZIO.succeed(oldSchema.getMissingFields(newSchema))
     _ <- ZIO.when(diff.nonEmpty) {
       for

@@ -7,7 +7,12 @@ import models.schemas.DataCell
 import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, StreamDataProvider, StreamingGraphBuilder}
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -90,14 +95,14 @@ object GenericStreamingGraphBuilder:
   val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
     ZLayer {
       for
-        context                 <- ZIO.service[PluginStreamContext]
-        streamDataProvider      <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
-        stagingProcessor        <- ZIO.service[StagingProcessor]
-        mergeProcessor          <- ZIO.service[MergeBatchProcessor]
-        disposeBatchProcessor   <- ZIO.service[DisposeBatchProcessor]
-        watermarkProcessor      <- ZIO.service[WatermarkProcessor]
-        schemaMigrationProcessor      <- ZIO.service[SchemaMigrationProcessor]
+        context                  <- ZIO.service[PluginStreamContext]
+        streamDataProvider       <- ZIO.service[StreamDataProvider]
+        fieldFilteringProcessor  <- ZIO.service[FieldFilteringTransformer]
+        stagingProcessor         <- ZIO.service[StagingProcessor]
+        mergeProcessor           <- ZIO.service[MergeBatchProcessor]
+        disposeBatchProcessor    <- ZIO.service[DisposeBatchProcessor]
+        watermarkProcessor       <- ZIO.service[WatermarkProcessor]
+        schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
       yield GenericStreamingGraphBuilder(
         streamDataProvider,
         fieldFilteringProcessor,
@@ -117,14 +122,14 @@ object GenericStreamingGraphBuilder:
   val backfillSubStreamLayer: ZLayer[Environment, Nothing, BackfillSubStream] =
     ZLayer {
       for
-        context                 <- ZIO.service[PluginStreamContext]
-        streamDataProvider      <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
-        stagingProcessor        <- ZIO.service[StagingProcessor]
-        mergeProcessor          <- ZIO.service[MergeBatchProcessor]
-        disposeBatchProcessor   <- ZIO.service[DisposeBatchProcessor]
-        watermarkProcessor      <- ZIO.service[WatermarkProcessor]
-        schemaMigrationProcessor      <- ZIO.service[SchemaMigrationProcessor]
+        context                  <- ZIO.service[PluginStreamContext]
+        streamDataProvider       <- ZIO.service[StreamDataProvider]
+        fieldFilteringProcessor  <- ZIO.service[FieldFilteringTransformer]
+        stagingProcessor         <- ZIO.service[StagingProcessor]
+        mergeProcessor           <- ZIO.service[MergeBatchProcessor]
+        disposeBatchProcessor    <- ZIO.service[DisposeBatchProcessor]
+        watermarkProcessor       <- ZIO.service[WatermarkProcessor]
+        schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
       yield GenericStreamingGraphBuilder(
         streamDataProvider,
         fieldFilteringProcessor,

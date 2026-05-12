@@ -2,7 +2,11 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
+import models.batches.{
+  SqlServerChangeTrackingMergeBatch,
+  StagedBackfillOverwriteBatch,
+  SynapseLinkBackfillOverwriteBatch
+}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import services.base.{DisposeServiceClient, MergeServiceClient}
@@ -10,9 +14,19 @@ import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, GenericBackfillStreamingOverwriteDataProvider, StreamDataProvider}
+import services.streaming.base.{
+  BackfillOverwriteBatchFactory,
+  BackfillStreamingOverwriteDataProvider,
+  GenericBackfillStreamingOverwriteDataProvider,
+  StreamDataProvider
+}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestStageVersionedBatch
 import tests.shared.*
@@ -146,7 +160,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
       // The data provider mock provides an infinite stream of test input
       streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
-      
+
     }
     replay(streamDataProvider, mergeServiceClient)
 

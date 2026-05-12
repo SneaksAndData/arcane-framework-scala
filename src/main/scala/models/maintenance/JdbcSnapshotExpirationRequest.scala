@@ -10,24 +10,24 @@ case class JdbcSnapshotExpirationRequest(
 
 object JdbcSnapshotExpirationRequest:
   /** A request to expire outdated snapshots.
-   *
-   * @param tableName
-   * The name of the table to optimize.
-   * @param optimizeThreshold
-   * The threshold for optimization.
-   * @param retentionThreshold
-   * The file size threshold.
-   * @param batchCount
-   * The current batch counter.
-   */
-  def apply(tableName: String,
-            optimizeThreshold: Long,
-            retentionThreshold: String,
-            batchCount: Long): Option[JdbcSnapshotExpirationRequest] =
+    *
+    * @param tableName
+    *   The name of the table to optimize.
+    * @param optimizeThreshold
+    *   The threshold for optimization.
+    * @param retentionThreshold
+    *   The file size threshold.
+    * @param batchCount
+    *   The current batch counter.
+    */
+  def apply(
+      tableName: String,
+      optimizeThreshold: Long,
+      retentionThreshold: String,
+      batchCount: Long
+  ): Option[JdbcSnapshotExpirationRequest] =
 
     require(optimizeThreshold > 0, "Optimize threshold must be greater than 0")
 
-    if (batchCount + 1) % optimizeThreshold == 0 then
-      Some(JdbcSnapshotExpirationRequest(tableName, retentionThreshold))
-    else
-      None  
+    if (batchCount + 1) % optimizeThreshold == 0 then Some(JdbcSnapshotExpirationRequest(tableName, retentionThreshold))
+    else None
