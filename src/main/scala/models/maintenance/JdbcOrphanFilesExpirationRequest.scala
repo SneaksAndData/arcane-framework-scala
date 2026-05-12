@@ -6,7 +6,7 @@ case class JdbcOrphanFilesExpirationRequest(
     retentionThreshold: String
 ) extends MaintenanceRequest:
   def toSqlExpression: String =
-    s"ALTER TABLE ${tableName} execute remove_orphan_files(retention_threshold => '${retentionThreshold}')"
+    s"ALTER TABLE $tableName execute remove_orphan_files(retention_threshold => '$retentionThreshold')"
 
 object JdbcOrphanFilesExpirationRequest:
   /** A request to remove orphan files.

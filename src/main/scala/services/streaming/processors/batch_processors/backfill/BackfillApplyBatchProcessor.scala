@@ -3,13 +3,10 @@ package services.streaming.processors.batch_processors.backfill
 
 import logging.ZIOLogAnnotations.*
 import models.batches.StagedBackfillOverwriteBatch
-import models.settings.TableNaming.*
 import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
-import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StreamingBatchProcessor
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 

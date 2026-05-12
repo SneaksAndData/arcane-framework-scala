@@ -3,7 +3,7 @@ package models.maintenance
 
 case class JdbcOptimizationRequest(tableName: String, fileSizeThreshold: String) extends MaintenanceRequest:
   def toSqlExpression: String =
-    s"ALTER TABLE ${tableName} execute optimize(file_size_threshold => '${fileSizeThreshold}')"
+    s"ALTER TABLE $tableName execute optimize(file_size_threshold => '$fileSizeThreshold')"
 
 object JdbcOptimizationRequest:
   /** A request to optimize a table.

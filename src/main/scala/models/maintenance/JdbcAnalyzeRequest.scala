@@ -8,8 +8,8 @@ case class JdbcAnalyzeRequest(
   def toSqlExpression: String =
     if includedColumns.nonEmpty then
       val columnList = includedColumns.map(col => s"'$col'").mkString(",")
-      s"ANALYZE ${tableName} WITH (columns = ARRAY[$columnList])"
-    else s"ANALYZE ${tableName}"
+      s"ANALYZE $tableName WITH (columns = ARRAY[$columnList])"
+    else s"ANALYZE $tableName"
 
 object JdbcAnalyzeRequest:
   /** A request to analyze a table.

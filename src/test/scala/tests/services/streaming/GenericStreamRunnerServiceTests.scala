@@ -9,26 +9,17 @@ import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
-import services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergStagingEntityManager,
-  IcebergTablePropertyManager
-}
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergStagingEntityManager, IcebergTablePropertyManager}
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.StreamDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import services.bootstrap.DefaultStreamBootstrapper
 
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -99,6 +90,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,
+      TargetMaintenanceProcessor.layer,
       GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,

@@ -59,7 +59,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(
       TestStagingTableSettings,
-      TestSinkSettingsWithMaintenance.targetTableFullName,
+      TestSinkSettings.targetTableFullName,
       TestIcebergStagingSettings,
       catalogWriterService,
       new TestStagedBatchFactory(),

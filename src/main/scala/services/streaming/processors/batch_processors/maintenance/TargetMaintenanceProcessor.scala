@@ -3,19 +3,16 @@ package services.streaming.processors.batch_processors.maintenance
 
 import logging.ZIOLogAnnotations.zlog
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.maintenance.{
-  JdbcAnalyzeRequest,
-  JdbcOptimizationRequest,
-  JdbcOrphanFilesExpirationRequest,
-  JdbcSnapshotExpirationRequest
-}
+import models.maintenance.{JdbcAnalyzeRequest, JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import models.settings.sink.*
 import models.settings.staging.JdbcMergeServiceClientSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.StagedBatchProcessor
 
+import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
+import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.stream.ZPipeline
-import zio.{Cause, Ref, Task, ZIO}
+import zio.{Cause, Ref, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager}
 
@@ -111,3 +108,39 @@ class TargetMaintenanceProcessor(
     }
 
   override def close(): Unit = sqlConnection.close()
+  
+object TargetMaintenanceProcessor:
+  def apply(
+             counterRef: Ref[Long],
+             options: JdbcMergeServiceClientSettings,
+             maintenanceSettings: TableMaintenanceSettings,
+             defaultCatalogName: String,
+             defaultSchemaName: String,
+             declaredMetrics: DeclaredMetrics,
+             isBackfilling: Boolean
+           ): TargetMaintenanceProcessor = new TargetMaintenanceProcessor(
+    counterRef,
+    options,
+    maintenanceSettings,
+    defaultCatalogName,
+    defaultSchemaName,
+    declaredMetrics,
+    isBackfilling
+  )
+  
+  val layer = ZLayer {
+    for
+      context <- ZIO.service[PluginStreamContext]
+      counter <- Ref.make(0L)
+      metrics <- ZIO.service[DeclaredMetrics]
+      backfilling <- context.isBackfilling
+    yield TargetMaintenanceProcessor(
+      counter,
+      context.sink.mergeServiceClient,
+      context.sink.maintenanceSettings,
+      context.sink.targetTableFullName.parts.warehouse,
+      context.sink.targetTableFullName.parts.namespace,
+      metrics,
+      backfilling
+    )
+  }

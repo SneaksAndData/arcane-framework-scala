@@ -2,11 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.batches.{
-  SqlServerChangeTrackingMergeBatch,
-  StagedBackfillOverwriteBatch,
-  SynapseLinkBackfillOverwriteBatch
-}
+import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import services.base.{DisposeServiceClient, MergeServiceClient}
@@ -14,23 +10,14 @@ import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.{
-  BackfillOverwriteBatchFactory,
-  BackfillStreamingOverwriteDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider,
-  StreamDataProvider
-}
+import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, GenericBackfillStreamingOverwriteDataProvider, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestStageVersionedBatch
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -190,6 +177,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       ZLayer.succeed(new TestStagedBatchFactory()),
+      TargetMaintenanceProcessor.layer,
       SchemaMigrationProcessor.layer,
       DeclaredMetrics.layer,
       GlobalMetricTagProvider.layer,

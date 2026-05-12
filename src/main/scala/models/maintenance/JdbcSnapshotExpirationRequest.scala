@@ -6,7 +6,7 @@ case class JdbcSnapshotExpirationRequest(
     retentionThreshold: String
 ) extends MaintenanceRequest:
   def toSqlExpression: String =
-    s"ALTER TABLE ${tableName} execute expire_snapshots(retention_threshold => '${retentionThreshold}')"
+    s"ALTER TABLE $tableName execute expire_snapshots(retention_threshold => '$retentionThreshold')"
 
 object JdbcSnapshotExpirationRequest:
   /** A request to expire outdated snapshots.

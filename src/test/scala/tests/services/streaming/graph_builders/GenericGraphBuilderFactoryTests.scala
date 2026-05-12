@@ -5,25 +5,13 @@ import models.settings.backfill.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
 import services.streaming.graph_builders.GenericGraphBuilderFactory
-import services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
-  BackfillOverwriteWatermarkProcessor
-}
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.shared.{
-  CustomTestBackfillTableSettings,
-  TestPluginBackfillMergeStreamContext,
-  TestPluginBackfillOverwriteStreamContext,
-  TestPluginStreamContext
-}
+import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginStreamContext}
+import services.streaming.batching.StagedBatchFactory
 
-import com.sneaksanddata.arcane.framework.services.streaming.batching.StagedBatchFactory
+import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
@@ -64,7 +52,8 @@ class GenericGraphBuilderFactoryTests extends AsyncFlatSpec with Matchers with E
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
           ZLayer.succeed(mock[WatermarkProcessor]),
           ZLayer.succeed(mock[BackfillOverwriteWatermarkProcessor]),
-          ZLayer.succeed(mock[SchemaMigrationProcessor])
+          ZLayer.succeed(mock[SchemaMigrationProcessor]),
+          ZLayer.succeed(mock[TargetMaintenanceProcessor])
         )
 
       val getResolvedClassName = service.map(_.getClass.getName.split('.').last)

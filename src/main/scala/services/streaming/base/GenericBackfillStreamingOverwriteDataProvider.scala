@@ -69,8 +69,6 @@ object GenericBackfillStreamingOverwriteDataProvider:
     *   The streaming graph builder.
     * @param lifetimeService
     *   The stream lifetime service.
-    * @param baseHookManager
-    *   The base hook manager.
     * @return
     *   The GenericBackfillStreamingOverwriteDataProvider instance.
     */

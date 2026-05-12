@@ -8,13 +8,6 @@ import models.settings.iceberg.IcebergCatalogSettings
 
 object TestSinkSettings extends SinkSettings:
   override val targetTableFullName: String                        = "database.schema.target_table"
-  override val maintenanceSettings: TableMaintenanceSettings      = EmptyTestTableMaintenanceSettings
-  override val icebergCatalog: IcebergCatalogSettings             = IcebergCatalogInfo.defaultSinkSettings
-  override val targetTableProperties: TablePropertiesSettings     = EmptyTablePropertiesSettings
-  override val mergeServiceClient: JdbcMergeServiceClientSettings = TestJdbcMergeServiceClientSettings
-
-object TestSinkSettingsWithMaintenance extends SinkSettings:
-  override val targetTableFullName: String                        = "database.schema.target_table"
   override val maintenanceSettings: TableMaintenanceSettings      = TestTableMaintenanceSettings
   override val icebergCatalog: IcebergCatalogSettings             = IcebergCatalogInfo.defaultSinkSettings
   override val targetTableProperties: TablePropertiesSettings     = EmptyTablePropertiesSettings
@@ -22,7 +15,7 @@ object TestSinkSettingsWithMaintenance extends SinkSettings:
 
 class TestDynamicSinkSettings(name: String) extends SinkSettings:
   override val targetTableFullName: String                        = name
-  override val maintenanceSettings: TableMaintenanceSettings      = EmptyTestTableMaintenanceSettings
+  override val maintenanceSettings: TableMaintenanceSettings      = TestTableMaintenanceSettings
   override val icebergCatalog: IcebergCatalogSettings             = IcebergCatalogInfo.defaultSinkSettings
   override val targetTableProperties: TablePropertiesSettings     = EmptyTablePropertiesSettings
   override val mergeServiceClient: JdbcMergeServiceClientSettings = TestJdbcMergeServiceClientSettings

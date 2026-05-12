@@ -9,7 +9,7 @@ import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEnt
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.batch_processors.streaming.MergeBatchProcessor
-import tests.shared.{TablePropertiesSettings, TestSinkSettings, TestSinkSettingsWithMaintenance}
+import tests.shared.{TablePropertiesSettings, TestSinkSettings}
 
 import org.apache.iceberg.Schema
 import org.easymock.EasyMock
@@ -74,7 +74,7 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
         sinkPropertyManager,
         stagingEntityManager,
         stagingPropertyManager,
-        TestSinkSettingsWithMaintenance,
+        TestSinkSettings,
         declaredMetrics,
         true,
         false
