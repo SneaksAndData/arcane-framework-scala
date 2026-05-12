@@ -2,8 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.app.PluginStreamContext
-import models.batches.SqlServerChangeTrackingMergeBatch
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
@@ -24,13 +22,11 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.shared.*
+import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
+import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers

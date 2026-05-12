@@ -2,11 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.batches.{
-  SqlServerChangeTrackingMergeBatch,
-  StagedBackfillOverwriteBatch,
-  SynapseLinkBackfillOverwriteBatch
-}
+import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
 import services.base.{DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
@@ -19,6 +15,7 @@ import services.streaming.base.{
   StreamDataProvider
 }
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
+import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -28,8 +25,6 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers

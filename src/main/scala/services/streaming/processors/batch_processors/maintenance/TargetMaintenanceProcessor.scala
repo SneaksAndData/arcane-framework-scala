@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.maintenance
 
 import logging.ZIOLogAnnotations.zlog
+import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.maintenance.{
   JdbcAnalyzeRequest,
@@ -9,13 +10,12 @@ import models.maintenance.{
   JdbcOrphanFilesExpirationRequest,
   JdbcSnapshotExpirationRequest
 }
+import models.settings.TableNaming.parts
 import models.settings.sink.*
 import models.settings.staging.JdbcMergeServiceClientSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.StagedBatchProcessor
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.stream.ZPipeline
 import zio.{Cause, Ref, Task, ZIO, ZLayer}
 
