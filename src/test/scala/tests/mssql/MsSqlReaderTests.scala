@@ -325,7 +325,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        rows <- connector.backfill.runCollect
+        rows <- connector.backfill.flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
     test("MsSqlConnection returns correct number of columns on backfill") {
@@ -348,7 +348,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             emptyFieldsFilteringService
           )
         )
-        rows <- connector.backfill.runCollect
+        rows <- connector.backfill.flatMap(_._1).runCollect
       yield assertTrue(rows.head.size == 11)
     },
     test("MsSqlConnection returns correct number of columns on backfill with filter") {
@@ -410,6 +410,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
             )
           )
+          .flatMap(_._1)
           .runCollect
       yield assertTrue(rows.size == 20)
     },
