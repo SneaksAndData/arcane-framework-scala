@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{DataRow, JsonWatermarkRow}
+import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import models.settings.streaming.StreamModeSettings
-import models.settings.sources.{UnboundedImpl, BufferingImpl}
+import models.settings.sources.{BufferingImpl, UnboundedImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -68,12 +68,14 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   final override def requestBackfill: ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
     .flatMap { version =>
-      backfillStream(streamMode.backfill.backfillStartDate).map(rowSet =>
-        (
-          throughputShaper.shapeStream(trySetBuffering(rowSet._1)).concat(ZStream.succeed(JsonWatermarkRow(version))),
-          rowSet._2
+      backfillStream(streamMode.backfill.backfillStartDate)
+        .map(rowSet =>
+          (
+            throughputShaper.shapeStream(trySetBuffering(rowSet._1)),
+            rowSet._2
+          )
         )
-      )
+        .concat(ZStream.succeed(ZStream.succeed(JsonWatermarkRow(version)), ArcaneSchema.empty()))
     }
 
   override def firstVersion: Task[WatermarkType] = for
