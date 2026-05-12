@@ -86,6 +86,6 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
     // Assert
     Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(stream)).map { result =>
       verify(mergeServiceClient)
-      result should contain theSameElementsInOrderAs testInput
+      result should contain theSameElementsInOrderAs testInput.flatten
     }
   }

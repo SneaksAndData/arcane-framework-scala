@@ -3,8 +3,8 @@ package tests.services.streaming.data_providers.backfill
 
 import models.*
 import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField}
-import services.base.{DisposeServiceClient, MergeServiceClient}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField}
+import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.metrics.base.MetricTagProvider
@@ -24,13 +24,15 @@ import services.streaming.processors.batch_processors.streaming.{
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
+import models.schemas.ArcaneType.StringType
 
+import org.easymock.{Capture, EasyMock}
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.shouldBe
 import org.scalatestplus.easymock.EasyMockSugar
-import zio.stream.ZStream
+import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
 class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
@@ -100,8 +102,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       ),
       List(
         DataCell("name", ArcaneType.StringType, "John"),
-        DataCell("family_name", ArcaneType.StringType, "Doe"),
-        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "2")
       )
     )
 
@@ -109,12 +110,23 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     val mergeServiceClient   = mock[MergeServiceClient]
     val streamDataProvider   = mock[StreamDataProvider]
 
+    val batchCapture = Capture.newInstance[TestMergeBatch]
+
     expecting {
 
-      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
+      streamDataProvider.stream.andReturn(
+        ZStream.succeed(
+          (
+            ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1),
+            ArcaneSchema(Seq(IndexedMergeKeyField(1), IndexedField("name", StringType, 2)))
+          )
+        )
+      )
 
+      mergeServiceClient.applyBatch(EasyMock.capture(batchCapture)).andReturn(ZIO.succeed(true)).times(5)
+      disposeServiceClient.disposeBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchDisposeResult(true))).times(5)
     }
-    replay(streamDataProvider)
+    replay(streamDataProvider, mergeServiceClient, disposeServiceClient)
 
     val gb = ZLayer.make[GenericBackfillStreamingMergeDataProvider](
       // Real services
@@ -143,7 +155,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       ZLayer.succeed(TestPluginStreamContext),
       ZLayer.succeed(new TestStagedBatchFactory()),
       TargetMaintenanceProcessor.layer,
-      SchemaMigrationProcessor.layer,
+      VoidSchemaMigrationProcessor.layer,
       DeclaredMetrics.layer,
       GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
@@ -160,7 +172,8 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
       )
       .map { result =>
         // Assert
-        verify()
+        verify(streamDataProvider, mergeServiceClient, disposeServiceClient)
         result shouldBe a[Unit]
+        batchCapture.getValue.name.startsWith("staging_table__") shouldBe true
       }
   }

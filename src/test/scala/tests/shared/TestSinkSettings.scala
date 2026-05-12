@@ -7,7 +7,7 @@ import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 import models.settings.iceberg.IcebergCatalogSettings
 
 object TestSinkSettings extends SinkSettings:
-  override val targetTableFullName: String                        = "database.schema.target_table"
+  override val targetTableFullName: String                        = "iceberg.test.target_table"
   override val maintenanceSettings: TableMaintenanceSettings      = TestTableMaintenanceSettings
   override val icebergCatalog: IcebergCatalogSettings             = IcebergCatalogInfo.defaultSinkSettings
   override val targetTableProperties: TablePropertiesSettings     = EmptyTablePropertiesSettings
