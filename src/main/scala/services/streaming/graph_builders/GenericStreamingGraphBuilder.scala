@@ -1,12 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders
 
-import logging.ZIOLogAnnotations.zlogStream
 import models.app.PluginStreamContext
-import models.schemas.DataCell
-import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{BackfillSubStream, StreamDataProvider, StreamingGraphBuilder}
+import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -28,7 +26,8 @@ class GenericStreamingGraphBuilder(
     mergeProcessor: MergeBatchProcessor,
     disposeBatchProcessor: DisposeBatchProcessor,
     watermarkProcessor: WatermarkProcessor,
-    schemaMigrationProcessor: SchemaMigrationProcessor
+    schemaMigrationProcessor: SchemaMigrationProcessor,
+    targetMaintenanceProcessor: TargetMaintenanceProcessor
 ) extends StreamingGraphBuilder
     with BackfillSubStream:
 
@@ -45,6 +44,7 @@ class GenericStreamingGraphBuilder(
         .via(stagingProcessor.process(schema))
         .via(schemaMigrationProcessor.process)
         .via(mergeProcessor.process)
+        .via(targetMaintenanceProcessor.process)
         .via(watermarkProcessor.process)
         .via(disposeBatchProcessor.process)
     }
@@ -54,7 +54,8 @@ object GenericStreamingGraphBuilder:
   /** The environment required for the GenericStreamingGraphBuilder.
     */
   type Environment = StreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
-    DisposeBatchProcessor & StreamLifetimeService & WatermarkProcessor & PluginStreamContext & SchemaMigrationProcessor
+    DisposeBatchProcessor & StreamLifetimeService & WatermarkProcessor & PluginStreamContext &
+    SchemaMigrationProcessor & TargetMaintenanceProcessor
 
   /** Creates a new GenericStreamingGraphBuilder.
     * @param streamDataProvider
@@ -77,7 +78,8 @@ object GenericStreamingGraphBuilder:
       mergeProcessor: MergeBatchProcessor,
       disposeBatchProcessor: DisposeBatchProcessor,
       watermarkProcessor: WatermarkProcessor,
-      schemaMigrationProcessor: SchemaMigrationProcessor
+      schemaMigrationProcessor: SchemaMigrationProcessor,
+      targetMaintenanceProcessor: TargetMaintenanceProcessor
   ): GenericStreamingGraphBuilder =
     new GenericStreamingGraphBuilder(
       streamDataProvider,
@@ -86,7 +88,8 @@ object GenericStreamingGraphBuilder:
       mergeProcessor,
       disposeBatchProcessor,
       watermarkProcessor,
-      schemaMigrationProcessor
+      schemaMigrationProcessor,
+      targetMaintenanceProcessor
     )
 
   /** The ZLayer for the GenericStreamingGraphBuilder. This layer is used to inject the GenericStreamingGraphBuilder
@@ -95,14 +98,15 @@ object GenericStreamingGraphBuilder:
   val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
     ZLayer {
       for
-        context                  <- ZIO.service[PluginStreamContext]
-        streamDataProvider       <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor  <- ZIO.service[FieldFilteringTransformer]
-        stagingProcessor         <- ZIO.service[StagingProcessor]
-        mergeProcessor           <- ZIO.service[MergeBatchProcessor]
-        disposeBatchProcessor    <- ZIO.service[DisposeBatchProcessor]
-        watermarkProcessor       <- ZIO.service[WatermarkProcessor]
-        schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
+        context                    <- ZIO.service[PluginStreamContext]
+        streamDataProvider         <- ZIO.service[StreamDataProvider]
+        fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
+        stagingProcessor           <- ZIO.service[StagingProcessor]
+        mergeProcessor             <- ZIO.service[MergeBatchProcessor]
+        disposeBatchProcessor      <- ZIO.service[DisposeBatchProcessor]
+        watermarkProcessor         <- ZIO.service[WatermarkProcessor]
+        schemaMigrationProcessor   <- ZIO.service[SchemaMigrationProcessor]
+        targetMaintenanceProcessor <- ZIO.service[TargetMaintenanceProcessor]
       yield GenericStreamingGraphBuilder(
         streamDataProvider,
         fieldFilteringProcessor,
@@ -110,7 +114,8 @@ object GenericStreamingGraphBuilder:
         mergeProcessor,
         disposeBatchProcessor,
         watermarkProcessor,
-        schemaMigrationProcessor
+        schemaMigrationProcessor,
+        targetMaintenanceProcessor
       )
     }
 
@@ -122,14 +127,15 @@ object GenericStreamingGraphBuilder:
   val backfillSubStreamLayer: ZLayer[Environment, Nothing, BackfillSubStream] =
     ZLayer {
       for
-        context                  <- ZIO.service[PluginStreamContext]
-        streamDataProvider       <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor  <- ZIO.service[FieldFilteringTransformer]
-        stagingProcessor         <- ZIO.service[StagingProcessor]
-        mergeProcessor           <- ZIO.service[MergeBatchProcessor]
-        disposeBatchProcessor    <- ZIO.service[DisposeBatchProcessor]
-        watermarkProcessor       <- ZIO.service[WatermarkProcessor]
-        schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
+        context                    <- ZIO.service[PluginStreamContext]
+        streamDataProvider         <- ZIO.service[StreamDataProvider]
+        fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
+        stagingProcessor           <- ZIO.service[StagingProcessor]
+        mergeProcessor             <- ZIO.service[MergeBatchProcessor]
+        disposeBatchProcessor      <- ZIO.service[DisposeBatchProcessor]
+        watermarkProcessor         <- ZIO.service[WatermarkProcessor]
+        schemaMigrationProcessor   <- ZIO.service[SchemaMigrationProcessor]
+        targetMaintenanceProcessor <- ZIO.service[TargetMaintenanceProcessor]
       yield GenericStreamingGraphBuilder(
         streamDataProvider,
         fieldFilteringProcessor,
@@ -137,6 +143,7 @@ object GenericStreamingGraphBuilder:
         mergeProcessor,
         disposeBatchProcessor,
         watermarkProcessor,
-        schemaMigrationProcessor
+        schemaMigrationProcessor,
+        targetMaintenanceProcessor
       )
     }

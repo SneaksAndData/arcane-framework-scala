@@ -1,14 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.streaming
 
+import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
-import models.settings.TableNaming.*
 import services.iceberg.base.*
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StagedBatchProcessor
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import zio.stream.ZPipeline
 import zio.{Cached, Scope, Task, ZIO, ZLayer}
 

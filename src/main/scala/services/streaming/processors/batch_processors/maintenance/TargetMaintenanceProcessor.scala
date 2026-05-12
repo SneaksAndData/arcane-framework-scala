@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.maintenance
 
+import logging.ZIOLogAnnotations.zlog
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.maintenance.{
   JdbcAnalyzeRequest,
@@ -8,19 +9,13 @@ import models.maintenance.{
   JdbcOrphanFilesExpirationRequest,
   JdbcSnapshotExpirationRequest
 }
-import models.settings.sink.{
-  AnalyzeSettings,
-  OptimizeSettings,
-  OrphanFilesExpirationSettings,
-  SnapshotExpirationSettings,
-  TableMaintenanceSettings
-}
+import models.settings.sink.*
 import models.settings.staging.JdbcMergeServiceClientSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.StagedBatchProcessor
 
 import zio.stream.ZPipeline
-import zio.{Cached, Ref, Task, ZIO}
+import zio.{Cause, Ref, Task, ZIO}
 
 import java.sql.{Connection, DriverManager}
 
@@ -40,12 +35,14 @@ class TargetMaintenanceProcessor(
     options.getConnectionString(defaultCatalogName, defaultSchemaName, options.credentialType)
   )
 
-  // TODO: ignore maintenance failures
   private def executeMaintenanceQuery(query: String): Task[Unit] =
     ZIO.scoped {
       for
         statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
-        _         <- ZIO.attempt(statement.execute()) // .retry(retryPolicy)
+        _ <- ZIO
+          .attempt(statement.execute())
+          .tapError(error => zlog("Maintenance query '%s' failed", Cause.fail(error), query))
+          .ignore
       yield ()
     }
 
@@ -104,7 +101,12 @@ class TargetMaintenanceProcessor(
   override def process
       : ZPipeline[Any, Throwable, StagedVersionedBatch & MergeableBatch, StagedVersionedBatch & MergeableBatch] =
     ZPipeline.mapZIO { batch =>
-      for _ <- counterRef.update(_ + 1L)
+      for
+        _ <- counterRef.update(_ + 1L)
+        _ <- optimizeTable(batch.targetTableName, maintenanceSettings.targetOptimizeSettings)
+        _ <- expireSnapshots(batch.targetTableName, maintenanceSettings.targetSnapshotExpirationSettings)
+        _ <- expireOrphanFiles(batch.targetTableName, maintenanceSettings.targetOrphanFilesExpirationSettings)
+        _ <- ZIO.unless(isBackfilling)(analyzeTable(batch.targetTableName, maintenanceSettings.targetAnalyzeSettings))
       yield batch
     }
 
