@@ -9,20 +9,11 @@ import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
-import services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergStagingEntityManager,
-  IcebergTablePropertyManager
-}
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergStagingEntityManager, IcebergTablePropertyManager}
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.StreamDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.FieldFilteringTransformer.Environment
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
@@ -93,6 +84,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
 
         override def empty: SchemaType = ArcaneSchema.empty()
       }),
+      ZLayer.succeed(new TestStagedBatchFactory()),
+      SchemaMigrationProcessor.layer,
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,

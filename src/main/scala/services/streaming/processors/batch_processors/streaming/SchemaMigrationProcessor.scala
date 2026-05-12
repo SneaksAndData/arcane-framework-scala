@@ -8,8 +8,9 @@ import services.iceberg.base.*
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StagedBatchProcessor
 
+import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import zio.stream.ZPipeline
-import zio.{Cached, Scope, Task, ZIO}
+import zio.{Cached, Scope, Task, ZIO, ZLayer}
 
 class SchemaMigrationProcessor(sinkEntityManager: SinkEntityManager, stagingEntityManager: StagingEntityManager, schemaCacheRef: Cached[Throwable, ArcaneSchema], schemaMigrationEnabled: Boolean, isTargetInStaging: Boolean) 
   extends StagedBatchProcessor:
@@ -49,3 +50,21 @@ object SchemaMigrationProcessor:
       acquire = getSchema(tableName, sinkPropertyManager)
     )
     yield new SchemaMigrationProcessor(sinkEntityManager, stagingEntityManager, cachedRef, schemaMigrationEnabled, isTargetInStaging)
+    
+  val layer: ZLayer[SinkEntityManager & StagingEntityManager & SinkPropertyManager & PluginStreamContext, Throwable, SchemaMigrationProcessor] = ZLayer.scoped {
+    for
+      sinkEntityManager <- ZIO.service[SinkEntityManager]
+      stagingEntityManager <- ZIO.service[StagingEntityManager]
+      sinkPropertyManager <- ZIO.service[SinkPropertyManager]
+      context <- ZIO.service[PluginStreamContext]
+      backfilling <- context.isBackfilling
+      processor <- live(
+        sinkEntityManager = sinkEntityManager,
+        stagingEntityManager = stagingEntityManager,
+        tableName = context.sink.targetTableFullName,
+        sinkPropertyManager = sinkPropertyManager,
+        schemaMigrationEnabled = !context.staging.table.isUnifiedSchema,
+        isTargetInStaging = backfilling
+      )
+    yield processor 
+  }  

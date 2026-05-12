@@ -62,23 +62,10 @@ object StagingProcessorTests extends ZIOSpecDefault:
       TestSinkSettingsWithMaintenance.targetTableFullName,
       TestIcebergStagingSettings,
       catalogWriterService,
+      new TestStagedBatchFactory(),
       DeclaredMetrics()
     )
   } yield stagingProcessor
-
-  private def toInFlightBatch(
-      batches: Iterable[StagedVersionedBatch & MergeableBatch],
-      index: Long,
-      others: Any
-  ): StagedBatchProcessor#BatchType =
-    new TestIndexedStagedBatches(batches, index)
-
-  private def toInFlightBatchWithMetadata(
-      batches: Iterable[StagedVersionedBatch & MergeableBatch],
-      index: Long,
-      others: Chunk[Any]
-  ): StagedBatchProcessor#BatchType =
-    new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
   private val mockPluginContextLayer = ZLayer.succeed(new PluginStreamContext {
     override val streamMode: StreamModeSettings = new StreamModeSettings {
@@ -125,7 +112,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
         stagingProcessor <- getProcessor
         result <- ZStream
           .fromIterable(Chunk[TestInput]())
-          .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged, testSchema))
+          .via(stagingProcessor.process(testSchema))
           .run(ZSink.last)
       } yield assertTrue(result.isEmpty)
     },
@@ -135,9 +122,9 @@ object StagingProcessorTests extends ZIOSpecDefault:
         stagingProcessor <- getProcessor
         result <- ZStream
           .fromIterable(testInput)
-          .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged, testSchema))
+          .via(stagingProcessor.process(testSchema))
           .run(ZSink.last)
-      } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
+      } yield assertTrue(result.size == 2)
     }
   ).provide(
     IcebergEntityManager.stagingLayer,

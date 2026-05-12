@@ -2,11 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.data_providers.backfill
 
 import models.*
-import models.batches.{
-  SqlServerChangeTrackingMergeBatch,
-  StagedBackfillOverwriteBatch,
-  SynapseLinkBackfillOverwriteBatch
-}
+import models.batches.{SqlServerChangeTrackingMergeBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import services.base.{DisposeServiceClient, MergeServiceClient}
@@ -16,11 +12,7 @@ import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, GenericBackfillStreamingOverwriteDataProvider, StreamDataProvider}
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.services.streaming.processors.utils.TestStageVersionedBatch
 import tests.shared.*
@@ -48,18 +40,13 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
         .andReturn(
           ZStream.fromIterable(
             Seq(
-              TestIndexedStagedBatches(
-                groupedBySchema = Seq(
-                  TestStageVersionedBatch(
-                    "test",
-                    ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
-                    "target_test",
-                    TestTablePropertiesSettings,
-                    "col0",
-                    Some("123")
-                  )
-                ),
-                batchIndex = 1
+              TestStageVersionedBatch(
+                "test",
+                ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+                "target_test",
+                TestTablePropertiesSettings,
+                "col0",
+                Some("123")
               )
             )
           )
@@ -97,21 +84,16 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
     expecting {
       streamingGraphBuilder
-        .produce(EasyMock.anyObject())
+        .produce()
         .andReturn(
           ZStream.repeat(
-            TestIndexedStagedBatches(
-              groupedBySchema = Seq(
-                TestStageVersionedBatch(
-                  "test",
-                  ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
-                  "target_test",
-                  TestTablePropertiesSettings,
-                  "col0",
-                  Some("123")
-                )
-              ),
-              batchIndex = 1
+            TestStageVersionedBatch(
+              "test",
+              ArcaneSchema(Seq(Field(name = "test", fieldType = StringType))),
+              "target_test",
+              TestTablePropertiesSettings,
+              "col0",
+              Some("123")
             )
           )
         )
@@ -125,7 +107,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       streamingGraphBuilder,
       TestStagingTableSettings,
       lifetimeService,
-      mock[HookManager],
       (watermark: Option[String]) =>
         ZIO.succeed(
           SynapseLinkBackfillOverwriteBatch("table", Seq(), "targetName", TestTablePropertiesSettings, watermark)
@@ -159,51 +140,15 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
 
     val disposeServiceClient = mock[DisposeServiceClient]
     val mergeServiceClient   = mock[MergeServiceClient]
-    val jdbcTableManager     = mock[JdbcTableManager]
-    val hookManager          = mock[HookManager]
     val streamDataProvider   = mock[StreamDataProvider]
 
     expecting {
 
       // The data provider mock provides an infinite stream of test input
       streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
-
-      // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
-      // It produces the empty set of staged batches, so the rest  of the pipeline can continue
-      // but no further stages being invoked
-      hookManager
-        .onStagingTablesComplete(EasyMock.anyObject(), EasyMock.anyLong(), EasyMock.anyObject())
-        .andReturn(new TestIndexedStagedBatches(List.empty, 0))
-        .times(streamRepeatCount)
-
-      jdbcTableManager.optimizeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-      jdbcTableManager.expireSnapshots(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-      jdbcTableManager.expireOrphanFiles(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-      jdbcTableManager.analyzeTable(None).andReturn(ZIO.succeed(BatchOptimizationResult(false))).anyTimes()
-
-      // Validates that batches produced by the hookManager.onBatchStaged method targeting backfill
-      // intermediate table instead of target table
-      hookManager
-        .onBatchStaged(
-          EasyMock.anyObject(),
-          EasyMock.anyString(),
-          EasyMock.anyString(),
-          EasyMock.anyObject(),
-          EasyMock.eq(TestPluginStreamContext.staging.table.backfillTableName),
-          EasyMock.anyObject()
-        )
-        .andReturn(
-          SqlServerChangeTrackingMergeBatch(
-            "test",
-            ArcaneSchema(Seq(MergeKeyField)),
-            TestPluginStreamContext.staging.table.backfillTableName,
-            TablePropertiesSettings,
-            None
-          )
-        )
-        .times(streamRepeatCount)
+      
     }
-    replay(streamDataProvider, hookManager, jdbcTableManager, mergeServiceClient)
+    replay(streamDataProvider, mergeServiceClient)
 
     val gb = ZLayer.make[BackfillStreamingOverwriteDataProvider](
       // Real services
@@ -228,10 +173,10 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
-      ZLayer.succeed(jdbcTableManager),
-      ZLayer.succeed(hookManager),
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
+      ZLayer.succeed(new TestStagedBatchFactory()),
+      SchemaMigrationProcessor.layer,
       DeclaredMetrics.layer,
       GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
@@ -247,7 +192,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       )
       .map { result =>
         // Assert
-        verify(hookManager)
+        verify()
         result shouldBe a[Unit]
       }
   }
