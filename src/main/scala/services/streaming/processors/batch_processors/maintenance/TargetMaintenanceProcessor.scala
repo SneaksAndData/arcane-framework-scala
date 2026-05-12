@@ -3,7 +3,12 @@ package services.streaming.processors.batch_processors.maintenance
 
 import logging.ZIOLogAnnotations.zlog
 import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.maintenance.{JdbcAnalyzeRequest, JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import models.maintenance.{
+  JdbcAnalyzeRequest,
+  JdbcOptimizationRequest,
+  JdbcOrphanFilesExpirationRequest,
+  JdbcSnapshotExpirationRequest
+}
 import models.settings.sink.*
 import models.settings.staging.JdbcMergeServiceClientSettings
 import services.metrics.DeclaredMetrics
@@ -108,17 +113,17 @@ class TargetMaintenanceProcessor(
     }
 
   override def close(): Unit = sqlConnection.close()
-  
+
 object TargetMaintenanceProcessor:
   def apply(
-             counterRef: Ref[Long],
-             options: JdbcMergeServiceClientSettings,
-             maintenanceSettings: TableMaintenanceSettings,
-             defaultCatalogName: String,
-             defaultSchemaName: String,
-             declaredMetrics: DeclaredMetrics,
-             isBackfilling: Boolean
-           ): TargetMaintenanceProcessor = new TargetMaintenanceProcessor(
+      counterRef: Ref[Long],
+      options: JdbcMergeServiceClientSettings,
+      maintenanceSettings: TableMaintenanceSettings,
+      defaultCatalogName: String,
+      defaultSchemaName: String,
+      declaredMetrics: DeclaredMetrics,
+      isBackfilling: Boolean
+  ): TargetMaintenanceProcessor = new TargetMaintenanceProcessor(
     counterRef,
     options,
     maintenanceSettings,
@@ -127,12 +132,12 @@ object TargetMaintenanceProcessor:
     declaredMetrics,
     isBackfilling
   )
-  
+
   val layer = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
-      counter <- Ref.make(0L)
-      metrics <- ZIO.service[DeclaredMetrics]
+      context     <- ZIO.service[PluginStreamContext]
+      counter     <- Ref.make(0L)
+      metrics     <- ZIO.service[DeclaredMetrics]
       backfilling <- context.isBackfilling
     yield TargetMaintenanceProcessor(
       counter,
