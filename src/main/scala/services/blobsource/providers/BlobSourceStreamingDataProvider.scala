@@ -1,8 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.providers
 
-import models.app.{BaseStreamContext, PluginStreamContext}
-import models.settings.backfill.BackfillSettings
+import models.app.PluginStreamContext
 import models.settings.streaming.ChangeCaptureSettings
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
@@ -13,14 +12,10 @@ import zio.{ZIO, ZLayer}
 class BlobSourceStreamingDataProvider(
     dataProvider: BlobSourceDataProvider,
     settings: ChangeCaptureSettings,
-    backfillSettings: BackfillSettings,
-    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[BlobSourceWatermark](
       dataProvider,
       settings,
-      backfillSettings,
-      isBackfilling,
       declaredMetrics
     )
 
@@ -30,11 +25,9 @@ object BlobSourceStreamingDataProvider:
   def apply(
       dataProvider: BlobSourceDataProvider,
       settings: ChangeCaptureSettings,
-      backfillSettings: BackfillSettings,
-      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): BlobSourceStreamingDataProvider =
-    new BlobSourceStreamingDataProvider(dataProvider, settings, backfillSettings, isBackfilling, declaredMetrics)
+    new BlobSourceStreamingDataProvider(dataProvider, settings, declaredMetrics)
 
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] =
     ZLayer {
@@ -42,12 +35,9 @@ object BlobSourceStreamingDataProvider:
         context         <- ZIO.service[PluginStreamContext]
         dataProvider    <- ZIO.service[BlobSourceDataProvider]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
-        isBackfilling   <- context.isBackfilling.orElseSucceed(false)
       yield BlobSourceStreamingDataProvider(
         dataProvider,
         context.streamMode.changeCapture,
-        context.streamMode.backfill,
-        isBackfilling,
         declaredMetrics
       )
     }

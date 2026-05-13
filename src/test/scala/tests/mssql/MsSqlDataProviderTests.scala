@@ -123,8 +123,6 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           MsSqlStreamingDataProvider(
             provider,
             defaultStreamMode.changeCapture,
-            defaultStreamMode.backfill,
-            false,
             DeclaredMetrics()
           )
         )

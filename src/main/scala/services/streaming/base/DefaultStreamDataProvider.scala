@@ -2,9 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
-import models.app.BaseStreamContext
 import models.schemas.DataRow
-import models.settings.backfill.BackfillSettings
 import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 
@@ -17,12 +15,8 @@ import scala.util.Random
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String]](
     dataProvider: VersionedDataProvider[WatermarkType] & BackfillDataProvider,
     settings: ChangeCaptureSettings,
-    backfillSettings: BackfillSettings,
-    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends StreamDataProvider:
-
-  type StreamElementType = DataRow
 
   private val rng = Random(settings.changeCaptureJitterSeed)
 
@@ -90,9 +84,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String]](
       _ <- ZIO.succeed(previousVersion.age.toDouble) @@ declaredMetrics.streamingWatermarkAge
     yield isChanged
 
-  override def stream: ZStream[Any, Throwable, StructuredZStream] = if isBackfilling then dataProvider.requestBackfill
-  else
-    ZStream
+  override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)
       .flatMap {
         case (current, previous) if current > previous =>
