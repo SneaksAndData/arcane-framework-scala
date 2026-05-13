@@ -1,12 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders.backfill
 
-import services.streaming.base.{
-  BackfillStreamingGraphBuilder,
-  BackfillStreamingMergeDataProvider,
-  HookManager,
-  StreamDataProvider
-}
+import services.streaming.base.{BackfillStreamingGraphBuilder, BackfillStreamingMergeDataProvider, StreamDataProvider}
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 
 import zio.stream.ZStream
@@ -31,8 +26,10 @@ class GenericBackfillMergeGraphBuilder(streamDataProvider: BackfillStreamingMerg
 
   /** @inheritdoc
     */
-  override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
+  override def produce(): ZStream[Any, Throwable, ProcessedBatch] = {
+    // TODO: is watermark applied here even??
     ZStream.fromZIO(streamDataProvider.requestBackfill)
+  }
 
 object GenericBackfillMergeGraphBuilder:
 

@@ -4,7 +4,6 @@ package services.streaming.graph_builders.backfill
 import services.streaming.base.{
   BackfillStreamingGraphBuilder,
   BackfillStreamingOverwriteDataProvider,
-  HookManager,
   StreamDataProvider
 }
 import services.streaming.processors.batch_processors.backfill.{
@@ -37,7 +36,7 @@ class GenericBackfillOverwriteGraphBuilder(
 
   /** @inheritdoc
     */
-  override def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch] =
+  override def produce(): ZStream[Any, Throwable, ProcessedBatch] =
     ZStream
       .fromZIO(streamDataProvider.requestBackfill)
       .collectWhile({ case b: BackfillApplyBatchProcessor#BatchType =>
@@ -54,22 +53,6 @@ object GenericBackfillOverwriteGraphBuilder:
     BackfillOverwriteWatermarkProcessor
 
   /** Creates a new GenericBackfillGraphBuilder.
-    * @param streamDataProvider
-    *   The stream data provider.
-    * @param fieldFilteringProcessor
-    *   The field filtering processor.
-    * @param groupTransformer
-    *   The group transformer.
-    * @param stagingProcessor
-    *   The staging processor.
-    * @param mergeProcessor
-    *   The merge processor.
-    * @param disposeBatchProcessor
-    *   The dispose batch processor.
-    * @param hookManager
-    *   The hook manager.
-    * @return
-    *   The GenericBackfillGraphBuilder instance.
     */
   def apply(
       streamDataProvider: BackfillStreamingOverwriteDataProvider,

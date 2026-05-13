@@ -11,11 +11,11 @@ import models.settings.sink.SinkSettings
 import services.base.MergeServiceClient
 import services.iceberg.base.*
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
-import services.merging.JdbcTableManager
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 import services.streaming.base.StagedBatchProcessor
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
@@ -23,7 +23,6 @@ import zio.{Task, ZIO, ZLayer}
   */
 class MergeBatchProcessor(
     mergeServiceClient: MergeServiceClient,
-    tableManager: JdbcTableManager,
     sinkEntityManager: SinkEntityManager,
     sinkPropertyManager: SinkPropertyManager,
     stagingEntityManager: StagingEntityManager,
@@ -34,64 +33,21 @@ class MergeBatchProcessor(
     isTargetInStaging: Boolean
 ) extends StagedBatchProcessor:
 
-  private def alignSchemas(
-      batch: StagedVersionedBatch & MergeableBatch,
-      propertyManager: TablePropertyManager,
-      entityManager: CatalogEntityManager
-  ): Task[Unit] = for
-    targetSchema <- propertyManager.getTableSchema(batch.targetTableName.parts.name)
-    _            <- entityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.parts.name)
-  yield ()
-
   /** Processes the incoming data.
     *
     * @return
     *   ZPipeline (stream source for the stream graph).
     */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
-    ZPipeline.mapZIO(batchesSet =>
+    ZPipeline.mapZIO(batch =>
       (for
         _ <- zlog(
-          "Applying batch set with index %s",
+          "Applying batch %s",
           Seq(getAnnotation("processor", "MergeBatchProcessor")),
-          batchesSet.batchIndex.toString
+          batch.name
         )
-        _ <- ZIO.foreach(batchesSet.groupedBySchema)(batch =>
-          ZIO.when(!batch.isEmpty && schemaMigrationEnabled) {
-            for
-              // for streams, we migrate sink table
-              _ <- ZIO.unless(isTargetInStaging)(alignSchemas(batch, sinkPropertyManager, sinkEntityManager))
-              // for backfills, we migrate staging table
-              _ <- ZIO.when(isTargetInStaging)(alignSchemas(batch, stagingPropertyManager, stagingEntityManager))
-            yield ()
-          }
-        )
-        _ <- ZIO
-          .foreach(batchesSet.groupedBySchema)(batch => ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch)))
-
-        _ <- ZIO.unless(batchesSet.groupedBySchema.isEmpty || batchesSet.groupedBySchema.head.isEmpty) {
-          for
-            _ <- tableManager.optimizeTable(
-              batchesSet.getOptimizationRequest(targetTableSettings.maintenanceSettings.targetOptimizeSettings)
-            )
-            _ <- tableManager.expireSnapshots(
-              batchesSet.getSnapshotExpirationRequest(
-                targetTableSettings.maintenanceSettings.targetSnapshotExpirationSettings
-              )
-            )
-            _ <- tableManager.expireOrphanFiles(
-              batchesSet.getOrphanFileExpirationRequest(
-                targetTableSettings.maintenanceSettings.targetOrphanFilesExpirationSettings
-              )
-            )
-            _ <- tableManager.analyzeTable(
-              batchesSet.getAnalyzeRequest(
-                targetTableSettings.maintenanceSettings.targetAnalyzeSettings
-              )
-            )
-          yield ()
-        }
-      yield batchesSet).gaugeDuration(declaredMetrics.batchMergeStageDuration)
+        _ <- ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch))
+      yield batch).gaugeDuration(declaredMetrics.batchMergeStageDuration)
     )
 
 object MergeBatchProcessor:
@@ -111,7 +67,6 @@ object MergeBatchProcessor:
       sinkPropertyManager: SinkPropertyManager,
       stagingEntityManager: StagingEntityManager,
       stagingPropertyManager: StagingPropertyManager,
-      tableManager: JdbcTableManager,
       targetTableSettings: SinkSettings,
       declaredMetrics: DeclaredMetrics,
       schemaMigrationEnabled: Boolean,
@@ -119,7 +74,6 @@ object MergeBatchProcessor:
   ): MergeBatchProcessor =
     new MergeBatchProcessor(
       mergeServiceClient,
-      tableManager,
       sinkEntityManager,
       sinkPropertyManager,
       stagingEntityManager,
@@ -133,7 +87,7 @@ object MergeBatchProcessor:
   /** The required environment for the MergeBatchProcessor.
     */
   type Environment = MergeServiceClient & PluginStreamContext & SinkEntityManager & SinkPropertyManager &
-    StagingEntityManager & StagingPropertyManager & JdbcTableManager & DeclaredMetrics
+    StagingEntityManager & StagingPropertyManager & DeclaredMetrics
 
   /** The ZLayer that creates the MergeProcessor.
     */
@@ -146,7 +100,6 @@ object MergeBatchProcessor:
         sinkPropertyManager    <- ZIO.service[SinkPropertyManager]
         stagingEntityManager   <- ZIO.service[StagingEntityManager]
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
-        tableManager           <- ZIO.service[JdbcTableManager]
         declaredMetrics        <- ZIO.service[DeclaredMetrics]
         isBackfilling          <- context.isBackfilling.orElseSucceed(false)
       yield MergeBatchProcessor(
@@ -155,7 +108,6 @@ object MergeBatchProcessor:
         sinkPropertyManager,
         stagingEntityManager,
         stagingPropertyManager,
-        tableManager,
         context.sink,
         declaredMetrics,
         !context.staging.table.isUnifiedSchema,

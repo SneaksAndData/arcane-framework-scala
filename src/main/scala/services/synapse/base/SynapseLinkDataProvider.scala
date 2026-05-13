@@ -7,7 +7,7 @@ import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
-import services.streaming.base.DefaultSourceDataProvider
+import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.versioning.SynapseWatermark
 import services.synapse.versioning.SynapseWatermark.*
@@ -32,7 +32,9 @@ class SynapseLinkDataProvider(
       sourceBufferingSettings
     ):
 
-  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow] =
+  override protected def backfillStream(
+      backfillStartDate: Option[OffsetDateTime]
+  ): ZStream[Any, Throwable, StructuredZStream] =
     backfillStartDate match
       case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
       case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
@@ -49,7 +51,7 @@ class SynapseLinkDataProvider(
     *   Previous watermark
     * @return
     */
-  override protected def changeStream(previousVersion: SynapseWatermark): ZStream[Any, Throwable, DataRow] =
+  override protected def changeStream(previousVersion: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
     synapseReader.getChanges(previousVersion)
 
   /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process

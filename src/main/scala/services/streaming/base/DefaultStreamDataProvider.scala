@@ -14,8 +14,8 @@ import zio.{Task, ZIO}
 import java.time.Duration
 import scala.util.Random
 
-class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowType <: DataRow](
-    dataProvider: VersionedDataProvider[WatermarkType, RowType] & BackfillDataProvider[RowType],
+class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String]](
+    dataProvider: VersionedDataProvider[WatermarkType] & BackfillDataProvider,
     settings: ChangeCaptureSettings,
     backfillSettings: BackfillSettings,
     isBackfilling: Boolean,
@@ -90,7 +90,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String], RowTyp
       _ <- ZIO.succeed(previousVersion.age.toDouble) @@ declaredMetrics.streamingWatermarkAge
     yield isChanged
 
-  override def stream: ZStream[Any, Throwable, RowType] = if isBackfilling then dataProvider.requestBackfill
+  override def stream: ZStream[Any, Throwable, StructuredZStream] = if isBackfilling then dataProvider.requestBackfill
   else
     ZStream
       .unfoldZIO(dataProvider.firstVersion)(nextVersion)

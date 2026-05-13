@@ -87,7 +87,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        rows <- sdp.stream.runCollect
+        rows <- sdp.stream.flatMap(_._1).runCollect
       yield assertTrue(rows.size == 50 * 100 + 1 && rows.last.isWatermark) // watermark must be present at the end
     },
     test("stream changes correctly") {
@@ -118,7 +118,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        rows <- sdp.stream.filter(!_.isWatermark).timeout(zio.Duration.fromSeconds(10)).runCount
+        rows <- sdp.stream.flatMap(_._1).filter(!_.isWatermark).timeout(zio.Duration.fromSeconds(10)).runCount
       // since no new files are added to the storage, emitted amount should be equal to backfill run and do not increase
       yield assertTrue(rows == 50 * 100)
     },

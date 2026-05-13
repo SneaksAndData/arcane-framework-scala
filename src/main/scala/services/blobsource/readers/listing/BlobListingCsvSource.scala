@@ -8,6 +8,7 @@ import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.BlobPath
 import services.storage.models.s3.S3StoragePath
+import services.streaming.base.StructuredZStream
 
 import zio.stream.ZStream
 import zio.{Task, ZIO}
@@ -31,7 +32,7 @@ class BlobListingCsvSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, OutputRow] = ???
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = ???
 
   override def getLatestVersion: Task[BlobSourceWatermark] = ???
 

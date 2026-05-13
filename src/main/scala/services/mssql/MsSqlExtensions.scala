@@ -13,10 +13,6 @@ import java.time.{LocalDateTime, OffsetDateTime, ZoneOffset}
   */
 type MsSqlQueryResult = QueryResult[LazyQueryResult.OutputType] & CanPeekHead[LazyQueryResult.OutputType]
 
-/** Batch type for Microsoft Sql Server is a list of DataRow elements
-  */
-type MsSqlBatch = DataRow
-
 extension (row: DataRow)
   private def handleSpecialTypes: DataRow =
     row.map {

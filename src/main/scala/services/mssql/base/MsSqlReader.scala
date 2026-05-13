@@ -14,6 +14,7 @@ import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
 import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
+import services.streaming.base.StructuredZStream
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -71,24 +72,30 @@ class MsSqlReader(
     * @return
     *   A stream containing the result of a backfill query.
     */
-  def backfill: ZStream[Any, Throwable, DataRow] =
-    for
-      query     <- ZStream.fromZIO(this.getBackfillQuery)
-      statement <- ZStream.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
-      resultSet <- ZStream.acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-      _         <- zlogStream("Acquired result set with fetch size %s", resultSet.getFetchSize.toString)
-      _         <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
-      _         <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
-      stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-        if hasNext then
-          for
-            columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-            row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-            hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-          yield Some((row.handleSpecialTypes, hasNextRow))
-        else ZIO.succeed(None)
-      }
-    yield stream
+  def backfill: ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
+    (
+      for
+        query <- ZStream.fromZIO(this.getBackfillQuery)
+        statement <- ZStream
+          .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
+        resultSet <- ZStream
+          .acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
+        _ <- zlogStream("Acquired result set with fetch size %s", resultSet.getFetchSize.toString)
+        _ <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
+        _ <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
+        stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
+          if hasNext then
+            for
+              columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+              row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+              hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
+            yield Some((row.handleSpecialTypes, hasNextRow))
+          else ZIO.succeed(None)
+        }
+      yield stream,
+      schema
+    )
+  }
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
       batch: T
@@ -105,19 +112,24 @@ class MsSqlReader(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
-    ZStream
-      .fromZIO(ZIO.scoped {
-        for
-          changesQuery <- this.getChangesQuery(latestVersion - 1)
+  def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
+    ZStream.fromZIO(getSchema).map { schema =>
+      (
+        ZStream
+          .fromZIO(ZIO.scoped {
+            for
+              changesQuery <- this.getChangesQuery(latestVersion - 1)
 
-          // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
-          // And the LazyQueryResult will close the statement/result set when it is closed.
-          result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-        yield MsSqlReader.ensureHead(result)
-      })
-      .flatMap(batch => unfoldBatch(batch))
-      .map(_.handleSpecialTypes)
+              // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
+              // And the LazyQueryResult will close the statement/result set when it is closed.
+              result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
+            yield MsSqlReader.ensureHead(result)
+          })
+          .flatMap(batch => unfoldBatch(batch))
+          .map(_.handleSpecialTypes),
+        schema
+      )
+    }
 
   def hasChanges(latestVersion: MsSqlWatermark): Task[Boolean] =
     ZIO.scoped {

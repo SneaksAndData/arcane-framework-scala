@@ -7,7 +7,7 @@ import models.settings.staging.StagingTableSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.bootstrap.base.StreamBootstrapper
 import services.metrics.base.MetricTagProvider
-import services.streaming.base.{HookManager, StreamingGraphBuilder}
+import services.streaming.base.StreamingGraphBuilder
 
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZIOAspect, ZLayer}
@@ -25,7 +25,6 @@ class GenericStreamRunnerService(
     builder: StreamingGraphBuilder,
     lifetimeService: StreamLifetimeService,
     stagingDataSettings: StagingTableSettings,
-    hookManager: HookManager,
     bootstrapper: StreamBootstrapper,
     tagProvider: MetricTagProvider
 ) extends StreamRunnerService:
@@ -48,7 +47,7 @@ class GenericStreamRunnerService(
 
           _ <- bootstrapper.createTargetTable
           _ <- bootstrapper.createBackFillTable
-          _ <- builder.produce(hookManager).via(streamLifetimeGuard).run(logResults)
+          _ <- builder.produce().via(streamLifetimeGuard).run(logResults)
           _ <- zlog("Stream completed")
         yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
       )
@@ -68,7 +67,7 @@ object GenericStreamRunnerService:
   /** The required environment for the GenericStreamRunnerService.
     */
   type Environment = StreamLifetimeService & StreamingGraphBuilder & PluginStreamContext & StreamBootstrapper &
-    HookManager & MetricTagProvider
+    MetricTagProvider
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
@@ -83,7 +82,6 @@ object GenericStreamRunnerService:
       builder: StreamingGraphBuilder,
       lifetimeService: StreamLifetimeService,
       stagingDataSettings: StagingTableSettings,
-      hookManager: HookManager,
       bootstrapper: StreamBootstrapper,
       tagProvider: MetricTagProvider
   ): GenericStreamRunnerService =
@@ -91,7 +89,6 @@ object GenericStreamRunnerService:
       builder,
       lifetimeService,
       stagingDataSettings,
-      hookManager,
       bootstrapper,
       tagProvider
     )
@@ -104,14 +101,12 @@ object GenericStreamRunnerService:
         lifetimeService <- ZIO.service[StreamLifetimeService]
         builder         <- ZIO.service[StreamingGraphBuilder]
         context         <- ZIO.service[PluginStreamContext]
-        hookManager     <- ZIO.service[HookManager]
         bootstrapper    <- ZIO.service[StreamBootstrapper]
         tagProvider     <- ZIO.service[MetricTagProvider]
       yield GenericStreamRunnerService(
         builder,
         lifetimeService,
         context.staging.table,
-        hookManager,
         bootstrapper,
         tagProvider
       )

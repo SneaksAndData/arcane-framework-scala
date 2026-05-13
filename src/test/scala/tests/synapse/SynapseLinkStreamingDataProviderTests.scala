@@ -108,7 +108,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        rows <- provider.stream.runCollect
+        rows <- provider.stream.flatMap(_._1).runCollect
       // expect 30 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // 1 file skipped as it is the latest one
@@ -149,7 +149,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        rows <- provider.stream.timeout(zio.Duration.fromSeconds(4)).runCount
+        rows <- provider.stream.flatMap(_._1).timeout(zio.Duration.fromSeconds(4)).runCount
       // expect 5 rows, since each file has 5 rows
       // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
       // watermark is 3 hours back which should only capture 1 file
@@ -190,7 +190,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        rows <- provider.stream.filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(4)).runCollect
+        rows <- provider.stream.flatMap(_._1).filterNot(_.isWatermark).timeout(zio.Duration.fromSeconds(4)).runCollect
       // delete must ALWAYS come last, otherwise there is a risk of re-inserting the same row
       yield assertTrue(rows.toList.zipWithIndex.filter(r => isDelete(r._1)).head._2 == 5) &&
         assertTrue(

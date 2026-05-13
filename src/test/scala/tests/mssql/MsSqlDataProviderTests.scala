@@ -14,7 +14,6 @@ import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
 
-import org.scalatest.matchers.should.Matchers.*
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, Task, Unsafe, ZIO}
@@ -130,7 +129,11 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
           )
         )
         lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
-        rows            <- streamingDataProvider.stream.rechunk(1).takeUntil(_ => lifetimeService.cancelled).runCollect
+        rows <- streamingDataProvider.stream
+          .flatMap(_._1)
+          .rechunk(1)
+          .takeUntil(_ => lifetimeService.cancelled)
+          .runCollect
       yield assertTrue(rows.size == numberRowsToTake)
     }
   } @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

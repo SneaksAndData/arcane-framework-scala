@@ -1,34 +1,23 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
-import models.*
 import models.app.PluginStreamContext
-import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.schemas.{ArcaneType, DataCell, DataRow, MergeKeyField}
-import models.settings.{FieldSelectionRuleSettings, FlowRate}
+import models.schemas.*
+import models.schemas.ArcaneType.StringType
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
 import models.settings.staging.StagingSettings
-import models.settings.streaming.{
-  ChangeCaptureSettings,
-  Static,
-  StaticImpl,
-  StreamModeSettings,
-  ThroughputSettings,
-  ThroughputShaperImpl
-}
+import models.settings.streaming.*
+import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
-import services.synapse.SynapseHookManager
-import tests.services.streaming.processors.utils.TestIndexedStagedBatches
 import tests.shared.*
-import tests.shared.IcebergCatalogInfo.*
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -47,6 +36,12 @@ given MetadataEnrichedRowStreamElement[TestInput] with
   extension (element: DataRow) def fromDataRow: TestInput = element
 
 object StagingProcessorTests extends ZIOSpecDefault:
+  private val testSchema: ArcaneSchema = ArcaneSchema(
+    Seq(
+      IndexedMergeKeyField(1),
+      IndexedField("name", StringType, 2)
+    )
+  )
   private val testInput: Chunk[TestInput] = Chunk.fromIterable(
     List(
       List(
@@ -55,42 +50,21 @@ object StagingProcessorTests extends ZIOSpecDefault:
       ),
       List(
         DataCell("name", ArcaneType.StringType, "John"),
-        DataCell("family_name", ArcaneType.StringType, "Doe"),
         DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
       )
     )
   )
-  private val hookManager = SynapseHookManager()
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
     stagingProcessor = StagingProcessor(
       TestStagingTableSettings,
-      TestSinkSettingsWithMaintenance.targetTableFullName,
+      TestSinkSettings.targetTableFullName,
       TestIcebergStagingSettings,
       catalogWriterService,
+      new TestStagedBatchFactory(),
       DeclaredMetrics()
     )
   } yield stagingProcessor
-
-  private def toInFlightBatch(
-      batches: Iterable[StagedVersionedBatch & MergeableBatch],
-      index: Long,
-      others: Any
-  ): StagedBatchProcessor#BatchType =
-    new TestIndexedStagedBatches(batches, index)
-
-  class IndexedStagedBatchesWithMetadata(
-      override val groupedBySchema: Iterable[StagedVersionedBatch & MergeableBatch],
-      override val batchIndex: Long,
-      val others: Chunk[String]
-  ) extends TestIndexedStagedBatches(groupedBySchema, batchIndex)
-
-  private def toInFlightBatchWithMetadata(
-      batches: Iterable[StagedVersionedBatch & MergeableBatch],
-      index: Long,
-      others: Chunk[Any]
-  ): StagedBatchProcessor#BatchType =
-    new IndexedStagedBatchesWithMetadata(batches, index, others.map(_.toString))
 
   private val mockPluginContextLayer = ZLayer.succeed(new PluginStreamContext {
     override val streamMode: StreamModeSettings = new StreamModeSettings {
@@ -137,7 +111,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
         stagingProcessor <- getProcessor
         result <- ZStream
           .fromIterable(Chunk[TestInput]())
-          .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
+          .via(stagingProcessor.process(testSchema))
           .run(ZSink.last)
       } yield assertTrue(result.isEmpty)
     },
@@ -147,9 +121,9 @@ object StagingProcessorTests extends ZIOSpecDefault:
         stagingProcessor <- getProcessor
         result <- ZStream
           .fromIterable(testInput)
-          .via(stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged))
+          .via(stagingProcessor.process(testSchema))
           .run(ZSink.last)
-      } yield assertTrue(result.exists(v => (v.groupedBySchema.size, v.batchIndex) == (2, 0)))
+      } yield assertTrue(result.size == 1 && result.head.name.startsWith("staging_table__"))
     }
   ).provide(
     IcebergEntityManager.stagingLayer,

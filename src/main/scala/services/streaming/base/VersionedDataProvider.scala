@@ -10,10 +10,8 @@ import zio.stream.ZStream
   *
   * @tparam DataVersionType
   *   The type of the data version.
-  * @tparam DataBatchType
-  *   The type of the data batch.
   */
-trait VersionedDataProvider[DataVersionType <: SourceWatermark[String], DataBatchType <: DataRow]:
+trait VersionedDataProvider[DataVersionType <: SourceWatermark[String]]:
   /** Checks whether the provided watermark from previous iteration has accrued any changes in [previousVersion ... now]
     * interval
     * @param previousVersion
@@ -38,7 +36,7 @@ trait VersionedDataProvider[DataVersionType <: SourceWatermark[String], DataBatc
   def requestChanges(
       previousVersion: DataVersionType,
       nextVersion: DataVersionType
-  ): ZStream[Any, Throwable, DataBatchType]
+  ): ZStream[Any, Throwable, StructuredZStream]
 
   /** The first version of the data.
     */

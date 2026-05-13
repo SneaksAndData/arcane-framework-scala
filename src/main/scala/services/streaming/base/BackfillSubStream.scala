@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import services.streaming.processors.transformers.IndexedStagedBatches
+import models.batches.StagedBatch
 
 import zio.stream.ZStream
 
@@ -12,10 +12,8 @@ trait BackfillSubStream:
 
   /** The type of the processed batch.
     */
-  type ProcessedBatch <: IndexedStagedBatches
+  type ProcessedBatch <: StagedBatch
 
   /** Produces the stream of processed batches.
-    * @param hookManager
-    *   The hook manager.
     */
-  def produce(hookManager: HookManager): ZStream[Any, Throwable, ProcessedBatch]
+  def produce(): ZStream[Any, Throwable, ProcessedBatch]

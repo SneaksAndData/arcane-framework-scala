@@ -92,8 +92,7 @@ class UpsertBlobMergeBatch(
     batchSchema: ArcaneSchema,
     targetName: String,
     tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String,
-    watermarkValue: Option[String]
+    mergeKey: String
 ) extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String            = batchName
@@ -106,7 +105,7 @@ class UpsertBlobMergeBatch(
        | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${BlobBatchCommons.versionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
 
-  override val completedWatermarkValue: Option[String] = watermarkValue
+  override val completedWatermarkValue: Option[String] = None
 
   override val batchQuery: MergeQuery =
     if schema.isEmpty then UpsertBlobMergeQuery.empty
@@ -120,24 +119,40 @@ class UpsertBlobMergeBatch(
       )
 
 object UpsertBlobMergeBatch:
-  def empty(watermarkValue: Option[String]): UpsertBlobMergeBatch =
-    new UpsertBlobMergeBatch("", ArcaneSchema.empty(), "", EmptyTablePropertiesSettings, "", watermarkValue)
-
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      watermarkValue: Option[String]
+      tablePropertiesSettings: TablePropertiesSettings
   ): UpsertBlobMergeBatch =
     new UpsertBlobMergeBatch(
       batchName,
       batchSchema,
       targetName,
       tablePropertiesSettings,
-      batchSchema.mergeKey.name,
-      watermarkValue
+      batchSchema.mergeKey.name
     )
+
+class UpsertBlobWatermarkBatch(
+    targetName: String,
+    watermarkValue: String
+) extends StagedVersionedBatch
+    with MergeableBatch:
+  override val name: String            = "watermark"
+  override val schema: ArcaneSchema    = ArcaneSchema.empty()
+  override val targetTableName: String = targetName
+
+  override def reduceExpr: String = ""
+
+  override val completedWatermarkValue: Option[String] = Some(watermarkValue)
+
+  override val batchQuery: MergeQuery = UpsertBlobMergeQuery.empty
+
+object UpsertBlobWatermarkBatch:
+  def apply(
+      targetName: String,
+      watermarkValue: String
+  ): UpsertBlobWatermarkBatch = new UpsertBlobWatermarkBatch(targetName, watermarkValue)
 
 class UpsertBlobBackfillMergeBatch(
     batchName: String,

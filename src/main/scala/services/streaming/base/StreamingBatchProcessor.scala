@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
+import models.schemas.ArcaneSchema
+
 import zio.stream.ZPipeline
 
 /** Represents a streaming stage that processes batches.

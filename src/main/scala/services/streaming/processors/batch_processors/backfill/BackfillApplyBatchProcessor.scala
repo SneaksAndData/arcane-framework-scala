@@ -3,10 +3,8 @@ package services.streaming.processors.batch_processors.backfill
 
 import logging.ZIOLogAnnotations.*
 import models.batches.StagedBackfillOverwriteBatch
-import models.settings.TableNaming.*
 import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
-import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StreamingBatchProcessor
 
 import zio.stream.ZPipeline
@@ -31,10 +29,8 @@ class BackfillApplyBatchProcessor(
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batch =>
       for
-        _            <- zlog("Applying backfill batch with name to %s", batch.targetTableName)
-        targetSchema <- propertyManager.getTableSchema(batch.targetTableName.parts.name)
-        _            <- entityManager.migrateSchema(targetSchema, batch.schema, batch.targetTableName.parts.name)
-        _            <- mergeServiceClient.applyBatch(batch)
+        _ <- zlog("Applying backfill batch with name to %s", batch.targetTableName)
+        _ <- mergeServiceClient.applyBatch(batch)
       yield batch
     )
 

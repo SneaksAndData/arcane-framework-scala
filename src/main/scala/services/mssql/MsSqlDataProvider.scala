@@ -10,7 +10,7 @@ import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
 import services.mssql.versioning.MsSqlWatermark.*
-import services.streaming.base.DefaultSourceDataProvider
+import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import zio.stream.ZStream
@@ -52,10 +52,12 @@ class MsSqlDataProvider(
         }
     yield version
 
-  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow] =
+  override protected def backfillStream(
+      backfillStartDate: Option[OffsetDateTime]
+  ): ZStream[Any, Throwable, StructuredZStream] =
     reader.backfill
 
-  override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, DataRow] =
+  override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
     reader.getChanges(previousVersion)
 
   override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): MsSqlWatermark =

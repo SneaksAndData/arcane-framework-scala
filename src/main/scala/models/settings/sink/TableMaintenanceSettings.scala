@@ -9,23 +9,23 @@ trait TableMaintenanceSettings:
 
   /** Optimization settings for the target table
     */
-  val targetOptimizeSettings: Option[OptimizeSettings]
+  val targetOptimizeSettings: OptimizeSettings
 
   /** Snapshot expiration settings for the target table
     */
-  val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings]
+  val targetSnapshotExpirationSettings: SnapshotExpirationSettings
 
   /** Orphan files expiration settings for the target table
     */
-  val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings]
+  val targetOrphanFilesExpirationSettings: OrphanFilesExpirationSettings
 
   /** Settings for running ANALYZE
     */
-  val targetAnalyzeSettings: Option[AnalyzeSettings]
+  val targetAnalyzeSettings: AnalyzeSettings
 
 case class DefaultTableMaintenanceSettings(
-    override val targetAnalyzeSettings: Option[DefaultAnalyzeSettings],
-    override val targetOptimizeSettings: Option[DefaultOptimizeSettings],
-    override val targetSnapshotExpirationSettings: Option[DefaultSnapshotExpirationSettings],
-    override val targetOrphanFilesExpirationSettings: Option[DefaultOrphanFilesExpirationSettings]
+    override val targetAnalyzeSettings: DefaultAnalyzeSettings,
+    override val targetOptimizeSettings: DefaultOptimizeSettings,
+    override val targetSnapshotExpirationSettings: DefaultSnapshotExpirationSettings,
+    override val targetOrphanFilesExpirationSettings: DefaultOrphanFilesExpirationSettings
 ) extends TableMaintenanceSettings derives ReadWriter

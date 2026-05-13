@@ -11,7 +11,7 @@ import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
 import services.iceberg.base.SinkPropertyManager
-import services.streaming.base.DefaultSourceDataProvider
+import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import com.sun.source.util.Plugin
@@ -41,7 +41,9 @@ class BlobSourceDataProvider(
   override def getCurrentVersion(previousVersion: BlobSourceWatermark): Task[BlobSourceWatermark] =
     sourceReader.getLatestVersion
 
-  override protected def changeStream(previousVersion: BlobSourceWatermark): ZStream[Any, Throwable, DataRow] =
+  override protected def changeStream(
+      previousVersion: BlobSourceWatermark
+  ): ZStream[Any, Throwable, StructuredZStream] =
     sourceReader.getChanges(previousVersion)
 
   override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): BlobSourceWatermark =
@@ -49,7 +51,9 @@ class BlobSourceDataProvider(
       startTime.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).toInstant.toEpochMilli / 1000
     )
 
-  override protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow] =
+  override protected def backfillStream(
+      backfillStartDate: Option[OffsetDateTime]
+  ): ZStream[Any, Throwable, StructuredZStream] =
     sourceReader.getChanges(getBackfillStartWatermark(backfillStartDate))
 
 object BlobSourceDataProvider:

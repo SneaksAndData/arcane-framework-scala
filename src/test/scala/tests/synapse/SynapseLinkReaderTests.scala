@@ -23,6 +23,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
+          .flatMap(_._1)
           .map(_ => 1)
           .runSum // OffsetDateTime.now().minus(Duration.ofHours(12))
       // expect 30 rows, since each file has 5 rows
@@ -48,6 +49,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
+          .flatMap(_._1)
           .map(_ => 1)
           .runSum
           .exit

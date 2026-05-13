@@ -18,7 +18,7 @@ class SynapseLinkStreamingDataProvider(
     backfillSettings: BackfillSettings,
     isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[SynapseWatermark, DataRow](
+) extends DefaultStreamDataProvider[SynapseWatermark](
       dataProvider,
       settings,
       backfillSettings,

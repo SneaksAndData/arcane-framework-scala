@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{DataRow, JsonWatermarkRow}
+import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import models.settings.streaming.StreamModeSettings
-import models.settings.sources.{UnboundedImpl, BufferingImpl}
+import models.settings.sources.{BufferingImpl, UnboundedImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -28,8 +28,8 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings
 )(implicit rw: ReadWriter[WatermarkType])
-    extends VersionedDataProvider[WatermarkType, DataRow]
-    with BackfillDataProvider[DataRow]:
+    extends VersionedDataProvider[WatermarkType]
+    with BackfillDataProvider:
 
   private val throughputShaper = throughputShaperBuilder.build
 
@@ -41,36 +41,42 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     */
   protected def changeStream(
       previousVersion: WatermarkType
-  ): ZStream[Any, Throwable, DataRow]
+  ): ZStream[Any, Throwable, StructuredZStream]
 
   /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
-    *
-    * @param startTime
     * @return
     */
   protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): WatermarkType
 
   /** Implements data streaming logic for public `requestBackfill`
-    *
-    * @param backfillStartDate
     * @return
     */
-  protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, DataRow]
+  protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, StructuredZStream]
 
   final override def requestChanges(
       previousVersion: WatermarkType,
       nextVersion: WatermarkType
-  ): ZStream[Any, Throwable, DataRow] = throughputShaper
-    .shapeStream(trySetBuffering(changeStream(previousVersion)))
-    .concat(ZStream.succeed(JsonWatermarkRow(nextVersion)))
-
-  final override def requestBackfill: ZStream[Any, Throwable, DataRow] = ZStream
-    .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
-    .flatMap(version =>
+  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
+    (
       throughputShaper
-        .shapeStream(trySetBuffering(backfillStream(streamMode.backfill.backfillStartDate)))
-        .concat(ZStream.succeed(JsonWatermarkRow(version)))
+        .shapeStream(trySetBuffering(changeSet._1))
+        .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
+      changeSet._2
     )
+  )
+
+  final override def requestBackfill: ZStream[Any, Throwable, StructuredZStream] = ZStream
+    .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
+    .flatMap { version =>
+      backfillStream(streamMode.backfill.backfillStartDate)
+        .map(rowSet =>
+          (
+            throughputShaper.shapeStream(trySetBuffering(rowSet._1)),
+            rowSet._2
+          )
+        )
+        .concat(ZStream.succeed(ZStream.succeed(JsonWatermarkRow(version)), ArcaneSchema.empty()))
+    }
 
   override def firstVersion: Task[WatermarkType] = for
     watermarkString <- sinkPropertyManager.getProperty(sinkSettings.targetTableFullName.parts.name, "comment")

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.batches.StagedBatch
+import models.batches.{MergeableBatch, StagedBackfillBatch, StagedBatch, StagedVersionedBatch}
 
 import zio.Task
 
@@ -12,13 +12,7 @@ case class BatchDisposeResult(isSuccess: Boolean)
 /** A service client that disposes of data batches.
   */
 trait DisposeServiceClient:
-  type Batch = StagedBatch
 
   /** Disposes of a batch.
-    *
-    * @param batch
-    *   The batch to dispose.
-    * @return
-    *   The result of disposing of the batch.
     */
-  def disposeBatch(batch: Batch): Task[BatchDisposeResult]
+  def disposeBatch(batch: StagedBatch): Task[BatchDisposeResult]

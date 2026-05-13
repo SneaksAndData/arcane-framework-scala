@@ -31,7 +31,7 @@ class MsSqlStreamingDataProvider(
     backfillSettings: BackfillSettings,
     isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[MsSqlWatermark, MsSqlBatch](
+) extends DefaultStreamDataProvider[MsSqlWatermark](
       dataProvider,
       settings,
       backfillSettings,
