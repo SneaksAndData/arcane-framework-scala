@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
 import models.app.PluginStreamContext
-import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import models.settings.backfill.BackfillBehavior.Overwrite
@@ -124,7 +123,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .fromIterable(testInput)
           .via(stagingProcessor.process(testSchema))
           .run(ZSink.last)
-      } yield assertTrue(result.size == 2)
+      } yield assertTrue(result.size == 1 && result.head.name.startsWith("staging_table__"))
     }
   ).provide(
     IcebergEntityManager.stagingLayer,

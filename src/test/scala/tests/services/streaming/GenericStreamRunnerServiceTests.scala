@@ -2,10 +2,20 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, MergeKeyField, given_CanAdd_ArcaneSchema}
+import models.schemas.{
+  ArcaneSchema,
+  ArcaneType,
+  DataCell,
+  IndexedField,
+  IndexedMergeKeyField,
+  MergeKeyField,
+  given_CanAdd_ArcaneSchema
+}
+import models.schemas.ArcaneType.StringType
+
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
-import services.base.{DisposeServiceClient, MergeServiceClient, SchemaProvider}
+import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient, SchemaProvider}
 import services.filters.FieldsFilteringService
 import services.iceberg.{
   IcebergEntityManager,
@@ -27,10 +37,10 @@ import services.streaming.processors.batch_processors.maintenance.TargetMaintena
 import services.bootstrap.DefaultStreamBootstrapper
 import tests.shared.*
 
+import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
-import org.scalatest.matchers.should.Matchers.should
 import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.ZStream
 import zio.{Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
@@ -44,7 +54,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     ),
     List(
       DataCell("name", ArcaneType.StringType, "John"),
-      DataCell("family_name", ArcaneType.StringType, "Doe"),
       DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
     )
   )
@@ -60,13 +69,19 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     expecting {
 
       // The data provider mock provides an infinite stream of test input
-      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
+      streamDataProvider.stream.andReturn(
+        ZStream.succeed(
+          (
+            ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1),
+            ArcaneSchema(Seq(IndexedMergeKeyField(1), IndexedField("name", StringType, 2)))
+          )
+        )
+      )
 
-      // The hookManager.onStagingTablesComplete method is called ``streamRepeatCount`` times
-      // It produces the empty set of staged batches, so the rest  of the pipeline can continue
-      // but no further stages being invoked
+      mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(5)
+      disposeServiceClient.disposeBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchDisposeResult(true))).times(5)
     }
-    replay(streamDataProvider)
+    replay(streamDataProvider, mergeServiceClient, disposeServiceClient)
 
     val streamRunnerService = ZLayer.make[StreamRunnerService](
       // Real services
@@ -92,7 +107,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         override def empty: SchemaType = ArcaneSchema.empty()
       }),
       ZLayer.succeed(new TestStagedBatchFactory()),
-      SchemaMigrationProcessor.layer,
+      VoidSchemaMigrationProcessor.layer,
       ZLayer.succeed(streamDataProvider),
       ZLayer.succeed(TestPluginStreamContext),
       DeclaredMetrics.layer,
