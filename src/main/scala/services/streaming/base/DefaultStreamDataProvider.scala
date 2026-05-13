@@ -6,7 +6,7 @@ import models.schemas.DataRow
 import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 
-import com.sneaksanddata.arcane.framework.services.backfill.BackfillDataProvider
+import com.sneaksanddata.arcane.framework.services.backfill.BackfillSourceDataProvider
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -14,9 +14,9 @@ import java.time.Duration
 import scala.util.Random
 
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String]](
-    dataProvider: VersionedDataProvider[WatermarkType] & BackfillDataProvider,
-    settings: ChangeCaptureSettings,
-    declaredMetrics: DeclaredMetrics
+                                                                           dataProvider: ChangeCaptureDataProvider[WatermarkType],
+                                                                           settings: ChangeCaptureSettings,
+                                                                           declaredMetrics: DeclaredMetrics
 ) extends StreamDataProvider:
 
   private val rng = Random(settings.changeCaptureJitterSeed)

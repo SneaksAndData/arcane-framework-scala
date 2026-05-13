@@ -11,7 +11,7 @@ import zio.stream.ZStream
   * @tparam DataVersionType
   *   The type of the data version.
   */
-trait VersionedDataProvider[DataVersionType <: SourceWatermark[String]]:
+trait ChangeCaptureDataProvider[DataVersionType <: SourceWatermark[String]]:
   /** Checks whether the provided watermark from previous iteration has accrued any changes in [previousVersion ... now]
     * interval
     * @param previousVersion
