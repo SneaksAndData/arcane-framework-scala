@@ -30,11 +30,6 @@ import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 type TestInput = DataRow
 
-given MetadataEnrichedRowStreamElement[TestInput] with
-  extension (element: TestInput) def isDataRow: Boolean   = element.isInstanceOf[DataRow]
-  extension (element: TestInput) def toDataRow: DataRow   = element
-  extension (element: DataRow) def fromDataRow: TestInput = element
-
 object StagingProcessorTests extends ZIOSpecDefault:
   private val testSchema: ArcaneSchema = ArcaneSchema(
     Seq(
