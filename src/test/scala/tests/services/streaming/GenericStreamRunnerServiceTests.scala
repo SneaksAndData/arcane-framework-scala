@@ -25,7 +25,6 @@ import services.iceberg.{
 }
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.StreamDataProvider
-import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -36,6 +35,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
 import tests.shared.*
+import com.sneaksanddata.arcane.framework.services.streaming.graph.DefaultStreamingGraphBuilder
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
@@ -86,7 +86,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     val streamRunnerService = ZLayer.make[StreamRunnerService](
       // Real services
       GenericStreamRunnerService.layer,
-      GenericStreamingGraphBuilder.layer,
+      DefaultStreamingGraphBuilder.layer,
       DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,

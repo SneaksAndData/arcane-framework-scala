@@ -1,12 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.graph_builders.backfill
+package services.backfill.graph
 
+import services.backfill.BackfillStreamDataProvider
 import services.streaming.base.StreamDataProvider
-import services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
-  BackfillOverwriteWatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.backfill.{BackfillStreamingGraphBuilder, BackfillStreamingOverwriteDataProvider}
+import services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
 
 import zio.stream.ZStream
 import zio.{ZIO, ZLayer}
@@ -22,7 +19,7 @@ import zio.{ZIO, ZLayer}
   *   3. Since the table is replaced, the dispose batch processor is not needed and the graph builder.
   */
 class GenericBackfillOverwriteGraphBuilder(
-    streamDataProvider: BackfillStreamingOverwriteDataProvider,
+    streamDataProvider: BackfillStreamDataProvider,
     applyBatchProcessor: BackfillApplyBatchProcessor,
     watermarkProcessor: BackfillOverwriteWatermarkProcessor
 ) extends BackfillStreamingGraphBuilder:
@@ -35,7 +32,7 @@ class GenericBackfillOverwriteGraphBuilder(
     */
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] =
     ZStream
-      .fromZIO(streamDataProvider.requestBackfill)
+      .fromZIO(streamDataProvider.backfill)
       .collectWhile({ case b: BackfillApplyBatchProcessor#BatchType =>
         b
       })
@@ -46,13 +43,13 @@ object GenericBackfillOverwriteGraphBuilder:
 
   /** The environment required for the GenericBackfillGraphBuilder.
     */
-  type Environment = StreamDataProvider & BackfillStreamingOverwriteDataProvider & BackfillApplyBatchProcessor &
+  type Environment = BackfillStreamDataProvider & BackfillApplyBatchProcessor &
     BackfillOverwriteWatermarkProcessor
 
   /** Creates a new GenericBackfillGraphBuilder.
     */
   def apply(
-      streamDataProvider: BackfillStreamingOverwriteDataProvider,
+      streamDataProvider: BackfillStreamDataProvider,
       mergeBatchProcessor: BackfillApplyBatchProcessor,
       watermarkProcessor: BackfillOverwriteWatermarkProcessor
   ): GenericBackfillOverwriteGraphBuilder =
@@ -63,7 +60,7 @@ object GenericBackfillOverwriteGraphBuilder:
   val layer: ZLayer[Environment, Nothing, GenericBackfillOverwriteGraphBuilder] =
     ZLayer {
       for
-        streamDataProvider <- ZIO.service[BackfillStreamingOverwriteDataProvider]
+        streamDataProvider <- ZIO.service[BackfillStreamDataProvider]
         mergeProcessor     <- ZIO.service[BackfillApplyBatchProcessor]
         watermarkProcessor <- ZIO.service[BackfillOverwriteWatermarkProcessor]
       yield GenericBackfillOverwriteGraphBuilder(streamDataProvider, mergeProcessor, watermarkProcessor)

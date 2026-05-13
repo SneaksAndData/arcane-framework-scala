@@ -10,7 +10,6 @@ import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTa
 import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.StreamDataProvider
-import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
@@ -21,7 +20,8 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import models.schemas.ArcaneType.StringType
-import com.sneaksanddata.arcane.framework.services.backfill.{BackfillOverwriteBatchFactory, GenericBackfillStreamingMergeDataProvider}
+import com.sneaksanddata.arcane.framework.services.backfill.{BackfillOverwriteBatchFactory, DefaultBackfillMergeStreamDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph.DefaultStreamingGraphBuilder
 
 import org.easymock.{Capture, EasyMock}
 import org.easymock.EasyMock.{replay, verify}
@@ -32,14 +32,14 @@ import org.scalatestplus.easymock.EasyMockSugar
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
 
-class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
+class GenericBackfillStreamDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
   private val runtime = Runtime.default
 
   it should "produce backfill batch if stream is completed" in {
     // Arrange
     val streamRepeatCount = 5
 
-    val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
+    val streamingGraphBuilder = mock[DefaultStreamingGraphBuilder]
 
     expecting {
       streamingGraphBuilder.produce().andReturn(ZStream.range(0, streamRepeatCount)).times(1)
@@ -48,14 +48,14 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     replay(streamingGraphBuilder)
 
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
-    val gb = GenericBackfillStreamingMergeDataProvider(
+    val gb = DefaultBackfillMergeStreamDataProvider(
       streamingGraphBuilder,
       lifetimeService,
       mock[MetricTagProvider]
     )
 
     // Act
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.requestBackfill)).map { result =>
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.backfill)).map { result =>
       // Assert
       verify(streamingGraphBuilder)
       result shouldBe a[Unit]
@@ -66,7 +66,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     // Arrange
     val streamRepeatCount = 5
 
-    val streamingGraphBuilder = mock[GenericStreamingGraphBuilder]
+    val streamingGraphBuilder = mock[DefaultStreamingGraphBuilder]
 
     expecting {
       streamingGraphBuilder.produce().andReturn(ZStream.repeat(Chunk.empty)).times(1)
@@ -75,13 +75,13 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     replay(streamingGraphBuilder)
 
     val lifetimeService = TestStreamLifetimeService(streamRepeatCount * 2)
-    val gb = GenericBackfillStreamingMergeDataProvider(
+    val gb = DefaultBackfillMergeStreamDataProvider(
       streamingGraphBuilder,
       lifetimeService,
       mock[MetricTagProvider]
     )
     // Act
-    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.requestBackfill)).map { result =>
+    Unsafe.unsafe(implicit unsafe => runtime.unsafe.runToFuture(gb.backfill)).map { result =>
       // Assert
       verify(streamingGraphBuilder)
       result shouldBe a[Unit]
@@ -125,15 +125,15 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     }
     replay(streamDataProvider, mergeServiceClient, disposeServiceClient)
 
-    val gb = ZLayer.make[GenericBackfillStreamingMergeDataProvider](
+    val gb = ZLayer.make[DefaultBackfillMergeStreamDataProvider](
       // Real services
-      GenericStreamingGraphBuilder.layer,
+      DefaultStreamingGraphBuilder.layer,
       DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
-      GenericBackfillStreamingMergeDataProvider.layer,
+      DefaultBackfillMergeStreamDataProvider.layer,
       IcebergEntityManager.stagingLayer,
       IcebergEntityManager.sinkLayer,
       IcebergS3CatalogWriter.layer,
@@ -164,7 +164,7 @@ class GenericBackfillStreamingMergeDataProviderTests extends AsyncFlatSpec with 
     Unsafe
       .unsafe(implicit unsafe =>
         runtime.unsafe.runToFuture(
-          ZIO.service[GenericBackfillStreamingMergeDataProvider].flatMap(_.requestBackfill).provideLayer(gb)
+          ZIO.service[DefaultBackfillMergeStreamDataProvider].flatMap(_.backfill).provideLayer(gb)
         )
       )
       .map { result =>

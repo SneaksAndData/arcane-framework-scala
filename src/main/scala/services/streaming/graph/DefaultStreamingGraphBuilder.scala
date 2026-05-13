@@ -1,18 +1,12 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.graph_builders
+package services.streaming.graph
 
 import models.app.PluginStreamContext
 import services.app.base.StreamLifetimeService
 import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import com.sneaksanddata.arcane.framework.services.backfill.BackfillSubStream
 
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
@@ -20,7 +14,7 @@ import zio.{Tag, ZIO, ZLayer}
 /** Provides the complete data stream for the streaming process including all the stages and services except the sink
   * and lifetime service.
   */
-class GenericStreamingGraphBuilder(
+class DefaultStreamingGraphBuilder(
     streamDataProvider: StreamDataProvider,
     fieldFilteringProcessor: FieldFilteringTransformer,
     stagingProcessor: StagingProcessor,
@@ -29,8 +23,7 @@ class GenericStreamingGraphBuilder(
     watermarkProcessor: WatermarkProcessor,
     schemaMigrationProcessor: SchemaMigrationProcessor,
     targetMaintenanceProcessor: TargetMaintenanceProcessor
-) extends StreamingGraphBuilder
-    with BackfillSubStream:
+) extends StreamingGraphBuilder:
 
   /** @inheritdoc
     */
@@ -50,7 +43,7 @@ class GenericStreamingGraphBuilder(
         .via(disposeBatchProcessor.process)
     }
 
-object GenericStreamingGraphBuilder:
+object DefaultStreamingGraphBuilder:
 
   /** The environment required for the GenericStreamingGraphBuilder.
     */
@@ -81,8 +74,8 @@ object GenericStreamingGraphBuilder:
       watermarkProcessor: WatermarkProcessor,
       schemaMigrationProcessor: SchemaMigrationProcessor,
       targetMaintenanceProcessor: TargetMaintenanceProcessor
-  ): GenericStreamingGraphBuilder =
-    new GenericStreamingGraphBuilder(
+  ): DefaultStreamingGraphBuilder =
+    new DefaultStreamingGraphBuilder(
       streamDataProvider,
       fieldFilteringProcessor,
       stagingProcessor,
@@ -96,7 +89,7 @@ object GenericStreamingGraphBuilder:
   /** The ZLayer for the GenericStreamingGraphBuilder. This layer is used to inject the GenericStreamingGraphBuilder
     * into the DI container.
     */
-  val layer: ZLayer[Environment, Nothing, GenericStreamingGraphBuilder] =
+  val layer: ZLayer[Environment, Nothing, DefaultStreamingGraphBuilder] =
     ZLayer {
       for
         context                    <- ZIO.service[PluginStreamContext]
@@ -108,36 +101,7 @@ object GenericStreamingGraphBuilder:
         watermarkProcessor         <- ZIO.service[WatermarkProcessor]
         schemaMigrationProcessor   <- ZIO.service[SchemaMigrationProcessor]
         targetMaintenanceProcessor <- ZIO.service[TargetMaintenanceProcessor]
-      yield GenericStreamingGraphBuilder(
-        streamDataProvider,
-        fieldFilteringProcessor,
-        stagingProcessor,
-        mergeProcessor,
-        disposeBatchProcessor,
-        watermarkProcessor,
-        schemaMigrationProcessor,
-        targetMaintenanceProcessor
-      )
-    }
-
-  /** The ZLayer for the GenericStreamingGraphBuilder. This layer is used to inject the GenericStreamingGraphBuilder
-    * into the DI container as a BackfillSubStream interface implementation. The `layer` cannot be used for this purpose
-    * because it injects the GenericStreamingGraphBuilder as all the interfaces it implements, and the container cannot
-    * resolve the correct implementation since backfill builders also implement the same interfaces.
-    */
-  val backfillSubStreamLayer: ZLayer[Environment, Nothing, BackfillSubStream] =
-    ZLayer {
-      for
-        context                    <- ZIO.service[PluginStreamContext]
-        streamDataProvider         <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
-        stagingProcessor           <- ZIO.service[StagingProcessor]
-        mergeProcessor             <- ZIO.service[MergeBatchProcessor]
-        disposeBatchProcessor      <- ZIO.service[DisposeBatchProcessor]
-        watermarkProcessor         <- ZIO.service[WatermarkProcessor]
-        schemaMigrationProcessor   <- ZIO.service[SchemaMigrationProcessor]
-        targetMaintenanceProcessor <- ZIO.service[TargetMaintenanceProcessor]
-      yield GenericStreamingGraphBuilder(
+      yield DefaultStreamingGraphBuilder(
         streamDataProvider,
         fieldFilteringProcessor,
         stagingProcessor,

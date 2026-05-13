@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.graph_builders.backfill
+package services.backfill.graph
 
+import services.backfill.BackfillStreamDataProvider
 import services.streaming.base.StreamDataProvider
 import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
-import com.sneaksanddata.arcane.framework.services.backfill.{BackfillStreamingGraphBuilder, BackfillStreamingMergeDataProvider}
 
 import zio.stream.ZStream
 import zio.{ZIO, ZLayer}
@@ -18,7 +18,7 @@ import zio.{ZIO, ZLayer}
   *
   * This graph builder does not produce any value.
   */
-class GenericBackfillMergeGraphBuilder(streamDataProvider: BackfillStreamingMergeDataProvider)
+class GenericBackfillMergeGraphBuilder(streamDataProvider: BackfillStreamDataProvider)
     extends BackfillStreamingGraphBuilder:
 
   /** @inheritdoc
@@ -29,14 +29,14 @@ class GenericBackfillMergeGraphBuilder(streamDataProvider: BackfillStreamingMerg
     */
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] = {
     // TODO: is watermark applied here even??
-    ZStream.fromZIO(streamDataProvider.requestBackfill)
+    ZStream.fromZIO(streamDataProvider.backfill)
   }
 
 object GenericBackfillMergeGraphBuilder:
 
   /** The environment required for the GenericBackfillGraphBuilder.
     */
-  type Environment = StreamDataProvider & BackfillStreamingMergeDataProvider & BackfillApplyBatchProcessor
+  type Environment = StreamDataProvider & BackfillStreamDataProvider & BackfillApplyBatchProcessor
 
   /** Creates a new GenericBackfillGraphBuilder.
     * @param streamDataProvider
@@ -44,13 +44,13 @@ object GenericBackfillMergeGraphBuilder:
     * @return
     *   The GenericBackfillGraphBuilder instance.
     */
-  def apply(streamDataProvider: BackfillStreamingMergeDataProvider): GenericBackfillMergeGraphBuilder =
+  def apply(streamDataProvider: BackfillStreamDataProvider): GenericBackfillMergeGraphBuilder =
     new GenericBackfillMergeGraphBuilder(streamDataProvider)
 
   /** The ZLayer for the GenericBackfillGraphBuilder.
     */
   val layer: ZLayer[Environment, Nothing, GenericBackfillMergeGraphBuilder] =
     ZLayer {
-      for streamDataProvider <- ZIO.service[BackfillStreamingMergeDataProvider]
+      for streamDataProvider <- ZIO.service[BackfillStreamDataProvider]
       yield GenericBackfillMergeGraphBuilder(streamDataProvider)
     }
