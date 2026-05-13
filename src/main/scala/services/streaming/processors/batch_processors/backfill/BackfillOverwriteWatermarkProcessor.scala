@@ -10,6 +10,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.WatermarkProcessingExtensions.*
 
+import com.sneaksanddata.arcane.framework.services.backfill.processors.WatermarkShardBatch
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -19,7 +20,7 @@ class BackfillOverwriteWatermarkProcessor(
     declaredMetrics: DeclaredMetrics
 ) extends StreamingBatchProcessor:
 
-  override type BatchType = StagedBackfillOverwriteBatch
+  override type BatchType = WatermarkShardBatch
 
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batch =>
     for _ <- batch.applyWatermark(

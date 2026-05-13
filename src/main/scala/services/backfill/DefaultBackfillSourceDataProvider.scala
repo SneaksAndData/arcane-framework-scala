@@ -5,17 +5,17 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneSchema, JsonWatermarkRow}
+import models.settings.backfill.BackfillSettings
 import models.settings.staging.StagingTableSettings
+import models.settings.streaming.StreamModeSettings
+import models.sharding.{JsonWatermarkShard, SourceShard, StagedShard}
 import services.app.base.StreamLifetimeService
 import services.backfill.BackfillOverwriteBatchFactory
+import services.backfill.graph.BackfillStreamingGraphBuilder
 import services.metrics.base.MetricTagProvider
-import services.streaming.base.{JsonWatermark, *}
+import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillSettings
-import com.sneaksanddata.arcane.framework.models.settings.streaming.StreamModeSettings
-import com.sneaksanddata.arcane.framework.models.sharding.{JsonWatermarkShard, SourceShard, StagedShard}
-import com.sneaksanddata.arcane.framework.services.backfill.graph.BackfillStreamingGraphBuilder
 import org.apache.iceberg.Table
 import upickle.ReadWriter
 import zio.stream.{ZPipeline, ZStream}
@@ -48,6 +48,10 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
    * @return
    */
   protected def backfillStream(backfillStart: WatermarkType, shardCount: Int): ZStream[Any, Throwable, StagedShard]
+  
+  protected def hasData(backfillStart: WatermarkType): Task[Boolean]
+
+  final override def isEmpty: Task[Boolean] = getBackfillStartWatermark(backfillSettings.backfillStartDate).flatMap(hasData)
 
   final override def requestBackfill: ZStream[Any, Throwable, SourceShard] = ZStream
     .fromZIO(getSnapshotVersion)
@@ -84,15 +88,15 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
 //
 //  private def streamLifetimeGuard =
 //    ZPipeline[BackfillSubStream#ProcessedBatch].takeUntil(_ => lifetimeService.cancelled)
-
-/** The companion object for the GenericBackfillStreamingOverwriteDataProvider class.
-  */
-object DefaultBackfillStreamDataProvider:
-
-  /** The environment required for the GenericBackfillStreamingOverwriteDataProvider.
-    */
-  type Environment = PluginStreamContext & StreamLifetimeService & BackfillOverwriteBatchFactory &
-    MetricTagProvider
+//
+///** The companion object for the GenericBackfillStreamingOverwriteDataProvider class.
+//  */
+//object DefaultBackfillStreamDataProvider:
+//
+//  /** The environment required for the GenericBackfillStreamingOverwriteDataProvider.
+//    */
+//  type Environment = PluginStreamContext & StreamLifetimeService & BackfillOverwriteBatchFactory &
+//    MetricTagProvider
 
 //  /** Creates a new GenericBackfillStreamingOverwriteDataProvider.
 //    */

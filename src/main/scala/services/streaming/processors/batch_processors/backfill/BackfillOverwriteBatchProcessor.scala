@@ -7,19 +7,20 @@ import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import services.streaming.base.StreamingBatchProcessor
 
+import com.sneaksanddata.arcane.framework.services.backfill.processors.ShardProcessor
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 /** The streaming batch processor that processes the Backfill batches produced by the backfill data provider running in
   * the backfill mode with the backfill behavior set to overwrite.
   */
-class BackfillApplyBatchProcessor(
+class BackfillOverwriteBatchProcessor(
     mergeServiceClient: MergeServiceClient,
     entityManager: SinkEntityManager,
     propertyManager: SinkPropertyManager
 ) extends StreamingBatchProcessor:
 
-  override type BatchType = StagedBackfillOverwriteBatch
+  override type BatchType = ShardProcessor#OutgoingElement
 
   /** Processes the incoming data.
     *
@@ -27,14 +28,17 @@ class BackfillApplyBatchProcessor(
     *   ZPipeline (stream source for the stream graph).
     */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
+  // TODO: first combine all batches in a single staging table by executing their queries
+  // TODO: then run overwrite batch apply
+  
     ZPipeline.mapZIO(batch =>
       for
-        _ <- zlog("Applying backfill batch with name to %s", batch.targetTableName)
+        _ <- zlog("Applying backfill batch with name to %s", batch.name)
         _ <- mergeServiceClient.applyBatch(batch)
       yield batch
     )
 
-object BackfillApplyBatchProcessor:
+object BackfillOverwriteBatchProcessor:
 
   /** Factory method to create MergeProcessor
     *
@@ -47,8 +51,8 @@ object BackfillApplyBatchProcessor:
       mergeServiceClient: MergeServiceClient,
       entityManager: SinkEntityManager,
       propertyManager: SinkPropertyManager
-  ): BackfillApplyBatchProcessor =
-    new BackfillApplyBatchProcessor(mergeServiceClient, entityManager, propertyManager)
+  ): BackfillOverwriteBatchProcessor =
+    new BackfillOverwriteBatchProcessor(mergeServiceClient, entityManager, propertyManager)
 
   /** The required environment for the BackfillMergeBatchProcessor.
     */
@@ -56,11 +60,11 @@ object BackfillApplyBatchProcessor:
 
   /** The ZLayer that creates the MergeProcessor.
     */
-  val layer: ZLayer[Environment, Nothing, BackfillApplyBatchProcessor] =
+  val layer: ZLayer[Environment, Nothing, BackfillOverwriteBatchProcessor] =
     ZLayer {
       for
         jdbcConsumer    <- ZIO.service[MergeServiceClient]
         entityManager   <- ZIO.service[SinkEntityManager]
         propertyManager <- ZIO.service[SinkPropertyManager]
-      yield BackfillApplyBatchProcessor(jdbcConsumer, entityManager, propertyManager)
+      yield BackfillOverwriteBatchProcessor(jdbcConsumer, entityManager, propertyManager)
     }

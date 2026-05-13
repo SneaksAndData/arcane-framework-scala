@@ -22,6 +22,12 @@ trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
     */
   def requestBackfill: ZStream[Any, Throwable, SourceShard]
 
+  /**
+   * Checks if a source has any data to backfill
+   * @return
+   */
+  def isEmpty: Task[Boolean]
+
   /** Most recent version of the dataset at a time when a backfill was initiated.
    */
   def getSnapshotVersion: Task[DataVersionType]

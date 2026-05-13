@@ -4,7 +4,7 @@ package tests.services.streaming.graph_builders
 import models.settings.backfill.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
-import services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
+import services.streaming.processors.batch_processors.backfill.{BackfillOverwriteBatchProcessor, BackfillOverwriteWatermarkProcessor}
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginStreamContext}
@@ -44,7 +44,7 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(streamContext),
           ZLayer.succeed(mock[StreamDataProvider]),
           ZLayer.succeed(mock[BackfillStreamDataProvider]),
-          ZLayer.succeed(mock[BackfillApplyBatchProcessor]),
+          ZLayer.succeed(mock[BackfillOverwriteBatchProcessor]),
           ZLayer.succeed(mock[StagingProcessor]),
           ZLayer.succeed(mock[FieldFilteringTransformer]),
           ZLayer.succeed(mock[StreamLifetimeService]),

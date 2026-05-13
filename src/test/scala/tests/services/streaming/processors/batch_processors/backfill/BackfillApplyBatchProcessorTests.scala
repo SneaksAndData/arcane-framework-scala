@@ -7,7 +7,7 @@ import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
-import services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
+import services.streaming.processors.batch_processors.backfill.BackfillOverwriteBatchProcessor
 import tests.shared.TablePropertiesSettings
 
 import org.apache.iceberg.Schema
@@ -69,7 +69,7 @@ class BackfillApplyBatchProcessorTests extends AsyncFlatSpec with Matchers with 
     }
     replay(mergeServiceClient, sinkEntityManager, sinkPropertyManager)
 
-    val processor = BackfillApplyBatchProcessor(mergeServiceClient, sinkEntityManager, sinkPropertyManager)
+    val processor = BackfillOverwriteBatchProcessor(mergeServiceClient, sinkEntityManager, sinkPropertyManager)
 
     // Act
     val stream = ZStream.fromIterable(testInput).via(processor.process).runCollect

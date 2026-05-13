@@ -83,7 +83,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
   DefaultStreamingGraphBuilder
 }
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
+  BackfillOverwriteBatchProcessor,
   BackfillOverwriteWatermarkProcessor
 }
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
@@ -132,7 +132,7 @@ object main extends ZIOAppDefault {
     JdbcMergeServiceClient.layer,
     MyPluginStreamingDataProvider.layer, // Plugin implementation of a StreamingDataProvider 
     MyPluginHookManager.layer, // Plugin implementation of a HookManager
-    BackfillApplyBatchProcessor.layer,
+    BackfillOverwriteBatchProcessor.layer,
     GenericBackfillStreamingOverwriteDataProvider.layer,
     GenericBackfillStreamingMergeDataProvider.layer,
     DefaultStreamingGraphBuilder.backfillSubStreamLayer,
