@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.base
+package services.backfill
+
+import services.streaming.base.StreamingGraphBuilder
 
 import zio.stream.ZStream
 

@@ -6,6 +6,7 @@ import models.schemas.DataRow
 import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 
+import com.sneaksanddata.arcane.framework.services.backfill.BackfillDataProvider
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 

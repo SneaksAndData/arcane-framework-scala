@@ -9,11 +9,7 @@ import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.metrics.base.MetricTagProvider
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.{
-  BackfillOverwriteBatchFactory,
-  GenericBackfillStreamingMergeDataProvider,
-  StreamDataProvider
-}
+import services.streaming.base.StreamDataProvider
 import services.streaming.graph_builders.GenericStreamingGraphBuilder
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
@@ -25,6 +21,7 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import models.schemas.ArcaneType.StringType
+import com.sneaksanddata.arcane.framework.services.backfill.{BackfillOverwriteBatchFactory, GenericBackfillStreamingMergeDataProvider}
 
 import org.easymock.{Capture, EasyMock}
 import org.easymock.EasyMock.{replay, verify}

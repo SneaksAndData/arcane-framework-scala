@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.base
+package services.backfill
 
+import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import zio.stream.ZStream
 
 /** A trait that represents a backfill data provider.

@@ -1,15 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph_builders.backfill
 
-import services.streaming.base.{
-  BackfillStreamingGraphBuilder,
-  BackfillStreamingOverwriteDataProvider,
-  StreamDataProvider
-}
+import services.streaming.base.StreamDataProvider
 import services.streaming.processors.batch_processors.backfill.{
   BackfillApplyBatchProcessor,
   BackfillOverwriteWatermarkProcessor
 }
+import com.sneaksanddata.arcane.framework.services.backfill.{BackfillStreamingGraphBuilder, BackfillStreamingOverwriteDataProvider}
 
 import zio.stream.ZStream
 import zio.{ZIO, ZLayer}

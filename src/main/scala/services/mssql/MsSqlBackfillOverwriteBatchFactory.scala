@@ -9,7 +9,7 @@ import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
 import services.iceberg.base.StagingPropertyManager
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
-import services.streaming.base.BackfillOverwriteBatchFactory
+import com.sneaksanddata.arcane.framework.services.backfill.BackfillOverwriteBatchFactory
 
 import zio.{Task, ZIO, ZLayer}
 

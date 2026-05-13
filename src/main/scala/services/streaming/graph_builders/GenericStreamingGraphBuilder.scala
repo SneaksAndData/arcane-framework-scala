@@ -3,7 +3,7 @@ package services.streaming.graph_builders
 
 import models.app.PluginStreamContext
 import services.app.base.StreamLifetimeService
-import services.streaming.base.{BackfillSubStream, StreamDataProvider, StreamingGraphBuilder}
+import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
@@ -12,6 +12,7 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.backfill.BackfillSubStream
 
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}

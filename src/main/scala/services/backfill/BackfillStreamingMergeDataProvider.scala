@@ -1,19 +1,15 @@
 package com.sneaksanddata.arcane.framework
-package services.streaming.base
-
-import models.batches.StagedBackfillOverwriteBatch
+package services.backfill
 
 import zio.Task
 
 /** A trait that represents a backfill data provider.
   */
-trait BackfillStreamingOverwriteDataProvider:
-
-  type BatchType = StagedBackfillOverwriteBatch | Unit
+trait BackfillStreamingMergeDataProvider:
 
   /** Provides the backfill data.
     *
     * @return
     *   A task that represents the backfill data.
     */
-  def requestBackfill: Task[BatchType]
+  def requestBackfill: Task[Unit]

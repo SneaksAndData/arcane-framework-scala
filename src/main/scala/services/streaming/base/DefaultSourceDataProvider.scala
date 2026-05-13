@@ -11,6 +11,7 @@ import models.settings.sources.{BufferingImpl, UnboundedImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sneaksanddata.arcane.framework.services.backfill.BackfillDataProvider
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
