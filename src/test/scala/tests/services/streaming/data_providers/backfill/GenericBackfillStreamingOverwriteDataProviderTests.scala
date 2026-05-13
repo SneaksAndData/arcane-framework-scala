@@ -5,7 +5,7 @@ import models.*
 import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
-import services.base.{DisposeServiceClient, MergeServiceClient}
+import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient}
 import services.filters.FieldsFilteringService
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.metrics.base.MetricTagProvider
@@ -28,6 +28,7 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import tests.services.streaming.processors.utils.TestStageVersionedBatch
 import tests.shared.*
 
+import org.easymock.{Capture, EasyMock}
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -143,7 +144,6 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ),
       List(
         DataCell("name", ArcaneType.StringType, "John"),
-        DataCell("family_name", ArcaneType.StringType, "Doe"),
         DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
       )
     )
@@ -152,13 +152,25 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
     val mergeServiceClient   = mock[MergeServiceClient]
     val streamDataProvider   = mock[StreamDataProvider]
 
+    val batchCapture = Capture.newInstance[TestMergeBatch]
+
     expecting {
 
       // The data provider mock provides an infinite stream of test input
-      streamDataProvider.stream.andReturn(ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1))
+      streamDataProvider.stream.andReturn(
+        ZStream.succeed(
+          (
+            ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1),
+            ArcaneSchema(Seq(IndexedMergeKeyField(1), IndexedField("name", StringType, 2)))
+          )
+        )
+      )
+
+      mergeServiceClient.applyBatch(EasyMock.capture(batchCapture)).andReturn(ZIO.succeed(true)).times(5)
+      disposeServiceClient.disposeBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchDisposeResult(true))).times(5)
 
     }
-    replay(streamDataProvider, mergeServiceClient)
+    replay(streamDataProvider, mergeServiceClient, disposeServiceClient)
 
     val gb = ZLayer.make[BackfillStreamingOverwriteDataProvider](
       // Real services
@@ -187,7 +199,7 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       ZLayer.succeed(TestPluginStreamContext),
       ZLayer.succeed(new TestStagedBatchFactory()),
       TargetMaintenanceProcessor.layer,
-      SchemaMigrationProcessor.layer,
+      VoidSchemaMigrationProcessor.layer,
       DeclaredMetrics.layer,
       GlobalMetricTagProvider.layer,
       WatermarkProcessor.layer,
@@ -203,7 +215,8 @@ class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec w
       )
       .map { result =>
         // Assert
-        verify()
+        verify(streamDataProvider, mergeServiceClient, disposeServiceClient)
         result shouldBe a[Unit]
+        batchCapture.getValue.name.startsWith("staging_table__") shouldBe true
       }
   }
