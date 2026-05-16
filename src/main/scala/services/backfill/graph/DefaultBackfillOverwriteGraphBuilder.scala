@@ -23,7 +23,7 @@ import zio.{ZIO, ZLayer}
   *   2. Applying the resulting batch to the target table using the SQL `CREATE OR REPLACE TABLE` statement.
   *   3. Since the table is replaced, the dispose batch processor is not needed and the graph builder.
   */
-class GenericBackfillOverwriteGraphBuilder(
+class DefaultBackfillOverwriteGraphBuilder(
                                             streamDataProvider: BackfillStreamDataProvider,
                                             applyBatchProcessor: BackfillOverwriteBatchProcessor,
                                             watermarkProcessor: BackfillOverwriteWatermarkProcessor,
@@ -55,9 +55,10 @@ class GenericBackfillOverwriteGraphBuilder(
             case Some(staged) => staged
           }
         // it should be instead propagated down and processed during shard merge
-        case shard: WatermarkShard[SourceWatermark[String] & JsonWatermark] => ZStream.succeed(WatermarkShardBatch(shard.watermark.version))
+        // TODO: fill target name
+        case shard: WatermarkShard[SourceWatermark[String] & JsonWatermark] => ZStream.succeed(WatermarkShardBatch(shard.watermark.version, ""))
       }
-    // TODO: need a processor that waits for incoming shard to be fully processed
+      .via(applyBatchProcessor.process)
     // it should then clean it up and filter out of the processing stream
       .via(watermarkProcessor.process)
 //.via(applyBatchProcessor.process)

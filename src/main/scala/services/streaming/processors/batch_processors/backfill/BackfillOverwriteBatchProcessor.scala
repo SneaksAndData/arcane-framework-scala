@@ -7,7 +7,7 @@ import services.base.MergeServiceClient
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import services.streaming.base.StreamingBatchProcessor
 
-import com.sneaksanddata.arcane.framework.services.backfill.processors.ShardProcessor
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{ShardProcessor, StagedShardBatch, WatermarkShardBatch}
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -31,12 +31,23 @@ class BackfillOverwriteBatchProcessor(
   // TODO: first combine all batches in a single staging table by executing their queries
   // TODO: then run overwrite batch apply
   
-    ZPipeline.mapZIO(batch =>
-      for
-        _ <- zlog("Applying backfill batch with name to %s", batch.name)
-        _ <- mergeServiceClient.applyBatch(batch)
-      yield batch
-    )
+    ZPipeline
+      .mapZIO {
+        case staged: StagedShardBatch => for
+          _ <- zlog("Completed shard from the staging table %s ready for combine", staged.name)
+          _ <- mergeServiceClient.applyBatch(staged)
+        yield None
+        case watermark: WatermarkShardBatch => for
+          _ <- zlog("Watermark %s ready to be applied", watermark.completedWatermarkValue.get)
+        yield Some(watermark)
+      }
+      .collect {
+        case Some(watermark) => watermark
+      }
+      .mapZIO { wm => for
+        _ <- zlog("All shards have been combined, swapping into target", watermark.name)
+       yield wm 
+      }
 
 object BackfillOverwriteBatchProcessor:
 

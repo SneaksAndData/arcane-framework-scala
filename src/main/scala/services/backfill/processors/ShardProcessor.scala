@@ -34,7 +34,11 @@ class StagedShardBatch(targetName: String, tableName: String, batchSchema: Arcan
 
   override def reduceExpr: String = ???
   
-class WatermarkShardBatch(watermark: String) extends StagedBatch:
+class WatermarkShardBatch(watermark: String, targetName: String) extends StagedShardBatch(
+  targetName,
+  "watermark",
+  ArcaneSchema.empty()
+):
   override val name: String = "watermark"
   override val completedWatermarkValue: Option[String] = Some(watermark)
 

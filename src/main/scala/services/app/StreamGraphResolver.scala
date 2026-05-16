@@ -4,7 +4,7 @@ package services.app
 import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.settings.backfill.BackfillBehavior
-import services.backfill.graph.{GenericBackfillMergeGraphBuilder, GenericBackfillOverwriteGraphBuilder}
+import services.backfill.graph.{GenericBackfillMergeGraphBuilder, DefaultBackfillOverwriteGraphBuilder}
 import services.streaming.base.StreamingGraphBuilder
 import services.streaming.graph.DefaultStreamingGraphBuilder
 
@@ -28,7 +28,7 @@ object StreamGraphResolver:
       >>> ZLayer.fromZIO(resolveGraphBuilder)
 
   private type ResolverEnvironment = Environment & GenericBackfillMergeGraphBuilder &
-    GenericBackfillOverwriteGraphBuilder & DefaultStreamingGraphBuilder
+    DefaultBackfillOverwriteGraphBuilder & DefaultStreamingGraphBuilder
 
   private def resolveGraphBuilder: ZIO[ResolverEnvironment, Nothing, StreamingGraphBuilder] =
     for
@@ -39,6 +39,6 @@ object StreamGraphResolver:
       builder <- (isBackfilling, context.streamMode.backfill.backfillBehavior) match
         case (false, _)                         => ZIO.service[DefaultStreamingGraphBuilder]
         case (true, BackfillBehavior.Merge)     => ZIO.service[GenericBackfillMergeGraphBuilder]
-        case (true, BackfillBehavior.Overwrite) => ZIO.service[GenericBackfillOverwriteGraphBuilder]
+        case (true, BackfillBehavior.Overwrite) => ZIO.service[DefaultBackfillOverwriteGraphBuilder]
       _ <- zlog("Using the stream graph builder: %s", builder.getClass.getName)
     yield builder
