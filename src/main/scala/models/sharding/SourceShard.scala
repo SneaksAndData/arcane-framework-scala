@@ -31,3 +31,7 @@ trait WatermarkShard[WatermarkType <: SourceWatermark[String] & JsonWatermark] e
 
 case class JsonWatermarkShard(watermark: SourceWatermark[String] & JsonWatermark) extends WatermarkShard[SourceWatermark[String] & JsonWatermark]:
   override val shardId: String = "watermark"
+
+object SourceShardExtensions:
+  extension (shard: SourceShard)
+    def getStagingTableName(prefix: String): String = s"${prefix}_${shard.shardId}"

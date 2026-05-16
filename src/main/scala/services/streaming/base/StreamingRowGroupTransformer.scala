@@ -11,7 +11,7 @@ import zio.stream.ZPipeline
 
 /** A trait that represents a row processor.
   */
-trait RowGroupTransformer:
+trait StreamingRowGroupTransformer:
 
   type OutgoingElement <: StagedBatch
   type IncomingElement = DataRow

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.backfill
 
 import models.app.PluginStreamContext
-import models.batches.StagedBackfillOverwriteBatch
+import models.batches.{StagedBackfillOverwriteBatch, StagedBatch}
 import models.settings.sink.SinkSettings
 import models.settings.TableNaming.*
 import services.iceberg.base.SinkPropertyManager
@@ -20,15 +20,16 @@ class BackfillOverwriteWatermarkProcessor(
     declaredMetrics: DeclaredMetrics
 ) extends StreamingBatchProcessor:
 
-  override type BatchType = WatermarkShardBatch
+  override type BatchType = StagedBatch
 
-  override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO { batch =>
-    for _ <- batch.applyWatermark(
-        propertyManager,
-        targetTableShortName,
-        declaredMetrics,
-        "BackfillOverwriteWatermarkProcessor"
-      )
+  override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline.mapZIO {
+    case batch: WatermarkShardBatch =>
+      for _ <- batch.applyWatermark(
+          propertyManager,
+          targetTableShortName,
+          declaredMetrics,
+          "BackfillOverwriteWatermarkProcessor"
+        )
     yield batch
   }
 

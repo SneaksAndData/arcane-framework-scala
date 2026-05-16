@@ -1,19 +1,24 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill.processors
 
-import services.streaming.base.{RowGroupTransformer, StreamingBatchProcessor}
+import services.streaming.base.{StreamingBatchProcessor, StreamingRowGroupTransformer}
 
 import com.sneaksanddata.arcane.framework.models.batches.StagedBatch
 import com.sneaksanddata.arcane.framework.models.queries.StreamingBatchQuery
 import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
 import com.sneaksanddata.arcane.framework.models.settings.iceberg.IcebergCatalogSettings
 import com.sneaksanddata.arcane.framework.models.settings.staging.StagingTableSettings
+import com.sneaksanddata.arcane.framework.models.sharding.SourceShard
+import com.sneaksanddata.arcane.framework.services.backfill.BackfillRowGroupTransformer
 import com.sneaksanddata.arcane.framework.services.iceberg.base.CatalogWriter
 import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import com.sneaksanddata.arcane.framework.services.streaming.batching.StagedBatchFactory
+import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_ArcaneSchema_Schema
+import com.sneaksanddata.arcane.framework.models.sharding.SourceShardExtensions.*
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
-import zio.stream.ZPipeline
+import zio.Chunk
+import zio.stream.{ZPipeline, ZSink}
 
 class ShardCompletionQuery(targetName: String, sourceName: String) extends StreamingBatchQuery:
   // TODO: apply reduce expr
@@ -38,12 +43,16 @@ class WatermarkShardBatch(watermark: String) extends StagedBatch:
 class ShardProcessor (
                        stagingDataSettings: StagingTableSettings,
                        targetTableFullName: String,
-                       icebergCatalogSettings: IcebergCatalogSettings,
                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                        batchFactory: StagedBatchFactory,
                        declaredMetrics: DeclaredMetrics
-                     ) extends RowGroupTransformer:
+                     ) extends BackfillRowGroupTransformer:
   
   override type OutgoingElement = StagedShardBatch
   
-  override def process(schema: ArcaneSchema): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] = ???
+  override def process(shard: SourceShard, schema: ArcaneSchema): ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] = ZPipeline[IncomingElement]
+    // TODO: bit of a mess with table name, refactor
+    .mapChunksZIO(rows => catalogWriter.append(rows, shard.getStagingTableName(stagingDataSettings.stagingTablePrefix), schema, Seq()).map(_ => Chunk(1)))
+    .map(_ => StagedShardBatch(targetTableFullName, shard.getStagingTableName(stagingDataSettings.stagingTablePrefix), schema))
+    
+    

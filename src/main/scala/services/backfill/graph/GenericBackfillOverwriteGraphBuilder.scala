@@ -5,11 +5,12 @@ import services.backfill.BackfillStreamDataProvider
 import services.streaming.base.{JsonWatermark, SourceWatermark, StreamDataProvider}
 import services.streaming.processors.batch_processors.backfill.{BackfillOverwriteBatchProcessor, BackfillOverwriteWatermarkProcessor}
 
+import com.sneaksanddata.arcane.framework.models.batches.StagedBatch
 import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import com.sneaksanddata.arcane.framework.models.sharding.{StagedShard, WatermarkShard}
 import com.sneaksanddata.arcane.framework.services.backfill.processors.{ShardProcessor, StagedShardBatch, WatermarkShardBatch}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.FieldFilteringTransformer
-import zio.stream.ZStream
+import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{ZIO, ZLayer}
 
 /** Provides the complete data stream for the streaming process including all the stages and services except the sink
@@ -31,10 +32,11 @@ class GenericBackfillOverwriteGraphBuilder(
 ) extends BackfillStreamingGraphBuilder:
 
   private val backfillParallelism = Runtime.getRuntime.availableProcessors() * 2
+  private def aggregateShard = ZPipeline.fromSink(ZSink.last[StagedShardBatch])
 
   /** @inheritdoc
     */
-  override type ProcessedBatch = BackfillOverwriteBatchProcessor#BatchType
+  override type ProcessedBatch = StagedBatch
 
   /** @inheritdoc
     */
@@ -43,13 +45,21 @@ class GenericBackfillOverwriteGraphBuilder(
       .flatMapPar(backfillParallelism, 1){
         case shard: StagedShard => shard.shardStream._1
           .via(fieldFilteringProcessor.process)
-          .via(shardProcessor.process(shard.shardStream._2))
-        // TODO: due to parallelism this will cause watermark to be applied out of order
+          // append rows to the same staging table
+          .via(shardProcessor.process(shard, shard.shardStream._2))
+          // discard all intermediate batches as they are identical
+          .via(aggregateShard)
+          // filter out empty shards
+          // such shards can be present in the stream if backfill has been restarted
+          .collect {
+            case Some(staged) => staged
+          }
         // it should be instead propagated down and processed during shard merge
         case shard: WatermarkShard[SourceWatermark[String] & JsonWatermark] => ZStream.succeed(WatermarkShardBatch(shard.watermark.version))
-        .via(watermarkProcessor.process)
-          .map(_ => StagedShardBatch("", "", ArcaneSchema.empty()))
       }
+    // TODO: need a processor that waits for incoming shard to be fully processed
+    // it should then clean it up and filter out of the processing stream
+      .via(watermarkProcessor.process)
 //.via(applyBatchProcessor.process)
 //.via(watermarkProcessor.process)
 //      
