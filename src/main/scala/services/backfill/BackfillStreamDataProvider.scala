@@ -16,5 +16,5 @@ trait BackfillStreamDataProvider:
     * @return
     *   A task that represents the backfill data.
     */
-  def backfillStream: (stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)
+  def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)]
   

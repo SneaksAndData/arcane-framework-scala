@@ -3,19 +3,19 @@ package services.backfill
 
 import logging.ZIOLogAnnotations.zlogStream
 import models.settings.backfill.BackfillSettings
-import models.sharding.{SourceShard, StagedShard}
+import models.sharding.{BootstrappedShard, SourceShard, StagedShard}
 import services.metrics.DeclaredMetrics
-import services.streaming.base.SourceWatermark
+import services.streaming.base.{JsonWatermark, SourceWatermark}
 
 import zio.Task
 import zio.stream.ZStream
 
-class DefaultBackfillStreamDataProvider[WatermarkType <: SourceWatermark[String]](
+class DefaultBackfillStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
                                                                                  dataProvider: BackfillSourceDataProvider[WatermarkType],
                                                                                  backfillSettings: BackfillSettings,
                                                                                  declaredMetrics: DeclaredMetrics
                                                                                  ) extends BackfillStreamDataProvider:
   
 
-  def backfillStream: ZStream[Any, Throwable, SourceShard] = ZStream.whenZIO(dataProvider.isEmpty.negate)(dataProvider.requestBackfill)
+  def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] = dataProvider.getSnapshotVersion.map(watermark => (dataProvider.requestBackfill, watermark))
 

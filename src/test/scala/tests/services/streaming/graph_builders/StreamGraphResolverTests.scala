@@ -10,7 +10,7 @@ import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStr
 import services.streaming.batching.StagedBatchFactory
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import com.sneaksanddata.arcane.framework.services.app.StreamGraphResolver
-import com.sneaksanddata.arcane.framework.services.backfill.processors.{ShardCombineProcessor, BackfillWatermarkProcessor}
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{ShardCombineProcessor, BackfillCompletionProcessor}
 
 import com.sneaksanddata.arcane.framework.services.backfill.{BackfillStreamDataProvider, BackfillStreamingOverwriteDataProvider}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -52,7 +52,7 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
           ZLayer.succeed(mock[WatermarkProcessor]),
-          ZLayer.succeed(mock[BackfillWatermarkProcessor]),
+          ZLayer.succeed(mock[BackfillCompletionProcessor]),
           ZLayer.succeed(mock[SchemaMigrationProcessor]),
           ZLayer.succeed(mock[TargetMaintenanceProcessor])
         )

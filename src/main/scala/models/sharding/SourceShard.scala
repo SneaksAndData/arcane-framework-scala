@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.sharding
 
-import models.queries.{ShardCommitQuery, StreamingBatchQuery}
+import models.queries.{OverwriteReplaceQuery, ShardCommitQuery, StreamingBatchQuery}
 import services.streaming.base.{JsonWatermark, SourceWatermark, StructuredZStream}
 
+import com.sneaksanddata.arcane.framework.models.settings.EmptyTablePropertiesSettings
 import zio.stream.ZStream
 
 /**
@@ -30,27 +31,33 @@ trait StagedShard extends SourceShard:
   val commitQuery: StreamingBatchQuery = ShardCommitQuery(combinedTableName, shardTableName)
   
 object StagedShard:
-  def apply(id: String, shardTableName: String, shardSourceName: String, combinedTableName: String): StagedShard = new StagedShard {
+  def apply(id: String, shardTableName: String, shardSourceName: String, combinedTableName: String, targetTableName: String): StagedShard = new StagedShard {
     override val shardTableName: String = shardTableName
     override val shardSourceEntityName: String = shardSourceName
     override val shardId: String = id
     override val combinedTableName: String = combinedTableName
+    override val targetTableName: String = targetTableName
   }
   extension (shard: BootstrappedShard)
     def toStaged(shardTableName: String): StagedShard = StagedShard(
       shard.shardId,
       shardTableName,
       shard.shardSourceEntityName,
-      shard.combinedTableName
+      shard.combinedTableName,
+      shard.targetTableName
     )
 
 case class CompletionShard(watermark: JsonWatermark, targetTableName: String, shardSourceEntityName: String) extends StagedShard:
   override val shardId: String = "watermark"
   override val shardTableName: String = ???
   override val combinedTableName: String = ???
+  override val commitQuery: StreamingBatchQuery = OverwriteReplaceQuery(s"SELECT * FROM $combinedTableName", targetTableName, EmptyTablePropertiesSettings)
 
 object CompletionShard:
   extension (shard: CompletionShard)
     def toCompleted: CompletedShard = CompletedShard(shard.shardId, shard.combinedTableName, shard.targetTableName)  
   
-case class CompletedShard(shardId: String, combinedTableName: String, targetTableName: String) extends StagedShard
+case class CompletedShard(shardId: String, combinedTableName: String, targetTableName: String) extends StagedShard:
+  override val shardTableName: String = ???
+  override val shardSourceEntityName: String = ???
+

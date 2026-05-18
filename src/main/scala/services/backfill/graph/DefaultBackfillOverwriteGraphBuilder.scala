@@ -5,7 +5,7 @@ import models.batches.StagedBatch
 import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.sharding.{CompletedShard, CompletionShard, StagedShard}
 import services.backfill.BackfillStreamDataProvider
-import services.backfill.processors.{BackfillWatermarkProcessor, ShardCombineProcessor, ShardStagingProcessor}
+import services.backfill.processors.{BackfillCompletionProcessor, ShardCombineProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
 import services.streaming.base.{JsonWatermark, SourceWatermark, StreamDataProvider}
 import services.streaming.processors.transformers.FieldFilteringTransformer
@@ -28,7 +28,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                                             shardStageProcessor: ShardStagingProcessor,
                                             mergeServiceClient: MergeServiceClient,
                                             fieldFilteringProcessor: FieldFilteringTransformer,
-                                            backfillWatermarkProcessor: BackfillWatermarkProcessor,
+                                            backfillCompletionProcessor: BackfillCompletionProcessor,
 ) extends BackfillStreamingGraphBuilder:
 
   private val backfillParallelism = Runtime.getRuntime.availableProcessors() * 2
@@ -40,28 +40,30 @@ class DefaultBackfillOverwriteGraphBuilder(
 
   /** @inheritdoc
     */
-  override def produce(): ZStream[Any, Throwable, ProcessedBatch] =
-    val (stream, watermark) = streamDataProvider.backfillStream
-    val combineProcessor = ShardCombineProcessor(mergeServiceClient, watermark)
-    
-    stream
-      .flatMapPar(backfillParallelism, 1){ shard =>
-        shard.shardStream._1
-          .via(fieldFilteringProcessor.process)
-          .via(shardStageProcessor.process(shard, shard.shardStream._2))
-          .via(aggregateShard)
-          .collect {
-            case Some(staged) => staged
-          }
-      }
-      .via(combineProcessor.process)
-      .via(backfillWatermarkProcessor.process)
+  override def produce(): ZStream[Any, Throwable, ProcessedBatch] = ZStream.fromZIO(streamDataProvider.backfillStream)
+    .flatMap {
+      case (stream, watermark) =>     
+        val combineProcessor = ShardCombineProcessor(mergeServiceClient, watermark)
 
+        stream
+          .flatMapPar(backfillParallelism, 1){ shard =>
+            shard.shardStream._1
+              .via(fieldFilteringProcessor.process)
+              .via(shardStageProcessor.process(shard, shard.shardStream._2))
+              .via(aggregateShard)
+              .collect {
+                case Some(staged) => staged
+              }
+          }
+          .via(combineProcessor.process)
+          .via(backfillCompletionProcessor.process)
+    }
+  
 object DefaultBackfillOverwriteGraphBuilder:
 
   /** The environment required for the DefaultBackfillOverwriteGraphBuilder.
     */
-  type Environment = BackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient & FieldFilteringTransformer & BackfillWatermarkProcessor
+  type Environment = BackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient & FieldFilteringTransformer & BackfillCompletionProcessor
 
   /** Creates a new DefaultBackfillOverwriteGraphBuilder.
     */
@@ -70,9 +72,9 @@ object DefaultBackfillOverwriteGraphBuilder:
              shardStageProcessor: ShardStagingProcessor,
              mergeServiceClient: MergeServiceClient,
              fieldFilteringProcessor: FieldFilteringTransformer,
-             backfillWatermarkProcessor: BackfillWatermarkProcessor,
+             backfillCompletionProcessor: BackfillCompletionProcessor,
   ): DefaultBackfillOverwriteGraphBuilder =
-    new DefaultBackfillOverwriteGraphBuilder(streamDataProvider, shardStageProcessor, mergeServiceClient, fieldFilteringProcessor, backfillWatermarkProcessor)
+    new DefaultBackfillOverwriteGraphBuilder(streamDataProvider, shardStageProcessor, mergeServiceClient, fieldFilteringProcessor, backfillCompletionProcessor)
 
   /** The ZLayer for the DefaultBackfillOverwriteGraphBuilder.
    */
@@ -83,6 +85,6 @@ object DefaultBackfillOverwriteGraphBuilder:
         shardStageProcessor <- ZIO.service[ShardStagingProcessor]
         mergeServiceClient <- ZIO.service[MergeServiceClient]
         fieldFilteringProcessor <- ZIO.service[FieldFilteringTransformer]
-        backfillWatermarkProcessor <- ZIO.service[BackfillWatermarkProcessor]
+        backfillWatermarkProcessor <- ZIO.service[BackfillCompletionProcessor]
       yield DefaultBackfillOverwriteGraphBuilder(streamDataProvider, shardStageProcessor, mergeServiceClient, fieldFilteringProcessor, backfillWatermarkProcessor)
     }

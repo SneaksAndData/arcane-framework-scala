@@ -8,6 +8,7 @@ import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.sharding.{CompletedShard, CompletionShard}
 import services.backfill.StagedShardProcessor
+import services.base.MergeServiceClient
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
@@ -16,9 +17,10 @@ import services.streaming.processors.batch_processors.WatermarkProcessingExtensi
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
-class BackfillWatermarkProcessor(
+class BackfillCompletionProcessor(
     propertyManager: SinkPropertyManager,
     targetTableShortName: String,
+    mergeServiceClient: MergeServiceClient,                            
     declaredMetrics: DeclaredMetrics
 ) extends StagedShardProcessor:
 
@@ -29,6 +31,9 @@ class BackfillWatermarkProcessor(
     .mapZIO {
     shard =>
       for
+        _ <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
+        _ <- mergeServiceClient.commitShard(shard)
+        _ <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
         previousWatermark <- propertyManager.getProperty(shard.targetTableName, "comment")
         _                 <- propertyManager.comment(shard.targetTableName, shard.watermark.toJson)
         _ <- zlog(
@@ -43,25 +48,27 @@ class BackfillWatermarkProcessor(
       yield shard.toCompleted
   }
 
-object BackfillWatermarkProcessor:
+object BackfillCompletionProcessor:
   def apply(
       propertyManager: SinkPropertyManager,
       targetTableShortName: String,
+      mergeServiceClient: MergeServiceClient,
       declaredMetrics: DeclaredMetrics
-  ): BackfillWatermarkProcessor =
-    new BackfillWatermarkProcessor(propertyManager, targetTableShortName, declaredMetrics)
+  ): BackfillCompletionProcessor =
+    new BackfillCompletionProcessor(propertyManager, targetTableShortName, mergeServiceClient, declaredMetrics)
 
   /** The required environment for the BackfillWatermarkProcessor.
     */
-  type Environment = SinkPropertyManager & PluginStreamContext & DeclaredMetrics
+  type Environment = SinkPropertyManager & PluginStreamContext & MergeServiceClient & DeclaredMetrics
 
   /** The ZLayer that creates the BackfillWatermarkProcessor.
     */
-  val layer: ZLayer[Environment, Nothing, BackfillWatermarkProcessor] =
+  val layer: ZLayer[Environment, Nothing, BackfillCompletionProcessor] =
     ZLayer {
       for
         iceberg         <- ZIO.service[SinkPropertyManager]
         context         <- ZIO.service[PluginStreamContext]
+        mergeServiceClient <- ZIO.service[MergeServiceClient]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
-      yield BackfillWatermarkProcessor(iceberg, context.sink.targetTableFullName.parts.name, declaredMetrics)
+      yield BackfillCompletionProcessor(iceberg, context.sink.targetTableFullName.parts.name, mergeServiceClient, declaredMetrics)
     }

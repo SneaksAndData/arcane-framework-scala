@@ -6,9 +6,10 @@ import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.settings.backfill.BackfillSettings
+import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
 import models.settings.streaming.StreamModeSettings
-import models.sharding.{CompletionShard, SourceShard, StagedShard}
+import models.sharding.{BootstrappedShard, CompletionShard, SourceShard, StagedShard}
 import services.app.base.StreamLifetimeService
 import services.backfill.BackfillOverwriteBatchFactory
 import services.backfill.graph.BackfillStreamingGraphBuilder
@@ -16,7 +17,6 @@ import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 
-import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 import org.apache.iceberg.Table
 import upickle.ReadWriter
 import zio.stream.{ZPipeline, ZStream}
@@ -49,13 +49,13 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
    *
    * @return
    */
-  protected def backfillStream(backfillStart: WatermarkType, shardCount: Int): ZStream[Any, Throwable, StagedShard]
+  protected def backfillStream(backfillStart: WatermarkType, shardCount: Int): ZStream[Any, Throwable, BootstrappedShard]
   
   protected def hasData(backfillStart: WatermarkType): Task[Boolean]
 
   final override def isEmpty: Task[Boolean] = getBackfillStartWatermark(backfillSettings.backfillStartDate).flatMap(hasData)
 
-  final override def requestBackfill: ZStream[Any, Throwable, SourceShard] = ZStream
+  final override def requestBackfill: ZStream[Any, Throwable, BootstrappedShard] = ZStream
     .fromZIO(getSnapshotVersion)
     .mapZIO { snapshotWatermark => for
         shards <- getShardCount
@@ -63,7 +63,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       yield (snapshot = snapshotWatermark, startFrom = startFromWatermark, shardCount = shards)
     }
     .flatMap {
-      case (snapshot, startFrom, shardCount) => backfillStream(startFrom, shardCount).concat(ZStream.succeed(CompletionShard(snapshot, sinkSettings.targetTableFullName)))
+      case (snapshot, startFrom, shardCount) => backfillStream(startFrom, shardCount)
     }
 
 

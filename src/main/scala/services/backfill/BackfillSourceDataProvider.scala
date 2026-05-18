@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
-import com.sneaksanddata.arcane.framework.models.sharding.SourceShard
+import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, SourceShard}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{SourceWatermark, StructuredZStream}
 import zio.Task
 import zio.stream.ZStream
@@ -20,7 +20,7 @@ trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
     * @return
     *   A task that represents the backfill data.
     */
-  def requestBackfill: ZStream[Any, Throwable, SourceShard]
+  def requestBackfill: ZStream[Any, Throwable, BootstrappedShard]
 
   /**
    * Checks if a source has any data to backfill
