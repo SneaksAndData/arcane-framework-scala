@@ -8,7 +8,7 @@ import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.settings.backfill.BackfillSettings
 import models.settings.staging.StagingTableSettings
 import models.settings.streaming.StreamModeSettings
-import models.sharding.{JsonWatermarkShard, SourceShard, StagedShard}
+import models.sharding.{CompletionShard, SourceShard, StagedShard}
 import services.app.base.StreamLifetimeService
 import services.backfill.BackfillOverwriteBatchFactory
 import services.backfill.graph.BackfillStreamingGraphBuilder
@@ -16,6 +16,7 @@ import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 
+import com.sneaksanddata.arcane.framework.models.settings.sink.SinkSettings
 import org.apache.iceberg.Table
 import upickle.ReadWriter
 import zio.stream.{ZPipeline, ZStream}
@@ -34,6 +35,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
           dataProvider: BackfillSourceDataProvider[WatermarkType],
           backfillSettings: BackfillSettings,
           stagingTableSettings: StagingTableSettings,
+          sinkSettings: SinkSettings,
           metricTagProvider: MetricTagProvider
 )(implicit rw: ReadWriter[WatermarkType]) extends BackfillSourceDataProvider[WatermarkType]:
 
@@ -61,7 +63,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       yield (snapshot = snapshotWatermark, startFrom = startFromWatermark, shardCount = shards)
     }
     .flatMap {
-      case (snapshot, startFrom, shardCount) => backfillStream(startFrom, shardCount).concat(ZStream.succeed(JsonWatermarkShard(snapshot)))
+      case (snapshot, startFrom, shardCount) => backfillStream(startFrom, shardCount).concat(ZStream.succeed(CompletionShard(snapshot, sinkSettings.targetTableFullName)))
     }
 
 

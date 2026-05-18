@@ -3,7 +3,7 @@
 //
 //import services.backfill.BackfillStreamDataProvider
 //import services.streaming.base.StreamDataProvider
-//import services.streaming.processors.batch_processors.backfill.BackfillOverwriteBatchProcessor
+//import services.streaming.processors.batch_processors.backfill.ShardMergeProcessor
 //
 //import zio.stream.ZStream
 //import zio.{ZIO, ZLayer}
@@ -36,7 +36,7 @@
 //
 //  /** The environment required for the GenericBackfillGraphBuilder.
 //    */
-//  type Environment = StreamDataProvider & BackfillStreamDataProvider & BackfillOverwriteBatchProcessor
+//  type Environment = StreamDataProvider & BackfillStreamDataProvider & ShardMergeProcessor
 //
 //  /** Creates a new GenericBackfillGraphBuilder.
 //    * @param streamDataProvider

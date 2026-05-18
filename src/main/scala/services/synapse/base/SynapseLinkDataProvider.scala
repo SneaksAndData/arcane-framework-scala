@@ -32,12 +32,12 @@ class SynapseLinkDataProvider(
       sourceBufferingSettings
     ):
 
-  override protected def backfillStream(
-      backfillStartDate: Option[OffsetDateTime]
-  ): ZStream[Any, Throwable, StructuredZStream] =
-    backfillStartDate match
-      case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
-      case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
+//  override protected def backfillStream(
+//      backfillStartDate: Option[OffsetDateTime]
+//  ): ZStream[Any, Throwable, StructuredZStream] =
+//    backfillStartDate match
+//      case Some(backfillStartDate) => synapseReader.getData(backfillStartDate)
+//      case None                    => ZStream.fail(new IllegalArgumentException("Backfill start date is not set"))
 
   override def hasChanges(previousVersion: SynapseWatermark): Task[Boolean] =
     synapseReader.hasChanges(previousVersion)
@@ -54,11 +54,11 @@ class SynapseLinkDataProvider(
   override protected def changeStream(previousVersion: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
     synapseReader.getChanges(previousVersion)
 
-  /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
-    * @return
-    */
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): SynapseWatermark =
-    SynapseWatermark.epoch
+//  /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
+//    * @return
+//    */
+//  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): SynapseWatermark =
+//    SynapseWatermark.epoch
 
 object SynapseLinkDataProvider:
   type Environment = SynapseLinkReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder

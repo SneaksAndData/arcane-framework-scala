@@ -36,3 +36,9 @@ trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
    * Evaluates number of shards required to backfill this source.
    */
   def getShardCount: Task[Int]
+
+  /**
+   * Retrieves shard metadata from target table, if exists
+   * @return
+   */
+  def getShardMetadata: Task[Seq[SourceShard]]

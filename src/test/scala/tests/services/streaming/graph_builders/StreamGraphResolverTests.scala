@@ -4,13 +4,13 @@ package tests.services.streaming.graph_builders
 import models.settings.backfill.BackfillBehavior
 import services.app.base.StreamLifetimeService
 import services.streaming.base.*
-import services.streaming.processors.batch_processors.backfill.{BackfillOverwriteBatchProcessor, BackfillOverwriteWatermarkProcessor}
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginStreamContext}
 import services.streaming.batching.StagedBatchFactory
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import com.sneaksanddata.arcane.framework.services.app.StreamGraphResolver
+import com.sneaksanddata.arcane.framework.services.backfill.processors.{ShardCombineProcessor, BackfillWatermarkProcessor}
 
 import com.sneaksanddata.arcane.framework.services.backfill.{BackfillStreamDataProvider, BackfillStreamingOverwriteDataProvider}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -44,7 +44,7 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(streamContext),
           ZLayer.succeed(mock[StreamDataProvider]),
           ZLayer.succeed(mock[BackfillStreamDataProvider]),
-          ZLayer.succeed(mock[BackfillOverwriteBatchProcessor]),
+          ZLayer.succeed(mock[ShardCombineProcessor]),
           ZLayer.succeed(mock[StagingProcessor]),
           ZLayer.succeed(mock[FieldFilteringTransformer]),
           ZLayer.succeed(mock[StreamLifetimeService]),
@@ -52,7 +52,7 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[BackfillStreamingOverwriteDataProvider]),
           ZLayer.succeed(mock[WatermarkProcessor]),
-          ZLayer.succeed(mock[BackfillOverwriteWatermarkProcessor]),
+          ZLayer.succeed(mock[BackfillWatermarkProcessor]),
           ZLayer.succeed(mock[SchemaMigrationProcessor]),
           ZLayer.succeed(mock[TargetMaintenanceProcessor])
         )

@@ -51,22 +51,22 @@ class DeclaredMetrics:
   /** Time it takes to create a staging table from incoming row chunk
     */
   val batchStageDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch_set.stage_duration")
+    .gauge(s"$metricsNamespace.batch.stage_duration")
 
   /** Time it takes to merge a staging table into target
     */
   val batchMergeDuration: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.batch.merge_duration")
 
-  /** Time it takes to complete merge stage, which includes schema migration, merge and maintenance
-    */
-  val batchMergeStageDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch_set.merge_duration")
-
   /** Time it takes to dispose of a staging batch table
     */
   val batchDisposeDuration: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.batch.dispose_duration")
+
+  /** Time it takes to commit a source shard table into the intermediate target
+   */
+  val shardCommitDuration: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.backfill.shard.commit_duration")
 
   /** Time it takes to run optimize on the target
     */

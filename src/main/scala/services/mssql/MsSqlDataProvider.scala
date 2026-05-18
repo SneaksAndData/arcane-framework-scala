@@ -52,16 +52,16 @@ class MsSqlDataProvider(
         }
     yield version
 
-  override protected def backfillStream(
-      backfillStartDate: Option[OffsetDateTime]
-  ): ZStream[Any, Throwable, StructuredZStream] =
-    reader.backfill
+//  override protected def backfillStream(
+//      backfillStartDate: Option[OffsetDateTime]
+//  ): ZStream[Any, Throwable, StructuredZStream] =
+//    reader.backfill
 
   override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
     reader.getChanges(previousVersion)
 
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): MsSqlWatermark =
-    MsSqlWatermark.epoch
+//  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): MsSqlWatermark =
+//    MsSqlWatermark.epoch
 
 /** The companion object for the MsSqlDataProvider class.
   */
