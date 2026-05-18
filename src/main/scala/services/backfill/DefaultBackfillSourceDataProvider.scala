@@ -1,29 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
-import logging.ZIOLogAnnotations.zlog
-import models.app.PluginStreamContext
-import models.batches.{MergeableBatch, StagedVersionedBatch}
-import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
-import models.settings.streaming.StreamModeSettings
-import models.sharding.{BootstrappedShard, CompletionShard, SourceShard, StagedShard}
-import services.app.base.StreamLifetimeService
-import services.backfill.BackfillOverwriteBatchFactory
-import services.backfill.graph.BackfillStreamingGraphBuilder
+import models.sharding.BootstrappedShard
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
-import services.streaming.processors.transformers.StagingProcessor
 
-import org.apache.iceberg.Table
 import upickle.ReadWriter
-import zio.stream.{ZPipeline, ZStream}
-import zio.{Chunk, Task, ZIO, ZIOAspect, ZLayer}
+import zio.Task
+import zio.stream.ZStream
 
 import java.time.OffsetDateTime
-import scala.collection.SortedMap
 
 /** Provides the backfill data stream for the streaming process. It is utilized when the backfill process begins with
   * the `overwrite` behavior. An important distinction between this and the GenericBackfillStreamingMergeDataProvider is

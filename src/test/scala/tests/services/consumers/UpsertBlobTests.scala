@@ -62,41 +62,41 @@ class UpsertBlobTests extends AnyFlatSpec with Matchers:
 
     query.query should equal(expected)
   }
-
-  "UpsertBlobBackfillOverwriteBatch" should "generate a valid backfill overwrite batch" in {
-    val batch = UpsertBlobBackfillOverwriteBatch(
-      "test.staged_a",
-      Seq(
-        MergeKeyField,
-        Field(
-          name = "colA",
-          fieldType = StringType
-        ),
-        Field(
-          name = "colB",
-          fieldType = StringType
-        ),
-        Field(
-          name = BlobBatchCommons.versionField.name,
-          fieldType = BlobBatchCommons.versionField.fieldType
-        ),
-        Field(
-          name = "Id",
-          fieldType = StringType
-        )
-      ),
-      "test.table_a",
-      TestTablePropertiesSettings,
-      Some("1234")
-    )
-
-    val expected =
-      Using(Source.fromURL(getClass.getResource("/generate_a_valid_upsertblob_backfill_overwrite_query.sql"))) {
-        _.getLines().mkString("\n")
-      }.get
-
-    batch.batchQuery.query should equal(expected)
-  }
+//
+//  "UpsertBlobBackfillOverwriteBatch" should "generate a valid backfill overwrite batch" in {
+//    val batch = UpsertBlobBackfillOverwriteBatch(
+//      "test.staged_a",
+//      Seq(
+//        MergeKeyField,
+//        Field(
+//          name = "colA",
+//          fieldType = StringType
+//        ),
+//        Field(
+//          name = "colB",
+//          fieldType = StringType
+//        ),
+//        Field(
+//          name = BlobBatchCommons.versionField.name,
+//          fieldType = BlobBatchCommons.versionField.fieldType
+//        ),
+//        Field(
+//          name = "Id",
+//          fieldType = StringType
+//        )
+//      ),
+//      "test.table_a",
+//      TestTablePropertiesSettings,
+//      Some("1234")
+//    )
+//
+//    val expected =
+//      Using(Source.fromURL(getClass.getResource("/generate_a_valid_upsertblob_backfill_overwrite_query.sql"))) {
+//        _.getLines().mkString("\n")
+//      }.get
+//
+//    batch.batchQuery.query should equal(expected)
+//  }
 
 // NB. 2.2 release temporary removes support for table partitioning and merge statement generation for partitioned tables
 // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
