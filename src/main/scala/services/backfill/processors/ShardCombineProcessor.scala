@@ -2,11 +2,13 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.processors
 
 import logging.ZIOLogAnnotations.*
+import models.backfill.DefaultSourceBackfill
+import models.backfill.DefaultSourceBackfill.toJson
 import models.sharding.{CompletionShard, StagedShard}
 import services.backfill.StagedShardProcessor
 import services.backfill.processors.ShardStagingProcessor
 import services.base.MergeServiceClient
-import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingPropertyManager}
 import services.streaming.base.{JsonWatermark, StreamingBatchProcessor}
 
 import zio.stream.ZPipeline
@@ -16,6 +18,7 @@ import zio.{ZIO, ZLayer}
   */
 class ShardCombineProcessor(
     mergeServiceClient: MergeServiceClient,
+    stagingPropertyManager: StagingPropertyManager,                           
     watermark: JsonWatermark
 ) extends StagedShardProcessor:
 
@@ -33,7 +36,10 @@ class ShardCombineProcessor(
         for
           _ <- zlog("Shard %s fully commited into %s, ready for combine", staged.shardId, staged.shardTableName)
           _ <- mergeServiceClient.commitShard(staged)
-        yield CompletionShard(watermark, staged.targetTableName, staged.shardSourceEntityName)
+          shard <- ZIO.succeed(CompletionShard(watermark, staged.targetTableName, staged.shardSourceEntityName))
+          current <- stagingPropertyManager.getProperty(staged.combinedTableName, "backfill").map(DefaultSourceBackfill(_))
+          _ <- stagingPropertyManager.setProperty(staged.combinedTableName, "backfill", toJson(current.copy(combinedShards = current.combinedShards ++ Seq(shard))))
+        yield shard
       }
 
 object ShardCombineProcessor:
@@ -47,6 +53,7 @@ object ShardCombineProcessor:
     */
   def apply(
       mergeServiceClient: MergeServiceClient,
+      stagingPropertyManager: StagingPropertyManager,
       watermark: JsonWatermark
   ): ShardCombineProcessor =
-    new ShardCombineProcessor(mergeServiceClient, watermark)
+    new ShardCombineProcessor(mergeServiceClient, stagingPropertyManager, watermark)

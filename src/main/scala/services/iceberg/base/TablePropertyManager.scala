@@ -25,6 +25,14 @@ trait TablePropertyManager:
     */
   def getProperty(tableName: String, propertyName: String): Task[String]
 
+  /**
+   * Sets a specified property on the table
+   * @param tableName
+   *   Name of the table
+   * @return
+   */
+  def setProperty(tableName: String, propertyName: String, propertyValue: String): Task[Unit]
+
   /** Get table partition information
     * @param tableName
     *   Name of the table

@@ -9,7 +9,7 @@ import models.sharding.{CompletedShard, CompletionShard, StagedShard}
 import services.backfill.BackfillStreamDataProvider
 import services.backfill.processors.{BackfillCompletionProcessor, ShardCombineProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
-import services.iceberg.base.StagingEntityManager
+import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{JsonWatermark, SourceWatermark, StreamDataProvider}
 import services.streaming.processors.transformers.FieldFilteringTransformer
@@ -32,6 +32,7 @@ class DefaultBackfillOverwriteGraphBuilder(
     shardStageProcessor: ShardStagingProcessor,
     mergeServiceClient: MergeServiceClient,
     stagingEntityManager: StagingEntityManager,
+    stagingPropertyManager: StagingPropertyManager,
     fieldFilteringProcessor: FieldFilteringTransformer,
     backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
@@ -53,13 +54,15 @@ class DefaultBackfillOverwriteGraphBuilder(
       ) *> streamDataProvider.backfillStream
     )
     .flatMap { case (stream, watermark) =>
-      val combineProcessor = ShardCombineProcessor(mergeServiceClient, watermark)
+      val combineProcessor = ShardCombineProcessor(mergeServiceClient, stagingPropertyManager, watermark)
 
       stream
         .flatMapPar(backfillParallelism, 1) { shard =>
           ZStream
             .fromZIO {
               for
+                // TODO: check if a shard is already fully combined
+                // TODO: check if a table for this shard already exists and if its staged or not
                 // TODO: use streamId and streamKind here as well
                 tableName <- ZIO.succeed(s"${shard.shardId.replace("-", "_")}")
                 _ <- stagingEntityManager.createTable(CreateTableRequest(tableName, shard.shardStream._2, false))
@@ -73,6 +76,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                 .collect { case Some(staged) =>
                   staged
                 }
+                .mapZIO(staged => stagingPropertyManager.setProperty(shardTableName, "staged", "1").map(_ => staged))
             )
         }
         .via(combineProcessor.process)

@@ -55,6 +55,7 @@ case class CompletionShard(watermark: JsonWatermark, targetTableName: String, sh
   override val shardId: String           = "watermark"
   override val shardTableName: String    = ???
   override val combinedTableName: String = ???
+  // TODO: must be customized per source
   override val commitQuery: StreamingBatchQuery =
     OverwriteReplaceQuery(s"SELECT * FROM $combinedTableName", targetTableName, EmptyTablePropertiesSettings)
 
