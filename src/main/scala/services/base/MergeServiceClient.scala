@@ -10,9 +10,8 @@ import zio.Task
   */
 type BatchApplicationResult = Boolean
 
-/**
- * Result of the shard commit into the combine table
- */
+/** Result of the shard commit into the combine table
+  */
 type ShardCommitResult = Boolean
 
 /** A service client that merges data batches.
@@ -28,8 +27,7 @@ trait MergeServiceClient:
     */
   def applyBatch(batch: StagedBatch): Task[BatchApplicationResult]
 
-  /**
-   * Commits a shard to the combine table
-   * @return
-   */
+  /** Commits a shard to the combine table
+    * @return
+    */
   def commitShard(shard: StagedShard): Task[ShardCommitResult]

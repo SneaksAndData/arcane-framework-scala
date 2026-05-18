@@ -9,10 +9,10 @@ import zio.stream.ZStream
 import java.time.OffsetDateTime
 
 /** Provides a way to retrieve a source snapshot watermarked with a specified watermark type.
- *
- * @tparam DataVersionType
- *   The type of the data version.
- */
+  *
+  * @tparam DataVersionType
+  *   The type of the data version.
+  */
 trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
 
   /** Provides the backfill data shards to the consumer.
@@ -22,23 +22,20 @@ trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
     */
   def requestBackfill: ZStream[Any, Throwable, BootstrappedShard]
 
-  /**
-   * Checks if a source has any data to backfill
-   * @return
-   */
+  /** Checks if a source has any data to backfill
+    * @return
+    */
   def isEmpty: Task[Boolean]
 
   /** Most recent version of the dataset at a time when a backfill was initiated.
-   */
+    */
   def getSnapshotVersion: Task[DataVersionType]
 
-  /**
-   * Evaluates number of shards required to backfill this source.
-   */
+  /** Evaluates number of shards required to backfill this source.
+    */
   def getShardCount: Task[Int]
 
-  /**
-   * Retrieves shard metadata from target table, if exists
-   * @return
-   */
+  /** Retrieves shard metadata from target table, if exists
+    * @return
+    */
   def getShardMetadata: Task[Seq[SourceShard]]

@@ -32,40 +32,45 @@ import scala.collection.SortedMap
   * or it may produce nothing if the backfill was interrupted.
   */
 abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
-          dataProvider: BackfillSourceDataProvider[WatermarkType],
-          backfillSettings: BackfillSettings,
-          stagingTableSettings: StagingTableSettings,
-          sinkSettings: SinkSettings,
-          metricTagProvider: MetricTagProvider
-)(implicit rw: ReadWriter[WatermarkType]) extends BackfillSourceDataProvider[WatermarkType]:
+    dataProvider: BackfillSourceDataProvider[WatermarkType],
+    backfillSettings: BackfillSettings,
+    stagingTableSettings: StagingTableSettings,
+    sinkSettings: SinkSettings,
+    metricTagProvider: MetricTagProvider
+)(implicit rw: ReadWriter[WatermarkType])
+    extends BackfillSourceDataProvider[WatermarkType]:
 
   /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
-   *
-   * @return
-   */
+    *
+    * @return
+    */
   protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[WatermarkType]
 
   /** Implements data streaming logic for public `requestBackfill`
-   *
-   * @return
-   */
-  protected def backfillStream(backfillStart: WatermarkType, shardCount: Int): ZStream[Any, Throwable, BootstrappedShard]
-  
+    *
+    * @return
+    */
+  protected def backfillStream(
+      backfillStart: WatermarkType,
+      shardCount: Int
+  ): ZStream[Any, Throwable, BootstrappedShard]
+
   protected def hasData(backfillStart: WatermarkType): Task[Boolean]
 
-  final override def isEmpty: Task[Boolean] = getBackfillStartWatermark(backfillSettings.backfillStartDate).flatMap(hasData)
+  final override def isEmpty: Task[Boolean] =
+    getBackfillStartWatermark(backfillSettings.backfillStartDate).flatMap(hasData)
 
   final override def requestBackfill: ZStream[Any, Throwable, BootstrappedShard] = ZStream
     .fromZIO(getSnapshotVersion)
-    .mapZIO { snapshotWatermark => for
-        shards <- getShardCount
+    .mapZIO { snapshotWatermark =>
+      for
+        shards             <- getShardCount
         startFromWatermark <- getBackfillStartWatermark(backfillSettings.backfillStartDate)
       yield (snapshot = snapshotWatermark, startFrom = startFromWatermark, shardCount = shards)
     }
-    .flatMap {
-      case (snapshot, startFrom, shardCount) => backfillStream(startFrom, shardCount)
+    .flatMap { case (snapshot, startFrom, shardCount) =>
+      backfillStream(startFrom, shardCount)
     }
-
 
   /** @inheritdoc
     */

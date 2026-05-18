@@ -21,22 +21,24 @@ import zio.Chunk
 import zio.stream.ZPipeline
 
 import java.util.UUID
-  
 
 class ShardStagingProcessor(
-                       stagingDataSettings: StagingTableSettings,
-                       targetTableFullName: String,
-                       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
-                       batchFactory: StagedBatchFactory,
-                       declaredMetrics: DeclaredMetrics
-                     ) extends ShardStreamProcessor:
-  
+    stagingDataSettings: StagingTableSettings,
+    targetTableFullName: String,
+    catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+    batchFactory: StagedBatchFactory,
+    declaredMetrics: DeclaredMetrics
+) extends ShardStreamProcessor:
+
   override type OutgoingElement = StagedShard
-  
-  override def process(shard: BootstrappedShard, shardTableName: String, schema: ArcaneSchema): ZPipeline[Any, Throwable, DataRow, OutgoingElement] = ZPipeline[DataRow]
-    .mapChunksZIO{rows => 
-      catalogWriter.append(rows, shardTableName, schema, Seq())
+
+  override def process(
+      shard: BootstrappedShard,
+      shardTableName: String,
+      schema: ArcaneSchema
+  ): ZPipeline[Any, Throwable, DataRow, OutgoingElement] = ZPipeline[DataRow]
+    .mapChunksZIO { rows =>
+      catalogWriter
+        .append(rows, shardTableName, schema, Seq())
         .map(_ => Chunk(shard.toStaged(shardTableName)))
     }
-
-

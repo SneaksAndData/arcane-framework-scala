@@ -20,7 +20,7 @@ import zio.{ZIO, ZLayer}
 class BackfillCompletionProcessor(
     propertyManager: SinkPropertyManager,
     targetTableShortName: String,
-    mergeServiceClient: MergeServiceClient,                            
+    mergeServiceClient: MergeServiceClient,
     declaredMetrics: DeclaredMetrics
 ) extends StagedShardProcessor:
 
@@ -28,12 +28,11 @@ class BackfillCompletionProcessor(
   override type OutgoingElement = CompletedShard
 
   override def process: ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] = ZPipeline[IncomingElement]
-    .mapZIO {
-    shard =>
+    .mapZIO { shard =>
       for
-        _ <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
-        _ <- mergeServiceClient.commitShard(shard)
-        _ <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
+        _                 <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
+        _                 <- mergeServiceClient.commitShard(shard)
+        _                 <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
         previousWatermark <- propertyManager.getProperty(shard.targetTableName, "comment")
         _                 <- propertyManager.comment(shard.targetTableName, shard.watermark.toJson)
         _ <- zlog(
@@ -46,7 +45,7 @@ class BackfillCompletionProcessor(
           TimestampOnlyWatermark.fromJson(shard.watermark.toJson).age.toDouble
         ) @@ declaredMetrics.appliedWatermarkAge
       yield shard.toCompleted
-  }
+    }
 
 object BackfillCompletionProcessor:
   def apply(
@@ -66,9 +65,14 @@ object BackfillCompletionProcessor:
   val layer: ZLayer[Environment, Nothing, BackfillCompletionProcessor] =
     ZLayer {
       for
-        iceberg         <- ZIO.service[SinkPropertyManager]
-        context         <- ZIO.service[PluginStreamContext]
+        iceberg            <- ZIO.service[SinkPropertyManager]
+        context            <- ZIO.service[PluginStreamContext]
         mergeServiceClient <- ZIO.service[MergeServiceClient]
-        declaredMetrics <- ZIO.service[DeclaredMetrics]
-      yield BackfillCompletionProcessor(iceberg, context.sink.targetTableFullName.parts.name, mergeServiceClient, declaredMetrics)
+        declaredMetrics    <- ZIO.service[DeclaredMetrics]
+      yield BackfillCompletionProcessor(
+        iceberg,
+        context.sink.targetTableFullName.parts.name,
+        mergeServiceClient,
+        declaredMetrics
+      )
     }

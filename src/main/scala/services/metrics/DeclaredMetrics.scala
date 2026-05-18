@@ -64,7 +64,7 @@ class DeclaredMetrics:
     .gauge(s"$metricsNamespace.batch.dispose_duration")
 
   /** Time it takes to commit a source shard table into the intermediate target
-   */
+    */
   val shardCommitDuration: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.backfill.shard.commit_duration")
 

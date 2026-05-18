@@ -42,7 +42,7 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   protected def changeStream(
       previousVersion: WatermarkType
   ): ZStream[Any, Throwable, StructuredZStream]
-  
+
   final override def requestChanges(
       previousVersion: WatermarkType,
       nextVersion: WatermarkType

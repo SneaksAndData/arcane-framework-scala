@@ -47,7 +47,7 @@ class MergeBatchProcessor(
           batch.name
         )
         _ <- ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch))
-      yield batch).gaugeDuration(declaredMetrics.batchMergeStageDuration)
+      yield batch).gaugeDuration(declaredMetrics.batchMergeDuration)
     )
 
 object MergeBatchProcessor:

@@ -12,9 +12,9 @@ import java.time.Duration
 import scala.util.Random
 
 class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String]](
-                                                                           dataProvider: ChangeCaptureDataProvider[WatermarkType],
-                                                                           settings: ChangeCaptureSettings,
-                                                                           declaredMetrics: DeclaredMetrics
+    dataProvider: ChangeCaptureDataProvider[WatermarkType],
+    settings: ChangeCaptureSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends StreamDataProvider:
 
   private val rng = Random(settings.changeCaptureJitterSeed)
@@ -84,9 +84,9 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String]](
     yield isChanged
 
   override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream
-      .unfoldZIO(dataProvider.firstVersion)(nextVersion)
-      .flatMap {
-        case (current, previous) if current > previous =>
-          ZStream.whenZIO(hasChanges(previous))(dataProvider.requestChanges(previous, current))
-        case _ => ZStream.empty
-      }
+    .unfoldZIO(dataProvider.firstVersion)(nextVersion)
+    .flatMap {
+      case (current, previous) if current > previous =>
+        ZStream.whenZIO(hasChanges(previous))(dataProvider.requestChanges(previous, current))
+      case _ => ZStream.empty
+    }

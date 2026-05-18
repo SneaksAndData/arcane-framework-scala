@@ -12,12 +12,11 @@ import services.streaming.base.{JsonWatermark, StreamingBatchProcessor}
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
-/**
- * Combines incoming shards and outputs the completion shard containing the watermark
- */
+/** Combines incoming shards and outputs the completion shard containing the watermark
+  */
 class ShardCombineProcessor(
     mergeServiceClient: MergeServiceClient,
-    watermark: JsonWatermark,
+    watermark: JsonWatermark
 ) extends StagedShardProcessor:
 
   override type IncomingElement = ShardStagingProcessor#OutgoingElement
@@ -30,7 +29,8 @@ class ShardCombineProcessor(
     */
   override def process: ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] =
     ZPipeline[StagedShard]
-      .mapZIO { staged => for
+      .mapZIO { staged =>
+        for
           _ <- zlog("Shard %s fully commited into %s, ready for combine", staged.shardId, staged.shardTableName)
           _ <- mergeServiceClient.commitShard(staged)
         yield CompletionShard(watermark, staged.targetTableName, staged.shardSourceEntityName)
@@ -47,7 +47,6 @@ object ShardCombineProcessor:
     */
   def apply(
       mergeServiceClient: MergeServiceClient,
-      watermark: JsonWatermark,
+      watermark: JsonWatermark
   ): ShardCombineProcessor =
     new ShardCombineProcessor(mergeServiceClient, watermark)
-
