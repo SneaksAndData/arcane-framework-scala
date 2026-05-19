@@ -15,7 +15,7 @@ trait SourceShard:
   val combinedTableName: String
   val targetTableName: String
 
-  val shardTableName: String = shardId.replace("-", "_")
+  val shardTableName: String = s"${sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined").toLowerCase}_${shardId.replace("-", "_")}"
 
 /** A shard of source data that has been successfully bootstrapped and is ready for staging
   */
@@ -52,7 +52,6 @@ object StagedShard:
 case class CompletionShard(watermark: JsonWatermark, targetTableName: String, shardSourceEntityName: String)
     extends StagedShard derives ReadWriter:
   override val shardId: String           = "watermark"
-  override val shardTableName: String    = ???
   override val combinedTableName: String = ???
   // TODO: must be customized per source
   override val commitQuery: StreamingBatchQuery =
@@ -63,5 +62,4 @@ object CompletionShard:
     def toCompleted: CompletedShard = CompletedShard(shard.shardId, shard.combinedTableName, shard.targetTableName)
 
 case class CompletedShard(shardId: String, combinedTableName: String, targetTableName: String) extends StagedShard derives ReadWriter:
-  override val shardTableName: String        = ???
   override val shardSourceEntityName: String = ???

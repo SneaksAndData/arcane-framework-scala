@@ -47,6 +47,11 @@ trait BackfillStateManager:
   def commitStagedShard(shard: StagedShard): Task[StagedShard]
 
   /**
-   * Check is a provided bootstrapped shard has been successfully staged
+   * Check if a provided bootstrapped shard has been successfully staged
    */
   def isStaged(shard: BootstrappedShard): Task[Boolean]
+
+  /**
+   * Check if a provided staged shard has been successfully added to the combined table
+   */
+  def isCombined(shard: StagedShard): Task[Option[CompletionShard]]

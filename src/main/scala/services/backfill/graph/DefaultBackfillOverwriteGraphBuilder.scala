@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill.graph
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.batches.StagedBatch
 import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, JsonWatermarkRow}
@@ -15,6 +15,7 @@ import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.streaming.base.{JsonWatermark, SourceWatermark, StreamDataProvider}
 import services.streaming.processors.transformers.FieldFilteringTransformer
 
+import com.sneaksanddata.arcane.framework.models.sharding.StagedShard.toStaged
 import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{ZIO, ZLayer}
 
@@ -58,25 +59,32 @@ class DefaultBackfillOverwriteGraphBuilder(
 
       stream
         .flatMapPar(backfillParallelism, 1) { shard =>
-          // TODO: check if a shard is already fully combined
-          //ZStream.fromZIO()
-          // TODO: check if a table for this shard already exists and if its staged or not
-          // TODO: use streamId and streamKind here as well
-          
-          ZStream
-            .fromZIO (stateManager.prepareShardStage(shard, shard.shardStream._2))
-            .flatMap(_ =>
-              shard.shardStream._1
-                .via(fieldFilteringProcessor.process)
-                .via(shardStageProcessor.process(shard, shard.shardStream._2))
-                .via(aggregateShard)
-                .collect { case Some(staged) =>
-                  staged
-                }
-                .mapZIO(stateManager.commitStagedShard)
-            )
+          ZStream.fromZIO(stateManager.isStaged(shard))
+            .flatMap{ isStaged =>
+              if isStaged then
+                zlogStream("Shard %s has been staged previously, skipping", shard.shardId) *> ZStream.succeed(shard.toStaged)
+              else
+                ZStream
+                  .fromZIO(stateManager.prepareShardStage(shard, shard.shardStream._2))
+                      .flatMap(_ =>
+                        shard.shardStream._1
+                          .via(fieldFilteringProcessor.process)
+                          .via(shardStageProcessor.process(shard, shard.shardStream._2))
+                          .via(aggregateShard)
+                          .collect { case Some(staged) =>
+                            staged
+                          }
+                          .mapZIO(stateManager.commitStagedShard)
+                      )
+            }
         }
-        .via(combineProcessor.process)
+        .flatMap(staged => ZStream
+          .fromZIO(stateManager.isCombined(staged))
+          .flatMap {
+            case Some(completion) => zlogStream("Shard %s has been added to the combined table already, skipping", completion.shardId) *> ZStream.succeed(completion)
+            case None => ZStream.succeed(staged).via(combineProcessor.process)
+          }
+        )
         .via(backfillCompletionProcessor.process)
     }
 

@@ -32,8 +32,12 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
     _ <- ZIO.when(state.isDefined) {
       for
         oldState <- ZIO.succeed(state.get)
-        newState <- ZIO.succeed(oldState.copy(combinedShards = oldState.combinedShards ++ Seq(completionShard)))
-        _ <- commitState(newState)
+        _ <- ZIO.unless(oldState.combinedShards.contains(completionShard)) {
+          for
+            newState <- ZIO.succeed(oldState.copy(combinedShards = oldState.combinedShards ++ Seq(completionShard)))
+            _ <- commitState(newState)
+          yield ()
+        }
       yield ()
     }
   yield ()
@@ -41,5 +45,16 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
     stagingPropertyManager.setProperty(shard.shardTableName, stagedShardPropertyName, "1").map(_ => shard)
 
-  override def isStaged(shard: BootstrappedShard): Task[Boolean] =
-    stagingPropertyManager.getProperty(shard.shardTableName, stagedShardPropertyName).map(_.exists(_ == "1"))  
+  override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
+    tableExists <- stagingEntityManager.tableExists(shard.shardTableName)
+    result <- ZIO.when(tableExists)(stagingPropertyManager.getProperty(shard.shardTableName, stagedShardPropertyName).map(_.exists(_ == "1")))
+  yield result.getOrElse(false)
+
+  override def isCombined(shard: StagedShard): Task[Option[CompletionShard]] = for
+    state <- readState
+    result <- ZIO.when(state.isDefined) {
+      for
+        matchingShard <- ZIO.succeed(state.get.combinedShards.find(_.shardId == shard.shardId))
+      yield matchingShard
+    }
+  yield result.flatten
