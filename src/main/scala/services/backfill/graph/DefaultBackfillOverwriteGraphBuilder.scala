@@ -7,6 +7,7 @@ import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.sharding.{CompletedShard, CompletionShard, StagedShard}
 import services.backfill.BackfillStreamDataProvider
+import services.backfill.base.BackfillStateManager
 import services.backfill.processors.{BackfillCompletionProcessor, ShardCombineProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
@@ -31,8 +32,7 @@ class DefaultBackfillOverwriteGraphBuilder(
     streamDataProvider: BackfillStreamDataProvider,
     shardStageProcessor: ShardStagingProcessor,
     mergeServiceClient: MergeServiceClient,
-    stagingEntityManager: StagingEntityManager,
-    stagingPropertyManager: StagingPropertyManager,
+    stateManager: BackfillStateManager,
     fieldFilteringProcessor: FieldFilteringTransformer,
     backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
@@ -54,20 +54,15 @@ class DefaultBackfillOverwriteGraphBuilder(
       ) *> streamDataProvider.backfillStream
     )
     .flatMap { case (stream, watermark) =>
-      val combineProcessor = ShardCombineProcessor(mergeServiceClient, stagingPropertyManager, watermark)
+      val combineProcessor = ShardCombineProcessor(mergeServiceClient, watermark)
 
       stream
         .flatMapPar(backfillParallelism, 1) { shard =>
+          // TODO: check if a shard is already fully combined
+          // TODO: check if a table for this shard already exists and if its staged or not
+          // TODO: use streamId and streamKind here as well
           ZStream
-            .fromZIO {
-              for
-                // TODO: check if a shard is already fully combined
-                // TODO: check if a table for this shard already exists and if its staged or not
-                // TODO: use streamId and streamKind here as well
-                tableName <- ZIO.succeed(s"${shard.shardId.replace("-", "_")}")
-                _ <- stagingEntityManager.createTable(CreateTableRequest(tableName, shard.shardStream._2, false))
-              yield tableName
-            }
+            .fromZIO (stateManager.prepareShardCommit(shard, shard.shardStream._2))
             .flatMap(shardTableName =>
               shard.shardStream._1
                 .via(fieldFilteringProcessor.process)
@@ -76,7 +71,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                 .collect { case Some(staged) =>
                   staged
                 }
-                .mapZIO(staged => stagingPropertyManager.setProperty(shardTableName, "staged", "1").map(_ => staged))
+                .mapZIO(stateManager.commitStagedShard)
             )
         }
         .via(combineProcessor.process)
@@ -88,7 +83,7 @@ object DefaultBackfillOverwriteGraphBuilder:
   /** The environment required for the DefaultBackfillOverwriteGraphBuilder.
     */
   type Environment = BackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient &
-    FieldFilteringTransformer & BackfillCompletionProcessor & StagingEntityManager
+    FieldFilteringTransformer & BackfillCompletionProcessor & BackfillStateManager
 
   /** Creates a new DefaultBackfillOverwriteGraphBuilder.
     */
@@ -98,13 +93,13 @@ object DefaultBackfillOverwriteGraphBuilder:
       mergeServiceClient: MergeServiceClient,
       fieldFilteringProcessor: FieldFilteringTransformer,
       backfillCompletionProcessor: BackfillCompletionProcessor,
-      stagingEntityManager: StagingEntityManager
+      stateManager: BackfillStateManager,
   ): DefaultBackfillOverwriteGraphBuilder =
     new DefaultBackfillOverwriteGraphBuilder(
       streamDataProvider,
       shardStageProcessor,
       mergeServiceClient,
-      stagingEntityManager,
+      stateManager,
       fieldFilteringProcessor,
       backfillCompletionProcessor
     )
@@ -119,13 +114,13 @@ object DefaultBackfillOverwriteGraphBuilder:
         mergeServiceClient         <- ZIO.service[MergeServiceClient]
         fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
         backfillWatermarkProcessor <- ZIO.service[BackfillCompletionProcessor]
-        stagingEntityManager       <- ZIO.service[StagingEntityManager]
+        stateManager <- ZIO.service[BackfillStateManager]
       yield DefaultBackfillOverwriteGraphBuilder(
         streamDataProvider,
         shardStageProcessor,
         mergeServiceClient,
         fieldFilteringProcessor,
         backfillWatermarkProcessor,
-        stagingEntityManager
+        stateManager
       )
     }

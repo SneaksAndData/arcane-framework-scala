@@ -17,8 +17,7 @@ import zio.{ZIO, ZLayer}
 /** Combines incoming shards and outputs the completion shard containing the watermark
   */
 class ShardCombineProcessor(
-    mergeServiceClient: MergeServiceClient,
-    stagingPropertyManager: StagingPropertyManager,                           
+    mergeServiceClient: MergeServiceClient,                   
     watermark: JsonWatermark
 ) extends StagedShardProcessor:
 
@@ -37,8 +36,6 @@ class ShardCombineProcessor(
           _ <- zlog("Shard %s fully commited into %s, ready for combine", staged.shardId, staged.shardTableName)
           _ <- mergeServiceClient.commitShard(staged)
           shard <- ZIO.succeed(CompletionShard(watermark, staged.targetTableName, staged.shardSourceEntityName))
-          current <- stagingPropertyManager.getProperty(staged.combinedTableName, "backfill").map(DefaultSourceBackfill(_))
-          _ <- stagingPropertyManager.setProperty(staged.combinedTableName, "backfill", toJson(current.copy(combinedShards = current.combinedShards ++ Seq(shard))))
         yield shard
       }
 
@@ -53,7 +50,6 @@ object ShardCombineProcessor:
     */
   def apply(
       mergeServiceClient: MergeServiceClient,
-      stagingPropertyManager: StagingPropertyManager,
       watermark: JsonWatermark
   ): ShardCombineProcessor =
-    new ShardCombineProcessor(mergeServiceClient, stagingPropertyManager, watermark)
+    new ShardCombineProcessor(mergeServiceClient, watermark)

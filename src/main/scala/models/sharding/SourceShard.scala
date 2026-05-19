@@ -5,6 +5,7 @@ import models.queries.{OverwriteReplaceQuery, ShardCommitQuery, StreamingBatchQu
 import services.streaming.base.{JsonWatermark, SourceWatermark, StructuredZStream}
 
 import com.sneaksanddata.arcane.framework.models.settings.EmptyTablePropertiesSettings
+import upickle.ReadWriter
 import zio.stream.ZStream
 
 /** A shard of data from source to be used by backfills
@@ -51,7 +52,7 @@ object StagedShard:
     )
 
 case class CompletionShard(watermark: JsonWatermark, targetTableName: String, shardSourceEntityName: String)
-    extends StagedShard:
+    extends StagedShard derives ReadWriter:
   override val shardId: String           = "watermark"
   override val shardTableName: String    = ???
   override val combinedTableName: String = ???
@@ -63,6 +64,6 @@ object CompletionShard:
   extension (shard: CompletionShard)
     def toCompleted: CompletedShard = CompletedShard(shard.shardId, shard.combinedTableName, shard.targetTableName)
 
-case class CompletedShard(shardId: String, combinedTableName: String, targetTableName: String) extends StagedShard:
+case class CompletedShard(shardId: String, combinedTableName: String, targetTableName: String) extends StagedShard derives ReadWriter:
   override val shardTableName: String        = ???
   override val shardSourceEntityName: String = ???
