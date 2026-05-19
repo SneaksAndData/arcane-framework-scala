@@ -33,7 +33,7 @@ class BackfillCompletionProcessor(
         _                 <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
         _                 <- mergeServiceClient.commitShard(shard)
         _                 <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
-        previousWatermark <- propertyManager.getProperty(shard.targetTableName, "comment")
+        previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName, "comment")
         _                 <- propertyManager.comment(shard.targetTableName, shard.watermark.toJson)
         _ <- zlog(
           "Updated watermark from %s to %s",

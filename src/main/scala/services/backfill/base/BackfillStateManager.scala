@@ -16,9 +16,19 @@ trait BackfillStateManager:
   final val stagedShardPropertyName = "staged"
   
   type StateImpl <: SourceBackfill
-  
+
+  /**
+   * Saves current backfill state to a staging table's metadata
+   * @return
+   */
   def commitState(state: StateImpl)(implicit rw: ReadWriter[StateImpl]): Task[Unit]
-  def readState(implicit rw: ReadWriter[StateImpl]): Task[StateImpl] 
+
+  /**
+   * Reads current backfill state from a staging table's metadata
+   * @param rw
+   * @return
+   */
+  def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]] 
   def prepareShardCommit(shard: BootstrappedShard, schema: ArcaneSchema): Task[String]
   def addCombinedShard(completionShard: CompletionShard): Task[Unit]
   def commitStagedShard(shard: StagedShard): Task[StagedShard]

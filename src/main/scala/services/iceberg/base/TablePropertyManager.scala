@@ -17,13 +17,21 @@ trait TablePropertyManager:
     */
   def comment(tableName: String, text: String): Task[Unit]
 
-  /** Reads a specified table property
+  /** Reads a specified table property.
     *
     * @param tableName
     *   Name of the table
     * @return
     */
-  def getProperty(tableName: String, propertyName: String): Task[String]
+  def getProperty(tableName: String, propertyName: String): Task[Option[String]]
+
+  /** Reads a specified table property and fails if the property is not present
+   *
+   * @param tableName
+   *   Name of the table
+   * @return
+   */
+  def getRequiredProperty(tableName: String, propertyName: String): Task[String]  
 
   /**
    * Sets a specified property on the table

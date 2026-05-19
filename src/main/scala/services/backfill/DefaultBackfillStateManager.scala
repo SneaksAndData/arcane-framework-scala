@@ -20,8 +20,8 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
   override def commitState(state: StateImpl)(implicit rw: ReadWriter[StateImpl]): Task[Unit] =
     stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state))
 
-  override def readState(implicit rw: ReadWriter[StateImpl]): Task[StateImpl] =
-    stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(DefaultSourceBackfill(_))
+  override def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]] =
+    stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(DefaultSourceBackfill(_)))
   
   override def prepareShardCommit(shard: BootstrappedShard, schema: ArcaneSchema): Task[String] = for
     tableName <- ZIO.succeed(s"${shard.shardId.replace("-", "_")}")
@@ -29,8 +29,14 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
   yield tableName
 
   override def addCombinedShard(completionShard: CompletionShard): Task[Unit] = for
-    state <- readState.map(s => s.copy(combinedShards = s.combinedShards ++ Seq(completionShard)))
-    _ <- commitState(state)
+    state <- readState
+    _ <- ZIO.when(state.isDefined) {
+      for
+        oldState <- ZIO.succeed(state.get)
+        newState <- ZIO.succeed(oldState.copy(combinedShards = oldState.combinedShards ++ Seq(completionShard)))
+        _ <- commitState(newState)
+      yield ()
+    }
   yield ()
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
