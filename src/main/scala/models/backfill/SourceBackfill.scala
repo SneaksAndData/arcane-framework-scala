@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.backfill
 
-import models.sharding.SourceShard
+import models.sharding.{CompletionShard, SourceShard, StagedShard}
 import models.serialization.OffsetDateTimeRW.*
 
 import upickle.ReadWriter
@@ -27,8 +27,8 @@ case class DefaultSourceBackfill(
                                   override val startedAt: OffsetDateTime,
                                   override val completedAt: Option[OffsetDateTime],
                                   override val shards: Seq[SourceShard],
-                                  override val stagedShards: Seq[SourceShard],
-                                  override val combinedShards: Seq[SourceShard]
+                                  override val stagedShards: Seq[StagedShard],
+                                  override val combinedShards: Seq[CompletionShard]
                                 ) extends SourceBackfill derives ReadWriter
 
 object DefaultSourceBackfill:

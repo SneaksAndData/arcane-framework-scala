@@ -15,6 +15,8 @@ trait SourceShard:
   val combinedTableName: String
   val targetTableName: String
 
+  val shardTableName: String = shardId.replace("-", "_")
+
 /** A shard of source data that has been successfully bootstrapped and is ready for staging
   */
 trait BootstrappedShard extends SourceShard:
@@ -24,28 +26,24 @@ trait BootstrappedShard extends SourceShard:
 /** A staged shard contains a chunk of data from source that has been successfully streamed out
   */
 trait StagedShard extends SourceShard:
-  val shardTableName: String
   val shardSourceEntityName: String
   val commitQuery: StreamingBatchQuery = ShardCommitQuery(combinedTableName, shardTableName)
 
 object StagedShard:
   def apply(
       id: String,
-      shardTableName: String,
       shardSourceName: String,
       combinedTableName: String,
       targetTableName: String
   ): StagedShard = new StagedShard {
-    override val shardTableName: String        = shardTableName
     override val shardSourceEntityName: String = shardSourceName
     override val shardId: String               = id
     override val combinedTableName: String     = combinedTableName
     override val targetTableName: String       = targetTableName
   }
   extension (shard: BootstrappedShard)
-    def toStaged(shardTableName: String): StagedShard = StagedShard(
+    def toStaged: StagedShard = StagedShard(
       shard.shardId,
-      shardTableName,
       shard.shardSourceEntityName,
       shard.combinedTableName,
       shard.targetTableName

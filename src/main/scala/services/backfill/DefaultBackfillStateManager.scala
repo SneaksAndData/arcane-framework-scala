@@ -23,10 +23,9 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
   override def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]] =
     stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(DefaultSourceBackfill(_)))
   
-  override def prepareShardCommit(shard: BootstrappedShard, schema: ArcaneSchema): Task[String] = for
-    tableName <- ZIO.succeed(s"${shard.shardId.replace("-", "_")}")
-    _ <- stagingEntityManager.createTable(CreateTableRequest(tableName, schema, false))
-  yield tableName
+  override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for
+    _ <- stagingEntityManager.createTable(CreateTableRequest(shard.shardTableName, schema, false))
+  yield ()
 
   override def addCombinedShard(completionShard: CompletionShard): Task[Unit] = for
     state <- readState
@@ -41,3 +40,6 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
     stagingPropertyManager.setProperty(shard.shardTableName, stagedShardPropertyName, "1").map(_ => shard)
+
+  override def isStaged(shard: BootstrappedShard): Task[Boolean] =
+    stagingPropertyManager.getProperty(shard.shardTableName, stagedShardPropertyName).map(_.exists(_ == "1"))  

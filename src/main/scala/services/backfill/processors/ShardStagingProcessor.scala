@@ -34,11 +34,10 @@ class ShardStagingProcessor(
 
   override def process(
       shard: BootstrappedShard,
-      shardTableName: String,
       schema: ArcaneSchema
   ): ZPipeline[Any, Throwable, DataRow, OutgoingElement] = ZPipeline[DataRow]
     .mapChunksZIO { rows =>
       catalogWriter
-        .append(rows, shardTableName, schema, Seq())
-        .map(_ => Chunk(shard.toStaged(shardTableName)))
+        .append(rows, shard.shardTableName, schema, Seq())
+        .map(_ => Chunk(shard.toStaged))
     }

@@ -28,8 +28,25 @@ trait BackfillStateManager:
    * @param rw
    * @return
    */
-  def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]] 
-  def prepareShardCommit(shard: BootstrappedShard, schema: ArcaneSchema): Task[String]
+  def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]]
+
+  /**
+   * Prepares shard for staging by creating a table for its data
+   * @return
+   */
+  def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit]
+
+  /**
+   * Adds a completed shard to a backfill state
+   */
   def addCombinedShard(completionShard: CompletionShard): Task[Unit]
+
+  /**
+   * Marks a staged shard table as completed (shard stream exhausted and appended to its staging table)
+   */
   def commitStagedShard(shard: StagedShard): Task[StagedShard]
-  
+
+  /**
+   * Check is a provided bootstrapped shard has been successfully staged
+   */
+  def isStaged(shard: BootstrappedShard): Task[Boolean]

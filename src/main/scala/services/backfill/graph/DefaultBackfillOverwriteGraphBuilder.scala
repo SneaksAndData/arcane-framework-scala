@@ -59,14 +59,16 @@ class DefaultBackfillOverwriteGraphBuilder(
       stream
         .flatMapPar(backfillParallelism, 1) { shard =>
           // TODO: check if a shard is already fully combined
+          //ZStream.fromZIO()
           // TODO: check if a table for this shard already exists and if its staged or not
           // TODO: use streamId and streamKind here as well
+          
           ZStream
-            .fromZIO (stateManager.prepareShardCommit(shard, shard.shardStream._2))
-            .flatMap(shardTableName =>
+            .fromZIO (stateManager.prepareShardStage(shard, shard.shardStream._2))
+            .flatMap(_ =>
               shard.shardStream._1
                 .via(fieldFilteringProcessor.process)
-                .via(shardStageProcessor.process(shard, shardTableName, shard.shardStream._2))
+                .via(shardStageProcessor.process(shard, shard.shardStream._2))
                 .via(aggregateShard)
                 .collect { case Some(staged) =>
                   staged
