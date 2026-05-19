@@ -56,13 +56,13 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   )
 
   override def firstVersion: Task[WatermarkType] = for
-    watermarkString <- sinkPropertyManager.getProperty(sinkSettings.targetTableFullName.parts.name, "comment")
+    watermarkString <- sinkPropertyManager.getRequiredProperty(sinkSettings.targetTableFullName.parts.name, "comment")
     _               <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
     watermark <- ZIO
       .attempt(upickle.read(watermarkString))
       .orDieWith(e =>
         new Throwable(
-          s"Target contains invalid watermark: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
+          s"Invalid watermark value: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
           e
         )
       )
