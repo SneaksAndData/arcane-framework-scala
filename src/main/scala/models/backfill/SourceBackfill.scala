@@ -3,9 +3,8 @@ package models.backfill
 
 import upickle.ReadWriter
 
-/**
- * Backfill data summary recorded into target
- */
+/** Backfill data summary recorded into target
+  */
 trait SourceBackfill:
   val id: String
   val shardCount: Int

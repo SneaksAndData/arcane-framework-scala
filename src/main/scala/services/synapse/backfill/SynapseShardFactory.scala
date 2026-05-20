@@ -5,9 +5,8 @@ import models.queries.backfill.synapse.{SynapseLinkShardCommitQuery, SynapseLink
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
 
-/**
- * Backfill shard factory for SynapseLink
- */
+/** Backfill shard factory for SynapseLink
+  */
 final class SynapseShardFactory extends ShardFactory:
   override def createStagedShard(shard: BootstrappedShard): StagedShard = DefaultStagedShard(
     shardId = shard.shardId,
@@ -24,4 +23,3 @@ final class SynapseShardFactory extends ShardFactory:
     combinedTableName = shard.combinedTableName,
     commitQuery = SynapseLinkShardCommitQuery(shard.targetTableName, shard.combinedTableName)
   )
-

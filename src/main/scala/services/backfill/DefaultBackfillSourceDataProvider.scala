@@ -47,11 +47,12 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       backfillEnd: WatermarkType
   ): ZStream[Any, Throwable, BootstrappedShard]
 
-  final override def requestBackfill(snapshotVersion: WatermarkType): ZStream[Any, Throwable, BootstrappedShard] = ZStream
-    .fromZIO(getBackfillStartWatermark(backfillSettings.backfillStartDate))
-    .flatMap { startFrom =>
-      backfillStream(startFrom, snapshotVersion)
-    }
+  final override def requestBackfill(snapshotVersion: WatermarkType): ZStream[Any, Throwable, BootstrappedShard] =
+    ZStream
+      .fromZIO(getBackfillStartWatermark(backfillSettings.backfillStartDate))
+      .flatMap { startFrom =>
+        backfillStream(startFrom, snapshotVersion)
+      }
 
   /** @inheritdoc
     */

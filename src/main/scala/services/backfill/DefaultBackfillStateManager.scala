@@ -33,7 +33,10 @@ class DefaultBackfillStateManager(
   override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
     stagingPropertyManager
       .setProperty(completionShard.shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString)
-      .flatMap(_ => stagingPropertyManager.setProperty(completionShard.shardTableName, watermarkPropertyName, completionShard.watermark))
+      .flatMap(_ =>
+        stagingPropertyManager
+          .setProperty(completionShard.shardTableName, watermarkPropertyName, completionShard.watermark)
+      )
       .map(_ => completionShard)
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
@@ -57,8 +60,6 @@ class DefaultBackfillStateManager(
     result <- ZIO.when(hasState)(
       stagingPropertyManager
         .getProperty(shard.shardTableName, watermarkPropertyName)
-        .map(wm =>
-          wm.map(value => shardFactory.createCompletionShard(shard, value))
-        )
+        .map(wm => wm.map(value => shardFactory.createCompletionShard(shard, value)))
     )
   yield result.flatten

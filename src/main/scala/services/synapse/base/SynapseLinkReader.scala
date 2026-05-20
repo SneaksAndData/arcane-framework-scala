@@ -153,11 +153,11 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
     .map(_.asWatermark)
     .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm), batchSchema)))
 
-  /**
-   * Converts an arbitrary timestamp into a matching watermark
-   * @return
-   */
-  def getWatermark(timestamp: OffsetDateTime): Task[SynapseWatermark] = reader.closestDate(location, timestamp).map(_.asWatermark)
+  /** Converts an arbitrary timestamp into a matching watermark
+    * @return
+    */
+  def getWatermark(timestamp: OffsetDateTime): Task[SynapseWatermark] =
+    reader.closestDate(location, timestamp).map(_.asWatermark)
 
   /** Reads changes happened since startFrom date. Inserts and updates are always emitted first, to avoid re-inserting
     * deleted records. Start date to get changes from
@@ -172,12 +172,15 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
       }
       .map(convertRow)
 
-  private def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] = reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
-  
-  def getData(startFrom: SynapseWatermark, endAt: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getWatermarks(startFrom, endAt))
-    .flatMap(ZStream.fromIterable(_))
-    .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm), batchSchema)))
+  private def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
+    reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
+
+  def getData(startFrom: SynapseWatermark, endAt: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
+    ZStream
+      .fromZIO(getWatermarks(startFrom, endAt))
+      .flatMap(ZStream.fromIterable(_))
+      .filterZIO(wm => isValidSynapseBatch(wm.prefix))
+      .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm), batchSchema)))
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125

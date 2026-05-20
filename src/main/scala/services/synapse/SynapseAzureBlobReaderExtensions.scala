@@ -38,28 +38,50 @@ object SynapseAzureBlobReaderExtensions:
     *   A stream of root prefixes and the latest change date associated with them
     */
   extension (reader: BlobStorageReader[AdlsStoragePath])
-    def closestDate(storagePath: AdlsStoragePath,
-                    startFrom: OffsetDateTime): Task[StoredBlob] = for
+    def closestDate(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): Task[StoredBlob] = for
       _ <- zlog("Searching for the closest Synapse batch after %s", startFrom.toString)
-      firstMatch <- ZStream.fromIterable(getPrefixesList(startFrom, OffsetDateTime.now())).flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
+      firstMatch <- ZStream
+        .fromIterable(getPrefixesList(startFrom, OffsetDateTime.now()))
+        .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
         .map(blob => (blob.interpretAsDate, blob))
         .collect {
           case (Some(date), blob) if date.isAfter(startFrom) || date.isEqual(startFrom) => blob
-        }.runHead
-      _ <- ZIO.when(firstMatch.nonEmpty)(zlog("Found batch folder %s as closest to the provided start time %s", firstMatch.get.asFolderName, startFrom.toString))
-      _ <- ZIO.when(firstMatch.isEmpty)(ZIO.fail(new Throwable(s"No batch folders found near provided start time of ${startFrom.toString}. Please ensure storage container is not empty and backfill start date is before the initial sync start time")))
+        }
+        .runHead
+      _ <- ZIO.when(firstMatch.nonEmpty)(
+        zlog(
+          "Found batch folder %s as closest to the provided start time %s",
+          firstMatch.get.asFolderName,
+          startFrom.toString
+        )
+      )
+      _ <- ZIO.when(firstMatch.isEmpty)(
+        ZIO.fail(
+          new Throwable(
+            s"No batch folders found near provided start time of ${startFrom.toString}. Please ensure storage container is not empty and backfill start date is before the initial sync start time"
+          )
+        )
+      )
     yield firstMatch.get
-    
-    def getDateRange(storagePath: AdlsStoragePath,
-                     startAt: OffsetDateTime, endAt: OffsetDateTime): Task[Seq[StoredBlob]] = for
+
+    def getDateRange(
+        storagePath: AdlsStoragePath,
+        startAt: OffsetDateTime,
+        endAt: OffsetDateTime
+    ): Task[Seq[StoredBlob]] = for
       _ <- zlog("Listing all batches between %s and %s", startAt.toString, endAt.toString)
-      matches <- ZStream.fromIterable(getPrefixesList(startAt, endAt)).flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
+      matches <- ZStream
+        .fromIterable(getPrefixesList(startAt, endAt))
+        .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
         .map(blob => (blob.interpretAsDate, blob))
         .collect {
-          case (Some(date), blob) if (date.isAfter(startAt) || date.isEqual(startAt)) && (date.isBefore(endAt) || date.isEqual(endAt)) => blob
-        }.runCollect
+          case (Some(date), blob)
+              if (date.isAfter(startAt) || date.isEqual(startAt)) && (date.isBefore(endAt) || date.isEqual(endAt)) =>
+            blob
+        }
+        .runCollect
     yield matches
-    
+
     def getEligibleDates(
         storagePath: AdlsStoragePath,
         startFrom: OffsetDateTime

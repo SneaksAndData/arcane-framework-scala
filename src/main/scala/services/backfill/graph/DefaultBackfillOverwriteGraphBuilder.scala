@@ -32,7 +32,7 @@ class DefaultBackfillOverwriteGraphBuilder(
 ) extends BackfillStreamingGraphBuilder:
 
   private val backfillParallelism = Runtime.getRuntime.availableProcessors() * 2
-  private def aggregateShards      = ZPipeline.fromSink(ZSink.last[StagedShard])
+  private def aggregateShards     = ZPipeline.fromSink(ZSink.last[StagedShard])
 
   /** @inheritdoc
     */
@@ -106,7 +106,7 @@ object DefaultBackfillOverwriteGraphBuilder:
       fieldFilteringProcessor: FieldFilteringTransformer,
       backfillCompletionProcessor: BackfillCompletionProcessor,
       stateManager: BackfillStateManager,
-      shardFactory: ShardFactory,
+      shardFactory: ShardFactory
   ): DefaultBackfillOverwriteGraphBuilder =
     new DefaultBackfillOverwriteGraphBuilder(
       streamDataProvider,
@@ -129,7 +129,7 @@ object DefaultBackfillOverwriteGraphBuilder:
         fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
         backfillWatermarkProcessor <- ZIO.service[BackfillCompletionProcessor]
         stateManager               <- ZIO.service[BackfillStateManager]
-        shardFactory <- ZIO.service[ShardFactory]
+        shardFactory               <- ZIO.service[ShardFactory]
       yield DefaultBackfillOverwriteGraphBuilder(
         streamDataProvider,
         shardStageProcessor,
