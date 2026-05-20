@@ -59,32 +59,40 @@ class DefaultBackfillOverwriteGraphBuilder(
 
       stream
         .flatMapPar(backfillParallelism, 1) { shard =>
-          ZStream.fromZIO(stateManager.isStaged(shard))
-            .flatMap{ isStaged =>
+          ZStream
+            .fromZIO(stateManager.isStaged(shard))
+            .flatMap { isStaged =>
               if isStaged then
-                zlogStream("Shard %s has been staged previously, skipping", shard.shardId) *> ZStream.succeed(shard.toStaged)
+                zlogStream("Shard %s has been staged previously, skipping", shard.shardId) *> ZStream.succeed(
+                  shard.toStaged
+                )
               else
                 ZStream
                   .fromZIO(stateManager.prepareShardStage(shard, shard.shardStream._2))
-                      .flatMap(_ =>
-                        shard.shardStream._1
-                          .via(fieldFilteringProcessor.process)
-                          .via(shardStageProcessor.process(shard, shard.shardStream._2))
-                          .via(aggregateShard)
-                          .collect { case Some(staged) =>
-                            staged
-                          }
-                          .mapZIO(stateManager.commitStagedShard)
-                      )
+                  .flatMap(_ =>
+                    shard.shardStream._1
+                      .via(fieldFilteringProcessor.process)
+                      .via(shardStageProcessor.process(shard, shard.shardStream._2))
+                      .via(aggregateShard)
+                      .collect { case Some(staged) =>
+                        staged
+                      }
+                      .mapZIO(stateManager.commitStagedShard)
+                  )
             }
         }
-        .flatMap(staged => ZStream
-          .fromZIO(stateManager.isCombined(staged))
-          .flatMap {
-            case Some(completion) => zlogStream("Shard %s has been added to the combined table already, skipping", completion.shardId) *> ZStream.succeed(completion)
-            case None => ZStream.succeed(staged).via(combineProcessor.process)
-          }
-          .mapZIO(shard => stateManager.commitCombinedShard(shard))
+        .flatMap(staged =>
+          ZStream
+            .fromZIO(stateManager.isCombined(staged))
+            .flatMap {
+              case Some(completion) =>
+                zlogStream(
+                  "Shard %s has been added to the combined table already, skipping",
+                  completion.shardId
+                ) *> ZStream.succeed(completion)
+              case None => ZStream.succeed(staged).via(combineProcessor.process)
+            }
+            .mapZIO(shard => stateManager.commitCombinedShard(shard))
         )
         .via(backfillCompletionProcessor.process)
     }
@@ -104,7 +112,7 @@ object DefaultBackfillOverwriteGraphBuilder:
       mergeServiceClient: MergeServiceClient,
       fieldFilteringProcessor: FieldFilteringTransformer,
       backfillCompletionProcessor: BackfillCompletionProcessor,
-      stateManager: BackfillStateManager,
+      stateManager: BackfillStateManager
   ): DefaultBackfillOverwriteGraphBuilder =
     new DefaultBackfillOverwriteGraphBuilder(
       streamDataProvider,
@@ -125,7 +133,7 @@ object DefaultBackfillOverwriteGraphBuilder:
         mergeServiceClient         <- ZIO.service[MergeServiceClient]
         fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
         backfillWatermarkProcessor <- ZIO.service[BackfillCompletionProcessor]
-        stateManager <- ZIO.service[BackfillStateManager]
+        stateManager               <- ZIO.service[BackfillStateManager]
       yield DefaultBackfillOverwriteGraphBuilder(
         streamDataProvider,
         shardStageProcessor,
