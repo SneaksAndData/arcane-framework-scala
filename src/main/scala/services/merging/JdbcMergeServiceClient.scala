@@ -50,8 +50,8 @@ class JdbcMergeServiceClient(
         case e: SQLException => options.queryRetryOnMessageContents.exists(prefix => e.getMessage.contains(prefix))
         case _               => false
       }).tapOutput { retryInfo =>
-        zlog(
-          s"Statement failed with: ${retryInfo._3.getMessage}, retry #${retryInfo._2}, retry duration ${retryInfo._1.toSeconds}s"
+        zlogWarning(
+          s"Statement failed with: ${retryInfo._3.getMessage}, retry #${retryInfo._2}, retry duration ${retryInfo._1.toMillis} ms"
         )
       }
 
