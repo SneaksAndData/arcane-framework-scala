@@ -5,10 +5,11 @@ import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
 import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
-import services.backfill.base.BackfillStateManager
+import services.backfill.base.{BackfillStateManager, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 
+import com.sneaksanddata.arcane.framework.services.streaming.base.JsonWatermark
 import upickle.ReadWriter
 import zio.{Task, ZIO}
 
@@ -27,34 +28,24 @@ class DefaultBackfillStateManager(stagingEntityManager: StagingEntityManager,
     _ <- stagingEntityManager.createTable(CreateTableRequest(shard.shardTableName, schema, false))
   yield ()
 
-  override def addCombinedShard(completionShard: CompletionShard): Task[Unit] = for
-    state <- readState
-    _ <- ZIO.when(state.isDefined) {
-      for
-        oldState <- ZIO.succeed(state.get)
-        _ <- ZIO.unless(oldState.combinedShards.contains(completionShard)) {
-          for
-            newState <- ZIO.succeed(oldState.copy(combinedShards = oldState.combinedShards ++ Seq(completionShard)))
-            _ <- commitState(newState)
-          yield ()
-        }
-      yield ()
-    }
-  yield ()
+  override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
+    stagingPropertyManager.setProperty(completionShard.shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString).map(_ => completionShard)
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
-    stagingPropertyManager.setProperty(shard.shardTableName, stagedShardPropertyName, "1").map(_ => shard)
+    stagingPropertyManager.setProperty(shard.shardTableName, processingStatePropertyName, ShardProcessingState.STAGED.toString).map(_ => shard)
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
     tableExists <- stagingEntityManager.tableExists(shard.shardTableName)
-    result <- ZIO.when(tableExists)(stagingPropertyManager.getProperty(shard.shardTableName, stagedShardPropertyName).map(_.exists(_ == "1")))
+    result <- ZIO.when(tableExists)(stagingPropertyManager.getProperty(shard.shardTableName, processingStatePropertyName).map(_.exists(_ == ShardProcessingState.STAGED.toString)))
   yield result.getOrElse(false)
 
   override def isCombined(shard: StagedShard): Task[Option[CompletionShard]] = for
-    state <- readState
-    result <- ZIO.when(state.isDefined) {
-      for
-        matchingShard <- ZIO.succeed(state.get.combinedShards.find(_.shardId == shard.shardId))
-      yield matchingShard
-    }
+    hasState <- stagingPropertyManager.getProperty(shard.shardTableName, processingStatePropertyName).map(_.exists(_ == ShardProcessingState.COMBINED.toString))
+    result <- ZIO.when(hasState)(stagingPropertyManager.getProperty(shard.shardTableName, watermarkPropertyName).map(wm => wm.map(value => CompletionShard(
+      value,
+      shard.shardTableName,
+      shard.targetTableName,
+      shard.shardSourceEntityName,
+      shard.combinedTableName
+    ))))
   yield result.flatten

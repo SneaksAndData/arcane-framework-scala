@@ -17,6 +17,5 @@ trait ShardStreamProcessor:
     */
   def process(
       shard: BootstrappedShard,
-      shardTableName: String,
       schema: ArcaneSchema
   ): ZPipeline[Any, Throwable, DataRow, OutgoingElement]

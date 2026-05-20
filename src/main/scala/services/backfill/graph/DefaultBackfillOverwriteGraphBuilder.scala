@@ -84,6 +84,7 @@ class DefaultBackfillOverwriteGraphBuilder(
             case Some(completion) => zlogStream("Shard %s has been added to the combined table already, skipping", completion.shardId) *> ZStream.succeed(completion)
             case None => ZStream.succeed(staged).via(combineProcessor.process)
           }
+          .mapZIO(shard => stateManager.commitCombinedShard(shard))
         )
         .via(backfillCompletionProcessor.process)
     }

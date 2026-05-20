@@ -2,18 +2,30 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.base
 
 import models.backfill.SourceBackfill
+import models.schemas.ArcaneSchema
+import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
-import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
+import com.sneaksanddata.arcane.framework.services.streaming.base.JsonWatermark
 import upickle.ReadWriter
 import zio.Task
+
+/**
+ * Processing state for a shard.
+ */
+enum ShardProcessingState:
+  case 
+  // shard data has been downloaded to the staging warehouse
+  STAGED, 
+  // shard data has been inserted into the combined staging table
+  COMBINED
 
 /**
  * Backfill state management service
  */
 trait BackfillStateManager:
   final val statePropertyName = "backfill"
-  final val stagedShardPropertyName = "staged"
+  final val processingStatePropertyName = "processing-state"
+  final val watermarkPropertyName = "shard-watermark"
   
   type StateImpl <: SourceBackfill
 
@@ -25,7 +37,6 @@ trait BackfillStateManager:
 
   /**
    * Reads current backfill state from a staging table's metadata
-   * @param rw
    * @return
    */
   def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]]
@@ -37,12 +48,12 @@ trait BackfillStateManager:
   def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit]
 
   /**
-   * Adds a completed shard to a backfill state
+   * Marks a staged shard table as COMBINED
    */
-  def addCombinedShard(completionShard: CompletionShard): Task[Unit]
+  def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard]
 
   /**
-   * Marks a staged shard table as completed (shard stream exhausted and appended to its staging table)
+   * Marks a staged shard table as STAGED
    */
   def commitStagedShard(shard: StagedShard): Task[StagedShard]
 

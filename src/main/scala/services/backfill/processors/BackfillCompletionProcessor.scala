@@ -34,15 +34,15 @@ class BackfillCompletionProcessor(
         _                 <- mergeServiceClient.commitShard(shard)
         _                 <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
         previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName, "comment")
-        _                 <- propertyManager.comment(shard.targetTableName, shard.watermark.toJson)
+        _                 <- propertyManager.comment(shard.targetTableName, shard.watermark)
         _ <- zlog(
           "Updated watermark from %s to %s",
           Seq(getAnnotation("processor", "BackfillWatermarkProcessor")),
           previousWatermark,
-          shard.watermark.toJson
+          shard.watermark
         )
         _ <- ZIO.attempt(
-          TimestampOnlyWatermark.fromJson(shard.watermark.toJson).age.toDouble
+          TimestampOnlyWatermark.fromJson(shard.watermark).age.toDouble
         ) @@ declaredMetrics.appliedWatermarkAge
       yield shard.toCompleted
     }
