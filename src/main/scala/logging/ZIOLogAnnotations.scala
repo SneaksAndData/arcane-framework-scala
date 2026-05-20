@@ -89,6 +89,19 @@ object ZIOLogAnnotations:
   def zlog(template: String, values: String*): zio.UIO[Unit] =
     logEnriched(ZIO.log(template.format(values*)), defaultsWithTemplate(template))
 
+  /** Log warning using default annotations
+    *
+    * @param template
+    *   Log message template to use
+    * @param values
+    *   Values for rendering the template
+    * @return
+    *   ZIO Workflow
+    */
+  @unused
+  def zlogWarning(template: String, values: String*): zio.UIO[Unit] =
+    logEnriched(ZIO.logWarning(template.format(values*)), defaultsWithTemplate(template))
+
   /** Log using default and additional custom annotations
     *
     * @param template
@@ -103,6 +116,25 @@ object ZIOLogAnnotations:
   @unused
   def zlog(template: String, annotations: Seq[(LogAnnotation[String], String)], values: String*): zio.UIO[Unit] =
     logEnriched(ZIO.log(template.format(values*)), defaultsWithTemplate(template) ++ annotations)
+
+  /** Log warning using default and additional custom annotations
+    *
+    * @param template
+    *   Log message to record
+    * @param annotations
+    *   ZIO log annotations and values
+    * @param values
+    *   Values for rendering the template
+    * @return
+    *   ZIO Workflow
+    */
+  @unused
+  def zlogWarning(
+      template: String,
+      annotations: Seq[(LogAnnotation[String], String)],
+      values: String*
+  ): zio.UIO[Unit] =
+    logEnriched(ZIO.logWarning(template.format(values*)), defaultsWithTemplate(template) ++ annotations)
 
   /** Log error using default annotations
     *
