@@ -1,25 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package models.backfill
 
-import models.serialization.OffsetDateTimeRW.*
-
 import upickle.ReadWriter
 
-import java.time.OffsetDateTime
-
+/**
+ * Backfill data summary recorded into target
+ */
 trait SourceBackfill:
   val id: String
-  val startedAt: OffsetDateTime
-  val completedAt: Option[OffsetDateTime]
-
-  def isCompleted: Boolean = completedAt.isDefined
+  val shardCount: Int
+  val watermarkValue: String
 
 case class DefaultSourceBackfill(
     override val id: String,
-    override val startedAt: OffsetDateTime,
-    override val completedAt: Option[OffsetDateTime]
+    override val shardCount: Int,
+    override val watermarkValue: String
 ) extends SourceBackfill derives ReadWriter
-
-object DefaultSourceBackfill:
-  def apply(value: String): DefaultSourceBackfill  = upickle.read[DefaultSourceBackfill](value)
-  def toJson(value: DefaultSourceBackfill): String = upickle.write(value)

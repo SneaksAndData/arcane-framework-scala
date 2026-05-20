@@ -16,7 +16,7 @@ trait SourceShard:
   val targetTableName: String
 
   final val shardTableName: String =
-    s"${sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined").toLowerCase}_${shardId.replace("-", "_")}"
+    s"backfill_${sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined").toLowerCase}__${sys.env.getOrElse("STREAMCONTEXT__BACKFILL_ID", "undefined").toLowerCase}_${shardId.replace("-", "_")}"
 
 case class CompletedShard(
     shardId: String,

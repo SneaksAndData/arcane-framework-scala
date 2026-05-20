@@ -2,16 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.graph
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.batches.StagedBatch
-import models.ddl.CreateTableRequest
-import models.schemas.{ArcaneSchema, JsonWatermarkRow}
-import models.sharding.{CompletedShard, CompletionShard, StagedShard}
+import models.sharding.{CompletedShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardCombineProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
-import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
-import services.iceberg.given_Conversion_ArcaneSchema_Schema
-import services.streaming.base.{JsonWatermark, SourceWatermark, StreamDataProvider}
 import services.streaming.processors.transformers.FieldFilteringTransformer
 
 import zio.stream.{ZPipeline, ZSink, ZStream}
@@ -38,7 +32,7 @@ class DefaultBackfillOverwriteGraphBuilder(
 ) extends BackfillStreamingGraphBuilder:
 
   private val backfillParallelism = Runtime.getRuntime.availableProcessors() * 2
-  private def aggregateShard      = ZPipeline.fromSink(ZSink.last[StagedShard])
+  private def aggregateShards      = ZPipeline.fromSink(ZSink.last[StagedShard])
 
   /** @inheritdoc
     */
@@ -49,7 +43,7 @@ class DefaultBackfillOverwriteGraphBuilder(
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] = ZStream
     .fromZIO(
       zlog(
-        "Starting backfill with shard parallelism %s",
+        "Backfill with use shard parallelism of %s",
         backfillParallelism.toString
       ) *> streamDataProvider.backfillStream
     )
@@ -72,7 +66,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                     shard.shardStream._1
                       .via(fieldFilteringProcessor.process)
                       .via(shardStageProcessor.process(shard, shard.shardStream._2))
-                      .via(aggregateShard)
+                      .via(aggregateShards)
                       .collect { case Some(staged) =>
                         staged
                       }

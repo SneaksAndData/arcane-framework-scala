@@ -8,7 +8,6 @@ import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
-import services.streaming.base.JsonWatermark
 
 import upickle.ReadWriter
 import zio.{Task, ZIO}
@@ -25,7 +24,7 @@ class DefaultBackfillStateManager(
     stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state))
 
   override def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]] =
-    stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(DefaultSourceBackfill(_)))
+    stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(upickle.read(_)))
 
   override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for _ <-
       stagingEntityManager.createTable(CreateTableRequest(shard.shardTableName, schema, false))
@@ -34,6 +33,7 @@ class DefaultBackfillStateManager(
   override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
     stagingPropertyManager
       .setProperty(completionShard.shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString)
+      .flatMap(_ => stagingPropertyManager.setProperty(completionShard.shardTableName, watermarkPropertyName, completionShard.watermark))
       .map(_ => completionShard)
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =

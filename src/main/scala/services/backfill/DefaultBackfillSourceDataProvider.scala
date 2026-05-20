@@ -5,10 +5,12 @@ import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
 import models.sharding.BootstrappedShard
+import services.backfill.base.BackfillSourceDataProvider
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 
-import com.sneaksanddata.arcane.framework.services.backfill.base.BackfillSourceDataProvider
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
+import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import upickle.ReadWriter
 import zio.Task
 import zio.stream.ZStream
@@ -22,7 +24,7 @@ import java.time.OffsetDateTime
   * or it may produce nothing if the backfill was interrupted.
   */
 abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
-    dataProvider: BackfillSourceDataProvider[WatermarkType],
+    dataProvider: SchemaProvider[ArcaneSchema],
     backfillSettings: BackfillSettings,
     stagingTableSettings: StagingTableSettings,
     sinkSettings: SinkSettings,
@@ -42,24 +44,13 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
     */
   protected def backfillStream(
       backfillStart: WatermarkType,
-      shardCount: Int
+      backfillEnd: WatermarkType
   ): ZStream[Any, Throwable, BootstrappedShard]
 
-  protected def hasData(backfillStart: WatermarkType): Task[Boolean]
-
-  final override def isEmpty: Task[Boolean] =
-    getBackfillStartWatermark(backfillSettings.backfillStartDate).flatMap(hasData)
-
-  final override def requestBackfill: ZStream[Any, Throwable, BootstrappedShard] = ZStream
-    .fromZIO(getSnapshotVersion)
-    .mapZIO { snapshotWatermark =>
-      for
-        shards             <- getShardCount
-        startFromWatermark <- getBackfillStartWatermark(backfillSettings.backfillStartDate)
-      yield (snapshot = snapshotWatermark, startFrom = startFromWatermark, shardCount = shards)
-    }
-    .flatMap { case (snapshot, startFrom, shardCount) =>
-      backfillStream(startFrom, shardCount)
+  final override def requestBackfill(snapshotVersion: WatermarkType): ZStream[Any, Throwable, BootstrappedShard] = ZStream
+    .fromZIO(getBackfillStartWatermark(backfillSettings.backfillStartDate))
+    .flatMap { startFrom =>
+      backfillStream(startFrom, snapshotVersion)
     }
 
   /** @inheritdoc

@@ -1,13 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
-import logging.ZIOLogAnnotations.zlogStream
 import models.settings.backfill.BackfillSettings
-import models.sharding.{BootstrappedShard, SourceShard, StagedShard}
+import models.sharding.BootstrappedShard
+import services.backfill.base.{BackfillSourceDataProvider, BackfillStreamDataProvider}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{JsonWatermark, SourceWatermark}
 
-import com.sneaksanddata.arcane.framework.services.backfill.base.{BackfillSourceDataProvider, BackfillStreamDataProvider}
 import zio.Task
 import zio.stream.ZStream
 
@@ -19,4 +18,4 @@ class DefaultBackfillStreamDataProvider[WatermarkType <: SourceWatermark[String]
 
   def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     dataProvider.getSnapshotVersion
-      .map(watermark => (dataProvider.requestBackfill, watermark))
+      .map(watermark => (dataProvider.requestBackfill(watermark), watermark))
