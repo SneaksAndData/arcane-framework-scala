@@ -8,6 +8,7 @@ import models.sharding.BootstrappedShard
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 
+import com.sneaksanddata.arcane.framework.services.backfill.base.BackfillSourceDataProvider
 import upickle.ReadWriter
 import zio.Task
 import zio.stream.ZStream

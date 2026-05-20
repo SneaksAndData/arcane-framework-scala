@@ -61,43 +61,6 @@ object SqlServerChangeTrackingBackfillQuery:
   def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
-class SqlServerChangeTrackingBackfillBatch(
-    batchName: String,
-    batchSchema: ArcaneSchema,
-    targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    watermarkValue: Option[String]
-) extends StagedBackfillOverwriteBatch:
-
-  override val name: String            = batchName
-  override val schema: ArcaneSchema    = batchSchema
-  override val targetTableName: String = targetName
-
-  override def reduceExpr: String =
-    s"""SELECT * FROM $name AS ${MergeQueryCommons.SOURCE_ALIAS} WHERE ${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_OPERATION != 'D'""".stripMargin
-
-  override val batchQuery: OverwriteQuery =
-    SqlServerChangeTrackingBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
-
-  override val completedWatermarkValue: Option[String] = watermarkValue
-
-object SqlServerChangeTrackingBackfillBatch:
-  /** */
-  def apply(
-      batchName: String,
-      batchSchema: ArcaneSchema,
-      targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      watermarkValue: Option[String]
-  ): StagedBackfillOverwriteBatch =
-    new SqlServerChangeTrackingBackfillBatch(
-      batchName,
-      batchSchema,
-      targetName,
-      tablePropertiesSettings,
-      watermarkValue
-    )
-
 class SqlServerChangeTrackingMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,

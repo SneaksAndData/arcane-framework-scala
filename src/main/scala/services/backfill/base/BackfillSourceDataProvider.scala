@@ -1,12 +1,11 @@
 package com.sneaksanddata.arcane.framework
-package services.backfill
+package services.backfill.base
 
-import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, SourceShard}
-import com.sneaksanddata.arcane.framework.services.streaming.base.{SourceWatermark, StructuredZStream}
+import models.sharding.{BootstrappedShard, SourceShard}
+import services.streaming.base.SourceWatermark
+
 import zio.Task
 import zio.stream.ZStream
-
-import java.time.OffsetDateTime
 
 /** Provides a way to retrieve a source snapshot watermarked with a specified watermark type.
   *

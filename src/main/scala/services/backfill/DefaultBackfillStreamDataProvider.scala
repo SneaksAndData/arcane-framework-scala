@@ -7,6 +7,7 @@ import models.sharding.{BootstrappedShard, SourceShard, StagedShard}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{JsonWatermark, SourceWatermark}
 
+import com.sneaksanddata.arcane.framework.services.backfill.base.{BackfillSourceDataProvider, BackfillStreamDataProvider}
 import zio.Task
 import zio.stream.ZStream
 

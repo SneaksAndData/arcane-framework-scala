@@ -5,17 +5,18 @@ import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
 import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
-import services.backfill.base.{BackfillStateManager, ShardProcessingState}
+import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.streaming.base.JsonWatermark
 
-import com.sneaksanddata.arcane.framework.services.streaming.base.JsonWatermark
 import upickle.ReadWriter
 import zio.{Task, ZIO}
 
 class DefaultBackfillStateManager(
     stagingEntityManager: StagingEntityManager,
     stagingPropertyManager: StagingPropertyManager,
+    shardFactory: ShardFactory,
     stagedBackfillTableName: String
 ) extends BackfillStateManager:
   override type StateImpl = DefaultSourceBackfill
@@ -57,15 +58,7 @@ class DefaultBackfillStateManager(
       stagingPropertyManager
         .getProperty(shard.shardTableName, watermarkPropertyName)
         .map(wm =>
-          wm.map(value =>
-            CompletionShard(
-              value,
-              shard.shardTableName,
-              shard.targetTableName,
-              shard.shardSourceEntityName,
-              shard.combinedTableName
-            )
-          )
+          wm.map(value => shardFactory.createCompletionShard(shard, value))
         )
     )
   yield result.flatten

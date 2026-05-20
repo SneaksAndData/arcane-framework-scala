@@ -7,12 +7,12 @@ import models.batches.{StagedBackfillOverwriteBatch, StagedBatch}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.sharding.{CompletedShard, CompletionShard}
-import services.backfill.StagedShardProcessor
 import services.base.MergeServiceClient
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.WatermarkProcessingExtensions.*
+import com.sneaksanddata.arcane.framework.services.backfill.base.StagedShardProcessor
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}

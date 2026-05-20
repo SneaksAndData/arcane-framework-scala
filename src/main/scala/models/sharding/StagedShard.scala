@@ -1,31 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package models.sharding
 
-import models.queries.{ShardCommitQuery, StreamingBatchQuery}
+import models.queries.{DefaultShardCommitQuery, StreamingBatchQuery}
 
 /** A staged shard contains a chunk of data from source that has been successfully streamed out
   */
 trait StagedShard extends SourceShard:
   val shardSourceEntityName: String
-  val commitQuery: StreamingBatchQuery = ShardCommitQuery(combinedTableName, shardTableName)
+  val commitQuery: StreamingBatchQuery
 
-object StagedShard:
-  def apply(
-      id: String,
-      shardSourceName: String,
-      combinedTableName: String,
-      targetTableName: String
-  ): StagedShard = new StagedShard {
-    override val shardSourceEntityName: String = shardSourceName
-    override val shardId: String               = id
-    override val combinedTableName: String     = combinedTableName
-    override val targetTableName: String       = targetTableName
-  }
-
-  extension (shard: BootstrappedShard)
-    def toStaged: StagedShard = StagedShard(
-      shard.shardId,
-      shard.shardSourceEntityName,
-      shard.combinedTableName,
-      shard.targetTableName
-    )
+case class DefaultStagedShard(
+                               override val shardId: String,
+                               override val shardSourceEntityName: String,
+                               override val combinedTableName: String,
+                               override val targetTableName: String,
+                               override val commitQuery: StreamingBatchQuery
+                             ) extends StagedShard

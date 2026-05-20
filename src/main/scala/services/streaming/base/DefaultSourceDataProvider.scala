@@ -10,8 +10,7 @@ import models.settings.streaming.StreamModeSettings
 import models.settings.sources.{BufferingImpl, UnboundedImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
-
-import com.sneaksanddata.arcane.framework.services.backfill.BackfillSourceDataProvider
+import com.sneaksanddata.arcane.framework.services.backfill.base.BackfillSourceDataProvider
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.sharding
 
-import models.queries.{OverwriteReplaceQuery, ShardCommitQuery, StreamingBatchQuery}
+import models.queries.{OverwriteReplaceQuery, DefaultShardCommitQuery, StreamingBatchQuery}
 import services.streaming.base.{JsonWatermark, SourceWatermark, StructuredZStream}
 
 import com.sneaksanddata.arcane.framework.models.settings.EmptyTablePropertiesSettings
@@ -15,7 +15,7 @@ trait SourceShard:
   val combinedTableName: String
   val targetTableName: String
 
-  val shardTableName: String =
+  final val shardTableName: String =
     s"${sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined").toLowerCase}_${shardId.replace("-", "_")}"
 
 case class CompletedShard(
@@ -23,4 +23,7 @@ case class CompletedShard(
     combinedTableName: String,
     targetTableName: String,
     override val shardSourceEntityName: String
-) extends StagedShard
+) extends StagedShard:
+  override val commitQuery: StreamingBatchQuery = new StreamingBatchQuery {
+    override def query: String = ""
+  }
