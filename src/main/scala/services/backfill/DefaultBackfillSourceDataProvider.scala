@@ -1,13 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
-import models.backfill.{DefaultSourceBackfill, SourceBackfill}
+import models.backfill.DefaultSourceBackfill
 import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
-import models.settings.staging.StagingTableSettings
 import models.sharding.BootstrappedShard
-import services.backfill.base.{BackfillSourceDataProvider, BackfillStateManager}
+import services.backfill.base.BackfillSourceDataProvider
 import services.base.SchemaProvider
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
@@ -27,7 +26,6 @@ import java.time.OffsetDateTime
 abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
     dataProvider: SchemaProvider[ArcaneSchema],
     backfillSettings: BackfillSettings,
-    stagingTableSettings: StagingTableSettings,
     sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
     metricTagProvider: MetricTagProvider

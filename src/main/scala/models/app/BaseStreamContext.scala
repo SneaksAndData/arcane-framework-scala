@@ -38,7 +38,7 @@ trait BaseStreamContext:
         case Some(value) if value.nonEmpty => value
         case _ =>
           throw new RuntimeException(
-            "Unable to stream a backfill: STREAMCONTEXT__BACKFILL_ID environment variable must be provided with a non-empty value"
+            "Unable to create a backfill stream: STREAMCONTEXT__BACKFILL_ID environment variable must be provided with a non-empty value"
           )
       }
       .flatMap(id => streamId.map(sid => s"${streamId}__$id".replace("-", "_")))

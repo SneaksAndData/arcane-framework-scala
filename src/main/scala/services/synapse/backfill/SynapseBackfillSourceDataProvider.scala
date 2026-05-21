@@ -1,18 +1,18 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.backfill
 
+import models.app.PluginStreamContext
+import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
-import models.settings.staging.StagingTableSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
 import services.metrics.base.MetricTagProvider
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
 import zio.stream.ZStream
-import zio.{Task, ZIO}
+import zio.{Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
 
@@ -21,16 +21,13 @@ import java.time.OffsetDateTime
 final class SynapseBackfillSourceDataProvider(
     dataProvider: SynapseLinkReader,
     backfillSettings: BackfillSettings,
-    stagingTableSettings: StagingTableSettings,
     sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
     metricTagProvider: MetricTagProvider,
-    streamId: String,
     backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
-      stagingTableSettings,
       sinkSettings,
       stateManager,
       metricTagProvider
@@ -64,3 +61,21 @@ final class SynapseBackfillSourceDataProvider(
   /** Most recent version of the dataset at a time when a backfill was initiated.
     */
   override def getSnapshotVersion: Task[SynapseWatermark] = dataProvider.getCurrentVersion(SynapseWatermark.epoch)
+
+object SynapseBackfillSourceDataProvider:
+  val layer = ZLayer {
+    for
+      dataProvider <- ZIO.service[SynapseLinkReader]
+      stateManager <- ZIO.service[DefaultBackfillStateManager]
+      tagProvider <- ZIO.service[MetricTagProvider]
+      context <- ZIO.service[PluginStreamContext]
+      backfillId <- context.backfillId
+    yield new SynapseBackfillSourceDataProvider(
+      dataProvider = dataProvider, 
+      backfillSettings = context.streamMode.backfill, 
+      sinkSettings = context.sink, 
+      stateManager = stateManager, 
+      metricTagProvider = tagProvider, 
+      backfillId = backfillId
+    )
+  }

@@ -5,6 +5,8 @@ import models.queries.backfill.synapse.{SynapseLinkShardCommitQuery, SynapseLink
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
 
+import zio.{ULayer, ZLayer}
+
 /** Backfill shard factory for SynapseLink
   */
 final class SynapseShardFactory extends ShardFactory:
@@ -24,3 +26,6 @@ final class SynapseShardFactory extends ShardFactory:
     commitQuery = SynapseLinkShardCommitQuery(shard.targetTableName, shard.combinedTableName),
     backfillId = shard.backfillId
   )
+
+object SynapseShardFactory:
+  val layer: ULayer[SynapseShardFactory] = ZLayer.succeed(new SynapseShardFactory())
