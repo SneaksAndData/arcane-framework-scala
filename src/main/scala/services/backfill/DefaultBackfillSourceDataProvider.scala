@@ -8,7 +8,6 @@ import models.settings.sink.SinkSettings
 import models.sharding.BootstrappedShard
 import services.backfill.base.BackfillSourceDataProvider
 import services.base.SchemaProvider
-import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 
 import upickle.ReadWriter
@@ -27,8 +26,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
     dataProvider: SchemaProvider[ArcaneSchema],
     backfillSettings: BackfillSettings,
     sinkSettings: SinkSettings,
-    stateManager: DefaultBackfillStateManager,
-    metricTagProvider: MetricTagProvider
+    stateManager: DefaultBackfillStateManager
 )(implicit rw: ReadWriter[WatermarkType])
     extends BackfillSourceDataProvider[WatermarkType]:
 

@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.blobsource
 
 import models.app.{BaseStreamContext, PluginStreamContext}
+import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
@@ -16,15 +17,8 @@ import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.{
-  IcebergUtil,
-  TestDynamicSinkSettings,
-  TestSourceBufferingSettings,
-  TestStagingSettings,
-  TestThroughputShaperBuilder
-}
+import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
@@ -103,7 +97,6 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             source,
             propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
-            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
@@ -136,7 +129,6 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             source,
             propertyManager,
             new TestDynamicSinkSettings("demo.test.test"),
-            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")

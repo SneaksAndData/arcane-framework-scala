@@ -6,15 +6,7 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.sink.SinkSettings
-import services.iceberg.{
-  IcebergCatalogFactory,
-  IcebergS3CatalogWriter,
-  IcebergSinkEntityManager,
-  IcebergSinkTablePropertyManager,
-  IcebergStagingEntityManager,
-  IcebergTablePropertyManager,
-  given_Conversion_ArcaneSchema_Schema
-}
+import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergSinkEntityManager, IcebergSinkTablePropertyManager, IcebergStagingEntityManager, IcebergStagingTablePropertyManager, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.streaming.base.JsonWatermark
 
 import zio.{Scope, Task, ZIO, ZLayer}
@@ -38,6 +30,22 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
     yield result
 
   def getSinkEntityManagerLayer: ZLayer[Any, Throwable, IcebergSinkEntityManager] = ZLayer.scoped(getSinkEntityManager)
+  
+  def getStagingTablePropertyManager: Task[IcebergStagingTablePropertyManager] = ZIO.scoped {
+    for
+      stagingSettings <- ZIO.succeed(TestStagingSettings())
+      factory <- IcebergCatalogFactory.live(stagingSettings.icebergCatalog)
+      result = IcebergStagingTablePropertyManager(stagingSettings.icebergCatalog, factory)
+    yield result
+  }
+    
+  def getStagingEntityManager: Task[IcebergStagingEntityManager] = ZIO.scoped {
+    for
+      stagingSettings <- ZIO.succeed(TestStagingSettings())
+      factory <- IcebergCatalogFactory.live(stagingSettings.icebergCatalog)
+      entityManager = IcebergStagingEntityManager(stagingSettings.icebergCatalog, factory)
+    yield entityManager
+  }
 
   def getWriter: Task[IcebergS3CatalogWriter] = ZIO.scoped {
     for

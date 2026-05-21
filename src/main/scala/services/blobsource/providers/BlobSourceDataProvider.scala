@@ -2,11 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.providers
 
 import models.app.PluginStreamContext
-import models.schemas.DataRow
-import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
-import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
@@ -14,23 +11,18 @@ import services.iceberg.base.SinkPropertyManager
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
-import com.sun.source.util.Plugin
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
-
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class BlobSourceDataProvider(
     sourceReader: BlobSourceReader,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    streamMode: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
       sinkPropertyManager,
       sinkSettings,
-      streamMode,
       throughputShaperBuilder,
       sourceBufferingSettings
     ):
@@ -69,7 +61,6 @@ object BlobSourceDataProvider:
       blobSource,
       propertyManager,
       context.sink,
-      context.streamMode,
       throughputBuilder,
       context.source.buffering
     )

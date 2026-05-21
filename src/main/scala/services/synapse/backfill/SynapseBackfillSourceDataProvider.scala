@@ -23,14 +23,12 @@ final class SynapseBackfillSourceDataProvider(
     backfillSettings: BackfillSettings,
     sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
-    metricTagProvider: MetricTagProvider,
     backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
       sinkSettings,
-      stateManager,
-      metricTagProvider
+      stateManager
     ):
 
   override protected def backfillStream(
@@ -67,7 +65,6 @@ object SynapseBackfillSourceDataProvider:
     for
       dataProvider <- ZIO.service[SynapseLinkReader]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
-      tagProvider  <- ZIO.service[MetricTagProvider]
       context      <- ZIO.service[PluginStreamContext]
       backfillId   <- context.backfillId
     yield new SynapseBackfillSourceDataProvider(
@@ -75,7 +72,6 @@ object SynapseBackfillSourceDataProvider:
       backfillSettings = context.streamMode.backfill,
       sinkSettings = context.sink,
       stateManager = stateManager,
-      metricTagProvider = tagProvider,
       backfillId = backfillId
     )
   }

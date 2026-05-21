@@ -2,20 +2,16 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
+import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
-import models.settings.streaming.StreamModeSettings
-import services.backfill.base.BackfillSourceDataProvider
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
-
-import java.time.OffsetDateTime
 
 /** Default implementations for source data emitter used by StreamDataProvider
   * @tparam WatermarkType
@@ -24,7 +20,6 @@ import java.time.OffsetDateTime
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    streamMode: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings
 )(implicit rw: ReadWriter[WatermarkType])

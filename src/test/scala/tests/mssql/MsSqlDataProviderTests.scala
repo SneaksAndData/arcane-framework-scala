@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.mssql
 
 import models.app.BaseStreamContext
+import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
@@ -14,7 +15,6 @@ import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, Task, Unsafe, ZIO}
@@ -111,7 +111,6 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
             connection,
             propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$testTableName"),
-            defaultStreamMode,
             TestThroughputShaperBuilder.default(
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.$testTableName")
