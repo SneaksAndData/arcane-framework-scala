@@ -9,7 +9,6 @@ import services.backfill.base.ShardFactory
   */
 final class SynapseShardFactory extends ShardFactory:
   override def createStagedShard(shard: BootstrappedShard): StagedShard = DefaultStagedShard(
-    shardId = shard.shardId,
     shardSourceEntityName = shard.shardSourceEntityName,
     combinedTableName = shard.combinedTableName,
     targetTableName = shard.targetTableName,

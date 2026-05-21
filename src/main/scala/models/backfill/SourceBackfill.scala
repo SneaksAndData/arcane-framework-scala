@@ -7,11 +7,17 @@ import upickle.ReadWriter
   */
 trait SourceBackfill:
   val id: String
-  val shardCount: Int
   val watermarkValue: String
+  val backfillStart: String
+  val backfillEnd: String
+  val shardingCompleted: Boolean
+  val shardSources: Seq[String]
 
 case class DefaultSourceBackfill(
     override val id: String,
-    override val shardCount: Int,
-    override val watermarkValue: String
+    override val backfillStart: String,
+    override val backfillEnd: String,
+    override val watermarkValue: String,
+    override val shardingCompleted: Boolean,
+    override val shardSources: Seq[String]
 ) extends SourceBackfill derives ReadWriter

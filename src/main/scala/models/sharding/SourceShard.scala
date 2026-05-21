@@ -11,15 +11,17 @@ import zio.stream.ZStream
 /** A shard of data from source to be used by backfills
   */
 trait SourceShard:
-  val shardId: String
   val combinedTableName: String
   val targetTableName: String
+  val shardSourceEntityName: String
+  
+  final val shardId = s"${shardSourceEntityName.replace("-", "_").replace(".", "_").replace(":", "_")}"
 
+  // TODO: make it an effect and require both IDs to be set
   final val shardTableName: String =
     s"backfill_${sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined").toLowerCase}__${sys.env.getOrElse("STREAMCONTEXT__BACKFILL_ID", "undefined").toLowerCase}_${shardId.replace("-", "_")}"
 
 case class CompletedShard(
-    shardId: String,
     combinedTableName: String,
     targetTableName: String,
     override val shardSourceEntityName: String

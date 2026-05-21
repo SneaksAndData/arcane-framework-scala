@@ -30,12 +30,12 @@ trait BackfillStateManager:
   /** Saves current backfill state to a staging table's metadata
     * @return
     */
-  def commitState(state: StateImpl)(implicit rw: ReadWriter[StateImpl]): Task[Unit]
+  def commitState(state: StateImpl): Task[Unit]
 
   /** Reads current backfill state from a staging table's metadata
     * @return
     */
-  def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]]
+  def readState: Task[Option[StateImpl]]
 
   /** Prepares shard for staging by creating a table for its data
     * @return

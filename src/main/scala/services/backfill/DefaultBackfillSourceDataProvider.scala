@@ -44,14 +44,15 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
     */
   protected def backfillStream(
       backfillStart: WatermarkType,
-      backfillEnd: WatermarkType
+      backfillEnd: WatermarkType,
+      shardSources: Option[Seq[String]]                        
   ): ZStream[Any, Throwable, BootstrappedShard]
 
-  final override def requestBackfill(snapshotVersion: WatermarkType): ZStream[Any, Throwable, BootstrappedShard] =
+  final override def requestBackfill(snapshotVersion: WatermarkType, shards: Option[Seq[String]]): ZStream[Any, Throwable, BootstrappedShard] =
     ZStream
       .fromZIO(getBackfillStartWatermark(backfillSettings.backfillStartDate))
       .flatMap { startFrom =>
-        backfillStream(startFrom, snapshotVersion)
+        backfillStream(startFrom, snapshotVersion, shards)
       }
 
   /** @inheritdoc

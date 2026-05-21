@@ -9,7 +9,6 @@ import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessi
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 
-import upickle.ReadWriter
 import zio.{Task, ZIO}
 
 class DefaultBackfillStateManager(
@@ -20,10 +19,10 @@ class DefaultBackfillStateManager(
 ) extends BackfillStateManager:
   override type StateImpl = DefaultSourceBackfill
 
-  override def commitState(state: StateImpl)(implicit rw: ReadWriter[StateImpl]): Task[Unit] =
+  override def commitState(state: StateImpl): Task[Unit] =
     stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state))
 
-  override def readState(implicit rw: ReadWriter[StateImpl]): Task[Option[StateImpl]] =
+  override def readState: Task[Option[StateImpl]] =
     stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(upickle.read(_)))
 
   override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for _ <-
