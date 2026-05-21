@@ -16,5 +16,7 @@ case class DefaultBootstrappedShard(
     override val shardStream: (ZStream[Any, Throwable, DataRow], ArcaneSchema),
     override val shardSourceEntityName: String,
     override val combinedTableName: String,
-    override val targetTableName: String
+    override val targetTableName: String,
+    override val streamId: String,
+    override val backfillId: String
 ) extends BootstrappedShard

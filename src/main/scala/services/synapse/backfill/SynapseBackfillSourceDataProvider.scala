@@ -10,6 +10,7 @@ import services.metrics.base.MetricTagProvider
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 
+import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
 import zio.stream.ZStream
 import zio.{Task, ZIO}
 
@@ -23,7 +24,9 @@ final class SynapseBackfillSourceDataProvider(
     stagingTableSettings: StagingTableSettings,
     sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
-    metricTagProvider: MetricTagProvider
+    metricTagProvider: MetricTagProvider,
+    streamId: String,
+    backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
@@ -47,8 +50,10 @@ final class SynapseBackfillSourceDataProvider(
       DefaultBootstrappedShard(
         shardStream = stream,
         shardSourceEntityName = source,
-        combinedTableName = stagingTableSettings.backfillTableName,
-        targetTableName = sinkSettings.targetTableFullName
+        combinedTableName = getBackfillTableName(streamId, backfillId),
+        targetTableName = sinkSettings.targetTableFullName,
+        streamId = streamId, 
+        backfillId = backfillId
       )
     }
 

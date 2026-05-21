@@ -16,14 +16,9 @@ import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.{
-  IcebergUtil,
-  TestDynamicSinkSettings,
-  TestSourceBufferingSettings,
-  TestStagingSettings,
-  TestThroughputShaperBuilder
-}
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSourceBufferingSettings, TestStagingSettings, TestThroughputShaperBuilder}
 
+import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
@@ -55,7 +50,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val icebergUtil =
     IcebergUtil(
-      TestDynamicSinkSettings(stagingSettings.table.backfillTableName).icebergCatalog
+      TestDynamicSinkSettings(getBackfillTableName("test", "test")).icebergCatalog
     )
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(

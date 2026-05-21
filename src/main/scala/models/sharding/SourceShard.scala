@@ -14,17 +14,23 @@ trait SourceShard:
   val combinedTableName: String
   val targetTableName: String
   val shardSourceEntityName: String
+  val streamId: String
+  val backfillId: String
 
+  /**
+   * Unique shard identifier based on the source entity used to create a shard data stream
+   */
   final val shardId = s"${shardSourceEntityName.replace("-", "_").replace(".", "_").replace(":", "_")}"
-
-  // TODO: make it an effect and require both IDs to be set
+  
   final val shardTableName: String =
-    s"backfill_${sys.env.getOrElse("STREAMCONTEXT__STREAM_ID", "undefined").toLowerCase}__${sys.env.getOrElse("STREAMCONTEXT__BACKFILL_ID", "undefined").toLowerCase}_${shardId.replace("-", "_")}"
+    s"backfill_shard__${streamId}__${backfillId}__$shardId"
 
 case class CompletedShard(
     combinedTableName: String,
     targetTableName: String,
-    override val shardSourceEntityName: String
+    override val shardSourceEntityName: String,
+    override val streamId: String,
+    override val backfillId: String
 ) extends StagedShard:
   override val commitQuery: StreamingBatchQuery = new StreamingBatchQuery {
     override def query: String = ""

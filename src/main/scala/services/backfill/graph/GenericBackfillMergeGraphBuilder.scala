@@ -28,7 +28,6 @@
 //  /** @inheritdoc
 //    */
 //  override def produce(): ZStream[Any, Throwable, ProcessedBatch] = {
-//    // TODO: is watermark applied here even??
 //    ZStream.fromZIO(streamDataProvider.backfill)
 //  }
 //

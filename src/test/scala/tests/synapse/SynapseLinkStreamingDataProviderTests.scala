@@ -67,7 +67,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceRoot      = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
   private val icebergUtilBackfill =
     IcebergUtil(
-      TestDynamicSinkSettings(stagingSettings.table.backfillTableName).icebergCatalog
+      TestDynamicSinkSettings(getBackfillTableName("synapse", "synapse-test")).icebergCatalog
     )
   private def getIcebergUtilStream(tableName: String) =
     IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)

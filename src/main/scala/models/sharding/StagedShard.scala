@@ -13,5 +13,7 @@ case class DefaultStagedShard(
     override val shardSourceEntityName: String,
     override val combinedTableName: String,
     override val targetTableName: String,
-    override val commitQuery: StreamingBatchQuery
+    override val commitQuery: StreamingBatchQuery,
+    override val streamId: String,
+    override val backfillId: String
 ) extends StagedShard

@@ -10,10 +10,12 @@ case class CompletionShard(
     override val targetTableName: String,
     override val shardSourceEntityName: String,
     override val combinedTableName: String,
-    override val commitQuery: StreamingBatchQuery
+    override val commitQuery: StreamingBatchQuery,
+    override val streamId: String,
+    override val backfillId: String
 ) extends StagedShard
 
 object CompletionShard:
   extension (shard: CompletionShard)
     def toCompleted: CompletedShard =
-      CompletedShard(shard.combinedTableName, shard.targetTableName, shard.shardSourceEntityName)
+      CompletedShard(shard.combinedTableName, shard.targetTableName, shard.shardSourceEntityName, shard.streamId, shard.backfillId)

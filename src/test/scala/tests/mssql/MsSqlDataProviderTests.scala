@@ -14,6 +14,7 @@ import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, Task, Unsafe, ZIO}
@@ -55,7 +56,7 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new BaseStreamContext:
     override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
 
-  private val defaultSinkSettings = TestDynamicSinkSettings(stagingSettings.table.backfillTableName)
+  private val defaultSinkSettings = TestDynamicSinkSettings(getBackfillTableName("mssql", "mssql_test"))
   private val icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =

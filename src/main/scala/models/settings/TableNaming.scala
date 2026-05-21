@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
+import zio.Task
+
 type TableName = String
 
 object TableNaming:
@@ -12,3 +14,5 @@ object TableNaming:
           throw new RuntimeException(
             s"Invalid table name format for $tableName. Must be {warehouse}.{namespace}.{name}"
           )
+
+  def getBackfillTableName(streamId: String, backfillId: String): String = s"backfill__${streamId.replace("-", "_")}__${backfillId.replace("-", "_")}"

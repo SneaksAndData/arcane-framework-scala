@@ -5,12 +5,12 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
-import models.settings.sources.SourceBufferingSettings
+import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
 import models.settings.streaming.StreamModeSettings
-import models.settings.sources.{BufferingImpl, UnboundedImpl}
+import services.backfill.base.BackfillSourceDataProvider
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.services.backfill.base.BackfillSourceDataProvider
+
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
