@@ -18,7 +18,10 @@ class DefaultBackfillStreamDataProvider[WatermarkType <: SourceWatermark[String]
 ) extends BackfillStreamDataProvider:
 
   def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] = {
-    stateManager.readState.map(v => v.map(_.shardSources))
-      .flatMap(sources => dataProvider.getSnapshotVersion
-      .map(watermark => (stream = dataProvider.requestBackfill(watermark, sources), watermark = watermark)))
+    stateManager.readState
+      .map(v => v.map(_.shardSources))
+      .flatMap(sources =>
+        dataProvider.getSnapshotVersion
+          .map(watermark => (stream = dataProvider.requestBackfill(watermark, sources), watermark = watermark))
+      )
   }

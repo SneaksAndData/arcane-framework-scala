@@ -36,9 +36,11 @@ final class SynapseBackfillSourceDataProvider(
       backfillEnd: SynapseWatermark,
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
-    case None => dataProvider
-      .getData(backfillStart, backfillEnd)
-    case Some(sources) => dataProvider.getData(sources))
+    case None =>
+      dataProvider
+        .getData(backfillStart, backfillEnd)
+    case Some(sources) => dataProvider.getData(sources)
+  )
     .map { case (stream, source) =>
       DefaultBootstrappedShard(
         shardStream = stream,
@@ -47,7 +49,6 @@ final class SynapseBackfillSourceDataProvider(
         targetTableName = sinkSettings.targetTableFullName
       )
     }
-    
 
   override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[SynapseWatermark] = for
     _  <- ZIO.when(startTime.isEmpty)(ZIO.fail(new IllegalArgumentException("Backfill start date is not set")))

@@ -19,7 +19,10 @@ trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
     * @return
     *   A task that represents the backfill data.
     */
-  def requestBackfill(snapshotVersion: DataVersionType, shards: Option[Seq[String]]): ZStream[Any, Throwable, BootstrappedShard]
+  def requestBackfill(
+      snapshotVersion: DataVersionType,
+      shards: Option[Seq[String]]
+  ): ZStream[Any, Throwable, BootstrappedShard]
 
   /** Most recent version of the dataset at a time when a backfill was initiated.
     */

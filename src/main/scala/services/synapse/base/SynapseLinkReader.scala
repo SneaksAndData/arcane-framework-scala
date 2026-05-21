@@ -175,19 +175,28 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
   private def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
 
-  def getData(startFrom: SynapseWatermark, endAt: SynapseWatermark): ZStream[Any, Throwable, (stream: StructuredZStream, source: String)] =
+  def getData(
+      startFrom: SynapseWatermark,
+      endAt: SynapseWatermark
+  ): ZStream[Any, Throwable, (stream: StructuredZStream, source: String)] =
     ZStream
       .fromZIO(getWatermarks(startFrom, endAt))
       .flatMap(ZStream.fromIterable(_))
       .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-      .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (stream =(getChangesForVersion(wm), batchSchema), source = wm.prefix)))
-  
+      .mapZIO(wm =>
+        getBatchSchema(wm.prefix)
+          .map(batchSchema => (stream = (getChangesForVersion(wm), batchSchema), source = wm.prefix))
+      )
+
   def getData(folders: Seq[String]): ZStream[Any, Throwable, (stream: StructuredZStream, source: String)] =
     ZStream
       .fromIterable(folders)
       .map(folder => StoredBlob(name = folder, createdOn = None).asWatermark)
       .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-      .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (stream =(getChangesForVersion(wm), batchSchema), source = wm.prefix)))
+      .mapZIO(wm =>
+        getBatchSchema(wm.prefix)
+          .map(batchSchema => (stream = (getChangesForVersion(wm), batchSchema), source = wm.prefix))
+      )
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125

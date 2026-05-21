@@ -14,7 +14,7 @@ trait SourceShard:
   val combinedTableName: String
   val targetTableName: String
   val shardSourceEntityName: String
-  
+
   final val shardId = s"${shardSourceEntityName.replace("-", "_").replace(".", "_").replace(":", "_")}"
 
   // TODO: make it an effect and require both IDs to be set
