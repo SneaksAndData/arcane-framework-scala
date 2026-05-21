@@ -5,7 +5,7 @@ import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
-import services.backfill.DefaultBackfillSourceDataProvider
+import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
 import services.metrics.base.MetricTagProvider
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
@@ -22,12 +22,14 @@ final class SynapseBackfillSourceDataProvider(
     backfillSettings: BackfillSettings,
     stagingTableSettings: StagingTableSettings,
     sinkSettings: SinkSettings,
+    stateManager: DefaultBackfillStateManager,
     metricTagProvider: MetricTagProvider
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
       stagingTableSettings,
       sinkSettings,
+      stateManager,
       metricTagProvider
     ):
 

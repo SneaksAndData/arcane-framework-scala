@@ -10,7 +10,6 @@ trait SourceBackfill:
   val watermarkValue: String
   val backfillStart: String
   val backfillEnd: String
-  val shardingCompleted: Boolean
   val shardSources: Seq[String]
 
 case class DefaultSourceBackfill(
@@ -18,6 +17,5 @@ case class DefaultSourceBackfill(
     override val backfillStart: String,
     override val backfillEnd: String,
     override val watermarkValue: String,
-    override val shardingCompleted: Boolean,
     override val shardSources: Seq[String]
 ) extends SourceBackfill derives ReadWriter

@@ -1,19 +1,20 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
+import models.backfill.{DefaultSourceBackfill, SourceBackfill}
+import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingTableSettings
 import models.sharding.BootstrappedShard
-import services.backfill.base.BackfillSourceDataProvider
+import services.backfill.base.{BackfillSourceDataProvider, BackfillStateManager}
+import services.base.SchemaProvider
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.*
 
-import com.sneaksanddata.arcane.framework.models.schemas.ArcaneSchema
-import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import upickle.ReadWriter
 import zio.Task
-import zio.stream.ZStream
+import zio.stream.{ZPipeline, ZSink, ZStream}
 
 import java.time.OffsetDateTime
 
@@ -28,6 +29,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
     backfillSettings: BackfillSettings,
     stagingTableSettings: StagingTableSettings,
     sinkSettings: SinkSettings,
+    stateManager: DefaultBackfillStateManager,
     metricTagProvider: MetricTagProvider
 )(implicit rw: ReadWriter[WatermarkType])
     extends BackfillSourceDataProvider[WatermarkType]:
@@ -48,6 +50,8 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard]
 
+  private def collectShards = ZPipeline.fromSink(ZSink.collectAll[BootstrappedShard])
+
   final override def requestBackfill(
       snapshotVersion: WatermarkType,
       shards: Option[Seq[String]]
@@ -56,6 +60,23 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       .fromZIO(getBackfillStartWatermark(backfillSettings.backfillStartDate))
       .flatMap { startFrom =>
         backfillStream(startFrom, snapshotVersion, shards)
+          .via(collectShards)
+          .flatMap {
+            bootstrapped =>
+              val outputStream = ZStream.fromIterable(bootstrapped)
+              if shards.isDefined then
+                outputStream
+              else {
+                val backfillMetadata = DefaultSourceBackfill(
+                  "",
+                  startFrom.toJson,
+                  snapshotVersion.toJson,
+                  "",
+                  bootstrapped.map(_.shardSourceEntityName)
+                )
+                ZStream.fromZIO(stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)
+              }
+          }
       }
 
   /** @inheritdoc
