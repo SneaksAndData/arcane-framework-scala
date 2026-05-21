@@ -81,7 +81,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
         rows <- provider.stream.flatMap(_._1).timeout(zio.Duration.fromSeconds(4)).runCount
       // expect 5 rows, since each file has 5 rows
-      // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
+      // total 7 files for this table (first folder doesn't have a CSV for this table)
       // watermark is 3 hours back which should only capture 1 file
       // one row should be watermark
       yield assertTrue(rows == 5 + 1 + 1)

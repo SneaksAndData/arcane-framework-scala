@@ -3,7 +3,6 @@ package tests.synapse
 
 import models.settings.TableNaming.{getBackfillTableName, parts}
 import services.backfill.DefaultBackfillStateManager
-import services.iceberg.IcebergSinkTablePropertyManager
 import services.metrics.DeclaredMetrics
 import services.synapse.backfill.{
   SynapseBackfillSourceDataProvider,
@@ -13,15 +12,17 @@ import services.synapse.backfill.{
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
-import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestThroughputShaperBuilder}
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
 import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
 
+import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
 
-class SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
-  private val sourceTableName = "dimensionattributelevelvalue"
+object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
+  private val sourceTableName     = "dimensionattributelevelvalue"
+  private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseBackfillStreamDataProviderTests")(
     test(
@@ -51,6 +52,9 @@ class SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
 //            )
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        schema            <- synapseLinkReader.getSchema
+        // backfill requires staging table to exist
+        _ <- icebergUtilBackfill.prepareBackfillTable(getBackfillTableName("synapse__backfill_new"), schema)
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseBackfillSourceDataProvider(
             synapseLinkReader,
@@ -68,13 +72,15 @@ class SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        data       <- provider.backfillStream
-        shardCount <- data.stream.runCount
-      // expect 30 rows, since each file has 5 rows
-      // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
-      // 1 file skipped as it is the latest one
-      // plus there 1 record to be deleted
-      // plus final row must be watermark row
-      yield assertTrue(shardCount == 10)
-    } // .provideLayer(icebergUtilBackfill.getSinkTablePropertyManagerLayer),
+        data      <- provider.backfillStream
+        shards    <- data.stream.runCollect
+        shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
+      // expect **8** shards as the source has 8 date folders that map to backfillStart, backfillEnd range
+      // for all shards combined:
+      // expect 42 rows, since each IU file has 5 rows and 1 row in a D file -> 6 rows per folder
+      // total **7** files for this table (first folder doesn't have a CSV/schema for this table)
+      // note that last batch is NOT skipped, even though it might be not processed
+      // streaming mode INCLUDES current watermark folder into the data stream, so even if the current snapshot was not complete, streaming should merge it in
+      yield assertTrue(shards.size == 8 && shardRows == 6 * 7)
+    }
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

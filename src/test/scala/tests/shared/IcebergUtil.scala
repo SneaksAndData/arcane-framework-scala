@@ -40,21 +40,23 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
 
   def getSinkEntityManagerLayer: ZLayer[Any, Throwable, IcebergSinkEntityManager] = ZLayer.scoped(getSinkEntityManager)
 
-  def getStagingTablePropertyManager: Task[IcebergStagingTablePropertyManager] = ZIO.scoped {
+  def getStagingTablePropertyManager: ZIO[Scope, Throwable, IcebergStagingTablePropertyManager] =
     for
-      stagingSettings <- ZIO.succeed(TestStagingSettings())
-      factory         <- IcebergCatalogFactory.live(stagingSettings.icebergCatalog)
-      result = IcebergStagingTablePropertyManager(stagingSettings.icebergCatalog, factory)
+      factory <- IcebergCatalogFactory.live(catalogSettings)
+      result = IcebergStagingTablePropertyManager(catalogSettings, factory)
     yield result
-  }
 
-  def getStagingEntityManager: Task[IcebergStagingEntityManager] = ZIO.scoped {
+  def getStagingTablePropertyManagerLayer: ZLayer[Any, Throwable, IcebergStagingTablePropertyManager] =
+    ZLayer.scoped(getStagingTablePropertyManager)
+
+  def getStagingEntityManager: ZIO[Scope, Throwable, IcebergStagingEntityManager] =
     for
-      stagingSettings <- ZIO.succeed(TestStagingSettings())
-      factory         <- IcebergCatalogFactory.live(stagingSettings.icebergCatalog)
-      entityManager = IcebergStagingEntityManager(stagingSettings.icebergCatalog, factory)
-    yield entityManager
-  }
+      factory <- IcebergCatalogFactory.live(catalogSettings)
+      result = IcebergStagingEntityManager(catalogSettings, factory)
+    yield result
+
+  def getStagingEntityManagerLayer: ZLayer[Any, Throwable, IcebergStagingEntityManager] =
+    ZLayer.scoped(getStagingEntityManager)
 
   def getWriter: Task[IcebergS3CatalogWriter] = ZIO.scoped {
     for
@@ -80,6 +82,18 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
       yield ()
     }
     .provide(getSinkTablePropertyManagerLayer, getSinkEntityManagerLayer)
+
+  def prepareBackfillTable(tableName: String, schema: ArcaneSchema): Task[Unit] = ZIO
+    .scoped {
+      for
+        targetName    <- ZIO.succeed(tableName)
+        entityManager <- ZIO.service[IcebergStagingEntityManager]
+        _ <- entityManager.createTable(
+          CreateTableRequest(targetName, schema, true)
+        )
+      yield ()
+    }
+    .provide(getStagingEntityManagerLayer)
 
 object IcebergUtil:
   def apply(catalogSettings: IcebergCatalogSettings): IcebergUtil = new IcebergUtil(catalogSettings)
