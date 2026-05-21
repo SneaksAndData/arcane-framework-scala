@@ -11,7 +11,7 @@ object SynapseLinkTestSettings:
   val defaultStreamMode: StreamModeSettings = new StreamModeSettings {
 
     /** Backfill mode-only settings
-     */
+      */
     override val backfill: BackfillSettings = new BackfillSettings {
       override val backfillBehavior: BackfillBehavior = Overwrite
       override val backfillStartDate: Option[OffsetDateTime] = Some(
@@ -20,10 +20,10 @@ object SynapseLinkTestSettings:
     }
 
     /** Change capture mode settings
-     */
+      */
     override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
-      override val changeCaptureInterval: Duration = Duration.ofSeconds(5)
+      override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
       override val changeCaptureJitterVariance: Double = 0.0001
-      override val changeCaptureJitterSeed: Long = 0
+      override val changeCaptureJitterSeed: Long       = 0
     }
   }

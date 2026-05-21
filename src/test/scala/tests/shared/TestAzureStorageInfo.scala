@@ -1,7 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.settings.azure.{CredentialTypeSetting, DefaultAzureHttpClientSettings, DefaultAzureStorageConnectionSettings, SharedKey}
+import models.settings.azure.{
+  CredentialTypeSetting,
+  DefaultAzureHttpClientSettings,
+  DefaultAzureStorageConnectionSettings,
+  SharedKey
+}
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.azure.AzureBlobStorageReader
 
@@ -31,5 +36,5 @@ object TestAzureStorageInfo:
       Some(endpoint)
     )
   )
-  
+
   val sourceRoot: AdlsStoragePath = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get

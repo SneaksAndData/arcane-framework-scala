@@ -25,7 +25,7 @@ class SynapseLinkDataProvider(
       throughputShaperBuilder,
       sourceBufferingSettings
     ):
-  
+
   override def hasChanges(previousVersion: SynapseWatermark): Task[Boolean] =
     synapseReader.hasChanges(previousVersion)
 
