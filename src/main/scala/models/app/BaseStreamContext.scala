@@ -32,13 +32,16 @@ trait BaseStreamContext:
     * it was interrupted
     */
   def backfillId: IO[SecurityException, String] =
-    zio.System.env("STREAMCONTEXT__BACKFILL_ID").map {
-      case Some(value) if value.nonEmpty => value
-      case _ =>
-        throw new RuntimeException(
-          "Unable to stream a backfill: STREAMCONTEXT__BACKFILL_ID environment variable must be provided with a non-empty value"
-        )
-    }.flatMap(id => streamId.map(sid => s"${streamId}__$id".replace("-", "_")))
+    zio.System
+      .env("STREAMCONTEXT__BACKFILL_ID")
+      .map {
+        case Some(value) if value.nonEmpty => value
+        case _ =>
+          throw new RuntimeException(
+            "Unable to stream a backfill: STREAMCONTEXT__BACKFILL_ID environment variable must be provided with a non-empty value"
+          )
+      }
+      .flatMap(id => streamId.map(sid => s"${streamId}__$id".replace("-", "_")))
 
   /** Kind of the stream
     */
