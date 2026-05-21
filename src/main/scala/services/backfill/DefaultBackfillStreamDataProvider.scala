@@ -3,7 +3,7 @@ package services.backfill
 
 import models.settings.backfill.BackfillSettings
 import models.sharding.BootstrappedShard
-import services.backfill.base.{BackfillSourceDataProvider, BackfillStateManager, BackfillStreamDataProvider}
+import services.backfill.base.{BackfillSourceDataProvider, BackfillStreamDataProvider}
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{JsonWatermark, SourceWatermark}
 

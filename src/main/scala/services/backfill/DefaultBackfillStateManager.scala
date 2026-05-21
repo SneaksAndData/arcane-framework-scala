@@ -1,15 +1,17 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
+import models.app.PluginStreamContext
 import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
+import models.settings.TableNaming.getBackfillTableName
 import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 
-import zio.{Task, ZIO}
+import zio.{Task, ZIO, ZLayer}
 
 class DefaultBackfillStateManager(
     stagingEntityManager: StagingEntityManager,
@@ -62,3 +64,19 @@ class DefaultBackfillStateManager(
         .map(wm => wm.map(value => shardFactory.createCompletionShard(shard, value)))
     )
   yield result.flatten
+
+object DefaultBackfillStateManager:
+  val layer = ZLayer {
+    for
+      stagingEntityManager <- ZIO.service[StagingEntityManager]
+      stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+      shardFactory <- ZIO.service[ShardFactory]
+      context <- ZIO.service[PluginStreamContext]
+      backfillId <- context.backfillId
+    yield new DefaultBackfillStateManager(
+      stagingEntityManager = stagingEntityManager, 
+      stagingPropertyManager = stagingPropertyManager, 
+      shardFactory = shardFactory, 
+      stagedBackfillTableName = getBackfillTableName(backfillId)
+    )
+  }
