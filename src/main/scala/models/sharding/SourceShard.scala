@@ -17,11 +17,10 @@ trait SourceShard:
   val streamId: String
   val backfillId: String
 
-  /**
-   * Unique shard identifier based on the source entity used to create a shard data stream
-   */
+  /** Unique shard identifier based on the source entity used to create a shard data stream
+    */
   final val shardId = s"${shardSourceEntityName.replace("-", "_").replace(".", "_").replace(":", "_")}"
-  
+
   final val shardTableName: String =
     s"backfill_shard__${streamId}__${backfillId}__$shardId"
 

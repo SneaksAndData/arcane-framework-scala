@@ -28,9 +28,9 @@ trait BaseStreamContext:
   def isBackfilling: ZIO[Any, SecurityException, Boolean] =
     zio.System.envOrElse("STREAMCONTEXT__BACKFILL", "false").map(_.toLowerCase() == "true")
 
-  /**
-   * Identifier for the backfill. Providing the same value in the env variable will result in resuming the backfill if it was interrupted
-   */
+  /** Identifier for the backfill. Providing the same value in the env variable will result in resuming the backfill if
+    * it was interrupted
+    */
   def backfillId: IO[SecurityException, String] =
     zio.System.env("STREAMCONTEXT__BACKFILL_ID").map {
       case Some(value) if value.nonEmpty => value
@@ -50,10 +50,9 @@ trait BaseStreamContext:
       )
   }
 
-  /**
-   * Version of the streaming plugin
-   * @return
-   */
+  /** Version of the streaming plugin
+    * @return
+    */
   def streamVersion: IO[SecurityException, String] = zio.System.envOrElse("APPLICATION_VERSION", "0.0.0")
 
   val datadogSocketPath: String =

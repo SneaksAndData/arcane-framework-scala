@@ -93,7 +93,7 @@ object DefaultStreamBootstrapper:
     stagingSettings = stagingSettings,
     backfillSettings = backfillSettings,
     isBackfilling = isBackfilling,
-    streamId = streamId, 
+    streamId = streamId,
     backfillId = backfillId
   )
 
@@ -105,8 +105,8 @@ object DefaultStreamBootstrapper:
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
       schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
-      streamId <- context.streamId
-      backfillId <- ZIO.when(isBackfilling)(context.backfillId)
+      streamId             <- context.streamId
+      backfillId           <- ZIO.when(isBackfilling)(context.backfillId)
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
@@ -116,7 +116,7 @@ object DefaultStreamBootstrapper:
       stagingSettings = context.staging,
       backfillSettings = context.streamMode.backfill,
       isBackfilling = isBackfilling,
-      streamId = streamId, 
+      streamId = streamId,
       backfillId = backfillId
     )
   }

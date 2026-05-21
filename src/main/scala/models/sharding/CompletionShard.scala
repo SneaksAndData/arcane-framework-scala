@@ -18,4 +18,10 @@ case class CompletionShard(
 object CompletionShard:
   extension (shard: CompletionShard)
     def toCompleted: CompletedShard =
-      CompletedShard(shard.combinedTableName, shard.targetTableName, shard.shardSourceEntityName, shard.streamId, shard.backfillId)
+      CompletedShard(
+        shard.combinedTableName,
+        shard.targetTableName,
+        shard.shardSourceEntityName,
+        shard.streamId,
+        shard.backfillId
+      )
