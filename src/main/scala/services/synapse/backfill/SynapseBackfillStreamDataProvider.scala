@@ -10,23 +10,28 @@ import services.synapse.versioning.SynapseWatermark
 import zio.{ZIO, ZLayer}
 
 class SynapseBackfillStreamDataProvider(
-                                         dataProvider: SynapseBackfillSourceDataProvider,
-                                         backfillSettings: BackfillSettings,
-                                         stateManager: DefaultBackfillStateManager,
-                                         declaredMetrics: DeclaredMetrics
-                                       ) extends DefaultBackfillStreamDataProvider[SynapseWatermark](dataProvider, backfillSettings, stateManager, declaredMetrics)
+    dataProvider: SynapseBackfillSourceDataProvider,
+    backfillSettings: BackfillSettings,
+    stateManager: DefaultBackfillStateManager,
+    declaredMetrics: DeclaredMetrics
+) extends DefaultBackfillStreamDataProvider[SynapseWatermark](
+      dataProvider,
+      backfillSettings,
+      stateManager,
+      declaredMetrics
+    )
 
 object SynapseBackfillStreamDataProvider:
   val layer = ZLayer {
     for
       dataProvider <- ZIO.service[SynapseBackfillSourceDataProvider]
-      context <- ZIO.service[PluginStreamContext]
+      context      <- ZIO.service[PluginStreamContext]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
-      metrics <- ZIO.service[DeclaredMetrics]
+      metrics      <- ZIO.service[DeclaredMetrics]
     yield new SynapseBackfillStreamDataProvider(
-      dataProvider = dataProvider, 
-      backfillSettings = context.streamMode.backfill, 
-      stateManager = stateManager, 
+      dataProvider = dataProvider,
+      backfillSettings = context.streamMode.backfill,
+      stateManager = stateManager,
       declaredMetrics = metrics
     )
   }

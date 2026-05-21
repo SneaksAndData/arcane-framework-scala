@@ -68,15 +68,15 @@ class DefaultBackfillStateManager(
 object DefaultBackfillStateManager:
   val layer = ZLayer {
     for
-      stagingEntityManager <- ZIO.service[StagingEntityManager]
+      stagingEntityManager   <- ZIO.service[StagingEntityManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
-      shardFactory <- ZIO.service[ShardFactory]
-      context <- ZIO.service[PluginStreamContext]
-      backfillId <- context.backfillId
+      shardFactory           <- ZIO.service[ShardFactory]
+      context                <- ZIO.service[PluginStreamContext]
+      backfillId             <- context.backfillId
     yield new DefaultBackfillStateManager(
-      stagingEntityManager = stagingEntityManager, 
-      stagingPropertyManager = stagingPropertyManager, 
-      shardFactory = shardFactory, 
+      stagingEntityManager = stagingEntityManager,
+      stagingPropertyManager = stagingPropertyManager,
+      shardFactory = shardFactory,
       stagedBackfillTableName = getBackfillTableName(backfillId)
     )
   }
