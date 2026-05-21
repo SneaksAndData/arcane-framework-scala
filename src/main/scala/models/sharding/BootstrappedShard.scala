@@ -17,6 +17,5 @@ case class DefaultBootstrappedShard(
     override val shardSourceEntityName: String,
     override val combinedTableName: String,
     override val targetTableName: String,
-    override val streamId: String,
     override val backfillId: String
 ) extends BootstrappedShard

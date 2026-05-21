@@ -26,7 +26,6 @@ class DefaultStreamBootstrapper(
     stagingSettings: StagingSettings,
     backfillSettings: BackfillSettings,
     isBackfilling: Boolean,
-    streamId: String,
     backfillId: Option[String]
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
@@ -38,10 +37,10 @@ class DefaultStreamBootstrapper(
     for _ <- ZIO.when(isBackfilling && backfillId.isDefined) {
         for
           schema <- schemaProvider.getSchema
-          _      <- zlog("Creating backfill table %s", getBackfillTableName(streamId, backfillId.get))
+          _      <- zlog("Creating backfill table %s", getBackfillTableName(backfillId.get))
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
-              name = getBackfillTableName(streamId, backfillId.get),
+              name = getBackfillTableName(backfillId.get),
               schema = schema,
               replace = false
             )
@@ -82,7 +81,6 @@ object DefaultStreamBootstrapper:
       stagingSettings: StagingSettings,
       backfillSettings: BackfillSettings,
       isBackfilling: Boolean,
-      streamId: String,
       backfillId: Option[String]
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
@@ -93,7 +91,6 @@ object DefaultStreamBootstrapper:
     stagingSettings = stagingSettings,
     backfillSettings = backfillSettings,
     isBackfilling = isBackfilling,
-    streamId = streamId,
     backfillId = backfillId
   )
 
@@ -105,7 +102,6 @@ object DefaultStreamBootstrapper:
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
       schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
-      streamId             <- context.streamId
       backfillId           <- ZIO.when(isBackfilling)(context.backfillId)
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
@@ -116,7 +112,6 @@ object DefaultStreamBootstrapper:
       stagingSettings = context.staging,
       backfillSettings = context.streamMode.backfill,
       isBackfilling = isBackfilling,
-      streamId = streamId,
       backfillId = backfillId
     )
   }

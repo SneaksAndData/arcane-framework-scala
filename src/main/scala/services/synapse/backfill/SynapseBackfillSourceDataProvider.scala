@@ -50,9 +50,8 @@ final class SynapseBackfillSourceDataProvider(
       DefaultBootstrappedShard(
         shardStream = stream,
         shardSourceEntityName = source,
-        combinedTableName = getBackfillTableName(streamId, backfillId),
+        combinedTableName = getBackfillTableName(backfillId),
         targetTableName = sinkSettings.targetTableFullName,
-        streamId = streamId,
         backfillId = backfillId
       )
     }

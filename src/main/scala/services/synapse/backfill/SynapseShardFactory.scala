@@ -13,7 +13,6 @@ final class SynapseShardFactory extends ShardFactory:
     combinedTableName = shard.combinedTableName,
     targetTableName = shard.targetTableName,
     commitQuery = SynapseLinkShardStageQuery(shard.shardTableName, shard.combinedTableName),
-    streamId = shard.streamId,
     backfillId = shard.backfillId
   )
 
@@ -23,6 +22,5 @@ final class SynapseShardFactory extends ShardFactory:
     shardSourceEntityName = shard.shardSourceEntityName,
     combinedTableName = shard.combinedTableName,
     commitQuery = SynapseLinkShardCommitQuery(shard.targetTableName, shard.combinedTableName),
-    streamId = shard.streamId,
     backfillId = shard.backfillId
   )
