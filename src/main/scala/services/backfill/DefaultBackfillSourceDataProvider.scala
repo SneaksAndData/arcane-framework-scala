@@ -61,21 +61,19 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       .flatMap { startFrom =>
         backfillStream(startFrom, snapshotVersion, shards)
           .via(collectShards)
-          .flatMap {
-            bootstrapped =>
-              val outputStream = ZStream.fromIterable(bootstrapped)
-              if shards.isDefined then
-                outputStream
-              else {
-                val backfillMetadata = DefaultSourceBackfill(
-                  "",
-                  startFrom.toJson,
-                  snapshotVersion.toJson,
-                  "",
-                  bootstrapped.map(_.shardSourceEntityName)
-                )
-                ZStream.fromZIO(stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)
-              }
+          .flatMap { bootstrapped =>
+            val outputStream = ZStream.fromIterable(bootstrapped)
+            if shards.isDefined then outputStream
+            else {
+              val backfillMetadata = DefaultSourceBackfill(
+                "",
+                startFrom.toJson,
+                snapshotVersion.toJson,
+                "",
+                bootstrapped.map(_.shardSourceEntityName)
+              )
+              ZStream.fromZIO(stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)
+            }
           }
       }
 
