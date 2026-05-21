@@ -67,15 +67,15 @@ object SynapseBackfillSourceDataProvider:
     for
       dataProvider <- ZIO.service[SynapseLinkReader]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
-      tagProvider <- ZIO.service[MetricTagProvider]
-      context <- ZIO.service[PluginStreamContext]
-      backfillId <- context.backfillId
+      tagProvider  <- ZIO.service[MetricTagProvider]
+      context      <- ZIO.service[PluginStreamContext]
+      backfillId   <- context.backfillId
     yield new SynapseBackfillSourceDataProvider(
-      dataProvider = dataProvider, 
-      backfillSettings = context.streamMode.backfill, 
-      sinkSettings = context.sink, 
-      stateManager = stateManager, 
-      metricTagProvider = tagProvider, 
+      dataProvider = dataProvider,
+      backfillSettings = context.streamMode.backfill,
+      sinkSettings = context.sink,
+      stateManager = stateManager,
+      metricTagProvider = tagProvider,
       backfillId = backfillId
     )
   }

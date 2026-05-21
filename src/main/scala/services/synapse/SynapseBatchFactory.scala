@@ -24,4 +24,3 @@ class SynapseBatchFactory extends StagedBatchFactory:
 
 object SynapseBatchFactory:
   val layer: ULayer[SynapseBatchFactory] = ZLayer.succeed(new SynapseBatchFactory())
- 
