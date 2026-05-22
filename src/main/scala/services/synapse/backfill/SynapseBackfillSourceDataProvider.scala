@@ -5,9 +5,10 @@ import models.app.PluginStreamContext
 import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
+import models.settings.sources.SourceBufferingSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
-import services.metrics.base.MetricTagProvider
+import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 
@@ -23,11 +24,15 @@ final class SynapseBackfillSourceDataProvider(
     backfillSettings: BackfillSettings,
     sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
     backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
       sinkSettings,
+  throughputShaperBuilder,
+  sourceBufferingSettings,
       stateManager
     ):
 
@@ -66,12 +71,15 @@ object SynapseBackfillSourceDataProvider:
       dataProvider <- ZIO.service[SynapseLinkReader]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
       context      <- ZIO.service[PluginStreamContext]
+      shaper <- ZIO.service[ThroughputShaperBuilder]
       backfillId   <- context.backfillId
     yield new SynapseBackfillSourceDataProvider(
       dataProvider = dataProvider,
       backfillSettings = context.streamMode.backfill,
       sinkSettings = context.sink,
       stateManager = stateManager,
-      backfillId = backfillId
+      backfillId = backfillId,
+      throughputShaperBuilder = shaper,
+      sourceBufferingSettings = context.source.buffering
     )
   }

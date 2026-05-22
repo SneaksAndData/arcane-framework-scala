@@ -9,6 +9,7 @@ import models.settings.sources.{BufferingImpl, SourceBufferingSettings, Unbounde
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.trySetBuffering
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
@@ -43,7 +44,7 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
     (
       throughputShaper
-        .shapeStream(trySetBuffering(changeSet._1))
+        .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings))
         .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
       changeSet._2
     )
@@ -61,14 +62,3 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
         )
       )
   yield watermark
-
-  private def trySetBuffering(stream: ZStream[Any, Throwable, DataRow]): ZStream[Any, Throwable, DataRow] =
-    (sourceBufferingSettings.bufferingEnabled, sourceBufferingSettings.bufferingStrategy) match
-      case (true, UnboundedImpl(_)) =>
-        zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
-
-      case (true, BufferingImpl(buffering)) =>
-        zlogStream("Running stream with bound source buffer size %s", buffering.maxBufferSize.toString) *> stream
-          .buffer(buffering.maxBufferSize)
-
-      case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream

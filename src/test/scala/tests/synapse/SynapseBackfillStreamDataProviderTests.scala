@@ -4,17 +4,14 @@ package tests.synapse
 import models.settings.TableNaming.{getBackfillTableName, parts}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
-import services.synapse.backfill.{
-  SynapseBackfillSourceDataProvider,
-  SynapseBackfillStreamDataProvider,
-  SynapseShardFactory
-}
+import services.synapse.backfill.{SynapseBackfillSourceDataProvider, SynapseBackfillStreamDataProvider, SynapseShardFactory}
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
-import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSourceBufferingSettings, TestThroughputShaperBuilder}
 import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
 
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergSinkTablePropertyManager
 import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -36,7 +33,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           tableSinkSettings.targetTableFullName.parts.name,
           SynapseWatermark.epoch
         )
-        //          propertyManager <- ZIO.service[IcebergSinkTablePropertyManager]
+        propertyManager <- icebergUtilBackfill.getSinkTablePropertyManager
         stagingPropertyManager <- icebergUtilBackfill.getStagingTablePropertyManager
         stagingEntityManager   <- icebergUtilBackfill.getStagingEntityManager
         backfillStateManager <- ZIO.succeed(
@@ -47,9 +44,9 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             getBackfillTableName("synapse__backfill_new")
           )
         )
-//            shaperBuilder <- ZIO.succeed(
-//              TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
-//            )
+        shaperBuilder <- ZIO.succeed(
+          TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
+        )
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         schema            <- synapseLinkReader.getSchema
@@ -61,6 +58,8 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             defaultStreamMode.backfill,
             tableSinkSettings,
             backfillStateManager,
+            shaperBuilder,
+            TestSourceBufferingSettings,
             "backfill_new"
           )
         )
