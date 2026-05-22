@@ -2,20 +2,17 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
+import models.schemas.{DataRow, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
-import models.settings.sources.SourceBufferingSettings
-import models.settings.streaming.StreamModeSettings
-import models.settings.sources.{BufferingImpl, UnboundedImpl}
+import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.trySetBuffering
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
-
-import java.time.OffsetDateTime
 
 /** Default implementations for source data emitter used by StreamDataProvider
   * @tparam WatermarkType
@@ -24,12 +21,10 @@ import java.time.OffsetDateTime
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    streamMode: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings
 )(implicit rw: ReadWriter[WatermarkType])
-    extends VersionedDataProvider[WatermarkType]
-    with BackfillDataProvider:
+    extends ChangeCaptureDataProvider[WatermarkType]:
 
   private val throughputShaper = throughputShaperBuilder.build
 
@@ -43,61 +38,27 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
       previousVersion: WatermarkType
   ): ZStream[Any, Throwable, StructuredZStream]
 
-  /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
-    * @return
-    */
-  protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): WatermarkType
-
-  /** Implements data streaming logic for public `requestBackfill`
-    * @return
-    */
-  protected def backfillStream(backfillStartDate: Option[OffsetDateTime]): ZStream[Any, Throwable, StructuredZStream]
-
   final override def requestChanges(
       previousVersion: WatermarkType,
       nextVersion: WatermarkType
   ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
     (
       throughputShaper
-        .shapeStream(trySetBuffering(changeSet._1))
+        .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings))
         .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
       changeSet._2
     )
   )
 
-  final override def requestBackfill: ZStream[Any, Throwable, StructuredZStream] = ZStream
-    .fromZIO(getCurrentVersion(getBackfillStartWatermark(streamMode.backfill.backfillStartDate)))
-    .flatMap { version =>
-      backfillStream(streamMode.backfill.backfillStartDate)
-        .map(rowSet =>
-          (
-            throughputShaper.shapeStream(trySetBuffering(rowSet._1)),
-            rowSet._2
-          )
-        )
-        .concat(ZStream.succeed(ZStream.succeed(JsonWatermarkRow(version)), ArcaneSchema.empty()))
-    }
-
   override def firstVersion: Task[WatermarkType] = for
-    watermarkString <- sinkPropertyManager.getProperty(sinkSettings.targetTableFullName.parts.name, "comment")
+    watermarkString <- sinkPropertyManager.getRequiredProperty(sinkSettings.targetTableFullName.parts.name, "comment")
     _               <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
     watermark <- ZIO
       .attempt(upickle.read(watermarkString))
       .orDieWith(e =>
         new Throwable(
-          s"Target contains invalid watermark: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
+          s"Invalid watermark value: '$watermarkString'. Please run a backfill or update the watermark manually via COMMENT ON statement",
           e
         )
       )
   yield watermark
-
-  private def trySetBuffering(stream: ZStream[Any, Throwable, DataRow]): ZStream[Any, Throwable, DataRow] =
-    (sourceBufferingSettings.bufferingEnabled, sourceBufferingSettings.bufferingStrategy) match
-      case (true, UnboundedImpl(_)) =>
-        zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
-
-      case (true, BufferingImpl(buffering)) =>
-        zlogStream("Running stream with bound source buffer size %s", buffering.maxBufferSize.toString) *> stream
-          .buffer(buffering.maxBufferSize)
-
-      case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream

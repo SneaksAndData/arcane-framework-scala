@@ -1,9 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse
 
-import models.app.{BaseStreamContext, PluginStreamContext}
-import models.schemas.DataRow
-import models.settings.backfill.BackfillSettings
+import models.app.PluginStreamContext
 import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
@@ -15,14 +13,10 @@ import zio.{ZIO, ZLayer}
 class SynapseLinkStreamingDataProvider(
     dataProvider: SynapseLinkDataProvider,
     settings: ChangeCaptureSettings,
-    backfillSettings: BackfillSettings,
-    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[SynapseWatermark](
       dataProvider,
       settings,
-      backfillSettings,
-      isBackfilling,
       declaredMetrics
     )
 
@@ -41,11 +35,9 @@ object SynapseLinkStreamingDataProvider:
   def apply(
       dataProvider: SynapseLinkDataProvider,
       settings: ChangeCaptureSettings,
-      backfillSettings: BackfillSettings,
-      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): SynapseLinkStreamingDataProvider =
-    new SynapseLinkStreamingDataProvider(dataProvider, settings, backfillSettings, isBackfilling, declaredMetrics)
+    new SynapseLinkStreamingDataProvider(dataProvider, settings, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
@@ -55,12 +47,9 @@ object SynapseLinkStreamingDataProvider:
         context         <- ZIO.service[PluginStreamContext]
         dataProvider    <- ZIO.service[SynapseLinkDataProvider]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
-        isBackfilling   <- context.isBackfilling.orElseSucceed(false)
       yield SynapseLinkStreamingDataProvider(
         dataProvider,
         context.streamMode.changeCapture,
-        context.streamMode.backfill,
-        isBackfilling,
         declaredMetrics
       )
     }

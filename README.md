@@ -79,11 +79,11 @@ import com.sneaksanddata.arcane.framework.services.streaming.data_providers.back
   GenericBackfillStreamingOverwriteDataProvider
 }
 import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
+  StreamGraphResolver,
+  DefaultStreamingGraphBuilder
 }
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
+  BackfillOverwriteBatchProcessor,
   BackfillOverwriteWatermarkProcessor
 }
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
@@ -115,7 +115,7 @@ object main extends ZIOAppDefault {
 
   private lazy val streamRunner = appLayer.provide(
     GenericStreamRunnerService.layer,
-    GenericGraphBuilderFactory.composedLayer,
+    StreamGraphResolver.composedLayer,
     DisposeBatchProcessor.layer,
     FieldFilteringTransformer.layer,
     MergeBatchProcessor.layer,
@@ -132,10 +132,10 @@ object main extends ZIOAppDefault {
     JdbcMergeServiceClient.layer,
     MyPluginStreamingDataProvider.layer, // Plugin implementation of a StreamingDataProvider 
     MyPluginHookManager.layer, // Plugin implementation of a HookManager
-    BackfillApplyBatchProcessor.layer,
+    BackfillOverwriteBatchProcessor.layer,
     GenericBackfillStreamingOverwriteDataProvider.layer,
     GenericBackfillStreamingMergeDataProvider.layer,
-    GenericStreamingGraphBuilder.backfillSubStreamLayer,
+    DefaultStreamingGraphBuilder.backfillSubStreamLayer,
     MyPluginBackfillOverwriteBatchFactory.layer, // Plugin implementation of a BackfillOverwriteBatchFactory
     DeclaredMetrics.layer,
     WatermarkProcessor.layer,

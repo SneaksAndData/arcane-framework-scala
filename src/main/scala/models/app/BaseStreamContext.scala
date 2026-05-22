@@ -28,6 +28,21 @@ trait BaseStreamContext:
   def isBackfilling: ZIO[Any, SecurityException, Boolean] =
     zio.System.envOrElse("STREAMCONTEXT__BACKFILL", "false").map(_.toLowerCase() == "true")
 
+  /** Identifier for the backfill. Providing the same value in the env variable will result in resuming the backfill if
+    * it was interrupted
+    */
+  def backfillId: IO[SecurityException, String] =
+    zio.System
+      .env("STREAMCONTEXT__BACKFILL_ID")
+      .map {
+        case Some(value) if value.nonEmpty => value
+        case _ =>
+          throw new RuntimeException(
+            "Unable to create a backfill stream: STREAMCONTEXT__BACKFILL_ID environment variable must be provided with a non-empty value"
+          )
+      }
+      .flatMap(id => streamId.map(sid => s"${streamId}__$id".replace("-", "_")))
+
   /** Kind of the stream
     */
   def streamKind: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_KIND").map {
@@ -37,6 +52,11 @@ trait BaseStreamContext:
         "Unable to bootstrap the stream, missing required STREAMCONTEXT__STREAM_KIND environment variable"
       )
   }
+
+  /** Version of the streaming plugin
+    * @return
+    */
+  def streamVersion: IO[SecurityException, String] = zio.System.envOrElse("APPLICATION_VERSION", "0.0.0")
 
   val datadogSocketPath: String =
     sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog/dsd.socket")

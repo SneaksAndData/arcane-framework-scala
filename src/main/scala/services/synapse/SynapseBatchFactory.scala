@@ -6,7 +6,7 @@ import models.schemas.ArcaneSchema
 import models.settings.EmptyTablePropertiesSettings
 import services.streaming.batching.StagedBatchFactory
 
-import zio.{Task, ZIO}
+import zio.{Task, ULayer, ZIO, ZLayer}
 
 class SynapseBatchFactory extends StagedBatchFactory:
   override type OutputBatch    = SynapseLinkMergeBatch
@@ -21,3 +21,6 @@ class SynapseBatchFactory extends StagedBatchFactory:
 
   override def createWatermarkBatch(targetTableName: String, watermark: String): Task[SynapseLinkWatermarkBatch] =
     ZIO.succeed(SynapseLinkWatermarkBatch(watermark, targetTableName))
+
+object SynapseBatchFactory:
+  val layer: ULayer[SynapseBatchFactory] = ZLayer.succeed(new SynapseBatchFactory())

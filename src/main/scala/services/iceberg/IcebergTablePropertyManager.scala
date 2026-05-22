@@ -42,10 +42,23 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     _     <- ZIO.attemptBlocking(table.updateProperties().set("comment", text).commit())
   yield ()
 
-  override def getProperty(tableName: String, propertyName: String): Task[String] = for
+  override def getProperty(tableName: String, propertyName: String): Task[Option[String]] = for
     table      <- loadTable(tableName)
     properties <- ZIO.attemptBlocking(table.properties())
-  yield properties.get(propertyName)
+  yield Option(properties.get(propertyName))
+
+  override def getRequiredProperty(tableName: String, propertyName: String): Task[String] = for
+    table      <- loadTable(tableName)
+    properties <- ZIO.attemptBlocking(table.properties())
+    result <- ZIO
+      .attempt(properties.get(propertyName))
+      .orDieWith(_ => new Throwable(s"Required property '$propertyName' is not set on a table '$tableName'"))
+  yield result
+
+  override def setProperty(tableName: String, propertyName: String, propertyValue: String): Task[Unit] = for
+    table <- loadTable(tableName)
+    _     <- ZIO.attemptBlocking(table.updateProperties().set(propertyName, propertyValue).commit())
+  yield ()
 
   private def getTableMetadataScan(tableName: String, tableType: MetadataTableType) = for
     table <- loadMetadataTable(tableName, tableType)

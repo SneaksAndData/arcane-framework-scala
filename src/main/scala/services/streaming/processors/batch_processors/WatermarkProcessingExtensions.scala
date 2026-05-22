@@ -25,7 +25,7 @@ object WatermarkProcessingExtensions:
               Seq(getAnnotation("processor", stageName)),
               watermark
             )
-            previousWatermark <- propertyManager.getProperty(targetName, "comment")
+            previousWatermark <- propertyManager.getRequiredProperty(targetName, "comment")
             _                 <- propertyManager.comment(targetName, watermark)
             _ <- zlog(
               "Updated watermark from %s to %s",

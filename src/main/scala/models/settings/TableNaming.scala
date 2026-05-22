@@ -12,3 +12,5 @@ object TableNaming:
           throw new RuntimeException(
             s"Invalid table name format for $tableName. Must be {warehouse}.{namespace}.{name}"
           )
+
+  def getBackfillTableName(backfillId: String): String = s"backfill__$backfillId"

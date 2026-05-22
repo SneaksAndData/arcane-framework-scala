@@ -6,16 +6,15 @@ import models.settings.TableNaming.*
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
-import services.iceberg.IcebergSinkTablePropertyManager
 import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import services.synapse.versioning.SynapseWatermark
 import tests.shared.*
 import tests.shared.TestAzureStorageInfo.*
+import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -25,25 +24,6 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
-  private val defaultStreamMode = new StreamModeSettings {
-
-    /** Backfill mode-only settings
-      */
-    override val backfill: BackfillSettings = new BackfillSettings {
-      override val backfillBehavior: BackfillBehavior = Overwrite
-      override val backfillStartDate: Option[OffsetDateTime] = Some(
-        OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
-      )
-    }
-
-    /** Change capture mode settings
-      */
-    override val changeCapture: ChangeCaptureSettings = new ChangeCaptureSettings {
-      override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
-      override val changeCaptureJitterVariance: Double = 0.0001
-      override val changeCaptureJitterSeed: Long       = 0
-    }
-  }
 
   private def isDelete(row: DataRow): Boolean = row.exists(c => c.name == "IsDelete" && c.value == true)
 
@@ -64,58 +44,11 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
     .map(_._1)
 
   private val stagingSettings = TestStagingSettings()
-  private val sourceRoot      = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get
-  private val icebergUtilBackfill =
-    IcebergUtil(
-      TestDynamicSinkSettings(stagingSettings.table.backfillTableName).icebergCatalog
-    )
+
   private def getIcebergUtilStream(tableName: String) =
     IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingDataProvider")(
-    test(
-      "streams rows in backfill mode correctly"
-    ) {
-      for
-        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(stagingSettings.table.backfillTableName))
-        // shaper requires target table to exist
-        _ <- icebergUtilBackfill.prepareWatermark(
-          tableSinkSettings.targetTableFullName.parts.name,
-          SynapseWatermark.epoch
-        )
-        propertyManager <- ZIO.service[IcebergSinkTablePropertyManager]
-        shaperBuilder <- ZIO.succeed(
-          TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
-        )
-
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
-        synapseLinkDataProvider <- ZIO.succeed(
-          SynapseLinkDataProvider(
-            synapseLinkReader,
-            propertyManager,
-            TestSinkSettings,
-            defaultStreamMode,
-            shaperBuilder,
-            TestSourceBufferingSettings
-          )
-        )
-        provider <- ZIO.succeed(
-          SynapseLinkStreamingDataProvider(
-            synapseLinkDataProvider,
-            defaultStreamMode.changeCapture,
-            defaultStreamMode.backfill,
-            true,
-            DeclaredMetrics()
-          )
-        )
-        rows <- provider.stream.flatMap(_._1).runCollect
-      // expect 30 rows, since each file has 5 rows
-      // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
-      // 1 file skipped as it is the latest one
-      // plus there 1 record to be deleted
-      // plus final row must be watermark row
-      yield assertTrue((rows.size == 5 * (7 - 1) + 1 * (7 - 1) + 1) && rows.last.isWatermark)
-    }.provideLayer(icebergUtilBackfill.getSinkTablePropertyManagerLayer),
     test("stream correct number of changes") {
       val tableName   = "target_table_stream"
       val icebergUtil = getIcebergUtilStream(tableName)
@@ -135,7 +68,6 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             synapseLinkReader,
             propertyManager,
             tableSinkSettings,
-            defaultStreamMode,
             shaperBuilder,
             TestSourceBufferingSettings
           )
@@ -144,14 +76,12 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
             defaultStreamMode.changeCapture,
-            defaultStreamMode.backfill,
-            false,
             DeclaredMetrics()
           )
         )
         rows <- provider.stream.flatMap(_._1).timeout(zio.Duration.fromSeconds(4)).runCount
       // expect 5 rows, since each file has 5 rows
-      // total 7 files for this table (first folder doesn't have a CSV/schema for this table)
+      // total 7 files for this table (first folder doesn't have a CSV for this table)
       // watermark is 3 hours back which should only capture 1 file
       // one row should be watermark
       yield assertTrue(rows == 5 + 1 + 1)
@@ -176,7 +106,6 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             synapseLinkReader,
             propertyManager,
             tableSinkSettings,
-            defaultStreamMode,
             shaperBuilder,
             TestSourceBufferingSettings
           )
@@ -185,8 +114,6 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           SynapseLinkStreamingDataProvider(
             synapseLinkDataProvider,
             defaultStreamMode.changeCapture,
-            defaultStreamMode.backfill,
-            false,
             DeclaredMetrics()
           )
         )

@@ -12,6 +12,7 @@ import services.iceberg.{
   IcebergSinkEntityManager,
   IcebergSinkTablePropertyManager,
   IcebergStagingEntityManager,
+  IcebergStagingTablePropertyManager,
   IcebergTablePropertyManager,
   given_Conversion_ArcaneSchema_Schema
 }
@@ -39,6 +40,24 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
 
   def getSinkEntityManagerLayer: ZLayer[Any, Throwable, IcebergSinkEntityManager] = ZLayer.scoped(getSinkEntityManager)
 
+  def getStagingTablePropertyManager: ZIO[Scope, Throwable, IcebergStagingTablePropertyManager] =
+    for
+      factory <- IcebergCatalogFactory.live(catalogSettings)
+      result = IcebergStagingTablePropertyManager(catalogSettings, factory)
+    yield result
+
+  def getStagingTablePropertyManagerLayer: ZLayer[Any, Throwable, IcebergStagingTablePropertyManager] =
+    ZLayer.scoped(getStagingTablePropertyManager)
+
+  def getStagingEntityManager: ZIO[Scope, Throwable, IcebergStagingEntityManager] =
+    for
+      factory <- IcebergCatalogFactory.live(catalogSettings)
+      result = IcebergStagingEntityManager(catalogSettings, factory)
+    yield result
+
+  def getStagingEntityManagerLayer: ZLayer[Any, Throwable, IcebergStagingEntityManager] =
+    ZLayer.scoped(getStagingEntityManager)
+
   def getWriter: Task[IcebergS3CatalogWriter] = ZIO.scoped {
     for
       stagingSettings <- ZIO.succeed(TestStagingSettings())
@@ -63,6 +82,18 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
       yield ()
     }
     .provide(getSinkTablePropertyManagerLayer, getSinkEntityManagerLayer)
+
+  def prepareBackfillTable(tableName: String, schema: ArcaneSchema): Task[Unit] = ZIO
+    .scoped {
+      for
+        targetName    <- ZIO.succeed(tableName)
+        entityManager <- ZIO.service[IcebergStagingEntityManager]
+        _ <- entityManager.createTable(
+          CreateTableRequest(targetName, schema, true)
+        )
+      yield ()
+    }
+    .provide(getStagingEntityManagerLayer)
 
 object IcebergUtil:
   def apply(catalogSettings: IcebergCatalogSettings): IcebergUtil = new IcebergUtil(catalogSettings)

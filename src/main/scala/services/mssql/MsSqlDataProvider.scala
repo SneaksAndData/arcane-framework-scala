@@ -2,10 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.app.PluginStreamContext
-import models.schemas.DataRow
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
-import models.settings.streaming.StreamModeSettings
 import services.iceberg.base.SinkPropertyManager
 import services.mssql.base.MsSqlReader
 import services.mssql.versioning.MsSqlWatermark
@@ -16,8 +14,6 @@ import services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-import java.time.OffsetDateTime
-
 /** A data provider that reads the changes from the Microsoft SQL Server.
   * @param reader
   *   The connection to the Microsoft SQL Server.
@@ -26,13 +22,11 @@ class MsSqlDataProvider(
     reader: MsSqlReader,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
-    streamModeSettings: StreamModeSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,
-      streamModeSettings,
       throughputShaperBuilder,
       sourceBufferingSettings
     ):
@@ -52,16 +46,16 @@ class MsSqlDataProvider(
         }
     yield version
 
-  override protected def backfillStream(
-      backfillStartDate: Option[OffsetDateTime]
-  ): ZStream[Any, Throwable, StructuredZStream] =
-    reader.backfill
+//  override protected def backfillStream(
+//      backfillStartDate: Option[OffsetDateTime]
+//  ): ZStream[Any, Throwable, StructuredZStream] =
+//    reader.backfill
 
   override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
     reader.getChanges(previousVersion)
 
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): MsSqlWatermark =
-    MsSqlWatermark.epoch
+//  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): MsSqlWatermark =
+//    MsSqlWatermark.epoch
 
 /** The companion object for the MsSqlDataProvider class.
   */
@@ -80,7 +74,6 @@ object MsSqlDataProvider:
         reader,
         propertyManager,
         context.sink,
-        context.streamMode,
         shaperBuilder,
         context.source.buffering
       )

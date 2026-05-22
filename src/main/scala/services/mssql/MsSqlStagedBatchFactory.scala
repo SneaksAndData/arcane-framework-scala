@@ -6,7 +6,7 @@ import models.schemas.ArcaneSchema
 import models.settings.EmptyTablePropertiesSettings
 import services.streaming.batching.StagedBatchFactory
 
-import zio.{Task, ZIO}
+import zio.{Task, ULayer, ZIO, ZLayer}
 
 class MsSqlStagedBatchFactory extends StagedBatchFactory:
   override type OutputBatch    = SqlServerChangeTrackingMergeBatch
@@ -26,3 +26,6 @@ class MsSqlStagedBatchFactory extends StagedBatchFactory:
       watermark: String
   ): Task[SqlServerChangeTrackingWatermarkBatch] =
     ZIO.succeed(SqlServerChangeTrackingWatermarkBatch(targetTableName, watermark))
+
+object MsSqlStagedBatchFactory:
+  val layer: ULayer[MsSqlStagedBatchFactory] = ZLayer.succeed(new MsSqlStagedBatchFactory())

@@ -28,14 +28,10 @@ import zio.{ZIO, ZLayer}
 class MsSqlStreamingDataProvider(
     dataProvider: MsSqlDataProvider,
     settings: ChangeCaptureSettings,
-    backfillSettings: BackfillSettings,
-    isBackfilling: Boolean,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultStreamDataProvider[MsSqlWatermark](
       dataProvider,
       settings,
-      backfillSettings,
-      isBackfilling,
       declaredMetrics
     )
 
@@ -56,11 +52,9 @@ object MsSqlStreamingDataProvider:
   def apply(
       dataProvider: MsSqlDataProvider,
       settings: ChangeCaptureSettings,
-      backfillSettings: BackfillSettings,
-      isBackfilling: Boolean,
       declaredMetrics: DeclaredMetrics
   ): MsSqlStreamingDataProvider =
-    new MsSqlStreamingDataProvider(dataProvider, settings, backfillSettings, isBackfilling, declaredMetrics)
+    new MsSqlStreamingDataProvider(dataProvider, settings, declaredMetrics)
 
   /** The ZLayer that creates the MsSqlStreamingDataProvider.
     */
@@ -74,8 +68,6 @@ object MsSqlStreamingDataProvider:
       yield MsSqlStreamingDataProvider(
         dataProvider,
         context.streamMode.changeCapture,
-        context.streamMode.backfill,
-        isBackfilling,
         declaredMetrics
       )
     }

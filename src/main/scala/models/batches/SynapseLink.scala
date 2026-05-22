@@ -61,40 +61,6 @@ object SynapseLinkBackfillQuery:
   def apply(targetName: String, sourceQuery: String, tablePropertiesSettings: TablePropertiesSettings): OverwriteQuery =
     OverwriteReplaceQuery(sourceQuery, targetName, tablePropertiesSettings)
 
-class SynapseLinkBackfillOverwriteBatch(
-    batchName: String,
-    batchSchema: ArcaneSchema,
-    targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    watermarkValue: Option[String]
-) extends StagedBackfillOverwriteBatch:
-
-  override val name: String            = batchName
-  override val schema: ArcaneSchema    = batchSchema
-  override val targetTableName: String = targetName
-
-  override def reduceExpr: String = s"""SELECT * FROM $name""".stripMargin
-
-  override val batchQuery: OverwriteQuery = SynapseLinkBackfillQuery(targetName, reduceExpr, tablePropertiesSettings)
-
-  override val completedWatermarkValue: Option[String] = watermarkValue
-
-object SynapseLinkBackfillOverwriteBatch:
-  def apply(
-      batchName: String,
-      batchSchema: ArcaneSchema,
-      targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      watermarkValue: Option[String]
-  ): SynapseLinkBackfillOverwriteBatch =
-    new SynapseLinkBackfillOverwriteBatch(
-      batchName: String,
-      batchSchema: ArcaneSchema,
-      targetName,
-      tablePropertiesSettings,
-      watermarkValue
-    )
-
 class SynapseLinkMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
@@ -166,46 +132,4 @@ object SynapseLinkMergeBatch:
       targetName,
       tablePropertiesSettings,
       batchSchema.mergeKey.name
-    )
-
-class SynapseLinkBackfillMergeBatch(
-    batchName: String,
-    batchSchema: ArcaneSchema,
-    targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String,
-    watermarkValue: Option[String]
-) extends StagedBackfillMergeBatch
-    with MergeableBatch:
-
-  override val name: String            = batchName
-  override val schema: ArcaneSchema    = batchSchema
-  override val targetTableName: String = targetName
-
-  override def reduceExpr: String = s"SELECT * FROM $name"
-
-  override val batchQuery: MergeQuery = SynapseLinkMergeQuery(
-    targetName = targetName,
-    sourceQuery = reduceExpr,
-    partitionFields = Seq.empty,
-    mergeKey = mergeKey,
-    columns = schema.map(f => f.name)
-  )
-  override val completedWatermarkValue: Option[String] = watermarkValue
-
-object SynapseLinkBackfillMergeBatch:
-  def apply(
-      batchName: String,
-      batchSchema: ArcaneSchema,
-      targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      watermarkValue: Option[String]
-  ): SynapseLinkBackfillMergeBatch =
-    new SynapseLinkBackfillMergeBatch(
-      batchName: String,
-      batchSchema: ArcaneSchema,
-      targetName,
-      tablePropertiesSettings,
-      batchSchema.mergeKey.name,
-      watermarkValue
     )

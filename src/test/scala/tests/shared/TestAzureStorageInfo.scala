@@ -7,6 +7,7 @@ import models.settings.azure.{
   DefaultAzureStorageConnectionSettings,
   SharedKey
 }
+import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.azure.AzureBlobStorageReader
 
 import java.time.Duration
@@ -35,3 +36,5 @@ object TestAzureStorageInfo:
       Some(endpoint)
     )
   )
+
+  val sourceRoot: AdlsStoragePath = AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get

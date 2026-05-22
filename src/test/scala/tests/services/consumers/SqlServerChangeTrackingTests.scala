@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.services.consumers
 
 import models.batches.{
-  SqlServerChangeTrackingBackfillBatch,
   SqlServerChangeTrackingBackfillQuery,
   SqlServerChangeTrackingMergeBatch,
   SqlServerChangeTrackingMergeQuery
@@ -61,31 +60,31 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
     query.query should equal(expected)
   }
 
-  "SqlServerChangeTrackingBackfillBatch" should "generate a valid backfill batch" in {
-    val batch = SqlServerChangeTrackingBackfillBatch(
-      "test.staged_a",
-      Seq(
-        MergeKeyField,
-        Field(
-          name = "colA",
-          fieldType = StringType
-        ),
-        Field(
-          name = "colB",
-          fieldType = StringType
-        )
-      ),
-      "test.table_a",
-      TestTablePropertiesSettings,
-      Some("1234")
-    )
-
-    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
-      _.getLines().mkString("\n")
-    }.get
-
-    batch.batchQuery.query should equal(expected)
-  }
+//  "SqlServerChangeTrackingBackfillBatch" should "generate a valid backfill batch" in {
+//    val batch = SqlServerChangeTrackingBackfillBatch(
+//      "test.staged_a",
+//      Seq(
+//        MergeKeyField,
+//        Field(
+//          name = "colA",
+//          fieldType = StringType
+//        ),
+//        Field(
+//          name = "colB",
+//          fieldType = StringType
+//        )
+//      ),
+//      "test.table_a",
+//      TestTablePropertiesSettings,
+//      Some("1234")
+//    )
+//
+//    val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_sql_ct_backfill_batch_query.sql"))) {
+//      _.getLines().mkString("\n")
+//    }.get
+//
+//    batch.batchQuery.query should equal(expected)
+//  }
 
 // NB. 2.2 release temporary removes support for table partitioning and merge statement generation for partitioned tables
 // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307

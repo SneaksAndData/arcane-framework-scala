@@ -11,7 +11,7 @@ import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
-import services.streaming.base.{RowGroupTransformer, StagedBatchProcessor}
+import services.streaming.base.{StreamingRowGroupTransformer, StagedBatchProcessor}
 import services.streaming.batching.StagedBatchFactory
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -28,7 +28,7 @@ class StagingProcessor(
     catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
     batchFactory: StagedBatchFactory,
     declaredMetrics: DeclaredMetrics
-) extends RowGroupTransformer:
+) extends StreamingRowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
 

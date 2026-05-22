@@ -14,6 +14,8 @@ import services.base.*
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 
+import com.sneaksanddata.arcane.framework.models.batches.StagedBatch
+import com.sneaksanddata.arcane.framework.models.sharding.StagedShard
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.io.IOException
@@ -63,9 +65,13 @@ class JdbcMergeServiceClient(
 
   /** @inheritdoc
     */
-  override def applyBatch(batch: Batch): Task[BatchApplicationResult] =
+  override def applyBatch(batch: StagedBatch): Task[BatchApplicationResult] =
     executeBatchQuery(batch.batchQuery.query, batch.name, "Applying", _ => true)
       .gaugeDuration(declaredMetrics.batchMergeDuration)
+
+  override def commitShard(shard: StagedShard): Task[ShardCommitResult] =
+    executeBatchQuery(shard.commitQuery.query, shard.shardId, "Committing", _ => true)
+      .gaugeDuration(declaredMetrics.shardCommitDuration)
 
   /** @inheritdoc
     */

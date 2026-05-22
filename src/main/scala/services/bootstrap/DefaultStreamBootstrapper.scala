@@ -25,7 +25,8 @@ class DefaultStreamBootstrapper(
     sinkSettings: SinkSettings,
     stagingSettings: StagingSettings,
     backfillSettings: BackfillSettings,
-    isBackfilling: Boolean
+    isBackfilling: Boolean,
+    backfillId: Option[String]
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
     zlog("Looking for staging tables from previous run, using prefix %s", prefix) *> stagingEntityManager.deleteTables(
@@ -33,13 +34,13 @@ class DefaultStreamBootstrapper(
     )
 
   override def createBackFillTable: Task[Unit] =
-    for _ <- ZIO.when(isBackfilling && backfillSettings.backfillBehavior == Overwrite) {
+    for _ <- ZIO.when(isBackfilling && backfillId.isDefined) {
         for
           schema <- schemaProvider.getSchema
-          _      <- zlog("Creating backfill table %s", stagingSettings.table.backfillTableName)
+          _      <- zlog("Creating backfill table %s", getBackfillTableName(backfillId.get))
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
-              name = stagingSettings.table.backfillTableName.parts.name,
+              name = getBackfillTableName(backfillId.get),
               schema = schema,
               replace = false
             )
@@ -79,7 +80,8 @@ object DefaultStreamBootstrapper:
       sinkSettings: SinkSettings,
       stagingSettings: StagingSettings,
       backfillSettings: BackfillSettings,
-      isBackfilling: Boolean
+      isBackfilling: Boolean,
+      backfillId: Option[String]
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
     sinkEntityManager = sinkEntityManager,
@@ -88,7 +90,8 @@ object DefaultStreamBootstrapper:
     sinkSettings = sinkSettings,
     stagingSettings = stagingSettings,
     backfillSettings = backfillSettings,
-    isBackfilling = isBackfilling
+    isBackfilling = isBackfilling,
+    backfillId = backfillId
   )
 
   val layer = ZLayer {
@@ -99,6 +102,7 @@ object DefaultStreamBootstrapper:
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
       schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
+      backfillId           <- ZIO.when(isBackfilling)(context.backfillId)
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
@@ -107,6 +111,7 @@ object DefaultStreamBootstrapper:
       sinkSettings = context.sink,
       stagingSettings = context.staging,
       backfillSettings = context.streamMode.backfill,
-      isBackfilling = isBackfilling
+      isBackfilling = isBackfilling,
+      backfillId = backfillId
     )
   }
