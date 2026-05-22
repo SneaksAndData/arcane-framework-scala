@@ -2,7 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
 import models.queries.StreamingBatchQuery
-import models.schemas.ArcaneSchema
+import models.schemas.ArcaneType.{IntType, StringType}
+import models.schemas.*
 import models.settings.TableNaming.getBackfillTableName
 import models.sharding.*
 import services.backfill.DefaultBackfillStateManager
@@ -27,18 +28,75 @@ import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
 
-final class TestBackfillStreamDataProvider extends BackfillStreamDataProvider:
+final class TestBackfillStreamDataProvider(schema: ArcaneSchema) extends BackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     ZIO.succeed(
       (
         stream = ZStream.fromIterable(
           Seq(
             DefaultBootstrappedShard(
-              shardStream = (ZStream.fromIterable(Seq()), ArcaneSchema(Seq())),
-              "",
-              "",
-              "",
-              ""
+              shardStream = (
+                ZStream.fromIterable(
+                  Seq(
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k1"),
+                      DataCell("colA", StringType, "one"),
+                      DataCell("colB", IntType, 1)
+                    ),
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k2"),
+                      DataCell("colA", StringType, "two"),
+                      DataCell("colB", IntType, 2)
+                    )
+                  )
+                ),
+                schema
+              ),
+              "shard1",
+              "backfill__generic__test_combined",
+              "iceberg.test.generic_stream",
+              "test_combined"
+            ),
+            DefaultBootstrappedShard(
+              shardStream = (
+                ZStream.fromIterable(
+                  Seq(
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k3"),
+                      DataCell("colA", StringType, "three"),
+                      DataCell("colB", IntType, 3)
+                    ),
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k4"),
+                      DataCell("colA", StringType, "four"),
+                      DataCell("colB", IntType, 4)
+                    )
+                  )
+                ),
+                schema
+              ),
+              "shard2",
+              "backfill__generic__test_combined",
+              "iceberg.test.generic_stream",
+              "test_combined"
+            ),
+            DefaultBootstrappedShard(
+              shardStream = (
+                ZStream.fromIterable(
+                  Seq(
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k5"),
+                      DataCell("colA", StringType, "five"),
+                      DataCell("colB", IntType, 5)
+                    )
+                  )
+                ),
+                schema
+              ),
+              "shard3",
+              "backfill__generic__test_combined",
+              "iceberg.test.generic_stream",
+              "test_combined"
             )
           )
         ),
@@ -57,9 +115,22 @@ final class TestShardFactory extends ShardFactory:
     shard.backfillId
   )
 
-  override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = ???
+  override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = CompletionShard(
+    watermark = watermark,
+    targetTableName = shard.targetTableName,
+    shardSourceEntityName = shard.shardSourceEntityName,
+    combinedTableName = shard.combinedTableName,
+    commitQuery = new StreamingBatchQuery {
+      override def query: String =
+        s"CREATE OR REPLACE TABLE ${shard.targetTableName} AS SELECT * FROM ${shard.combinedTableName}"
+    },
+    shard.backfillId
+  )
 
 object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
+  private val streamSchema = ArcaneSchema(
+    Seq(IndexedMergeKeyField(1), IndexedField("colA", StringType, 2), IndexedField("colB", IntType, 3))
+  )
   private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
     for
       factory <- IcebergCatalogFactory.live(defaultIcebergStagingSettings)
@@ -82,6 +153,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             true
           )
         )
+        // shaper requires target table to exist
+        _ <- icebergUtilBackfill.prepareBackfillTable(getBackfillTableName("generic__test_combined"), streamSchema)
         shardFactory           <- ZIO.succeed(new TestShardFactory())
         propertyManager        <- ZIO.service[SinkPropertyManager]
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
@@ -96,7 +169,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         )
         builder <- ZIO.succeed(
           DefaultBackfillOverwriteGraphBuilder(
-            new TestBackfillStreamDataProvider(),
+            new TestBackfillStreamDataProvider(streamSchema),
             new ShardStagingProcessor(
               writer,
               shardFactory,

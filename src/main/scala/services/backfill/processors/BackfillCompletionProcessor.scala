@@ -2,17 +2,13 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.processors
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
-import models.app.PluginStreamContext
-import models.batches.{StagedBackfillOverwriteBatch, StagedBatch}
 import models.settings.TableNaming.*
-import models.settings.sink.SinkSettings
 import models.sharding.{CompletedShard, CompletionShard}
+import services.backfill.base.StagedShardProcessor
 import services.base.MergeServiceClient
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
-import services.streaming.processors.batch_processors.WatermarkProcessingExtensions.*
-import com.sneaksanddata.arcane.framework.services.backfill.base.StagedShardProcessor
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
@@ -32,8 +28,8 @@ class BackfillCompletionProcessor(
         _                 <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
         _                 <- mergeServiceClient.commitShard(shard)
         _                 <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
-        previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName, "comment")
-        _                 <- propertyManager.comment(shard.targetTableName, shard.watermark)
+        previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName.parts.name, "comment")
+        _                 <- propertyManager.comment(shard.targetTableName.parts.name, shard.watermark)
         _ <- zlog(
           "Updated watermark from %s to %s",
           Seq(getAnnotation("processor", "BackfillWatermarkProcessor")),
