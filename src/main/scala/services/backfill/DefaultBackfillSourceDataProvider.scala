@@ -37,7 +37,6 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
 
   private val throughputShaper = throughputShaperBuilder.build
 
-
   /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
     *
     * @return
@@ -66,9 +65,12 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
         backfillStream(startFrom, snapshotVersion, shards)
           .via(collectShards)
           .flatMap { bootstrapped =>
-            val outputStream = ZStream.fromIterable(bootstrapped.map{
-              case unshaped: DefaultBootstrappedShard => unshaped.copy(
-                shardStream = (throughputShaper.shapeStream(unshaped.shardStream._1.trySetBuffering(sourceBufferingSettings)), unshaped.shardStream._2)
+            val outputStream = ZStream.fromIterable(bootstrapped.map { case unshaped: DefaultBootstrappedShard =>
+              unshaped.copy(
+                shardStream = (
+                  throughputShaper.shapeStream(unshaped.shardStream._1.trySetBuffering(sourceBufferingSettings)),
+                  unshaped.shardStream._2
+                )
               )
             })
             if shards.isDefined then outputStream

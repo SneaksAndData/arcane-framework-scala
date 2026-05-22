@@ -19,15 +19,14 @@ object ZExtensions:
   extension [Element](stream: ZStream[Any, Throwable, Element])
     def onComplete(effect: Task[Unit]): ZStream[Any, Throwable, Element] =
       stream.concat(ZStream.fromZIO(effect).flatMap(_ => ZStream.empty))
-  
+
     def trySetBuffering(sourceBufferingSettings: SourceBufferingSettings): ZStream[Any, Throwable, Element] =
       (sourceBufferingSettings.bufferingEnabled, sourceBufferingSettings.bufferingStrategy) match
         case (true, UnboundedImpl(_)) =>
           zlogStream("Running stream with unbound source buffer") *> stream.bufferUnbounded
-  
+
         case (true, BufferingImpl(buffering)) =>
           zlogStream("Running stream with bound source buffer size %s", buffering.maxBufferSize.toString) *> stream
             .buffer(buffering.maxBufferSize)
-  
+
         case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream
-      

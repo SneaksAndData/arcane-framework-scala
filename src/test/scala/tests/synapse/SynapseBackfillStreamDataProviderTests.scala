@@ -4,7 +4,11 @@ package tests.synapse
 import models.settings.TableNaming.{getBackfillTableName, parts}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
-import services.synapse.backfill.{SynapseBackfillSourceDataProvider, SynapseBackfillStreamDataProvider, SynapseShardFactory}
+import services.synapse.backfill.{
+  SynapseBackfillSourceDataProvider,
+  SynapseBackfillStreamDataProvider,
+  SynapseShardFactory
+}
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
@@ -33,7 +37,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           tableSinkSettings.targetTableFullName.parts.name,
           SynapseWatermark.epoch
         )
-        propertyManager <- icebergUtilBackfill.getSinkTablePropertyManager
+        propertyManager        <- icebergUtilBackfill.getSinkTablePropertyManager
         stagingPropertyManager <- icebergUtilBackfill.getStagingTablePropertyManager
         stagingEntityManager   <- icebergUtilBackfill.getStagingEntityManager
         backfillStateManager <- ZIO.succeed(

@@ -31,8 +31,8 @@ final class SynapseBackfillSourceDataProvider(
       dataProvider,
       backfillSettings,
       sinkSettings,
-  throughputShaperBuilder,
-  sourceBufferingSettings,
+      throughputShaperBuilder,
+      sourceBufferingSettings,
       stateManager
     ):
 
@@ -71,7 +71,7 @@ object SynapseBackfillSourceDataProvider:
       dataProvider <- ZIO.service[SynapseLinkReader]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
       context      <- ZIO.service[PluginStreamContext]
-      shaper <- ZIO.service[ThroughputShaperBuilder]
+      shaper       <- ZIO.service[ThroughputShaperBuilder]
       backfillId   <- context.backfillId
     yield new SynapseBackfillSourceDataProvider(
       dataProvider = dataProvider,
