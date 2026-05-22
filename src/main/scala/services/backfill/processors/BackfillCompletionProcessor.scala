@@ -19,7 +19,6 @@ import zio.{ZIO, ZLayer}
 
 class BackfillCompletionProcessor(
     propertyManager: SinkPropertyManager,
-    targetTableShortName: String,
     mergeServiceClient: MergeServiceClient,
     declaredMetrics: DeclaredMetrics
 ) extends StagedShardProcessor:
@@ -50,15 +49,14 @@ class BackfillCompletionProcessor(
 object BackfillCompletionProcessor:
   def apply(
       propertyManager: SinkPropertyManager,
-      targetTableShortName: String,
       mergeServiceClient: MergeServiceClient,
       declaredMetrics: DeclaredMetrics
   ): BackfillCompletionProcessor =
-    new BackfillCompletionProcessor(propertyManager, targetTableShortName, mergeServiceClient, declaredMetrics)
+    new BackfillCompletionProcessor(propertyManager, mergeServiceClient, declaredMetrics)
 
   /** The required environment for the BackfillWatermarkProcessor.
     */
-  type Environment = SinkPropertyManager & PluginStreamContext & MergeServiceClient & DeclaredMetrics
+  type Environment = SinkPropertyManager & MergeServiceClient & DeclaredMetrics
 
   /** The ZLayer that creates the BackfillWatermarkProcessor.
     */
@@ -66,12 +64,10 @@ object BackfillCompletionProcessor:
     ZLayer {
       for
         iceberg            <- ZIO.service[SinkPropertyManager]
-        context            <- ZIO.service[PluginStreamContext]
         mergeServiceClient <- ZIO.service[MergeServiceClient]
         declaredMetrics    <- ZIO.service[DeclaredMetrics]
       yield BackfillCompletionProcessor(
         iceberg,
-        context.sink.targetTableFullName.parts.name,
         mergeServiceClient,
         declaredMetrics
       )

@@ -1,37 +1,126 @@
-//package com.sneaksanddata.arcane.framework
-//package tests.services.streaming.data_providers.backfill
-//
-//import models.*
-//import models.batches.{StagedBackfillOverwriteBatch, SynapseLinkBackfillOverwriteBatch}
-//import models.schemas.*
-//import models.schemas.ArcaneType.StringType
-//import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient}
-//import services.filters.FieldsFilteringService
-//import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
-//import services.metrics.base.MetricTagProvider
-//import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-//import services.streaming.base.StreamDataProvider
-//import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-//import services.streaming.processors.batch_processors.streaming.{
-//  DisposeBatchProcessor,
-//  MergeBatchProcessor,
-//  SchemaMigrationProcessor,
-//  WatermarkProcessor
-//}
-//import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-//import tests.services.streaming.processors.utils.TestStageVersionedBatch
-//import tests.shared.*
-//import com.sneaksanddata.arcane.framework.services.backfill.{BackfillOverwriteBatchFactory, BackfillStreamingOverwriteDataProvider, DefaultBackfillStreamDataProvider}
-//import com.sneaksanddata.arcane.framework.services.streaming.graph.DefaultStreamingGraphBuilder
-//
-//import org.easymock.{Capture, EasyMock}
-//import org.easymock.EasyMock.{replay, verify}
-//import org.scalatest.flatspec.AsyncFlatSpec
-//import org.scalatest.matchers.must.Matchers
-//import org.scalatest.matchers.should.Matchers.shouldBe
-//import org.scalatestplus.easymock.EasyMockSugar
-//import zio.stream.ZStream
-//import zio.{Runtime, Schedule, Task, Unsafe, ZIO, ZLayer}
+package com.sneaksanddata.arcane.framework
+package tests.services.backfill
+
+import models.queries.StreamingBatchQuery
+import models.schemas.ArcaneSchema
+import models.settings.TableNaming.getBackfillTableName
+import models.sharding.*
+import services.backfill.DefaultBackfillStateManager
+import services.backfill.base.{BackfillStreamDataProvider, ShardFactory}
+import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
+import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
+import services.filters.FieldsFilteringService
+import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
+import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
+import services.merging.JdbcMergeServiceClient
+import services.metrics.DeclaredMetrics
+import services.streaming.base.{JsonWatermark, TimestampOnlyWatermark}
+import services.streaming.processors.transformers.FieldFilteringTransformer
+import services.synapse.backfill.SynapseShardFactory
+import tests.shared.*
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
+
+import zio.stream.ZStream
+import zio.test.*
+import zio.test.TestAspect.timeout
+import zio.{Scope, Task, ZIO, ZLayer}
+
+import java.time.OffsetDateTime
+
+final class TestBackfillStreamDataProvider extends BackfillStreamDataProvider:
+  override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
+    ZIO.succeed(
+      (
+        stream = ZStream.fromIterable(
+          Seq(
+            DefaultBootstrappedShard(
+              shardStream = (ZStream.fromIterable(Seq()), ArcaneSchema(Seq())),
+              "",
+              "",
+              "",
+              ""
+            )
+          )
+        ),
+        watermark = TimestampOnlyWatermark(OffsetDateTime.now())
+      )
+    )
+
+final class TestShardFactory extends ShardFactory:
+  override def createStagedShard(shard: BootstrappedShard): StagedShard = DefaultStagedShard(
+    shard.shardSourceEntityName,
+    shard.combinedTableName,
+    shard.targetTableName,
+    new StreamingBatchQuery {
+      override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shard.shardTableName}"
+    },
+    shard.backfillId
+  )
+
+  override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = ???
+
+object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
+  private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
+    for
+      factory <- IcebergCatalogFactory.live(defaultIcebergStagingSettings)
+      entityManager = IcebergStagingEntityManager(defaultIcebergStagingSettings, factory)
+      result        = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
+    yield result
+  }
+  private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
+
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillOverwriteGraphBuilderTests")(
+    test("stages shards, aggregates them and swaps correct data into target table") {
+      for
+        writer <- ZIO.service[IcebergS3CatalogWriter]
+        mergeService <- ZIO.succeed(
+          new JdbcMergeServiceClient(
+            TestJdbcMergeServiceClientSettings,
+            "iceberg",
+            "test",
+            DeclaredMetrics(),
+            true
+          )
+        )
+        shardFactory           <- ZIO.succeed(new TestShardFactory())
+        propertyManager        <- ZIO.service[SinkPropertyManager]
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        stagingEntityManager   <- ZIO.service[StagingEntityManager]
+        backfillStateManager <- ZIO.succeed(
+          new DefaultBackfillStateManager(
+            stagingEntityManager,
+            stagingPropertyManager,
+            new SynapseShardFactory(),
+            getBackfillTableName("synapse__backfill_new")
+          )
+        )
+        builder <- ZIO.succeed(
+          DefaultBackfillOverwriteGraphBuilder(
+            new TestBackfillStreamDataProvider(),
+            new ShardStagingProcessor(
+              writer,
+              shardFactory,
+              DeclaredMetrics()
+            ),
+            mergeService,
+            new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
+            new BackfillCompletionProcessor(propertyManager, mergeService, DeclaredMetrics()),
+            backfillStateManager,
+            shardFactory
+          )
+        )
+        // expect the following:
+        // a single row - CompletedShard is the output
+        result <- builder.produce().runCollect
+      yield assertTrue(result.size == 1)
+    }
+  ).provide(
+    writerLayer,
+    icebergUtilBackfill.getStagingTablePropertyManagerLayer,
+    icebergUtilBackfill.getStagingEntityManagerLayer,
+    icebergUtilBackfill.getSinkTablePropertyManagerLayer
+  ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
+
 //
 //class GenericBackfillStreamingOverwriteDataProviderTests extends AsyncFlatSpec with Matchers with EasyMockSugar:
 //  private val runtime = Runtime.default

@@ -34,8 +34,8 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
+import services.streaming.graph.DefaultStreamingGraphBuilder
 import tests.shared.*
-import com.sneaksanddata.arcane.framework.services.streaming.graph.DefaultStreamingGraphBuilder
 
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
