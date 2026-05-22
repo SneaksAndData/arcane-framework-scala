@@ -76,10 +76,9 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
             if shards.isDefined then outputStream
             else {
               val backfillMetadata = DefaultSourceBackfill(
-                "",
+                bootstrapped.head.backfillId,
                 startFrom.toJson,
                 snapshotVersion.toJson,
-                "",
                 bootstrapped.map(_.shardSourceEntityName)
               )
               ZStream.fromZIO(stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)

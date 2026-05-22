@@ -4,18 +4,13 @@ package tests.synapse
 import models.settings.TableNaming.{getBackfillTableName, parts}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
-import services.synapse.backfill.{
-  SynapseBackfillSourceDataProvider,
-  SynapseBackfillStreamDataProvider,
-  SynapseShardFactory
-}
+import services.synapse.backfill.{SynapseBackfillSourceDataProvider, SynapseBackfillStreamDataProvider, SynapseShardFactory}
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSourceBufferingSettings, TestThroughputShaperBuilder}
 import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
 
-import com.sneaksanddata.arcane.framework.services.iceberg.IcebergSinkTablePropertyManager
 import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
