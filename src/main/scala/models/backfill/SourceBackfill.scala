@@ -10,7 +10,7 @@ trait SourceBackfill:
   val backfillStart: String
   val backfillEnd: String
   val shardSources: Seq[String]
-  
+
   final val watermarkValue: String = backfillEnd
 
 case class DefaultSourceBackfill(

@@ -4,7 +4,11 @@ package tests.synapse
 import models.settings.TableNaming.{getBackfillTableName, parts}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
-import services.synapse.backfill.{SynapseBackfillSourceDataProvider, SynapseBackfillStreamDataProvider, SynapseShardFactory}
+import services.synapse.backfill.{
+  SynapseBackfillSourceDataProvider,
+  SynapseBackfillStreamDataProvider,
+  SynapseShardFactory
+}
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
