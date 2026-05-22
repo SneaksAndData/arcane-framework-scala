@@ -83,7 +83,7 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
     }
     .provide(getSinkTablePropertyManagerLayer, getSinkEntityManagerLayer)
 
-  def prepareBackfillTable(tableName: String, schema: ArcaneSchema): Task[Unit] = ZIO
+  def prepareBackfillTable(tableName: String, schema: ArcaneSchema, state: Option[String] = None): Task[Unit] = ZIO
     .scoped {
       for
         targetName    <- ZIO.succeed(tableName)
@@ -91,9 +91,15 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
         _ <- entityManager.createTable(
           CreateTableRequest(targetName, schema, true)
         )
+        _ <- ZIO.when(state.isDefined) {
+          for
+            propertyManager <- ZIO.service[IcebergStagingTablePropertyManager]
+            _               <- propertyManager.setProperty(targetName, "backfill", state.get)
+          yield ()
+        }
       yield ()
     }
-    .provide(getStagingEntityManagerLayer)
+    .provide(getStagingEntityManagerLayer, getStagingTablePropertyManagerLayer)
 
 object IcebergUtil:
   def apply(catalogSettings: IcebergCatalogSettings): IcebergUtil = new IcebergUtil(catalogSettings)
