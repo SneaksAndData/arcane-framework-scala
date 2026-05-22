@@ -163,7 +163,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillState <- stagingPropertyManager
           .getRequiredProperty(getBackfillTableName("synapse__backfill_interrupted"), "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
-      // expect **4** shards since metadata claims 3 were staged
+      // expect **4** shards since metadata claims 4 were staged
       // for all shards combined:
       // expect 18 rows, since each IU file has 5 rows and 1 row in a D file -> 6 rows per folder, first folder doesn't have a matching file
       // total **3** files for this table
