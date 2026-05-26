@@ -67,7 +67,7 @@ class MsSqlReader(
       result <- executeColumnSummariesQuery(query)
     yield result
 
-  /** 
+  /**
    * Create a stream from a provided shard table.
     */
   def createShardStream(shardTableName: String): ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
@@ -93,6 +93,35 @@ class MsSqlReader(
       yield stream,
       schema
     )
+  }
+
+  /** Use to estimate shard cost. EstimateCPU + EstimateIO
+   * EXEC('
+   * SET STATISTICS PROFILE ON;
+   * SELECT TOP 1 * FROM dbo.likp;
+   * SET STATISTICS PROFILE OFF;
+   * ');
+   *
+   * @return
+   */
+
+  def prepareShardTables(advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream.fromZIO(for
+    // first count rows in source table
+    // TODO: run shard size estimation
+    shardProfile <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, advisedShardSizeMib.getOrElse(10)))))(rs => rs.closeSafe(statement)) { rs =>
+        if rs.next() then
+          ZIO.succeed((sizeGib = rs.getDouble(1), shardCount = rs.getInt(2), recordsPerShard = rs.getLong(3)))
+        else
+          ZIO.fail(new Throwable(s"Unable to determine row count for source entity ${connectionSettings.schemaName}.${connectionSettings.tableName}"))
+      }
+    }
+    _ <- zlog(s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard", shardProfile.sizeGib.toString, shardProfile.shardCount.toString, shardProfile.recordsPerShard.toString)
+  yield shardProfile).flatMap { profile =>
+    // TODO: create new shard table
+    // TODO: fill new shard table (bucket PK)
+    // TODO: create PK on the shard table
+    // TODO: enable change tracking on the shard table
   }
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
@@ -186,13 +215,13 @@ class MsSqlReader(
       // since sys.dm_tran_commit_table can be behind latest version, we fallback to call time to avoid reporting huge delays
       yield result.getOrElse(callTime)
     }
-    
+
   def getCurrentVersion: ZIO[Any, Throwable, MsSqlWatermark] = for
     // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
     version <- getVersion(QueryProvider.getCurrentVersionQuery).flatMap(ZIO.getOrFailWith(new Throwable("Unable to determine latest changeset version")))
     commitTime <- getVersionCommitTime(version)
   yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
-  
+
   def timestampToVersion(timestamp: OffsetDateTime): Task[MsSqlWatermark] = for
     version <- getVersion(QueryProvider.getVersionFromTimestampQuery(timestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))).flatMap(ZIO.getOrFailWith(new Throwable(s"Unable to determine the changeset version matching timestamp ${timestamp.toString}")))
     commitTime <- getVersionCommitTime(version)

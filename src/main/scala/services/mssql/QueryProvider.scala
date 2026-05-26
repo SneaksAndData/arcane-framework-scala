@@ -109,6 +109,18 @@ object QueryProvider:
           .replace("{table}", tableName)
       yield query
     }
+    
+  def getSourcePhysicalStatsQuery(schemeName: String, tableName: String, desiredShardSizeMib: Int): MsSqlQuery = {
+  // count clustered index
+  s"""SELECT
+     |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
+     |    cast((page_count * 8.0) / 1024 / 100 as int) as shards,
+     |    record_count / cast((page_count * 8.0) / 1024 / $desiredShardSizeMib as int) as records_per_shard
+     |FROM
+     |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemeName.$tableName'), 1, NULL, 'DETAILED')
+     |where index_level = 0
+     |""".stripMargin
+  }
 
   /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, based on the
     * provided startFrom timestamp point. The look back range for the query.
