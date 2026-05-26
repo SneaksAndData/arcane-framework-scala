@@ -7,12 +7,11 @@ import services.backfill.base.ShardFactory
 
 import zio.{ULayer, ZLayer}
 
-/**
- * Backfill shard factory for Sql Server source
- */
+/** Backfill shard factory for Sql Server source
+  */
 class MsSqlShardFactory extends ShardFactory:
   /** Staged shard provisioner. Commit query targets combine table.
-   */
+    */
   override def createStagedShard(shard: BootstrappedShard): StagedShard = DefaultStagedShard(
     shardSourceEntityName = shard.shardSourceEntityName,
     combinedTableName = shard.combinedTableName,
@@ -22,7 +21,7 @@ class MsSqlShardFactory extends ShardFactory:
   )
 
   /** Completion shard provisioner. Commit query swaps data from combine into a target table.
-   */
+    */
   override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = CompletionShard(
     watermark = watermark,
     targetTableName = shard.targetTableName,
