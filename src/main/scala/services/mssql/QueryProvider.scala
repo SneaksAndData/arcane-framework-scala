@@ -22,16 +22,16 @@ object QueryProvider:
     * @return
     *   A future containing the schema query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlReader)
+  extension (reader: MsSqlReader)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
-        columnSummaries <- msSqlConnection.getColumnSummaries
+        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, reader.connectionSettings.tableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
-          msSqlConnection.connectionSettings,
-          msSqlConnection.catalog,
+          reader.connectionSettings,
+          reader.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
@@ -48,16 +48,16 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlReader)
+  extension (reader: MsSqlReader)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
-        columnSummaries <- msSqlConnection.getColumnSummaries
+        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, reader.connectionSettings.tableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
-          msSqlConnection.connectionSettings,
-          msSqlConnection.catalog,
+          reader.connectionSettings,
+          reader.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
@@ -72,15 +72,15 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlReader)
-    def getBackfillQuery: Task[MsSqlQuery] =
+  extension (reader: MsSqlReader)
+    def getBackfillQuery(shardTableName: String): Task[MsSqlQuery] =
       for
-        columnSummaries <- msSqlConnection.getColumnSummaries
+        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, shardTableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
-          msSqlConnection.connectionSettings,
-          msSqlConnection.catalog,
+          reader.connectionSettings,
+          reader.catalog,
           mergeExpression,
           columnExpression
         )

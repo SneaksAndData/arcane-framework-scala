@@ -57,7 +57,7 @@ class MsSqlReader(
     * @return
     *   An effect containing the column summaries for the table in the database.
     */
-  def getColumnSummaries: Task[List[ColumnSummary]] =
+  def getColumnSummaries(schemaName: String, tableName: String): Task[List[ColumnSummary]] =
     for
       query <- QueryProvider.getColumnSummariesQuery(
         connectionSettings.schemaName,
@@ -67,22 +67,20 @@ class MsSqlReader(
       result <- executeColumnSummariesQuery(query)
     yield result
 
-  /** Run a backfill query on the database.
-    *
-    * @return
-    *   A stream containing the result of a backfill query.
+  /** 
+   * Create a stream from a provided shard table.
     */
-  def backfill: ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
+  def createShardStream(shardTableName: String): ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
     (
       for
-        query <- ZStream.fromZIO(this.getBackfillQuery)
+        query <- ZStream.fromZIO(this.getBackfillQuery(shardTableName))
         statement <- ZStream
           .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream
           .acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-        _ <- zlogStream("Acquired result set with fetch size %s", resultSet.getFetchSize.toString)
+        _ <- zlogStream("Acquired shard %s result set with fetch size %s", shardTableName, resultSet.getFetchSize.toString)
         _ <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
-        _ <- zlogStream("Updated result set fetch size to %s", resultSet.getFetchSize.toString)
+        _ <- zlogStream("Updated shard %s result set fetch size to %s", shardTableName, resultSet.getFetchSize.toString)
         stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
           if hasNext then
             for
@@ -188,6 +186,17 @@ class MsSqlReader(
       // since sys.dm_tran_commit_table can be behind latest version, we fallback to call time to avoid reporting huge delays
       yield result.getOrElse(callTime)
     }
+    
+  def getCurrentVersion: ZIO[Any, Throwable, MsSqlWatermark] = for
+    // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
+    version <- getVersion(QueryProvider.getCurrentVersionQuery).flatMap(ZIO.getOrFailWith(new Throwable("Unable to determine latest changeset version")))
+    commitTime <- getVersionCommitTime(version)
+  yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
+  
+  def timestampToVersion(timestamp: OffsetDateTime): Task[MsSqlWatermark] = for
+    version <- getVersion(QueryProvider.getVersionFromTimestampQuery(timestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))).flatMap(ZIO.getOrFailWith(new Throwable(s"Unable to determine the changeset version matching timestamp ${timestamp.toString}")))
+    commitTime <- getVersionCommitTime(version)
+  yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
 
   /** Closes the connection to the database.
     */

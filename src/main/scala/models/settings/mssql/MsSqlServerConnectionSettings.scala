@@ -20,6 +20,7 @@ case class DefaultMsSqlServerDatabaseSourceSettings(
     override val extraConnectionParameters: Map[String, String],
     @key("connectionUrl") connectionString: Option[String] = None,
     override val schemaName: String,
+    override val backfillShardSchemaName: String,
     override val tableName: String,
     override val fetchSize: Option[Int]
 ) extends MsSqlServerDatabaseSourceSettings derives ReadWriter:
