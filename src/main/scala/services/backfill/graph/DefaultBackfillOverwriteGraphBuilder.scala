@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.graph
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.sharding.{CompletedShard, StagedShard}
+import models.sharding.{CompletedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardCombineProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
@@ -31,8 +31,9 @@ class DefaultBackfillOverwriteGraphBuilder(
     backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
 
-  private val backfillParallelism = Runtime.getRuntime.availableProcessors() * 2
-  private def aggregateShards     = ZPipeline.fromSink(ZSink.last[StagedShard])
+  private val backfillParallelism     = Runtime.getRuntime.availableProcessors() * 2
+  private def aggregateStagedShards   = ZPipeline.fromSink(ZSink.last[StagedShard])
+  private def aggregateCombinedShards = ZPipeline.fromSink(ZSink.last[CompletionShard])
 
   /** @inheritdoc
     */
@@ -66,7 +67,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                     shard.shardStream._1
                       .via(fieldFilteringProcessor.process)
                       .via(shardStageProcessor.process(shard, shard.shardStream._2))
-                      .via(aggregateShards)
+                      .via(aggregateStagedShards)
                       .collect { case Some(staged) =>
                         staged
                       }
@@ -87,6 +88,10 @@ class DefaultBackfillOverwriteGraphBuilder(
             }
             .mapZIO(shard => stateManager.commitCombinedShard(shard))
         )
+        .via(aggregateCombinedShards)
+        .collect { case Some(completion) =>
+          completion.copy(shardSourceEntityName = completion.combinedTableName)
+        }
         .via(backfillCompletionProcessor.process)
     }
 

@@ -2,12 +2,13 @@ package com.sneaksanddata.arcane.framework
 package models.sharding
 
 import models.queries.StreamingBatchQuery
+import models.settings.TableName
 
 /** A shard of data from source to be used by backfills
   */
 trait SourceShard:
   val combinedTableName: String
-  val targetTableName: String
+  val targetTableName: TableName
   val shardSourceEntityName: String
   val backfillId: String
 

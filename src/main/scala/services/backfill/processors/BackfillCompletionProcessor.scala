@@ -2,24 +2,19 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.processors
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
-import models.app.PluginStreamContext
-import models.batches.{StagedBackfillOverwriteBatch, StagedBatch}
 import models.settings.TableNaming.*
-import models.settings.sink.SinkSettings
 import models.sharding.{CompletedShard, CompletionShard}
+import services.backfill.base.StagedShardProcessor
 import services.base.MergeServiceClient
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
 import services.streaming.base.*
-import services.streaming.processors.batch_processors.WatermarkProcessingExtensions.*
-import com.sneaksanddata.arcane.framework.services.backfill.base.StagedShardProcessor
 
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 class BackfillCompletionProcessor(
     propertyManager: SinkPropertyManager,
-    targetTableShortName: String,
     mergeServiceClient: MergeServiceClient,
     declaredMetrics: DeclaredMetrics
 ) extends StagedShardProcessor:
@@ -33,8 +28,8 @@ class BackfillCompletionProcessor(
         _                 <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
         _                 <- mergeServiceClient.commitShard(shard)
         _                 <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
-        previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName, "comment")
-        _                 <- propertyManager.comment(shard.targetTableName, shard.watermark)
+        previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName.parts.name, "comment")
+        _                 <- propertyManager.comment(shard.targetTableName.parts.name, shard.watermark)
         _ <- zlog(
           "Updated watermark from %s to %s",
           Seq(getAnnotation("processor", "BackfillWatermarkProcessor")),
@@ -50,15 +45,14 @@ class BackfillCompletionProcessor(
 object BackfillCompletionProcessor:
   def apply(
       propertyManager: SinkPropertyManager,
-      targetTableShortName: String,
       mergeServiceClient: MergeServiceClient,
       declaredMetrics: DeclaredMetrics
   ): BackfillCompletionProcessor =
-    new BackfillCompletionProcessor(propertyManager, targetTableShortName, mergeServiceClient, declaredMetrics)
+    new BackfillCompletionProcessor(propertyManager, mergeServiceClient, declaredMetrics)
 
   /** The required environment for the BackfillWatermarkProcessor.
     */
-  type Environment = SinkPropertyManager & PluginStreamContext & MergeServiceClient & DeclaredMetrics
+  type Environment = SinkPropertyManager & MergeServiceClient & DeclaredMetrics
 
   /** The ZLayer that creates the BackfillWatermarkProcessor.
     */
@@ -66,12 +60,10 @@ object BackfillCompletionProcessor:
     ZLayer {
       for
         iceberg            <- ZIO.service[SinkPropertyManager]
-        context            <- ZIO.service[PluginStreamContext]
         mergeServiceClient <- ZIO.service[MergeServiceClient]
         declaredMetrics    <- ZIO.service[DeclaredMetrics]
       yield BackfillCompletionProcessor(
         iceberg,
-        context.sink.targetTableFullName.parts.name,
         mergeServiceClient,
         declaredMetrics
       )
