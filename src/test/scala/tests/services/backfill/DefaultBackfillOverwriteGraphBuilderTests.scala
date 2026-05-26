@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
 import models.queries.StreamingBatchQuery
-import models.schemas.ArcaneType.{IntType, StringType}
 import models.schemas.*
+import models.schemas.ArcaneType.{IntType, StringType}
 import models.settings.TableNaming.getBackfillTableName
 import models.sharding.*
 import services.backfill.DefaultBackfillStateManager
@@ -17,7 +17,6 @@ import services.merging.JdbcMergeServiceClient
 import services.metrics.DeclaredMetrics
 import services.streaming.base.{JsonWatermark, TimestampOnlyWatermark}
 import services.streaming.processors.transformers.FieldFilteringTransformer
-import services.synapse.backfill.SynapseShardFactory
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 
@@ -153,8 +152,12 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             true
           )
         )
-        // shaper requires target table to exist
-        _ <- icebergUtilBackfill.prepareBackfillTable(getBackfillTableName("generic__test_combined"), streamSchema)
+        // backfill table should exist
+        _ <- icebergUtilBackfill.prepareBackfillTable(
+          getBackfillTableName("generic__test_combined"),
+          streamSchema,
+          recreate = false
+        )
         shardFactory           <- ZIO.succeed(new TestShardFactory())
         propertyManager        <- ZIO.service[SinkPropertyManager]
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
@@ -163,8 +166,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           new DefaultBackfillStateManager(
             stagingEntityManager,
             stagingPropertyManager,
-            new SynapseShardFactory(),
-            getBackfillTableName("synapse__backfill_new")
+            new TestShardFactory(),
+            getBackfillTableName("generic__test_combined")
           )
         )
         builder <- ZIO.succeed(
@@ -185,7 +188,12 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         // expect the following:
         // a single row - CompletedShard is the output
         result <- builder.produce().runCollect
-      yield assertTrue(result.size == 1)
+      yield assertTrue(result.toList match
+        case (completedShard: CompletedShard) :: nil =>
+          completedShard.targetTableName == "iceberg.test.generic_stream" && completedShard.combinedTableName == getBackfillTableName(
+            "generic__test_combined"
+          )
+        case _ => false)
     }
   ).provide(
     writerLayer,

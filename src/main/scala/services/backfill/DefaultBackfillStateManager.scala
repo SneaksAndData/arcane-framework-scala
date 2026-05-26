@@ -50,7 +50,11 @@ class DefaultBackfillStateManager(
     result <- ZIO.when(tableExists)(
       stagingPropertyManager
         .getProperty(shard.shardTableName, processingStatePropertyName)
-        .map(_.exists(_ == ShardProcessingState.STAGED.toString))
+        .map(
+          _.exists(state =>
+            state == ShardProcessingState.STAGED.toString || state == ShardProcessingState.COMBINED.toString
+          )
+        )
     )
   yield result.getOrElse(false)
 
