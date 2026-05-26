@@ -169,10 +169,10 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         streamSchema,
         recreate = false
       )
-      shardFactory <- ZIO.succeed(new TestShardFactory())
-      propertyManager <- ZIO.service[SinkPropertyManager]
+      shardFactory           <- ZIO.succeed(new TestShardFactory())
+      propertyManager        <- ZIO.service[SinkPropertyManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
-      stagingEntityManager <- ZIO.service[StagingEntityManager]
+      stagingEntityManager   <- ZIO.service[StagingEntityManager]
       backfillStateManager <- ZIO.succeed(
         new DefaultBackfillStateManager(
           stagingEntityManager,
@@ -207,7 +207,11 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         trinoConnection <- newTrinoConnection
         // expect the following:
         // a single row - CompletedShard is the output
-        (result, shards)               <- runBackfill("iceberg.test.generic_stream", getBackfillTableName("generic__test_combined"), "test_combined")
+        (result, shards) <- runBackfill(
+          "iceberg.test.generic_stream",
+          getBackfillTableName("generic__test_combined"),
+          "test_combined"
+        )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         // final table must have num rows matching num shards since shard aggregate is 1:1 to target
         rowsInTarget <- getRowsInTarget(trinoConnection, "iceberg.test.generic_stream")
@@ -221,73 +225,125 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     test("picks up backfill when a shard has been staged") {
       for
         trinoConnection <- newTrinoConnection
-        _              <- runBackfill("iceberg.test.interrupted_backfill_stream", getBackfillTableName("generic__test_interrupted"), "test_interrupted")
+        _ <- runBackfill(
+          "iceberg.test.interrupted_backfill_stream",
+          getBackfillTableName("generic__test_interrupted"),
+          "test_interrupted"
+        )
         // now simulate interruption:
         // truncate target
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement("truncate table iceberg.test.interrupted_backfill_stream")))
+            .fromAutoCloseable(
+              ZIO.attempt(trinoConnection.prepareStatement("truncate table iceberg.test.interrupted_backfill_stream"))
+            )
             .map(_.execute())
         }
         // truncate combined
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement(s"truncate table iceberg.test.${getBackfillTableName("generic__test_interrupted")}")))
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement(
+                  s"truncate table iceberg.test.${getBackfillTableName("generic__test_interrupted")}"
+                )
+              )
+            )
             .map(_.execute())
         }
         // drop shard2 and shard3 tables
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted__shard2")))
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted__shard2")
+              )
+            )
             .map(_.execute())
         }
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted__shard3")))
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted__shard3")
+              )
+            )
             .map(_.execute())
         }
         // update shard1 table back to Staged
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
-        _ <- stagingPropertyManager.setProperty("backfill_shard__test_interrupted__shard1", "processing-state", ShardProcessingState.STAGED.toString)
+        _ <- stagingPropertyManager.setProperty(
+          "backfill_shard__test_interrupted__shard1",
+          "processing-state",
+          ShardProcessingState.STAGED.toString
+        )
         // re-run and expect identical result to a full backfill
-        (result, shards)               <- runBackfill("iceberg.test.interrupted_backfill_stream", getBackfillTableName("generic__test_interrupted"), "test_interrupted")
+        (result, shards) <- runBackfill(
+          "iceberg.test.interrupted_backfill_stream",
+          getBackfillTableName("generic__test_interrupted"),
+          "test_interrupted"
+        )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
-        rowsInTarget <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
+        rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
       yield assertTrue(rowsInTarget == expectedRowsInTarget)
     },
     test("picks up backfill when a shard has been combined") {
       for
         trinoConnection <- newTrinoConnection
-        _              <- runBackfill("iceberg.test.interrupted_1_backfill_stream", getBackfillTableName("generic__test_interrupted_1"), "test_interrupted_1")
+        _ <- runBackfill(
+          "iceberg.test.interrupted_1_backfill_stream",
+          getBackfillTableName("generic__test_interrupted_1"),
+          "test_interrupted_1"
+        )
         // now simulate interruption:
         // truncate target
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement("truncate table iceberg.test.interrupted_1_backfill_stream")))
+            .fromAutoCloseable(
+              ZIO.attempt(trinoConnection.prepareStatement("truncate table iceberg.test.interrupted_1_backfill_stream"))
+            )
             .map(_.execute())
         }
         // delete from combined: shard2 and shard3 data
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement(s"delete from iceberg.test.${getBackfillTableName("generic__test_interrupted_1")} where colB > 2")))
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement(
+                  s"delete from iceberg.test.${getBackfillTableName("generic__test_interrupted_1")} where colB > 2"
+                )
+              )
+            )
             .map(_.execute())
         }
         // drop shard2 and shard3 tables
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted_1__shard2")))
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted_1__shard2")
+              )
+            )
             .map(_.execute())
         }
         _ <- ZIO.scoped {
           ZIO
-            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted_1__shard3")))
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted_1__shard3")
+              )
+            )
             .map(_.execute())
         }
         // leave shard1 as COMBINED
         // re-run and expect identical result to a full backfill
-        (result, shards)               <- runBackfill("iceberg.test.interrupted_1_backfill_stream", getBackfillTableName("generic__test_interrupted_1"), "test_interrupted_1")
+        (result, shards) <- runBackfill(
+          "iceberg.test.interrupted_1_backfill_stream",
+          getBackfillTableName("generic__test_interrupted_1"),
+          "test_interrupted_1"
+        )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
-        rowsInTarget <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
+        rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
       yield assertTrue(rowsInTarget == expectedRowsInTarget)
     }
   ).provide(
