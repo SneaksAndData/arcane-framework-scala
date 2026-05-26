@@ -10,6 +10,6 @@ import java.util.Properties
 object TestTrinoConnection:
   def newTrinoConnection: Task[Connection] =
     for
-      driver <- ZIO.succeed(new TrinoDriver())
+      driver     <- ZIO.succeed(new TrinoDriver())
       connection <- ZIO.attemptBlocking(driver.connect("jdbc:trino://localhost:8080?user=test", new Properties()))
     yield connection

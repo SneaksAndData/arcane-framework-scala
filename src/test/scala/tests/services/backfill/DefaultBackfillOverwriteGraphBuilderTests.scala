@@ -28,7 +28,8 @@ import zio.{Schedule, Scope, Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
 
-final class TestBackfillStreamDataProvider(targetName: String, shards: Seq[BootstrappedShard]) extends BackfillStreamDataProvider:
+final class TestBackfillStreamDataProvider(targetName: String, shards: Seq[BootstrappedShard])
+    extends BackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     ZIO.succeed(
       (
@@ -77,74 +78,76 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     test("stages shards, aggregates them and swaps correct data into target table") {
       for
         targetName <- ZIO.succeed("iceberg.test.generic_stream")
-        shards <- ZIO.succeed(Seq(
-          DefaultBootstrappedShard(
-            shardStream = (
-              ZStream.fromIterable(
-                Seq(
-                  List(
-                    DataCell(MergeKeyField.name, StringType, "k1"),
-                    DataCell("colA", StringType, "one"),
-                    DataCell("colB", IntType, 1)
-                  ),
-                  List(
-                    DataCell(MergeKeyField.name, StringType, "k2"),
-                    DataCell("colA", StringType, "two"),
-                    DataCell("colB", IntType, 2)
+        shards <- ZIO.succeed(
+          Seq(
+            DefaultBootstrappedShard(
+              shardStream = (
+                ZStream.fromIterable(
+                  Seq(
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k1"),
+                      DataCell("colA", StringType, "one"),
+                      DataCell("colB", IntType, 1)
+                    ),
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k2"),
+                      DataCell("colA", StringType, "two"),
+                      DataCell("colB", IntType, 2)
+                    )
                   )
-                )
+                ),
+                streamSchema
               ),
-              streamSchema
+              "shard1",
+              "backfill__generic__test_combined",
+              targetName,
+              "test_combined"
             ),
-            "shard1",
-            "backfill__generic__test_combined",
-            targetName,
-            "test_combined"
-          ),
-          DefaultBootstrappedShard(
-            shardStream = (
-              ZStream.fromIterable(
-                Seq(
-                  List(
-                    DataCell(MergeKeyField.name, StringType, "k3"),
-                    DataCell("colA", StringType, "three"),
-                    DataCell("colB", IntType, 3)
-                  ),
-                  List(
-                    DataCell(MergeKeyField.name, StringType, "k4"),
-                    DataCell("colA", StringType, "four"),
-                    DataCell("colB", IntType, 4)
+            DefaultBootstrappedShard(
+              shardStream = (
+                ZStream.fromIterable(
+                  Seq(
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k3"),
+                      DataCell("colA", StringType, "three"),
+                      DataCell("colB", IntType, 3)
+                    ),
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k4"),
+                      DataCell("colA", StringType, "four"),
+                      DataCell("colB", IntType, 4)
+                    )
                   )
-                )
+                ),
+                streamSchema
               ),
-              streamSchema
+              "shard2",
+              "backfill__generic__test_combined",
+              targetName,
+              "test_combined"
             ),
-            "shard2",
-            "backfill__generic__test_combined",
-            targetName,
-            "test_combined"
-          ),
-          DefaultBootstrappedShard(
-            shardStream = (
-              ZStream.fromIterable(
-                Seq(
-                  List(
-                    DataCell(MergeKeyField.name, StringType, "k5"),
-                    DataCell("colA", StringType, "five"),
-                    DataCell("colB", IntType, 5)
+            DefaultBootstrappedShard(
+              shardStream = (
+                ZStream.fromIterable(
+                  Seq(
+                    List(
+                      DataCell(MergeKeyField.name, StringType, "k5"),
+                      DataCell("colA", StringType, "five"),
+                      DataCell("colB", IntType, 5)
+                    )
                   )
-                )
+                ),
+                streamSchema
               ),
-              streamSchema
-            ),
-            "shard3",
-            "backfill__generic__test_combined",
-            targetName,
-            "test_combined"
+              "shard3",
+              "backfill__generic__test_combined",
+              targetName,
+              "test_combined"
+            )
           )
-        ))
+        )
         trinoConnection <- newTrinoConnection
-        writer <- ZIO.service[IcebergS3CatalogWriter]
+        writer          <- ZIO.service[IcebergS3CatalogWriter]
         mergeService <- ZIO.succeed(
           new JdbcMergeServiceClient(
             TestJdbcMergeServiceClientSettings,
@@ -189,17 +192,16 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         )
         // expect the following:
         // a single row - CompletedShard is the output
-        result <- builder.produce().runCollect
+        result               <- builder.produce().runCollect
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         // final table must have num rows matching num shards since shard aggregate is 1:1 to target
         rowsInTarget <- ZIO.scoped {
-          ZIO.fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement(s"select count (1) from $targetName")))
-            .map{st =>
+          ZIO
+            .fromAutoCloseable(ZIO.attempt(trinoConnection.prepareStatement(s"select count (1) from $targetName")))
+            .map { st =>
               val rs = st.executeQuery()
-              if rs.next() then
-                rs.getInt(1)
-              else
-                0
+              if rs.next() then rs.getInt(1)
+              else 0
             }
         }
       yield assertTrue(result.toList match
