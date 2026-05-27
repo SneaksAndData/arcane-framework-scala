@@ -94,13 +94,13 @@ class MsSqlReader(
       schema
     )
   }
-  
+
   private def createShardTable(shardNumber: Int, backfillId: String): Task[String] = for
     tableName <- ZIO.succeed(s"${backfillId}__shard_$shardNumber")
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(statement.execute(QueryProvider.getCreateCloneQuery(connectionSettings.schemaName, connectionSettings.tableName, connectionSettings.backfillShardSchemaName, tableName)))
     }
-  yield tableName  
+  yield tableName
 
 
   /**
@@ -134,6 +134,18 @@ class MsSqlReader(
   yield shardProfile).flatMap { profile => ZStream
     .fromIterable(1 to profile.shardCount)
     .mapZIO(id => createShardTable(id, backfillId))
+
+    /** Use PK data to run this:
+     * INSERT INTO ShardTableName
+     * SELECT *
+     * FROM YourTableName
+     * WHERE ABS(CAST(HASHBYTES('MD5', 
+     * CONCAT(
+     * CAST(PK_Column1 AS VARCHAR(50)), '#', 
+     * CAST(PK_Column2 AS VARCHAR(50))
+     * )
+     * ) AS BIGINT)) % $shardCount = $shardId;
+     */
     // TODO: fill new shard table (bucket PK)
     // TODO: create PK on the shard table
     // TODO: enable change tracking on the shard table
