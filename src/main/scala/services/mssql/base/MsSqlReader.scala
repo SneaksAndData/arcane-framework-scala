@@ -94,12 +94,19 @@ class MsSqlReader(
       schema
     )
   }
+  
+  private def createShardTable(shardNumber: Int, backfillId: String): Task[String] = for
+    tableName <- ZIO.succeed(s"${backfillId}__shard_$shardNumber")
+    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      ZIO.attempt(statement.execute(QueryProvider.getCreateCloneQuery(connectionSettings.schemaName, connectionSettings.tableName, connectionSettings.backfillShardSchemaName, tableName)))
+    }
+  yield tableName  
 
 
   /**
    * Evaluate shard count and prep shard tables on source side. Emits table names.
    */
-  def prepareShardTables(advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream.fromZIO(for
+  def prepareShardTables(backfillId: String, advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream.fromZIO(for
     // first take estimate of a `select * from` query cost
     totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getStatsProfileQuery(connectionSettings.schemaName, connectionSettings.tableName))))(rs => rs.closeSafe(statement)) { rs =>
@@ -114,8 +121,8 @@ class MsSqlReader(
     shardProfile <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       val profileQuery = advisedShardSizeMib match
         case Some(advisedSize) => QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, advisedSize)
-        case None => QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, totalReadCost)  
-      
+        case None => QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, totalReadCost)
+
       ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(profileQuery)))(rs => rs.closeSafe(statement)) { rs =>
         if rs.next() then
           ZIO.succeed((sizeGib = rs.getDouble(1), shardCount = rs.getInt(2), recordsPerShard = rs.getLong(3)))
@@ -124,8 +131,9 @@ class MsSqlReader(
       }
     }
     _ <- zlog(s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard", shardProfile.sizeGib.toString, shardProfile.shardCount.toString, shardProfile.recordsPerShard.toString)
-  yield shardProfile).flatMap { profile =>
-    // TODO: create new shard table
+  yield shardProfile).flatMap { profile => ZStream
+    .fromIterable(1 to profile.shardCount)
+    .mapZIO(id => createShardTable(id, backfillId))
     // TODO: fill new shard table (bucket PK)
     // TODO: create PK on the shard table
     // TODO: enable change tracking on the shard table
