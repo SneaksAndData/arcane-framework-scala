@@ -95,21 +95,28 @@ class MsSqlReader(
     )
   }
 
-  /** Use to estimate shard cost. EstimateCPU + EstimateIO
-   * EXEC('
-   * SET STATISTICS PROFILE ON;
-   * SELECT TOP 1 * FROM dbo.likp;
-   * SET STATISTICS PROFILE OFF;
-   * ');
-   *
-   * @return
-   */
 
+  /**
+   * Evaluate shard count and prep shard tables on source side. Emits table names.
+   */
   def prepareShardTables(advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream.fromZIO(for
-    // first count rows in source table
-    // TODO: run shard size estimation
+    // first take estimate of a `select * from` query cost
+    totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getStatsProfileQuery(connectionSettings.schemaName, connectionSettings.tableName))))(rs => rs.closeSafe(statement)) { rs =>
+        ZStream.unfold(rs.next()) { hasNext =>
+          if hasNext then
+            Some(Option(rs.getDouble("EstimateIO")).getOrElse(0.0) + Option(rs.getDouble("EstimateCPU")).getOrElse(0.0), rs.next())
+          else
+            None
+        }.runSum
+      }
+    }
     shardProfile <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, advisedShardSizeMib.getOrElse(10)))))(rs => rs.closeSafe(statement)) { rs =>
+      val profileQuery = advisedShardSizeMib match
+        case Some(advisedSize) => QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, advisedSize)
+        case None => QueryProvider.getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, totalReadCost)  
+      
+      ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(profileQuery)))(rs => rs.closeSafe(statement)) { rs =>
         if rs.next() then
           ZIO.succeed((sizeGib = rs.getDouble(1), shardCount = rs.getInt(2), recordsPerShard = rs.getLong(3)))
         else

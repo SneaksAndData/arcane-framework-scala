@@ -110,16 +110,35 @@ object QueryProvider:
       yield query
     }
     
-  def getSourcePhysicalStatsQuery(schemeName: String, tableName: String, desiredShardSizeMib: Int): MsSqlQuery = {
-  // count clustered index
+  def getStatsProfileQuery(schemaName: String, tableName: String): MsSqlQuery = 
+    s"""EXEC('
+      |   * SET STATISTICS PROFILE ON;
+      |   * SELECT TOP 1 * FROM $schemaName.$tableName;
+      |   * SET STATISTICS PROFILE OFF;
+      |   * ')""".stripMargin
+    
+  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery = {
+  // divide table size by total cost -> evaluate data volume for 1 cost unit
+  // assume single shard being 10 cost units  
   s"""SELECT
      |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
-     |    cast((page_count * 8.0) / 1024 / 100 as int) as shards,
-     |    record_count / cast((page_count * 8.0) / 1024 / $desiredShardSizeMib as int) as records_per_shard
+     |    cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as shards
+     |    record_count / cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as records_per_shard
      |FROM
-     |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemeName.$tableName'), 1, NULL, 'DETAILED')
+     |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
      |where index_level = 0
      |""".stripMargin
+  }
+
+  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery = {
+    s"""SELECT
+       |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
+       |    cast((page_count * 8.0) / 1024 / $shardSize as int) as shards
+       |    record_count / cast((page_count * 8.0) / 1024 / $shardSize as int) as records_per_shard
+       |FROM
+       |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
+       |where index_level = 0
+       |""".stripMargin
   }
 
   /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, based on the
