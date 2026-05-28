@@ -167,10 +167,14 @@ class MsSqlReader(
       ) { statement =>
         ZIO.acquireReleaseWith(
           ZIO.attempt(
-            statement.executeQuery(
+            statement.execute(
               QueryProvider.getStatsProfileQuery(connectionSettings.schemaName, connectionSettings.tableName)
             )
-          )
+          ).map{_ =>
+            // skip first
+            val _ = statement.getResultSet
+            statement.getResultSet
+          }
         )(rs => rs.closeSafe(statement)) { rs =>
           ZStream
             .unfold(rs.next()) { hasNext =>

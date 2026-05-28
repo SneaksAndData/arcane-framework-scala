@@ -24,7 +24,7 @@ import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
 import scala.util.Success
 
-object MsSqlDataProviderTests extends ZIOSpecDefault:
+object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings
