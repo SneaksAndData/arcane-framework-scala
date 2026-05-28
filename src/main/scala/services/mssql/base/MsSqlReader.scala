@@ -17,6 +17,8 @@ import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
+import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -71,7 +73,7 @@ class MsSqlReader(
   /**
    * Create a stream from a provided shard table.
     */
-  def createShardStream(shardTableName: String): ZStream[Any, Throwable, StructuredZStream] = ZStream.fromZIO(getSchema).map { schema =>
+  def createShardStream(shardTableName: String): Task[StructuredZStream] = getSchema.map { schema =>
     (
       for
         query <- ZStream.fromZIO(this.getBackfillQuery(shardTableName))
@@ -107,7 +109,14 @@ class MsSqlReader(
       ZIO.attempt(statement.execute(QueryProvider.getFillShardQuery(connectionSettings.schemaName, connectionSettings.tableName, connectionSettings.backfillShardSchemaName, tableName, QueryProvider.getMergeExpression(summaries, "tq"), totalShards, shardNumber)))
     }
     _ <- zlog("Preparing shard table %s for streaming", tableName)
-    
+    // add PK
+    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      ZIO.attempt(statement.execute(QueryProvider.getCreatePrimaryKeyQuery(connectionSettings.backfillShardSchemaName, tableName, summaries)))
+    }
+    // enable Change Tracking
+    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      ZIO.attempt(statement.execute(s"ALTER TABLE [${connectionSettings.backfillShardSchemaName}.[$tableName] ENABLE CHANGE_TRACKING"))
+    }
   yield tableName
 
 
@@ -143,16 +152,6 @@ class MsSqlReader(
   yield shardProfile).flatMap { profile => ZStream
     .fromIterable(1 to profile.shardCount)
     .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
-
-    /** Use PK data to run this:
-     * INSERT INTO ShardTableName
-     * SELECT *
-     * FROM YourTableName as tq
-     * WHERE ABS(CAST(HASHBYTES('MD5', QueryProvider.getMergeExpression(columnSummaries, "tq")) AS BIGINT)) % $shardCount = $shardId;
-     */
-    // TODO: fill new shard table (bucket PK)
-    // TODO: create PK on the shard table
-    // TODO: enable change tracking on the shard table
   }
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](

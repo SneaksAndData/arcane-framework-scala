@@ -109,25 +109,28 @@ object QueryProvider:
           .replace("{table}", tableName)
       yield query
     }
-    
-  def getFillShardQuery(sourceSchemaName: String, sourceTableName: String, shardSchemaName: String, shardTableName: String, mergeExpression: String, shardCount: Int, shardId: Int): MsSqlQuery =   
-    s"""INSERT INTO $shardSchemaName.$shardTableName
-      |SELECT *
-      |FROM $sourceSchemaName.$sourceTableName as tq
-      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId;""".stripMargin
 
-  def getCreateCloneQuery(sourceSchemaName: String, sourceTableName: String, targetSchemaName: String, targetTableName: String): MsSqlQuery = 
-    s"""SELECT * 
-      |INTO $targetSchemaName.$targetTableName 
-      |FROM $sourceSchemaName.$sourceTableName
-      |WHERE 1 = 0;""".stripMargin
+  def getCreatePrimaryKeyQuery(shardSchemaName: String, shardTableName: String, summary: List[ColumnSummary]): MsSqlQuery =
+    val pkString = summary.filter(_._2).map(v => s"[${v._1}]").mkString(",")
+    s"""ALTER TABLE [$shardSchemaName].[$shardTableName] ADD CONSTRAINT PRIMARY KEY CLUSTERED ($pkString)"""
+
+  def getFillShardQuery(sourceSchemaName: String, sourceTableName: String, shardSchemaName: String, shardTableName: String, mergeExpression: String, shardCount: Int, shardId: Int): MsSqlQuery =
+    s"""INSERT INTO [$shardSchemaName].[$shardTableName]
+      |SELECT *
+      |FROM [$sourceSchemaName].[$sourceTableName] as tq
+      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId""".stripMargin
+
+  def getCreateCloneQuery(sourceSchemaName: String, sourceTableName: String, targetSchemaName: String, targetTableName: String): MsSqlQuery =
+    s"""SELECT *
+      |INTO [$targetSchemaName].[$targetTableName]
+      |FROM [$sourceSchemaName].[$sourceTableName]
+      |WHERE 1 = 0""".stripMargin
 
   def getStatsProfileQuery(schemaName: String, tableName: String): MsSqlQuery =
     s"""EXEC('
-      |   * SET STATISTICS PROFILE ON;
-      |   * SELECT TOP 1 * FROM $schemaName.$tableName;
-      |   * SET STATISTICS PROFILE OFF;
-      |   * ')""".stripMargin
+      | SET STATISTICS PROFILE ON;
+      | SELECT TOP 1 * FROM [$schemaName].[$tableName];
+      | SET STATISTICS PROFILE OFF')""".stripMargin
 
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery = {
   // divide table size by total cost -> evaluate data volume for 1 cost unit
@@ -138,8 +141,7 @@ object QueryProvider:
      |    record_count / cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as records_per_shard
      |FROM
      |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
-     |where index_level = 0
-     |""".stripMargin
+     |where index_level = 0""".stripMargin
   }
 
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery = {
@@ -149,8 +151,7 @@ object QueryProvider:
        |    record_count / cast((page_count * 8.0) / 1024 / $shardSize as int) as records_per_shard
        |FROM
        |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
-       |where index_level = 0
-       |""".stripMargin
+       |where index_level = 0""".stripMargin
   }
 
   /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, based on the

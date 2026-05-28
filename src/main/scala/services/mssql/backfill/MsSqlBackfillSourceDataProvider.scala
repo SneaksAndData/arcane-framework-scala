@@ -41,20 +41,19 @@ final class MsSqlBackfillSourceDataProvider(
       backfillEnd: MsSqlWatermark,
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
-    case None => ZStream.empty
-      //dataProvider.prepareShardTables(backfillId, None)
-    case Some(sources) => ZStream.empty)
-//      dataProvider.getData(sources)
-//  )
-//    .map { case (stream, source) =>
-//      DefaultBootstrappedShard(
-//        shardStream = stream,
-//        shardSourceEntityName = source,
-//        combinedTableName = getBackfillTableName(backfillId),
-//        targetTableName = sinkSettings.targetTableFullName,
-//        backfillId = backfillId
-//      )
-//    }
+    case None => dataProvider.prepareShardTables(backfillId, None)
+    case Some(sources) => ZStream.fromIterable(sources))
+    .mapZIO { preparedShardTableName =>
+      for
+        shardStream <- dataProvider.createShardStream(preparedShardTableName)
+      yield DefaultBootstrappedShard(
+        shardStream = shardStream,
+        shardSourceEntityName = preparedShardTableName,
+        combinedTableName = getBackfillTableName(backfillId),
+        targetTableName = sinkSettings.targetTableFullName,
+        backfillId = backfillId
+      )
+    }
 
   override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[MsSqlWatermark] = for
     wm  <- ZIO.attempt(startTime match
