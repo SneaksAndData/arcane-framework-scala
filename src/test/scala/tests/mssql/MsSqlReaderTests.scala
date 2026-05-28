@@ -7,6 +7,7 @@ import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
+import services.mssql.QueryProvider.getBackfillQuery
 import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices
@@ -14,6 +15,7 @@ import tests.mssql.util.MsSqlTestServices.*
 
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
+import zio.stream.ZStream
 import zio.test.*
 import zio.test.Assertion.{equalTo, fails, hasMessage}
 import zio.test.TestAspect.timeout
@@ -89,7 +91,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("columns_query_test", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -97,14 +99,16 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "columns_query_test"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
         query <- QueryProvider.getColumnSummariesQuery(
-          connector.connectionSettings.schemaName,
-          connector.connectionSettings.tableName,
-          connector.catalog
+          reader.connectionSettings.schemaName,
+          reader.connectionSettings.tableName,
+          reader.catalog
         )
       yield assertTrue(query.contains("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey"))
     },
@@ -113,7 +117,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("schema_query_test", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -121,11 +125,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "schema_query_test"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
-        query <- QueryProvider.getSchemaQuery(connector)
+        query <- QueryProvider.getSchemaQuery(reader)
       yield assertTrue(query.contains("ct.SYS_CHANGE_VERSION") && query.contains("ARCANE_MERGE_KEY"))
     },
     test("QueryProvider generates time-based query") {
@@ -142,7 +148,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("backfill_query", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -150,6 +156,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_query"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -169,7 +177,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             |@currentVersion AS 'ChangeTrackingVersion',
             |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
             |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
-        query <- QueryProvider.getBackfillQuery(connector)
+        query <- reader.getBackfillQuery("backfill_query")
       yield assertTrue(query == expected)
     },
     test("QueryProvider handles field selection rule") {
@@ -183,7 +191,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -191,6 +199,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "field_selection_rule"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -206,7 +216,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               |@currentVersion AS 'ChangeTrackingVersion',
               |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
               |FROM [arcane].[dbo].[field_selection_rule] tq""".stripMargin)
-        query <- QueryProvider.getBackfillQuery(connector)
+        query <- reader.getBackfillQuery("field_selection_rule")
       yield assertTrue(query == expected)
     },
     test("QueryProvider does not allow PKs in filters") {
@@ -221,7 +231,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection =>
             ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -229,11 +239,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "field_selection_rule_no_pk"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        result <- QueryProvider.getBackfillQuery(connector).exit
+        result <- reader.getBackfillQuery("field_selection_rule_no_pk").exit
       yield zio.test.assert(result)(
         fails(
           hasMessage(equalTo("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"))
@@ -251,7 +263,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -259,11 +271,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "field_selection_rule_pk"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        result <- QueryProvider.getBackfillQuery(connector).exit
+        result <- reader.getBackfillQuery("field_selection_rule_pk").exit
       yield zio.test.assert(result)(
         fails(hasMessage(equalTo("Fields ['x'] are primary keys, and must be included in the field selection rule")))
       )
@@ -273,7 +287,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection, fieldString, pkString))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -281,6 +295,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "extracts_schema_columns"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -300,12 +316,12 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             IndexedMergeKeyField(10)
           )
         )
-        schema <- connector.getSchema
+        schema <- reader.getSchema
       yield zio.test.assert(expected)(equalTo(schema.collect { case f: ArcaneSchemaField =>
         f
       }))
     },
-    test("MsSqlConnection returns correct number of rows on backfill") {
+    test("MsSqlConnection returns correct number of rows on a shard stream") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
@@ -313,7 +329,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("backfill_rows", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "backfill_rows"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -321,14 +337,16 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_rows"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
-        rows <- connector.backfill.flatMap(_._1).runCollect
+        rows <- ZStream.fromZIO(reader.createShardStream("backfill_rows")).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
-    test("MsSqlConnection returns correct number of columns on backfill") {
+    test("MsSqlConnection returns correct number of columns on a shard stream") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
@@ -336,7 +354,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("backfill_columns", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "backfill_columns"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -344,14 +362,16 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_columns"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
-        rows <- connector.backfill.flatMap(_._1).runCollect
+        rows <- ZStream.fromZIO(reader.createShardStream("backfill_columns")).flatMap(_._1).runCollect
       yield assertTrue(rows.head.size == 11)
     },
-    test("MsSqlConnection returns correct number of columns on backfill with filter") {
+    test("MsSqlConnection returns correct number of columns on a shard stream with filter") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
           override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "b", "x")))
@@ -365,7 +385,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("backfill_columns_filtered", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "backfill_columns_filtered"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -373,6 +393,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_columns_filtered"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -380,7 +402,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         expected <- ZIO.succeed(
           List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion", "ARCANE_MERGE_KEY")
         )
-        rows <- connector.backfill.flatMap(_._1).runCollect
+        rows <- ZStream.fromZIO(reader.createShardStream("backfill_columns_filtered")).flatMap(_._1).runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection returns correct number of rows on getChanges") {
@@ -391,7 +413,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("get_changes_rows", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_rows"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -399,11 +421,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_rows"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
-        rows <- connector
+        rows <- reader
           .getChanges(
             MsSqlWatermark(
               version = "1",
@@ -438,7 +462,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("get_changes_rows_filtered", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_rows_filtered"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -446,11 +470,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_rows_filtered"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        rows <- connector
+        rows <- reader
           .getChanges(
             MsSqlWatermark(
               version = "1",
@@ -484,7 +510,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("get_changes_columns", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_columns"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -492,11 +518,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_columns"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
-        rows <- connector
+        rows <- reader
           .getChanges(
             MsSqlWatermark(
               version = "1",
@@ -515,7 +543,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .attemptBlocking(createTable("get_changes_deletes", connection, fieldString, pkString))
               .flatMap(_ => insertData(connection, "get_changes_deletes"))
         )
-        connector <- ZIO.succeed(
+        reader <- ZIO.succeed(
           MsSqlReader(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
@@ -523,21 +551,23 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_deletes"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int] = None
+              override val backfillShardSchemaName: String = "dbo"
             },
             emptyFieldsFilteringService
           )
         )
         nextTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         startTime    <- ZIO.succeed(nextTime.minus(Duration.ofDays(1)))
-        maybeVersion <- connector.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
+        maybeVersion <- reader.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
         version      <- ZIO.getOrFail(maybeVersion)
-        commitTime   <- connector.getVersionCommitTime(version)
-        rows         <- connector.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)).runCollect
+        commitTime   <- reader.getVersionCommitTime(version)
+        rows         <- reader.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )
 
-        rowsAfterDelete <- connector
+        rowsAfterDelete <- reader
           .getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, nextTime))
           .flatMap(_._1)
           .runCollect

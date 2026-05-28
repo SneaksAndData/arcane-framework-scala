@@ -36,6 +36,7 @@ final class MsSqlBackfillSourceDataProvider(
       stateManager
     ):
 
+  // TODO: backfill-merge should not shard but rather run a single load. NYI
   override protected def backfillStream(
       backfillStart: MsSqlWatermark,
       backfillEnd: MsSqlWatermark,
