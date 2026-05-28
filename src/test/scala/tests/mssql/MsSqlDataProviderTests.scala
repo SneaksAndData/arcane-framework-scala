@@ -99,8 +99,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
               override val tableName: String                              = testTableName
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )

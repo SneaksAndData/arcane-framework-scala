@@ -99,8 +99,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "columns_query_test"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -125,8 +125,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "schema_query_test"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -156,8 +156,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_query"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -199,8 +199,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "field_selection_rule"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -239,8 +239,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "field_selection_rule_no_pk"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -271,8 +271,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "field_selection_rule_pk"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -295,8 +295,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "extracts_schema_columns"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -337,8 +337,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_rows"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -362,8 +362,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_columns"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -393,8 +393,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "backfill_columns_filtered"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -421,8 +421,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_rows"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -470,8 +470,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_rows_filtered"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
@@ -518,8 +518,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_columns"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
@@ -551,8 +551,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val tableName: String                              = "get_changes_deletes"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
-              override val shardSizeMegabytes: Option[Int] = None
-              override val backfillShardSchemaName: String = "dbo"
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )
