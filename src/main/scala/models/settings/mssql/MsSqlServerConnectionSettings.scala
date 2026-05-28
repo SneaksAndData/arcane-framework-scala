@@ -24,7 +24,7 @@ case class DefaultMsSqlServerDatabaseSourceSettings(
     override val backfillShardSchemaName: String,
     override val tableName: String,
     override val fetchSize: Option[Int],
-    override val shardSizeMegabytes: Option[Int] = None,
+    override val shardSizeMegabytes: Option[Int] = None
 ) extends MsSqlServerDatabaseSourceSettings derives ReadWriter:
   override val connectionUrl: String =
     connectionString.getOrElse(sys.env("ARCANE_FRAMEWORK__MICROSOFT_SQL_SERVER_CONNECTION_URI"))

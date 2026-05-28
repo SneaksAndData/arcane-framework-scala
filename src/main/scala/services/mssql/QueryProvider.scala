@@ -25,7 +25,10 @@ object QueryProvider:
   extension (reader: MsSqlReader)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, reader.connectionSettings.tableName)
+        columnSummaries <- reader.getColumnSummaries(
+          reader.connectionSettings.schemaName,
+          reader.connectionSettings.tableName
+        )
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
@@ -51,7 +54,10 @@ object QueryProvider:
   extension (reader: MsSqlReader)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, reader.connectionSettings.tableName)
+        columnSummaries <- reader.getColumnSummaries(
+          reader.connectionSettings.schemaName,
+          reader.connectionSettings.tableName
+        )
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
@@ -110,17 +116,34 @@ object QueryProvider:
       yield query
     }
 
-  def getCreatePrimaryKeyQuery(shardSchemaName: String, shardTableName: String, summary: List[ColumnSummary]): MsSqlQuery =
+  def getCreatePrimaryKeyQuery(
+      shardSchemaName: String,
+      shardTableName: String,
+      summary: List[ColumnSummary]
+  ): MsSqlQuery =
     val pkString = summary.filter(_._2).map(v => s"[${v._1}]").mkString(",")
     s"""ALTER TABLE [$shardSchemaName].[$shardTableName] ADD CONSTRAINT PRIMARY KEY CLUSTERED ($pkString)"""
 
-  def getFillShardQuery(sourceSchemaName: String, sourceTableName: String, shardSchemaName: String, shardTableName: String, mergeExpression: String, shardCount: Int, shardId: Int): MsSqlQuery =
+  def getFillShardQuery(
+      sourceSchemaName: String,
+      sourceTableName: String,
+      shardSchemaName: String,
+      shardTableName: String,
+      mergeExpression: String,
+      shardCount: Int,
+      shardId: Int
+  ): MsSqlQuery =
     s"""INSERT INTO [$shardSchemaName].[$shardTableName]
       |SELECT *
       |FROM [$sourceSchemaName].[$sourceTableName] as tq
       |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId""".stripMargin
 
-  def getCreateCloneQuery(sourceSchemaName: String, sourceTableName: String, targetSchemaName: String, targetTableName: String): MsSqlQuery =
+  def getCreateCloneQuery(
+      sourceSchemaName: String,
+      sourceTableName: String,
+      targetSchemaName: String,
+      targetTableName: String
+  ): MsSqlQuery =
     s"""SELECT *
       |INTO [$targetSchemaName].[$targetTableName]
       |FROM [$sourceSchemaName].[$sourceTableName]
@@ -133,9 +156,9 @@ object QueryProvider:
       | SET STATISTICS PROFILE OFF')""".stripMargin
 
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery = {
-  // divide table size by total cost -> evaluate data volume for 1 cost unit
-  // assume single shard being 10 cost units
-  s"""SELECT
+    // divide table size by total cost -> evaluate data volume for 1 cost unit
+    // assume single shard being 10 cost units
+    s"""SELECT
      |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
      |    cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as shards
      |    record_count / cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as records_per_shard

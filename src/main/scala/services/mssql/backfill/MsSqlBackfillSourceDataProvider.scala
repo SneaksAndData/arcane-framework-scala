@@ -20,13 +20,13 @@ import java.time.OffsetDateTime
 /** Backfill source data provider for Sql Server
   */
 final class MsSqlBackfillSourceDataProvider(
-                                             dataProvider: MsSqlReader,
-                                             backfillSettings: BackfillSettings,
-                                             sinkSettings: SinkSettings,
-                                             stateManager: DefaultBackfillStateManager,
-                                             throughputShaperBuilder: ThroughputShaperBuilder,
-                                             sourceBufferingSettings: SourceBufferingSettings,
-                                             backfillId: String
+    dataProvider: MsSqlReader,
+    backfillSettings: BackfillSettings,
+    sinkSettings: SinkSettings,
+    stateManager: DefaultBackfillStateManager,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    backfillId: String
 ) extends DefaultBackfillSourceDataProvider[MsSqlWatermark](
       dataProvider,
       backfillSettings,
@@ -41,11 +41,11 @@ final class MsSqlBackfillSourceDataProvider(
       backfillEnd: MsSqlWatermark,
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
-    case None => dataProvider.prepareShardTables(backfillId, None)
-    case Some(sources) => ZStream.fromIterable(sources))
+    case None          => dataProvider.prepareShardTables(backfillId, None)
+    case Some(sources) => ZStream.fromIterable(sources)
+  )
     .mapZIO { preparedShardTableName =>
-      for
-        shardStream <- dataProvider.createShardStream(preparedShardTableName)
+      for shardStream <- dataProvider.createShardStream(preparedShardTableName)
       yield DefaultBootstrappedShard(
         shardStream = shardStream,
         shardSourceEntityName = preparedShardTableName,
@@ -55,11 +55,12 @@ final class MsSqlBackfillSourceDataProvider(
       )
     }
 
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[MsSqlWatermark] = for
-    wm  <- ZIO.attempt(startTime match
-      case Some(start) => dataProvider.timestampToVersion(start)
-      case None => ZIO.succeed(MsSqlWatermark.epoch)
-    ).flatten
+  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[MsSqlWatermark] = for wm <-
+      ZIO
+        .attempt(startTime match
+          case Some(start) => dataProvider.timestampToVersion(start)
+          case None        => ZIO.succeed(MsSqlWatermark.epoch))
+        .flatten
   yield wm
 
   /** Most recent version of the dataset at a time when a backfill was initiated.
