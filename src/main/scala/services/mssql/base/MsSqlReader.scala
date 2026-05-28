@@ -173,6 +173,7 @@ class MsSqlReader(
           ).map{_ =>
             // skip first
             val _ = statement.getResultSet
+            val _ = statement.getMoreResults()
             statement.getResultSet
           }
         )(rs => rs.closeSafe(statement)) { rs =>

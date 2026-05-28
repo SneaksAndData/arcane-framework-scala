@@ -160,7 +160,7 @@ object QueryProvider:
     // assume single shard being 10 cost units
     s"""SELECT
      |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
-     |    cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as shards
+     |    cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as shards,
      |    record_count / cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as records_per_shard
      |FROM
      |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
@@ -170,7 +170,7 @@ object QueryProvider:
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery = {
     s"""SELECT
        |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
-       |    cast((page_count * 8.0) / 1024 / $shardSize as int) as shards
+       |    cast((page_count * 8.0) / 1024 / $shardSize as int) as shards,
        |    record_count / cast((page_count * 8.0) / 1024 / $shardSize as int) as records_per_shard
        |FROM
        |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
