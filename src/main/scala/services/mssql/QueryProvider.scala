@@ -109,6 +109,12 @@ object QueryProvider:
           .replace("{table}", tableName)
       yield query
     }
+    
+  def getFillShardQuery(sourceSchemaName: String, sourceTableName: String, shardSchemaName: String, shardTableName: String, mergeExpression: String, shardCount: Int, shardId: Int): MsSqlQuery =   
+    s"""INSERT INTO $shardSchemaName.$shardTableName
+      |SELECT *
+      |FROM $sourceSchemaName.$sourceTableName as tq
+      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId;""".stripMargin
 
   def getCreateCloneQuery(sourceSchemaName: String, sourceTableName: String, targetSchemaName: String, targetTableName: String): MsSqlQuery = 
     s"""SELECT * 
@@ -169,7 +175,7 @@ object QueryProvider:
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
-  private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
+  def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
       .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
       .mkString(" + '#' + ")

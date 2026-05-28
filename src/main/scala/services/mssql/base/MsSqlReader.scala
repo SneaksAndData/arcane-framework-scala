@@ -47,6 +47,7 @@ class MsSqlReader(
     with SchemaProvider[ArcaneSchema]:
 
   lazy val catalog: String    = connection.getCatalog
+  private val shardingParallelism = Runtime.getRuntime.availableProcessors() * 2
   private val driver          = new SQLServerDriver()
   private lazy val connection = driver.connect(connectionSettings.getConnectionString, new Properties())
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -95,11 +96,18 @@ class MsSqlReader(
     )
   }
 
-  private def createShardTable(shardNumber: Int, backfillId: String): Task[String] = for
+  private def createShardTable(shardNumber: Int, totalShards: Int, backfillId: String, summaries: List[ColumnSummary]): Task[String] = for
     tableName <- ZIO.succeed(s"${backfillId}__shard_$shardNumber")
+    _ <- zlog("Creating a table %s for shard #%s", tableName, shardNumber.toString)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(statement.execute(QueryProvider.getCreateCloneQuery(connectionSettings.schemaName, connectionSettings.tableName, connectionSettings.backfillShardSchemaName, tableName)))
     }
+    _ <- zlog("Filling shard table %s", tableName)
+    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      ZIO.attempt(statement.execute(QueryProvider.getFillShardQuery(connectionSettings.schemaName, connectionSettings.tableName, connectionSettings.backfillShardSchemaName, tableName, QueryProvider.getMergeExpression(summaries, "tq"), totalShards, shardNumber)))
+    }
+    _ <- zlog("Preparing shard table %s for streaming", tableName)
+    
   yield tableName
 
 
@@ -107,6 +115,7 @@ class MsSqlReader(
    * Evaluate shard count and prep shard tables on source side. Emits table names.
    */
   def prepareShardTables(backfillId: String, advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream.fromZIO(for
+    columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
     // first take estimate of a `select * from` query cost
     totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getStatsProfileQuery(connectionSettings.schemaName, connectionSettings.tableName))))(rs => rs.closeSafe(statement)) { rs =>
@@ -125,7 +134,7 @@ class MsSqlReader(
 
       ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(profileQuery)))(rs => rs.closeSafe(statement)) { rs =>
         if rs.next() then
-          ZIO.succeed((sizeGib = rs.getDouble(1), shardCount = rs.getInt(2), recordsPerShard = rs.getLong(3)))
+          ZIO.succeed((sizeGib = rs.getDouble(1), shardCount = rs.getInt(2), recordsPerShard = rs.getLong(3), summaries = columnSummaries))
         else
           ZIO.fail(new Throwable(s"Unable to determine row count for source entity ${connectionSettings.schemaName}.${connectionSettings.tableName}"))
       }
@@ -133,18 +142,13 @@ class MsSqlReader(
     _ <- zlog(s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard", shardProfile.sizeGib.toString, shardProfile.shardCount.toString, shardProfile.recordsPerShard.toString)
   yield shardProfile).flatMap { profile => ZStream
     .fromIterable(1 to profile.shardCount)
-    .mapZIO(id => createShardTable(id, backfillId))
+    .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
 
     /** Use PK data to run this:
      * INSERT INTO ShardTableName
      * SELECT *
-     * FROM YourTableName
-     * WHERE ABS(CAST(HASHBYTES('MD5', 
-     * CONCAT(
-     * CAST(PK_Column1 AS VARCHAR(50)), '#', 
-     * CAST(PK_Column2 AS VARCHAR(50))
-     * )
-     * ) AS BIGINT)) % $shardCount = $shardId;
+     * FROM YourTableName as tq
+     * WHERE ABS(CAST(HASHBYTES('MD5', QueryProvider.getMergeExpression(columnSummaries, "tq")) AS BIGINT)) % $shardCount = $shardId;
      */
     // TODO: fill new shard table (bucket PK)
     // TODO: create PK on the shard table
