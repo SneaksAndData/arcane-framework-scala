@@ -228,7 +228,7 @@ class MsSqlReader(
     yield shardProfile)
     .flatMap { profile =>
       ZStream
-        .fromIterable(1 to profile.shardCount)
+        .fromIterable(0 until profile.shardCount)
         .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
     }
 
