@@ -118,6 +118,16 @@ object QueryProvider:
           .replace("{table}", tableName)
       yield query
     }
+    
+  def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery =
+    s"""SELECT 
+       |  t.name
+       |FROM 
+       |    sys.tables t
+       |INNER JOIN 
+       |    sys.schemas s ON t.schema_id = s.schema_id and s.name = '$schemaName'
+       |WHERE 
+       |    t.name LIKE '$tablePrefix%'""".stripMargin  
 
   def getCreatePrimaryKeyQuery(
       shardSchemaName: String,
@@ -191,9 +201,8 @@ object QueryProvider:
     val formattedTime = formatter.format(startFrom)
     s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
 
-  /** Retrieve commit time associated with the provided version
-    * @param version
-    * @return
+  /** 
+   * Retrieve commit time associated with the provided version
     */
   def getVersionCommitTime(version: Long): MsSqlQuery =
     s"SELECT MIN(commit_time) FROM sys.dm_tran_commit_table WHERE commit_ts = $version"

@@ -105,9 +105,10 @@ class MsSqlStreamingSource(
       shardNumber: Int,
       totalShards: Int,
       backfillId: String,
+      streamId: String,
       summaries: List[ColumnSummary]
   ): Task[String] = for
-    tableName <- ZIO.succeed(s"${backfillId}__shard_$shardNumber")
+    tableName <- ZIO.succeed(s"${streamId}__${backfillId}__shard_$shardNumber")
     _         <- zlog("Creating a table %s for shard #%s", tableName, shardNumber.toString)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(
@@ -158,7 +159,7 @@ class MsSqlStreamingSource(
 
   /** Evaluate shard count and prep shard tables on source side. Emits table names.
     */
-  def prepareShardTables(backfillId: String, advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream
+  def prepareShardTables(streamId: String, backfillId: String, advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream
     .fromZIO(for
       columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
       // first take estimate of a `select * from` query cost
@@ -231,7 +232,7 @@ class MsSqlStreamingSource(
     .flatMap { profile =>
       ZStream
         .fromIterable(0 until profile.shardCount)
-        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
+        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, streamId, profile.summaries))
     }
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
@@ -415,8 +416,32 @@ class MsSqlStreamingSource(
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query.replaceFirst("SELECT", "SELECT TOP 1")))
     yield resultSet.next()
 
-  override def deleteShards(): Task[Unit] = ???
+  override def deleteShards(streamId: String): Task[Unit] = for
+    matchingShards <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) {
+      statement =>
+        ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getFindMatchingTablesQuery(s"${streamId}__", connectionSettings.backfillShardSchemaName))))(rs => rs.closeSafe(statement)) {
+          rs =>
+            ZStream
+              .unfold(rs.next()) { hasNext =>
+                if hasNext then
+                  Some(
+                    rs.getString(0),
+                    rs.next()
+                  )
+                else None
+              }.runCollect
+        }
+    }
+    _ <- ZStream.fromIterable(matchingShards).mapZIO(shard => ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+      zlog("Deleting outdated backfill shard %s", shard) *> ZIO.attempt(
+        statement.execute(
+          s"DROP TABLE [${connectionSettings.backfillShardSchemaName}].[$shard]"
+        )
+      )
+    }).runDrain
+  yield ()
 
+  // TODO: move shard logic here
   override def getShards: ZStream[Any, Throwable, String] = ???
 
 object MsSqlStreamingSource:
