@@ -18,15 +18,15 @@ import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
-                                 stagingEntityManager: StagingEntityManager,
-                                 sinkEntityManager: SinkEntityManager,
-                                 sinkPropertyManager: SinkPropertyManager,
-                                 streamingSource: StreamingSource,
-                                 sinkSettings: SinkSettings,
-                                 stagingSettings: StagingSettings,
-                                 backfillSettings: BackfillSettings,
-                                 isBackfilling: Boolean,
-                                 backfillId: Option[String]
+    stagingEntityManager: StagingEntityManager,
+    sinkEntityManager: SinkEntityManager,
+    sinkPropertyManager: SinkPropertyManager,
+    streamingSource: StreamingSource,
+    sinkSettings: SinkSettings,
+    stagingSettings: StagingSettings,
+    backfillSettings: BackfillSettings,
+    isBackfilling: Boolean,
+    backfillId: Option[String]
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
     zlog("Looking for staging tables from previous run, using prefix %s", prefix) *> stagingEntityManager.deleteTables(
@@ -109,7 +109,7 @@ object DefaultStreamBootstrapper:
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       sinkEntityManager    <- ZIO.service[SinkEntityManager]
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
-      streamingSource       <- ZIO.service[StreamingSource]
+      streamingSource      <- ZIO.service[StreamingSource]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
       backfillId           <- ZIO.when(isBackfilling)(context.backfillId)
     yield DefaultStreamBootstrapper(

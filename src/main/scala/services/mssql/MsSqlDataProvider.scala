@@ -19,11 +19,11 @@ import zio.{Task, ZIO, ZLayer}
   *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-                         reader: MsSqlStreamingSource,
-                         sinkPropertyManager: SinkPropertyManager,
-                         sinkSettings: SinkSettings,
-                         throughputShaperBuilder: ThroughputShaperBuilder,
-                         sourceBufferingSettings: SourceBufferingSettings
+    reader: MsSqlStreamingSource,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       sinkPropertyManager,
       sinkSettings,

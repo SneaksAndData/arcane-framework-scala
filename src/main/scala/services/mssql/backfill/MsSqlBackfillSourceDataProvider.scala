@@ -20,13 +20,13 @@ import java.time.OffsetDateTime
 /** Backfill source data provider for Sql Server
   */
 final class MsSqlBackfillSourceDataProvider(
-                                             dataProvider: MsSqlStreamingSource,
-                                             backfillSettings: BackfillSettings,
-                                             sinkSettings: SinkSettings,
-                                             stateManager: DefaultBackfillStateManager,
-                                             throughputShaperBuilder: ThroughputShaperBuilder,
-                                             sourceBufferingSettings: SourceBufferingSettings,
-                                             backfillId: String
+    dataProvider: MsSqlStreamingSource,
+    backfillSettings: BackfillSettings,
+    sinkSettings: SinkSettings,
+    stateManager: DefaultBackfillStateManager,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    backfillId: String
 ) extends DefaultBackfillSourceDataProvider[MsSqlWatermark](
       dataProvider,
       backfillSettings,

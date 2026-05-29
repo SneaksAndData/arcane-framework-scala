@@ -418,26 +418,37 @@ class MsSqlStreamingSource(
   override def deleteShards(streamId: String): Task[Unit] = for
     matchingShards <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) {
       statement =>
-        ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(QueryProvider.getFindMatchingTablesQuery(s"${streamId}__", connectionSettings.backfillShardSchemaName))))(rs => rs.closeSafe(statement)) {
-          rs =>
-            ZStream
-              .unfold(rs.next()) { hasNext =>
-                if hasNext then
-                  Some(
-                    rs.getString(0),
-                    rs.next()
-                  )
-                else None
-              }.runCollect
+        ZIO.acquireReleaseWith(
+          ZIO.attempt(
+            statement.executeQuery(
+              QueryProvider.getFindMatchingTablesQuery(s"${streamId}__", connectionSettings.backfillShardSchemaName)
+            )
+          )
+        )(rs => rs.closeSafe(statement)) { rs =>
+          ZStream
+            .unfold(rs.next()) { hasNext =>
+              if hasNext then
+                Some(
+                  rs.getString(0),
+                  rs.next()
+                )
+              else None
+            }
+            .runCollect
         }
     }
-    _ <- ZStream.fromIterable(matchingShards).mapZIO(shard => ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      zlog("Deleting outdated backfill shard %s", shard) *> ZIO.attempt(
-        statement.execute(
-          s"DROP TABLE [${connectionSettings.backfillShardSchemaName}].[$shard]"
-        )
+    _ <- ZStream
+      .fromIterable(matchingShards)
+      .mapZIO(shard =>
+        ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+          zlog("Deleting outdated backfill shard %s", shard) *> ZIO.attempt(
+            statement.execute(
+              s"DROP TABLE [${connectionSettings.backfillShardSchemaName}].[$shard]"
+            )
+          )
+        }
       )
-    }).runDrain
+      .runDrain
   yield ()
 
   // TODO: move shard logic here
@@ -465,7 +476,9 @@ object MsSqlStreamingSource:
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  def getLayer(extractor: SettingsExtractor): ZLayer[Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
+  def getLayer(
+      extractor: SettingsExtractor
+  ): ZLayer[Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
