@@ -7,5 +7,5 @@ import zio.stream.ZStream
 trait ShardProvider:
   type Shard
   
-  def deleteShards(): Task[Unit]
+  def deleteShards(streamId: String): Task[Unit]
   def getShards: ZStream[Any, Throwable, Shard]
