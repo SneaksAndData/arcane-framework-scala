@@ -75,7 +75,7 @@ class MsSqlReader(
   def createShardStream(shardTableName: String): Task[StructuredZStream] = getSchema.map { schema =>
     (
       for
-        query <- ZStream.fromZIO(this.getBackfillQuery(shardTableName))
+        query <- ZStream.fromZIO(this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName))
         statement <- ZStream
           .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream

@@ -177,7 +177,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             |@currentVersion AS 'ChangeTrackingVersion',
             |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
             |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
-        query <- reader.getBackfillQuery("backfill_query")
+        query <- reader.getBackfillQuery("dbo", "backfill_query")
       yield assertTrue(query == expected)
     },
     test("QueryProvider handles field selection rule") {
@@ -216,7 +216,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               |@currentVersion AS 'ChangeTrackingVersion',
               |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
               |FROM [arcane].[dbo].[field_selection_rule] tq""".stripMargin)
-        query <- reader.getBackfillQuery("field_selection_rule")
+        query <- reader.getBackfillQuery("dbo", "field_selection_rule")
       yield assertTrue(query == expected)
     },
     test("QueryProvider does not allow PKs in filters") {
@@ -245,7 +245,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        result <- reader.getBackfillQuery("field_selection_rule_no_pk").exit
+        result <- reader.getBackfillQuery("dbo", "field_selection_rule_no_pk").exit
       yield zio.test.assert(result)(
         fails(
           hasMessage(equalTo("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"))
@@ -277,7 +277,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
           )
         )
-        result <- reader.getBackfillQuery("field_selection_rule_pk").exit
+        result <- reader.getBackfillQuery("dbo", "field_selection_rule_pk").exit
       yield zio.test.assert(result)(
         fails(hasMessage(equalTo("Fields ['x'] are primary keys, and must be included in the field selection rule")))
       )

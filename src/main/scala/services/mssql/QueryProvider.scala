@@ -10,6 +10,7 @@ import zio.{Task, ZIO}
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import scala.io.Source
+import scala.math.{exp, log, pow}
 
 object QueryProvider:
   /** The key used to merge rows in the output table.
@@ -79,7 +80,7 @@ object QueryProvider:
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
   extension (reader: MsSqlReader)
-    def getBackfillQuery(shardTableName: String): Task[MsSqlQuery] =
+    def getBackfillQuery(shardSchemaName: String, shardTableName: String): Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, shardTableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
@@ -87,6 +88,8 @@ object QueryProvider:
         query <- QueryProvider.getAllQuery(
           reader.connectionSettings,
           reader.catalog,
+          shardSchemaName,
+          shardTableName,
           mergeExpression,
           columnExpression
         )
@@ -155,27 +158,32 @@ object QueryProvider:
       | SELECT TOP 1 * FROM [$schemaName].[$tableName];
       | SET STATISTICS PROFILE OFF')""".stripMargin
 
-  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery = {
+  private def costToSize(cost: Double): Double =
+    val calculatedCost = 1.0 + pow(log(cost), 3)
+    // Hard cap at 1000
+    if (calculatedCost > 1000.0) 1000.0 else calculatedCost
+
+  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery =
     // divide table size by total cost -> evaluate data volume for 1 cost unit
-    // assume single shard being 10 cost units
+    // assume single shard being at most 10 cost units
+    val shardSizeEstimate = costToSize(cost)
     s"""SELECT
      |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
-     |    cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as shards,
-     |    record_count / cast((page_count * 8.0) / 1024 / (10 * (page_count * 8.0) / 1024 / $cost) as int) as records_per_shard
+     |    ceiling((page_count * 8.0) / 1024 / ((page_count * 8.0) / 1024 / $shardSizeEstimate)) as shards,
+     |    record_count / cast((page_count * 8.0) / 1024 / ceiling((page_count * 8.0) / 1024 / ((page_count * 8.0) / 1024 / $shardSizeEstimate)) as records_per_shard
      |FROM
      |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
      |where index_level = 0""".stripMargin
-  }
 
-  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery = {
+
+  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery =
     s"""SELECT
        |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
-       |    cast((page_count * 8.0) / 1024 / $shardSize as int) as shards,
-       |    record_count / cast((page_count * 8.0) / 1024 / $shardSize as int) as records_per_shard
+       |    ceiling((page_count * 8.0) / 1024 / $shardSize) as shards,
+       |    record_count / cast((page_count * 8.0) / 1024 / ceiling((page_count * 8.0) / 1024 / $shardSize) as records_per_shard
        |FROM
        |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
        |where index_level = 0""".stripMargin
-  }
 
   /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, based on the
     * provided startFrom timestamp point. The look back range for the query.
@@ -279,6 +287,8 @@ object QueryProvider:
   private def getAllQuery(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       databaseName: String,
+      schemaName: String,
+      tableName: String,                   
       mergeExpression: String,
       columnExpression: String
   ): Task[MsSqlQuery] =
@@ -290,8 +300,8 @@ object QueryProvider:
         baseQuery <- ZIO.attempt(querySource.getLines().mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
-          .replace("{schema}", connectionSettings.schemaName)
-          .replace("{tableName}", connectionSettings.tableName)
+          .replace("{schema}", schemaName)
+          .replace("{tableName}", tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnExpression)
           .replace("{MERGE_EXPRESSION}", mergeExpression)
           .replace("{MERGE_KEY}", MergeKeyField.name)
