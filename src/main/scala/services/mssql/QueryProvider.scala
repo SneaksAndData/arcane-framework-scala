@@ -125,7 +125,7 @@ object QueryProvider:
       summary: List[ColumnSummary]
   ): MsSqlQuery =
     val pkString = summary.filter(_._2).map(v => s"[${v._1}]").mkString(",")
-    s"""ALTER TABLE [$shardSchemaName].[$shardTableName] ADD CONSTRAINT PRIMARY KEY CLUSTERED ($pkString)"""
+    s"""ALTER TABLE [$shardSchemaName].[$shardTableName] ADD PRIMARY KEY CLUSTERED ($pkString)"""
 
   def getFillShardQuery(
       sourceSchemaName: String,
@@ -164,13 +164,11 @@ object QueryProvider:
     if (calculatedCost > 1000.0) 1000.0 else calculatedCost
 
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery =
-    // divide table size by total cost -> evaluate data volume for 1 cost unit
-    // assume single shard being at most 10 cost units
     val shardSizeEstimate = costToSize(cost)
     s"""SELECT
      |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
-     |    ceiling((page_count * 8.0) / 1024 / ((page_count * 8.0) / 1024 / $shardSizeEstimate)) as shards,
-     |    record_count / cast((page_count * 8.0) / 1024 / ceiling((page_count * 8.0) / 1024 / ((page_count * 8.0) / 1024 / $shardSizeEstimate)) as records_per_shard
+     |    ceiling((page_count * 8.0) / 1024 / $shardSizeEstimate) as shards,
+     |    record_count / ceiling((page_count * 8.0) / 1024 / $shardSizeEstimate) as records_per_shard
      |FROM
      |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
      |where index_level = 0""".stripMargin
@@ -288,7 +286,7 @@ object QueryProvider:
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       databaseName: String,
       schemaName: String,
-      tableName: String,                   
+      tableName: String,
       mergeExpression: String,
       columnExpression: String
   ): Task[MsSqlQuery] =

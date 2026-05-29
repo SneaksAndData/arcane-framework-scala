@@ -150,7 +150,7 @@ class MsSqlReader(
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(
         statement.execute(
-          s"ALTER TABLE [${connectionSettings.backfillShardSchemaName}.[$tableName] ENABLE CHANGE_TRACKING"
+          s"ALTER TABLE [${connectionSettings.backfillShardSchemaName}].[$tableName] ENABLE CHANGE_TRACKING"
         )
       )
     }
