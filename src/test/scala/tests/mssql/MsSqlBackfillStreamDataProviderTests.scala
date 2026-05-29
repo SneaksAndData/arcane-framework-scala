@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.backfill.DefaultSourceBackfill
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField}
-import models.settings.TableNaming.getBackfillTableName
+import models.settings.TableNaming.{getBackfillTableName, parts}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
@@ -85,7 +85,10 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
         // for shaper
-        _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableFullName, MsSqlWatermark.epoch)
+        _ <- icebergUtilBackfill.prepareWatermark(
+          tableSinkSettings.targetTableFullName.parts.name,
+          MsSqlWatermark.epoch
+        )
 
         _ <- icebergUtilBackfill.prepareBackfillTable(
           getBackfillTableName(backfillId),
