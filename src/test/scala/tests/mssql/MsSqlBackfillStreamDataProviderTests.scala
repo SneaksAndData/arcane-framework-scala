@@ -37,14 +37,16 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
     Success(fields)
   private val backfillSettings = new BackfillSettings {
     override val backfillStartDate: Option[OffsetDateTime] = None
-    override val backfillBehavior: BackfillBehavior = Overwrite
+    override val backfillBehavior: BackfillBehavior        = Overwrite
   }
   private val targetSchema: ArcaneSchema = ArcaneSchema(
-    Seq(IndexedMergeKeyField(0)) ++ (1 to 50).map(ix => IndexedField(
-      name = s"col$ix",
-      fieldType = StringType,
-      fieldId = ix
-    ))
+    Seq(IndexedMergeKeyField(0)) ++ (1 to 50).map(ix =>
+      IndexedField(
+        name = s"col$ix",
+        fieldType = StringType,
+        fieldId = ix
+      )
+    )
   )
 
   private def prepareSourceTable(con: Connection, tableName: String, rowCount: Int = 10000): Task[Unit] =
@@ -52,23 +54,29 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
       _ <- zlog(s"Preparing test table with %s rows, be patient", rowCount.toString)
       _ <- ZIO.attemptBlocking(createTable(tableName, con, fieldString, pkString))
 
-      _ <- ZStream.fromIterable(1 to rowCount).mapZIOPar(1024) { index =>
-        ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
-          ZIO.attemptBlocking(statement.close()).orDie
-        ) { statement =>
-            val colValues = (1 to 50).map(_ => Random.alphanumeric.take(Random.nextInt(48) + 1).mkString).map(v => s"N'$v'").mkString(",")
+      _ <- ZStream
+        .fromIterable(1 to rowCount)
+        .mapZIOPar(1024) { index =>
+          ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
+            ZIO.attemptBlocking(statement.close()).orDie
+          ) { statement =>
+            val colValues = (1 to 50)
+              .map(_ => Random.alphanumeric.take(Random.nextInt(48) + 1).mkString)
+              .map(v => s"N'$v'")
+              .mkString(",")
             val insertCmd =
               s"use arcane; insert into dbo.$tableName values($index, $colValues)"
             ZIO.attemptBlocking(statement.execute(insertCmd))
           }
-        }.runDrain
+        }
+        .runDrain
     yield ()
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlBackfillStreamDataProviderTests")(
     test("streams correct number of shards and rows") {
       for
         testTableName <- ZIO.succeed("backfill_test_1")
-        backfillId <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
+        backfillId    <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => prepareSourceTable(connection, testTableName)
         )
@@ -76,7 +84,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
         _ <- icebergUtilBackfill.prepareBackfillTable(
-          getBackfillTableName(backfillId), targetSchema
+          getBackfillTableName(backfillId),
+          targetSchema
         )
         propertyManager        <- icebergUtilBackfill.getSinkTablePropertyManager
         stagingPropertyManager <- icebergUtilBackfill.getStagingTablePropertyManager
@@ -115,7 +124,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
             shaperBuilder,
             new SourceBufferingSettings {
               override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
-              override val bufferingEnabled: Boolean = false
+              override val bufferingEnabled: Boolean            = false
             },
             backfillId
           )

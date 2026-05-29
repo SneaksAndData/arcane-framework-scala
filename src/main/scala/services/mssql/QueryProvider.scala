@@ -173,7 +173,6 @@ object QueryProvider:
      |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
      |where index_level = 0""".stripMargin
 
-
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery =
     s"""SELECT
        |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
