@@ -17,8 +17,6 @@ import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.getBackfillTableName
-import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 

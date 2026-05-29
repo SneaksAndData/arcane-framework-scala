@@ -10,7 +10,7 @@ import zio.{Task, ZIO}
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import scala.io.Source
-import scala.math.{exp, log, pow}
+import scala.math.{log, pow}
 
 object QueryProvider:
   /** The key used to merge rows in the output table.
