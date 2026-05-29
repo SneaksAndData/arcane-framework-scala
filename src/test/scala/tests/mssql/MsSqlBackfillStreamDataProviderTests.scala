@@ -143,6 +143,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillState <- stagingPropertyManager
           .getRequiredProperty(getBackfillTableName(backfillId), "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
+       // 10000 rows should result in 15 shards assuming the cost input for the scaler evaluates to 2.6
+       // row count must match source
       yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
