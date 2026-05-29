@@ -5,10 +5,10 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.SchemaProvider
+import services.base.{SchemaProvider, ShardProvider, StreamingSource}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
-import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
+import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
@@ -40,11 +40,13 @@ type MsSqlQuery = String
   * @param connectionSettings
   *   The connection options for the database.
   */
-class MsSqlReader(
+class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldsFilteringService: MsSqlServerFieldsFilteringService
 ) extends AutoCloseable
-    with SchemaProvider[ArcaneSchema]:
+    with StreamingSource:
+
+  override type Shard = String
 
   lazy val catalog: String        = connection.getCatalog
   private val shardingParallelism = Runtime.getRuntime.availableProcessors() * 2
@@ -258,7 +260,7 @@ class MsSqlReader(
               // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
               // And the LazyQueryResult will close the statement/result set when it is closed.
               result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-            yield MsSqlReader.ensureHead(result)
+            yield MsSqlStreamingSource.ensureHead(result)
           })
           .flatMap(batch => unfoldBatch(batch))
           .map(_.handleSpecialTypes),
@@ -413,7 +415,11 @@ class MsSqlReader(
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query.replaceFirst("SELECT", "SELECT TOP 1")))
     yield resultSet.next()
 
-object MsSqlReader:
+  override def deleteShards(): Task[Unit] = ???
+
+  override def getShards: ZStream[Any, Throwable, String] = ???
+
+object MsSqlStreamingSource:
 
   type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
@@ -430,18 +436,18 @@ object MsSqlReader:
   def apply(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       fieldsFilteringService: MsSqlServerFieldsFilteringService
-  ): MsSqlReader =
-    new MsSqlReader(connectionSettings, fieldsFilteringService)
+  ): MsSqlStreamingSource =
+    new MsSqlStreamingSource(connectionSettings, fieldsFilteringService)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  def getLayer(extractor: SettingsExtractor): ZLayer[Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
+  def getLayer(extractor: SettingsExtractor): ZLayer[Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           context                <- ZIO.service[PluginStreamContext]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-        yield MsSqlReader(extractor(context), fieldsFilteringService)
+        yield MsSqlStreamingSource(extractor(context), fieldsFilteringService)
       }
     }
 

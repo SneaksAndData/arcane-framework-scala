@@ -26,3 +26,9 @@ trait StreamBootstrapper:
     *   The result of the backfill staging table creation operation.
     */
   def createBackFillTable: Task[Unit]
+
+  /** Cleans up backfill tables from previous backfills: shard staging tables and shard combine table. This is a
+    * safeguard in case backfill process doesn't complete the cleanup or is interrupted midway.
+    * @return
+    */
+  def cleanupOutdatedBackfill: Task[Unit]

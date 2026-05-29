@@ -10,7 +10,7 @@ import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
-import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlReader
+import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlStreamingSource
 import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -20,13 +20,13 @@ import java.time.OffsetDateTime
 /** Backfill source data provider for Sql Server
   */
 final class MsSqlBackfillSourceDataProvider(
-    dataProvider: MsSqlReader,
-    backfillSettings: BackfillSettings,
-    sinkSettings: SinkSettings,
-    stateManager: DefaultBackfillStateManager,
-    throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings,
-    backfillId: String
+                                             dataProvider: MsSqlStreamingSource,
+                                             backfillSettings: BackfillSettings,
+                                             sinkSettings: SinkSettings,
+                                             stateManager: DefaultBackfillStateManager,
+                                             throughputShaperBuilder: ThroughputShaperBuilder,
+                                             sourceBufferingSettings: SourceBufferingSettings,
+                                             backfillId: String
 ) extends DefaultBackfillSourceDataProvider[MsSqlWatermark](
       dataProvider,
       backfillSettings,
@@ -71,7 +71,7 @@ final class MsSqlBackfillSourceDataProvider(
 object MsSqlBackfillSourceDataProvider:
   val layer = ZLayer {
     for
-      dataProvider <- ZIO.service[MsSqlReader]
+      dataProvider <- ZIO.service[MsSqlStreamingSource]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
       context      <- ZIO.service[PluginStreamContext]
       shaper       <- ZIO.service[ThroughputShaperBuilder]

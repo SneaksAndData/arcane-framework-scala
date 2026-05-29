@@ -13,7 +13,7 @@ import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbo
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
 import services.mssql.backfill.{MsSqlBackfillSourceDataProvider, MsSqlBackfillStreamDataProvider, MsSqlShardFactory}
-import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlStreamingSource, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
@@ -109,7 +109,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -191,7 +191,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"

@@ -33,6 +33,15 @@ class DefaultStreamBootstrapper(
       prefix
     )
 
+  override def cleanupOutdatedBackfill: Task[Unit] = ZIO
+    .unless(isBackfilling && backfillId.isDefined)(
+      zlog("Looking for outdated backfill tables") *> stagingEntityManager.deleteTables(
+        // TODO: include stream id in backfill table names so they can be identified
+        "backfill_"
+      )
+    )
+    .map(_ => ())
+
   override def createBackFillTable: Task[Unit] =
     for _ <- ZIO.when(isBackfilling && backfillId.isDefined) {
         for
