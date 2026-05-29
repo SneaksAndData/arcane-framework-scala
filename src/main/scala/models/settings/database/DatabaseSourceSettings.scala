@@ -14,6 +14,10 @@ trait DatabaseSourceSettings extends SourceSettings:
     */
   val schemaName: String
 
+  /** Database schema to use for storing backfill shard tables
+    */
+  val backfillShardSchemaName: String
+
   /** Source table
     */
   val tableName: String

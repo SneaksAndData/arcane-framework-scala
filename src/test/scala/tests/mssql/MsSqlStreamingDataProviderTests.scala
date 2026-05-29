@@ -17,14 +17,14 @@ import tests.shared.*
 
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, Task, Unsafe, ZIO}
+import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
 import scala.util.Success
 
-object MsSqlDataProviderTests extends ZIOSpecDefault:
+object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings
@@ -99,6 +99,8 @@ object MsSqlDataProviderTests extends ZIOSpecDefault:
               override val tableName: String                              = testTableName
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
             },
             emptyFieldsFilteringService
           )

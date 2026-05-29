@@ -10,6 +10,7 @@ import zio.{Task, ZIO}
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import scala.io.Source
+import scala.math.{log, pow}
 
 object QueryProvider:
   /** The key used to merge rows in the output table.
@@ -22,16 +23,19 @@ object QueryProvider:
     * @return
     *   A future containing the schema query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlReader)
+  extension (reader: MsSqlReader)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
-        columnSummaries <- msSqlConnection.getColumnSummaries
+        columnSummaries <- reader.getColumnSummaries(
+          reader.connectionSettings.schemaName,
+          reader.connectionSettings.tableName
+        )
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
-          msSqlConnection.connectionSettings,
-          msSqlConnection.catalog,
+          reader.connectionSettings,
+          reader.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
@@ -48,16 +52,19 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlReader)
+  extension (reader: MsSqlReader)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
-        columnSummaries <- msSqlConnection.getColumnSummaries
+        columnSummaries <- reader.getColumnSummaries(
+          reader.connectionSettings.schemaName,
+          reader.connectionSettings.tableName
+        )
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
-          msSqlConnection.connectionSettings,
-          msSqlConnection.catalog,
+          reader.connectionSettings,
+          reader.catalog,
           mergeExpression,
           columnExpression,
           matchStatement,
@@ -72,15 +79,17 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (msSqlConnection: MsSqlReader)
-    def getBackfillQuery: Task[MsSqlQuery] =
+  extension (reader: MsSqlReader)
+    def getBackfillQuery(shardSchemaName: String, shardTableName: String): Task[MsSqlQuery] =
       for
-        columnSummaries <- msSqlConnection.getColumnSummaries
+        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, shardTableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
-          msSqlConnection.connectionSettings,
-          msSqlConnection.catalog,
+          reader.connectionSettings,
+          reader.catalog,
+          shardSchemaName,
+          shardTableName,
           mergeExpression,
           columnExpression
         )
@@ -110,6 +119,69 @@ object QueryProvider:
       yield query
     }
 
+  def getCreatePrimaryKeyQuery(
+      shardSchemaName: String,
+      shardTableName: String,
+      summary: List[ColumnSummary]
+  ): MsSqlQuery =
+    val pkString = summary.filter(_._2).map(v => s"[${v._1}]").mkString(",")
+    s"""ALTER TABLE [$shardSchemaName].[$shardTableName] ADD PRIMARY KEY CLUSTERED ($pkString)"""
+
+  def getFillShardQuery(
+      sourceSchemaName: String,
+      sourceTableName: String,
+      shardSchemaName: String,
+      shardTableName: String,
+      mergeExpression: String,
+      shardCount: Int,
+      shardId: Int
+  ): MsSqlQuery =
+    s"""INSERT INTO [$shardSchemaName].[$shardTableName]
+      |SELECT *
+      |FROM [$sourceSchemaName].[$sourceTableName] as tq
+      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId""".stripMargin
+
+  def getCreateCloneQuery(
+      sourceSchemaName: String,
+      sourceTableName: String,
+      targetSchemaName: String,
+      targetTableName: String
+  ): MsSqlQuery =
+    s"""SELECT *
+      |INTO [$targetSchemaName].[$targetTableName]
+      |FROM [$sourceSchemaName].[$sourceTableName]
+      |WHERE 1 = 0""".stripMargin
+
+  def getStatsProfileQuery(schemaName: String, tableName: String): MsSqlQuery =
+    s"""EXEC('
+      | SET STATISTICS PROFILE ON;
+      | SELECT TOP 1 * FROM [$schemaName].[$tableName];
+      | SET STATISTICS PROFILE OFF')""".stripMargin
+
+  private def costToSize(cost: Double): Double =
+    val calculatedCost = 1.0 + pow(log(cost), 3)
+    // Hard cap at 1000
+    if (calculatedCost > 1000.0) 1000.0 else calculatedCost
+
+  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery =
+    val shardSizeEstimate = costToSize(cost)
+    s"""SELECT
+     |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
+     |    ceiling((page_count * 8.0) / 1024 / $shardSizeEstimate) as shards,
+     |    record_count / ceiling((page_count * 8.0) / 1024 / $shardSizeEstimate) as records_per_shard
+     |FROM
+     |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
+     |where index_level = 0""".stripMargin
+
+  def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, shardSize: Int): MsSqlQuery =
+    s"""SELECT
+       |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
+       |    ceiling((page_count * 8.0) / 1024 / $shardSize) as shards,
+       |    record_count / cast((page_count * 8.0) / 1024 / ceiling((page_count * 8.0) / 1024 / $shardSize) as records_per_shard
+       |FROM
+       |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
+       |where index_level = 0""".stripMargin
+
   /** Gets the query that retrieves the change tracking version for the Microsoft SQL Server database, based on the
     * provided startFrom timestamp point. The look back range for the query.
     * @return
@@ -132,7 +204,7 @@ object QueryProvider:
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
-  private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
+  def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
       .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
       .mkString(" + '#' + ")
@@ -212,6 +284,8 @@ object QueryProvider:
   private def getAllQuery(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       databaseName: String,
+      schemaName: String,
+      tableName: String,
       mergeExpression: String,
       columnExpression: String
   ): Task[MsSqlQuery] =
@@ -223,8 +297,8 @@ object QueryProvider:
         baseQuery <- ZIO.attempt(querySource.getLines().mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
-          .replace("{schema}", connectionSettings.schemaName)
-          .replace("{tableName}", connectionSettings.tableName)
+          .replace("{schema}", schemaName)
+          .replace("{tableName}", tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnExpression)
           .replace("{MERGE_EXPRESSION}", mergeExpression)
           .replace("{MERGE_KEY}", MergeKeyField.name)
