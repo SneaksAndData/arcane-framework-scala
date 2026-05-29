@@ -153,5 +153,87 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
       // 10000 rows should result in 15 shards assuming the cost input for the scaler evaluates to 2.6
       // row count must match source
       yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
-    }
+    },
+    test(
+      "resumes an interrupted backfill"
+    ) {
+      for
+        testTableName <- ZIO.succeed("backfill_test_2")
+        backfillId    <- ZIO.succeed("interruption_test")
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => prepareSourceTable(connection, testTableName)
+        )
+        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_interrupted_backfill"))
+        icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
+
+        // for shaper
+        _ <- icebergUtilBackfill.prepareWatermark(
+          tableSinkSettings.targetTableFullName.parts.name,
+          MsSqlWatermark.epoch
+        )
+
+        _ <- icebergUtilBackfill.prepareBackfillTable(
+          getBackfillTableName(backfillId),
+          targetSchema
+        )
+        propertyManager        <- icebergUtilBackfill.getSinkTablePropertyManager
+        stagingPropertyManager <- icebergUtilBackfill.getStagingTablePropertyManager
+        stagingEntityManager   <- icebergUtilBackfill.getStagingEntityManager
+        backfillStateManager <- ZIO.succeed(
+          new DefaultBackfillStateManager(
+            stagingEntityManager,
+            stagingPropertyManager,
+            new MsSqlShardFactory(),
+            getBackfillTableName(backfillId)
+          )
+        )
+        shaperBuilder <- ZIO.succeed(
+          TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
+        )
+        reader <- ZIO.succeed(
+          MsSqlReader(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = testTableName
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            emptyFieldsFilteringService
+          )
+        )
+        dataProvider <- ZIO.succeed(
+          new MsSqlBackfillSourceDataProvider(
+            reader,
+            backfillSettings,
+            tableSinkSettings,
+            backfillStateManager,
+            shaperBuilder,
+            new SourceBufferingSettings {
+              override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
+              override val bufferingEnabled: Boolean            = false
+            },
+            backfillId
+          )
+        )
+        provider <- ZIO.succeed(
+          new MsSqlBackfillStreamDataProvider(
+            dataProvider,
+            backfillSettings,
+            backfillStateManager,
+            DeclaredMetrics()
+          )
+        )
+        data      <- provider.backfillStream
+        shards    <- data.stream.runCollect
+        shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
+        backfillState <- stagingPropertyManager
+          .getRequiredProperty(getBackfillTableName(backfillId), "backfill")
+          .map(upickle.read[DefaultSourceBackfill](_))
+      // run 2 times, expect same number of shards and rows
+      // second run will not re-shard the source
+      yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
+    } @@ TestAspect.repeats(1)
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
