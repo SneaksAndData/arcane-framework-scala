@@ -46,7 +46,7 @@ class MsSqlStreamingSource(
 ) extends AutoCloseable
     with StreamingSource:
 
-  override type Shard = String
+  override type ShardMetadata = String
 
   lazy val catalog: String        = connection.getCatalog
   private val shardingParallelism = Runtime.getRuntime.availableProcessors() * 2

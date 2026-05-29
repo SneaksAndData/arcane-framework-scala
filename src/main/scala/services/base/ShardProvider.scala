@@ -5,7 +5,13 @@ import zio.Task
 import zio.stream.ZStream
 
 trait ShardProvider:
-  type Shard
+  type ShardMetadata
 
+  /** Deletes all shards created for the provided streamId
+    */
   def deleteShards(streamId: String): Task[Unit]
-  def getShards: ZStream[Any, Throwable, Shard]
+
+  /** Retrieve a shard data stream
+    * @return
+    */
+  def getShards: ZStream[Any, Throwable, ShardMetadata]
