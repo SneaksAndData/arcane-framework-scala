@@ -14,6 +14,7 @@ import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
 import services.mssql.backfill.{MsSqlBackfillSourceDataProvider, MsSqlBackfillStreamDataProvider, MsSqlShardFactory}
 import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestThroughputShaperBuilder}
@@ -83,6 +84,9 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_new_backfill"))
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
+        // for shaper
+        _ <- icebergUtilBackfill.prepareWatermark(tableSinkSettings.targetTableFullName, MsSqlWatermark.epoch)
+
         _ <- icebergUtilBackfill.prepareBackfillTable(
           getBackfillTableName(backfillId),
           targetSchema
@@ -143,8 +147,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillState <- stagingPropertyManager
           .getRequiredProperty(getBackfillTableName(backfillId), "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
-       // 10000 rows should result in 15 shards assuming the cost input for the scaler evaluates to 2.6
-       // row count must match source
+      // 10000 rows should result in 15 shards assuming the cost input for the scaler evaluates to 2.6
+      // row count must match source
       yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
