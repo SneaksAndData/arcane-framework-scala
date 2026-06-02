@@ -372,7 +372,7 @@ class MsSqlStreamingSource(
       )
       .runDrain
   yield ()
-  
+
   override def getShards(backfillId: String): ZStream[Any, Throwable, String] = ZStream
     .fromZIO(for
       columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)

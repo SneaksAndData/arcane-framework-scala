@@ -15,7 +15,6 @@ import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
-import services.streaming.base.*
 import services.streaming.processors.transformers.StagingProcessor
 import tests.shared.*
 
