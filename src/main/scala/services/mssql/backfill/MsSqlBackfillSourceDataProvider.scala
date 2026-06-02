@@ -40,7 +40,7 @@ final class MsSqlBackfillSourceDataProvider(
       backfillEnd: MsSqlWatermark,
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
-    case None          => dataProvider.prepareShardTables(backfillId, None)
+    case None          => dataProvider.getShards(backfillId)
     case Some(sources) => ZStream.fromIterable(sources)
   )
     .mapZIO { preparedShardTableName =>

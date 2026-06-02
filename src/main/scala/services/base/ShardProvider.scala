@@ -14,4 +14,4 @@ trait ShardProvider:
   /** Retrieve a shard data stream
     * @return
     */
-  def getShards: ZStream[Any, Throwable, ShardMetadata]
+  def getShards(backfillId: String): ZStream[Any, Throwable, ShardMetadata]

@@ -15,14 +15,14 @@ import services.metrics.DeclaredMetrics
 import services.mssql.backfill.{MsSqlBackfillSourceDataProvider, MsSqlBackfillStreamDataProvider, MsSqlShardFactory}
 import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
 import services.mssql.versioning.MsSqlWatermark
-import services.naming.{DefaultNameGenerator, NameGenerator}
+import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestThroughputShaperBuilder}
 
 import zio.stream.ZStream
 import zio.test.TestAspect.timeout
-import zio.test.{Spec, TestAspect, TestEnvironment, TestSystem, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
