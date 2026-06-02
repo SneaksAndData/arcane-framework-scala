@@ -6,12 +6,12 @@ import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.iceberg.IcebergCatalogSettings
-import models.settings.staging.StagingTableSettings
 import services.iceberg.base.CatalogWriter
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
-import services.streaming.base.{StreamingRowGroupTransformer, StagedBatchProcessor}
+import services.naming.NameGenerator
+import services.streaming.base.{StagedBatchProcessor, StreamingRowGroupTransformer}
 import services.streaming.batching.StagedBatchFactory
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -22,12 +22,12 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 import scala.collection.parallel.CollectionConverters.*
 
 class StagingProcessor(
-    stagingDataSettings: StagingTableSettings,
     targetTableFullName: String,
     icebergCatalogSettings: IcebergCatalogSettings,
     catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
     batchFactory: StagedBatchFactory,
-    declaredMetrics: DeclaredMetrics
+    declaredMetrics: DeclaredMetrics,
+    nameGenerator: NameGenerator
 ) extends StreamingRowGroupTransformer:
 
   type OutgoingElement = StagedBatchProcessor#BatchType
@@ -87,11 +87,11 @@ class StagingProcessor(
   ): Task[Option[StagedVersionedBatch & MergeableBatch]] =
     for staged <- ZIO.when(rows.nonEmpty) {
         for
-          tableName <- ZIO.succeed(stagingDataSettings.newStagingTableName)
+          tableName <- nameGenerator.getStagingTableName
           table <- ZIO.when(rows.nonEmpty)(
             catalogWriter.write(
               rows,
-              stagingDataSettings.newStagingTableName,
+              tableName,
               rowSchema,
               Seq(getAnnotation("processor", "StagingProcessor"))
             )
@@ -104,24 +104,24 @@ class StagingProcessor(
 object StagingProcessor:
 
   def apply(
-      stagingDataSettings: StagingTableSettings,
       targetTableFullName: String,
       icebergCatalogSettings: IcebergCatalogSettings,
       catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
       batchFactory: StagedBatchFactory,
-      declaredMetrics: DeclaredMetrics
+      declaredMetrics: DeclaredMetrics,
+      nameGenerator: NameGenerator
   ): StagingProcessor =
     new StagingProcessor(
-      stagingDataSettings,
       targetTableFullName,
       icebergCatalogSettings,
       catalogWriter,
       batchFactory,
-      declaredMetrics
+      declaredMetrics,
+      nameGenerator
     )
 
   type Environment = PluginStreamContext & CatalogWriter[RESTCatalog, Table, Schema] & StagedBatchFactory &
-    DeclaredMetrics
+    DeclaredMetrics & NameGenerator
 
   val layer: ZLayer[Environment, Nothing, StagingProcessor] =
     ZLayer {
@@ -130,12 +130,13 @@ object StagingProcessor:
         catalogWriter      <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         stagedBatchFactory <- ZIO.service[StagedBatchFactory]
         declaredMetrics    <- ZIO.service[DeclaredMetrics]
+        nameGenerator      <- ZIO.service[NameGenerator]
       yield StagingProcessor(
-        context.staging.table,
         context.sink.targetTableFullName,
         context.staging.icebergCatalog,
         catalogWriter,
         stagedBatchFactory,
-        declaredMetrics
+        declaredMetrics,
+        nameGenerator
       )
     }

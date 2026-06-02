@@ -16,6 +16,7 @@ import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
+import services.naming.DefaultNameGenerator
 import tests.shared.*
 
 import org.apache.iceberg.rest.RESTCatalog
@@ -50,13 +51,20 @@ object StagingProcessorTests extends ZIOSpecDefault:
   )
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+    nameGenerator <- ZIO.succeed(
+      new DefaultNameGenerator(
+        sinkSettings = TestSinkSettings,
+        backfillId = "",
+        streamId = "staging-processor-tests"
+      )
+    )
     stagingProcessor = StagingProcessor(
-      TestStagingTableSettings,
       TestSinkSettings.targetTableFullName,
       TestIcebergStagingSettings,
       catalogWriterService,
       new TestStagedBatchFactory(),
-      DeclaredMetrics()
+      DeclaredMetrics(),
+      nameGenerator
     )
   } yield stagingProcessor
 
@@ -118,7 +126,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .rechunk(1)
           .via(stagingProcessor.process(testSchema))
           .run(ZSink.collectAll)
-      } yield assertTrue(result.size == 2 && result.head.name.startsWith("staging_table__"))
+      } yield assertTrue(result.size == 2 && result.head.name.startsWith("stream__staging_processor_tests__stage"))
     }
   ).provide(
     IcebergEntityManager.stagingLayer,
