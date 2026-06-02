@@ -2,14 +2,11 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import models.backfill.DefaultSourceBackfill
-import models.settings.TableNaming.{getBackfillTableName, parts}
+import models.settings.TableNaming.parts
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
-import services.synapse.backfill.{
-  SynapseBackfillSourceDataProvider,
-  SynapseBackfillStreamDataProvider,
-  SynapseShardFactory
-}
+import services.naming.DefaultNameGenerator
+import services.synapse.backfill.{SynapseBackfillSourceDataProvider, SynapseBackfillStreamDataProvider, SynapseShardFactory}
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
@@ -21,8 +18,6 @@ import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
 
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
-
 object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName     = "dimensionattributelevelvalue"
   private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
@@ -33,6 +28,9 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
     ) {
       for
         tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.synapse_new_backfill"))
+        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
+          sinkSettings = tableSinkSettings, backfillId = "backfill_new", streamId = "synapse-backfill-stream-data-provider-tests"
+        ))
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
         // shaper requires target table to exist
         _ <- icebergUtilBackfill.prepareWatermark(
@@ -46,8 +44,8 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           new DefaultBackfillStateManager(
             stagingEntityManager,
             stagingPropertyManager,
-            new SynapseShardFactory(),
-            getBackfillTableName("synapse__backfill_new")
+            new SynapseShardFactory(nameGenerator),
+            nameGenerator
           )
         )
         shaperBuilder <- ZIO.succeed(
@@ -56,16 +54,17 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         schema            <- synapseLinkReader.getSchema
+        backfillTableName <- nameGenerator.getBackfillTableName
         // backfill requires staging table to exist
-        _ <- icebergUtilBackfill.prepareBackfillTable(getBackfillTableName("synapse__backfill_new"), schema)
+        _ <- icebergUtilBackfill.prepareBackfillTable(backfillTableName, schema)
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseBackfillSourceDataProvider(
             synapseLinkReader,
             defaultStreamMode.backfill,
-            tableSinkSettings,
             backfillStateManager,
             shaperBuilder,
             TestSourceBufferingSettings,
+            nameGenerator,
             "backfill_new"
           )
         )
@@ -81,7 +80,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         shards    <- data.stream.runCollect
         shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         backfillState <- stagingPropertyManager
-          .getRequiredProperty(getBackfillTableName("synapse__backfill_new"), "backfill")
+          .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
       // expect **8** shards as the source has 8 date folders that map to backfillStart, backfillEnd range
       // for all shards combined:
@@ -96,6 +95,9 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
     ) {
       for
         tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.synapse_interrupted_backfill"))
+        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
+          sinkSettings = tableSinkSettings, backfillId = "backfill_interrupted", streamId = "synapse-backfill-stream-data-provider-tests"
+        ))
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
         // shaper requires target table to exist
         _ <- icebergUtilBackfill.prepareWatermark(
@@ -109,13 +111,14 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           new DefaultBackfillStateManager(
             stagingEntityManager,
             stagingPropertyManager,
-            new SynapseShardFactory(),
-            getBackfillTableName("synapse__backfill_interrupted")
+            new SynapseShardFactory(nameGenerator),
+            nameGenerator
           )
         )
         shaperBuilder <- ZIO.succeed(
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
+        backfillTableName <- nameGenerator.getBackfillTableName
 
         synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
         folders <- storageReader
@@ -125,7 +128,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         schema <- synapseLinkReader.getSchema
         // backfill requires staging table to exist
         _ <- icebergUtilBackfill.prepareBackfillTable(
-          getBackfillTableName("synapse__backfill_interrupted"),
+          backfillTableName,
           schema,
           Some(
             upickle.write(
@@ -142,10 +145,10 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           SynapseBackfillSourceDataProvider(
             synapseLinkReader,
             defaultStreamMode.backfill,
-            tableSinkSettings,
             backfillStateManager,
             shaperBuilder,
             TestSourceBufferingSettings,
+            nameGenerator,
             "backfill_interrupted"
           )
         )
@@ -161,7 +164,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         shards    <- data.stream.runCollect
         shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         backfillState <- stagingPropertyManager
-          .getRequiredProperty(getBackfillTableName("synapse__backfill_interrupted"), "backfill")
+          .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
       // expect **4** shards since metadata claims 4 were staged
       // for all shards combined:
