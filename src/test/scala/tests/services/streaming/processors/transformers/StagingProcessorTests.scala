@@ -44,7 +44,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       ),
       List(
         DataCell("name", ArcaneType.StringType, "John"),
-        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "1")
+        DataCell(MergeKeyField.name, MergeKeyField.fieldType, "2")
       )
     )
   )
@@ -109,15 +109,16 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .run(ZSink.last)
       } yield assertTrue(result.isEmpty)
     },
-    test("write data rows grouped by schema to staging tables") {
+    test("write data rows to staging tables") {
 
       for {
         stagingProcessor <- getProcessor
         result <- ZStream
           .fromIterable(testInput)
+          .rechunk(1)
           .via(stagingProcessor.process(testSchema))
-          .run(ZSink.last)
-      } yield assertTrue(result.size == 1 && result.head.name.startsWith("staging_table__"))
+          .run(ZSink.collectAll)
+      } yield assertTrue(result.size == 2 && result.head.name.startsWith("staging_table__"))
     }
   ).provide(
     IcebergEntityManager.stagingLayer,
@@ -125,4 +126,4 @@ object StagingProcessorTests extends ZIOSpecDefault:
     mockPluginContextLayer
   ) @@ timeout(
     zio.Duration.fromSeconds(60)
-  ) @@ TestAspect.withLiveClock
+  ) @@ TestAspect.withLiveClock @@ TestAspect.sequential
