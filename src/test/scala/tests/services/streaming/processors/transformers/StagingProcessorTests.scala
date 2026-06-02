@@ -16,9 +16,9 @@ import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
+import services.naming.DefaultNameGenerator
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.{ZSink, ZStream}
