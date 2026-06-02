@@ -14,7 +14,7 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 class SynapseLinkDataProvider(
-    synapseReader: SynapseLinkReader,
+    synapseReader: SynapseLinkStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
@@ -42,13 +42,13 @@ class SynapseLinkDataProvider(
     synapseReader.getChanges(previousVersion)
 
 object SynapseLinkDataProvider:
-  type Environment = SynapseLinkReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
+  type Environment = SynapseLinkStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
       context         <- ZIO.service[PluginStreamContext]
       propertyManager <- ZIO.service[SinkPropertyManager]
-      synapseReader   <- ZIO.service[SynapseLinkReader]
+      synapseReader   <- ZIO.service[SynapseLinkStreamingSource]
       shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
     yield SynapseLinkDataProvider(
       synapseReader,

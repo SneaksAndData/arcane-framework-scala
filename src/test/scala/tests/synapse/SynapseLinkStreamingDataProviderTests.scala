@@ -11,7 +11,7 @@ import services.storage.models.azure.AdlsStoragePath
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
-import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
+import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkStreamingSource}
 import tests.shared.*
 import tests.shared.TestAzureStorageInfo.*
 import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
@@ -62,7 +62,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
@@ -100,7 +100,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot))
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,

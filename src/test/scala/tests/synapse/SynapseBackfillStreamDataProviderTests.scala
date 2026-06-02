@@ -11,7 +11,7 @@ import services.synapse.backfill.{
   SynapseBackfillStreamDataProvider,
   SynapseShardFactory
 }
-import services.synapse.base.SynapseLinkReader
+import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSourceBufferingSettings, TestThroughputShaperBuilder}
@@ -60,7 +60,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot))
         schema            <- synapseLinkReader.getSchema
         backfillTableName <- nameGenerator.getBackfillTableName
         // backfill requires staging table to exist
@@ -132,7 +132,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         )
         backfillTableName <- nameGenerator.getBackfillTableName
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, sourceTableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot))
         folders <- storageReader
           .streamPrefixes(sourceRoot)
           .runCollect

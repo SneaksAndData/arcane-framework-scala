@@ -8,7 +8,7 @@ import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
-import services.base.SchemaProvider
+import services.base.{SchemaProvider, StreamingSource}
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
@@ -24,8 +24,11 @@ import java.io.{BufferedReader, IOException}
 import java.time.*
 import java.time.format.DateTimeFormatter
 
-final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, reader: AzureBlobStorageReader)
-    extends SchemaProvider[ArcaneSchema]:
+final class SynapseLinkStreamingSource(location: AdlsStoragePath, entityName: String, reader: AzureBlobStorageReader)
+    extends StreamingSource:
+
+  override type ShardMetadata = (stream: StructuredZStream, source: String)
+  override type WatermarkType = SynapseWatermark
 
   /** Schema here comes from root-level model.json
     */
@@ -175,28 +178,14 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
   private def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
 
-  def getData(
-      startFrom: SynapseWatermark,
-      endAt: SynapseWatermark
-  ): ZStream[Any, Throwable, (stream: StructuredZStream, source: String)] =
-    ZStream
-      .fromZIO(getWatermarks(startFrom, endAt))
-      .flatMap(ZStream.fromIterable(_))
-      .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-      .mapZIO(wm =>
-        getBatchSchema(wm.prefix)
-          .map(batchSchema => (stream = (getChangesForVersion(wm), batchSchema), source = wm.prefix))
-      )
-
-  def getData(folders: Seq[String]): ZStream[Any, Throwable, (stream: StructuredZStream, source: String)] =
-    ZStream
-      .fromIterable(folders)
-      .map(folder => StoredBlob(name = folder, createdOn = None).asWatermark)
-      .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-      .mapZIO(wm =>
-        getBatchSchema(wm.prefix)
-          .map(batchSchema => (stream = (getChangesForVersion(wm), batchSchema), source = wm.prefix))
-      )
+  def getShardFolderStream(folder: String): Task[Option[ShardMetadata]] = for
+    watermark <- ZIO.succeed(StoredBlob(name = folder, createdOn = None).asWatermark)
+    result <- ZIO.ifZIO(isValidSynapseBatch(watermark.prefix))(
+      getBatchSchema(watermark.prefix)
+        .map(batchSchema => Some((stream = (getChangesForVersion(watermark), batchSchema), source = watermark.prefix))),
+      ZIO.succeed(None)
+    )
+  yield result
 
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125
@@ -261,21 +250,43 @@ final class SynapseLinkReader(location: AdlsStoragePath, entityName: String, rea
             LocalDateTime.parse(timestampValue, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
-object SynapseLinkReader:
-  def apply(reader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkReader =
-    new SynapseLinkReader(location, name, reader)
+  /** Deletes all shards created for the provided streamId
+    */
+  override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
+
+  /** Retrieve a shard data stream
+    *
+    * @return
+    */
+  override def getShards(
+      backfillId: String,
+      rangeStart: SynapseWatermark,
+      rangeEnd: SynapseWatermark
+  ): ZStream[Any, Throwable, (stream: (ZStream[Any, Throwable, DataRow], ArcaneSchema), source: String)] =
+    ZStream
+      .fromZIO(getWatermarks(rangeStart, rangeEnd))
+      .flatMap(ZStream.fromIterable(_))
+      .filterZIO(wm => isValidSynapseBatch(wm.prefix))
+      .mapZIO(wm =>
+        getBatchSchema(wm.prefix)
+          .map(batchSchema => (stream = (getChangesForVersion(wm), batchSchema), source = wm.prefix))
+      )
+
+object SynapseLinkStreamingSource:
+  def apply(reader: AzureBlobStorageReader, name: String, location: AdlsStoragePath): SynapseLinkStreamingSource =
+    new SynapseLinkStreamingSource(location, name, reader)
 
   private type SettingsExtractor = PluginStreamContext => MicrosoftSynapseLinkConnectionSettings
 
-  /** ZLayer for SynapseLinkReader, using custom context extractor.
+  /** ZLayer for SynapseLinkStreamingSource, using custom context extractor.
     * @return
     */
-  def getLayer(extractor: SettingsExtractor): ZLayer[PluginStreamContext, Throwable, SynapseLinkReader] =
+  def getLayer(extractor: SettingsExtractor): ZLayer[PluginStreamContext, Throwable, SynapseLinkStreamingSource] =
     ZLayer {
       for
         context  <- ZIO.service[PluginStreamContext]
         settings <- ZIO.attempt(extractor(context))
-      yield SynapseLinkReader(
+      yield SynapseLinkStreamingSource(
         AzureBlobStorageReader(settings.storageConnection),
         settings.entityName,
         settings.baseLocation

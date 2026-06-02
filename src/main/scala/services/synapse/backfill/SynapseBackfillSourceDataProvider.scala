@@ -9,7 +9,7 @@ import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
 import services.naming.NameGenerator
 import services.streaming.throughput.base.ThroughputShaperBuilder
-import services.synapse.base.SynapseLinkReader
+import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
@@ -20,7 +20,7 @@ import java.time.OffsetDateTime
 /** Backfill source data provider for Synapse Link
   */
 final class SynapseBackfillSourceDataProvider(
-    dataProvider: SynapseLinkReader,
+    dataProvider: SynapseLinkStreamingSource,
     backfillSettings: BackfillSettings,
     stateManager: DefaultBackfillStateManager,
     throughputShaperBuilder: ThroughputShaperBuilder,
@@ -41,9 +41,11 @@ final class SynapseBackfillSourceDataProvider(
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
     case None =>
-      dataProvider
-        .getData(backfillStart, backfillEnd)
-    case Some(sources) => dataProvider.getData(sources)
+      dataProvider.getShards(backfillId, backfillStart, backfillEnd)
+    case Some(sources) =>
+      ZStream.fromIterable(sources).mapZIO(dataProvider.getShardFolderStream).collect { case Some(streamMetadata) =>
+        streamMetadata
+      }
   )
     .mapZIO { case (stream, source) =>
       for
@@ -71,7 +73,7 @@ final class SynapseBackfillSourceDataProvider(
 object SynapseBackfillSourceDataProvider:
   val layer = ZLayer {
     for
-      dataProvider  <- ZIO.service[SynapseLinkReader]
+      dataProvider  <- ZIO.service[SynapseLinkStreamingSource]
       stateManager  <- ZIO.service[DefaultBackfillStateManager]
       context       <- ZIO.service[PluginStreamContext]
       shaper        <- ZIO.service[ThroughputShaperBuilder]

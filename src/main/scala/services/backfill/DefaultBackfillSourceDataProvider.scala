@@ -3,12 +3,11 @@ package services.backfill
 
 import extensions.ZExtensions.trySetBuffering
 import models.backfill.DefaultSourceBackfill
-import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
 import models.settings.sources.SourceBufferingSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.base.BackfillSourceDataProvider
-import services.base.SchemaProvider
+import services.base.StreamingSource
 import services.streaming.base.*
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -25,7 +24,7 @@ import java.time.OffsetDateTime
   * or it may produce nothing if the backfill was interrupted.
   */
 abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
-    dataProvider: SchemaProvider[ArcaneSchema],
+    dataProvider: StreamingSource,
     backfillSettings: BackfillSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,

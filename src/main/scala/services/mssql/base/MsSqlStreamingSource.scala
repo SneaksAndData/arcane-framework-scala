@@ -47,6 +47,7 @@ class MsSqlStreamingSource(
     with StreamingSource:
 
   override type ShardMetadata = String
+  override type WatermarkType = MsSqlWatermark
 
   lazy val catalog: String        = connection.getCatalog
   private val shardingParallelism = Runtime.getRuntime.availableProcessors() * 2
@@ -373,7 +374,12 @@ class MsSqlStreamingSource(
       .runDrain
   yield ()
 
-  override def getShards(backfillId: String): ZStream[Any, Throwable, String] = ZStream
+  // TODO: backfill-merge should respect start and end
+  override def getShards(
+      backfillId: String,
+      rangeStart: MsSqlWatermark,
+      rangeEnd: MsSqlWatermark
+  ): ZStream[Any, Throwable, String] = ZStream
     .fromZIO(for
       columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
       // first take estimate of a `select * from` query cost

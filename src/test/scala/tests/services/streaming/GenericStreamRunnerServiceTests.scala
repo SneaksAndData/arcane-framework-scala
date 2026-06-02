@@ -23,7 +23,7 @@ import services.iceberg.{
   IcebergTablePropertyManager
 }
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.StreamDataProvider
+import services.streaming.base.{StreamDataProvider, TimestampOnlyWatermark}
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -34,9 +34,9 @@ import services.streaming.processors.transformers.{FieldFilteringTransformer, St
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
 import services.streaming.graph.DefaultStreamingGraphBuilder
+import services.naming.DefaultNameGenerator
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -101,12 +101,17 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
       ZLayer.succeed(new StreamingSource {
-        override type SchemaType = ArcaneSchema
+        override type SchemaType    = ArcaneSchema
+        override type WatermarkType = TimestampOnlyWatermark
         override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
 
         override def deleteShards(streamId: String): Task[Unit] = ZIO.unit
 
-        override def getShards(backfillId: String): ZStream[Any, Throwable, ShardMetadata] = ZStream.empty
+        override def getShards(
+            backfillId: String,
+            rangeStart: TimestampOnlyWatermark,
+            rangeEnd: TimestampOnlyWatermark
+        ): ZStream[Any, Throwable, ShardMetadata] = ZStream.empty
 
         override def empty: SchemaType = ArcaneSchema.empty()
       }),

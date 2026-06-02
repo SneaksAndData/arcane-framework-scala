@@ -6,6 +6,7 @@ import zio.stream.ZStream
 
 trait ShardProvider:
   type ShardMetadata
+  type WatermarkType
 
   /** Deletes all shards created for the provided streamId
     */
@@ -14,4 +15,8 @@ trait ShardProvider:
   /** Retrieve a shard data stream
     * @return
     */
-  def getShards(backfillId: String): ZStream[Any, Throwable, ShardMetadata]
+  def getShards(
+      backfillId: String,
+      rangeStart: WatermarkType,
+      rangeEnd: WatermarkType
+  ): ZStream[Any, Throwable, ShardMetadata]
