@@ -33,9 +33,7 @@ object WatermarkProcessingExtensions:
               previousWatermark,
               watermark
             )
-            _ <- ZIO.attempt(
-              TimestampOnlyWatermark.fromJson(watermark).age.toDouble
-            ) @@ declaredMetrics.appliedWatermarkAge
+            _ <- ZIO.succeed(1L) @@ declaredMetrics.watermarkUpdateCounter
           yield ()
         }
       yield ()
