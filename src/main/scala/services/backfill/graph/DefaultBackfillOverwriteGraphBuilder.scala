@@ -4,7 +4,7 @@ package services.backfill.graph
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.sharding.{CompletedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory}
-import services.backfill.processors.{BackfillCompletionProcessor, ShardCombineProcessor, ShardStagingProcessor}
+import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
 import services.streaming.processors.transformers.FieldFilteringTransformer
 
@@ -49,7 +49,6 @@ class DefaultBackfillOverwriteGraphBuilder(
       ) *> streamDataProvider.backfillStream
     )
     .flatMap { case (stream, watermark) =>
-      val combineProcessor = ShardCombineProcessor(mergeServiceClient, shardFactory, watermark)
 
       stream
         .flatMapPar(backfillParallelism, 1) { shard =>
@@ -81,10 +80,16 @@ class DefaultBackfillOverwriteGraphBuilder(
             .flatMap {
               case Some(completion) =>
                 zlogStream(
-                  "Shard %s has been added to the combined table already, skipping",
+                  "Shard %s has been added to the combined backfill table already, skipping",
                   completion.shardId
                 ) *> ZStream.succeed(completion)
-              case None => ZStream.succeed(staged).via(combineProcessor.process)
+              case None => ZStream.succeed(staged).mapZIO { staged =>
+                for
+                  _ <- zlog("Shard %s fully commited, ready for combine", staged.shardId)
+                  _ <- mergeServiceClient.commitShard(staged)
+                  _ <- zlog("Shard %s data has been successfully commited to the combined backfill table", staged.shardId)
+                yield shardFactory.createCompletionShard(staged, watermark.toJson)
+              }
             }
             .mapZIO(shard => stateManager.commitCombinedShard(shard))
         )
