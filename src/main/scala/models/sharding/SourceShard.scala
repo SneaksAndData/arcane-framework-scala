@@ -11,7 +11,6 @@ trait SourceShard:
   val targetTableName: TableName
   val shardSourceEntityName: String
   val backfillId: BackfillIdentifier
-  val prefix: String
 
   /** Unique shard identifier based on the source entity used to create a shard data stream
     */
@@ -22,8 +21,7 @@ case class CompletedShard(
     combinedTableName: String,
     targetTableName: String,
     override val shardSourceEntityName: String,
-    override val backfillId: String,
-    override val prefix: String
+    override val backfillId: String
 ) extends StagedShard:
   override val commitQuery: StreamingBatchQuery = new StreamingBatchQuery {
     override def query: String = ""

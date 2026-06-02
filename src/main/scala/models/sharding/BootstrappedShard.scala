@@ -10,13 +10,11 @@ import zio.stream.ZStream
   */
 trait BootstrappedShard extends SourceShard:
   val shardStream: StructuredZStream
-  val shardSourceEntityName: String
 
 case class DefaultBootstrappedShard(
     override val shardStream: StructuredZStream,
     override val shardSourceEntityName: String,
     override val combinedTableName: String,
     override val targetTableName: String,
-    override val backfillId: String,
-    override val prefix: String
+    override val backfillId: String
 ) extends BootstrappedShard

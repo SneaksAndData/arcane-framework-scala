@@ -54,8 +54,7 @@ final class SynapseBackfillSourceDataProvider(
         shardSourceEntityName = source,
         combinedTableName = backfillTableName,
         targetTableName = targetName,
-        backfillId = backfillId,
-        prefix = prefix
+        backfillId = backfillId
       )
     }
 

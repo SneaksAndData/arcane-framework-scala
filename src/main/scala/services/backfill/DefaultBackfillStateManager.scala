@@ -71,12 +71,11 @@ class DefaultBackfillStateManager(
     hasState <- stagingPropertyManager
       .getProperty(shardTableName, processingStatePropertyName)
       .map(_.exists(_ == ShardProcessingState.COMBINED.toString))
-    result <- ZIO.when(hasState)(
+    watermark <- ZIO.when(hasState)(
       stagingPropertyManager
-        .getProperty(shardTableName, watermarkPropertyName)
-        .map(wm => wm.map(value => shardFactory.createCompletionShard(shard, value)))
-    )
-  yield result.flatten
+        .getProperty(shardTableName, watermarkPropertyName)).map(_.flatten)
+    result <- ZIO.when(watermark.isDefined)(shardFactory.createCompletionShard(shard, watermark.get))
+  yield result
 
 object DefaultBackfillStateManager:
   val layer = ZLayer {

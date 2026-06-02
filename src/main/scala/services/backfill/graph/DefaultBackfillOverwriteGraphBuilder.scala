@@ -56,7 +56,7 @@ class DefaultBackfillOverwriteGraphBuilder(
             .fromZIO(stateManager.isStaged(shard))
             .flatMap { isStaged =>
               if isStaged then
-                zlogStream("Shard %s has been staged previously, skipping", shard.shardId) *> ZStream.succeed(
+                zlogStream("Shard %s has been staged previously, skipping", shard.shardId) *> ZStream.fromZIO(
                   shardFactory.createStagedShard(shard)
                 )
               else
@@ -88,7 +88,8 @@ class DefaultBackfillOverwriteGraphBuilder(
                   _ <- zlog("Shard %s fully commited, ready for combine", staged.shardId)
                   _ <- mergeServiceClient.commitShard(staged)
                   _ <- zlog("Shard %s data has been successfully commited to the combined backfill table", staged.shardId)
-                yield shardFactory.createCompletionShard(staged, watermark.toJson)
+                  completionShard <- shardFactory.createCompletionShard(staged, watermark.toJson) 
+                yield completionShard
               }
             }
             .mapZIO(shard => stateManager.commitCombinedShard(shard))

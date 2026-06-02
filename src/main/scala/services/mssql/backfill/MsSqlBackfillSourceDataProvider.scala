@@ -54,8 +54,7 @@ final class MsSqlBackfillSourceDataProvider(
         shardSourceEntityName = preparedShardTableName,
         combinedTableName = backfillTableName,
         targetTableName = targetName,
-        backfillId = backfillId,
-        prefix = prefix
+        backfillId = backfillId
       )
     }
 

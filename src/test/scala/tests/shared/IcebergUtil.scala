@@ -6,18 +6,10 @@ import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.sink.SinkSettings
-import services.iceberg.{
-  IcebergCatalogFactory,
-  IcebergS3CatalogWriter,
-  IcebergSinkEntityManager,
-  IcebergSinkTablePropertyManager,
-  IcebergStagingEntityManager,
-  IcebergStagingTablePropertyManager,
-  IcebergTablePropertyManager,
-  given_Conversion_ArcaneSchema_Schema
-}
+import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergSinkEntityManager, IcebergSinkTablePropertyManager, IcebergStagingEntityManager, IcebergStagingTablePropertyManager, IcebergTablePropertyManager, given_Conversion_ArcaneSchema_Schema}
 import services.streaming.base.JsonWatermark
 
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}

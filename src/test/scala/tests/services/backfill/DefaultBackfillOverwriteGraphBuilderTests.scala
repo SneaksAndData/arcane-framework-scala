@@ -14,13 +14,13 @@ import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, Staging
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.merging.JdbcMergeServiceClient
 import services.metrics.DeclaredMetrics
+import services.naming.{DefaultNameGenerator, NameGenerator}
 import services.streaming.base.{JsonWatermark, TimestampOnlyWatermark}
 import services.streaming.processors.transformers.FieldFilteringTransformer
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestTrinoConnection.newTrinoConnection
 
-import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -39,19 +39,18 @@ final class TestBackfillStreamDataProvider(targetName: String, shards: Seq[Boots
       )
     )
 
-final class TestShardFactory extends ShardFactory:
-  override def createStagedShard(shard: BootstrappedShard): StagedShard = DefaultStagedShard(
+final class TestShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
+  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] = nameGenerator.getShardTableName(shard).map(shardTableName => DefaultStagedShard(
     shard.shardSourceEntityName,
     shard.combinedTableName,
     shard.targetTableName,
     new StreamingBatchQuery {
-      override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shard.shardTableName}"
+      override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shardTableName}"
     },
-    shard.backfillId,
-    "backfill__overwrite_graph_builder_test"
-  )
+    shard.backfillId
+  ))
 
-  override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = CompletionShard(
+  override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] = ZIO.succeed(CompletionShard(
     watermark = watermark,
     targetTableName = shard.targetTableName,
     shardSourceEntityName = shard.shardSourceEntityName,
@@ -60,9 +59,8 @@ final class TestShardFactory extends ShardFactory:
       override def query: String =
         s"CREATE OR REPLACE TABLE ${shard.targetTableName} AS SELECT * FROM ${shard.combinedTableName}"
     },
-    shard.backfillId,
-    "backfill__overwrite_graph_builder_test"
-  )
+    shard.backfillId
+  ))
 
 object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
   private val streamSchema = ArcaneSchema(
@@ -107,8 +105,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       "shard1",
       backfillTableName,
       targetName,
-      id,
-      "backfill__overwrite_graph_builder_test"
+      id
     ),
     DefaultBootstrappedShard(
       shardStream = (
@@ -131,8 +128,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       "shard2",
       backfillTableName,
       targetName,
-      id,
-      "backfill__overwrite_graph_builder_test"
+      id
     ),
     DefaultBootstrappedShard(
       shardStream = (
@@ -150,14 +146,18 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       "shard3",
       backfillTableName,
       targetName,
-      id,
-      "backfill__overwrite_graph_builder_test"
+      id
     )
   )
 
-  private def runBackfill(targetName: String, backfillTableName: String, backfillId: String) =
+  private def runBackfill(targetName: String, backfillId: String) =
     for
+      nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
+        sinkSettings = TestDynamicSinkSettings(targetName), backfillId = backfillId, streamId = "default-backfill-overwrite-graph-builder"
+      ))
+      backfillTableName <- nameGenerator.getBackfillTableName
       shards <- ZIO.succeed(getShards(targetName, backfillTableName, backfillId))
+      shardTableNames <- ZStream.fromIterable(shards).mapZIO(nameGenerator.getShardTableName).runCollect.map(_.toList)
       writer <- ZIO.service[IcebergS3CatalogWriter]
       mergeService <- ZIO.succeed(
         new JdbcMergeServiceClient(
@@ -174,7 +174,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         streamSchema,
         recreate = false
       )
-      shardFactory           <- ZIO.succeed(new TestShardFactory())
+      shardFactory           <- ZIO.succeed(new TestShardFactory(nameGenerator))
       propertyManager        <- ZIO.service[SinkPropertyManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       stagingEntityManager   <- ZIO.service[StagingEntityManager]
@@ -182,8 +182,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         new DefaultBackfillStateManager(
           stagingEntityManager,
           stagingPropertyManager,
-          new TestShardFactory(),
-          backfillTableName
+          shardFactory,
+          nameGenerator
         )
       )
       builder <- ZIO.succeed(
@@ -192,6 +192,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           new ShardStagingProcessor(
             writer,
             shardFactory,
+            nameGenerator,
             DeclaredMetrics()
           ),
           mergeService,
@@ -204,7 +205,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       // expect the following:
       // a single row - CompletedShard is the output
       result <- builder.produce().runCollect
-    yield (result, shards)
+    yield (result, shards, backfillTableName, shardTableNames)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillOverwriteGraphBuilderTests")(
     test("stages shards, aggregates them and swaps correct data into target table") {
@@ -212,9 +213,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         trinoConnection <- newTrinoConnection
         // expect the following:
         // a single row - CompletedShard is the output
-        (result, shards) <- runBackfill(
+        (result, shards, backfillTableName, _) <- runBackfill(
           "iceberg.test.generic_stream",
-          getBackfillTableName("generic__test_combined"),
           "test_combined"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
@@ -222,17 +222,14 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         rowsInTarget <- getRowsInTarget(trinoConnection, "iceberg.test.generic_stream")
       yield assertTrue(result.toList match
         case (completedShard: CompletedShard) :: nil =>
-          completedShard.targetTableName == "iceberg.test.generic_stream" && completedShard.combinedTableName == getBackfillTableName(
-            "generic__test_combined"
-          ) && rowsInTarget == expectedRowsInTarget
+          completedShard.targetTableName == "iceberg.test.generic_stream" && completedShard.combinedTableName == backfillTableName && rowsInTarget == expectedRowsInTarget
         case _ => false)
     } @@ TestAspect.repeat(Schedule.recurs(2)), // this test must run initial backfill and then produce the same result!
     test("picks up backfill when a shard has been staged") {
       for
         trinoConnection <- newTrinoConnection
-        _ <- runBackfill(
+        (_, _, backfillTableName, shardTableNames) <- runBackfill(
           "iceberg.test.interrupted_backfill_stream",
-          getBackfillTableName("generic__test_interrupted"),
           "test_interrupted"
         )
         // now simulate interruption:
@@ -250,7 +247,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             .fromAutoCloseable(
               ZIO.attempt(
                 trinoConnection.prepareStatement(
-                  s"truncate table iceberg.test.${getBackfillTableName("generic__test_interrupted")}"
+                  s"truncate table iceberg.test.$backfillTableName"
                 )
               )
             )
@@ -261,7 +258,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ZIO
             .fromAutoCloseable(
               ZIO.attempt(
-                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted__shard2")
+                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(1)}")
               )
             )
             .map(_.execute())
@@ -270,7 +267,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ZIO
             .fromAutoCloseable(
               ZIO.attempt(
-                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted__shard3")
+                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(2)}")
               )
             )
             .map(_.execute())
@@ -283,9 +280,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ShardProcessingState.STAGED.toString
         )
         // re-run and expect identical result to a full backfill
-        (result, shards) <- runBackfill(
+        (result, shards, backfillTableName, _) <- runBackfill(
           "iceberg.test.interrupted_backfill_stream",
-          getBackfillTableName("generic__test_interrupted"),
           "test_interrupted"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
@@ -294,16 +290,9 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     },
     test("picks up backfill when a shard has been combined") {
       for
-        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
-          sinkSettings = TestDynamicSinkSettings("iceberg.test.interrupted_1_backfill_stream"),
-          backfillId = "test_interrupted_1",
-          streamId = "overwrite_graph_builder_test"
-        ))
-        backfillTableName <- nameGenerator.getBackfillTableName
         trinoConnection <- newTrinoConnection
-        _ <- runBackfill(
+        (_, _, backfillTableName, shardTableNames) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
-          backfillTableName,
           "test_interrupted_1"
         )
         // now simulate interruption:
@@ -332,7 +321,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ZIO
             .fromAutoCloseable(
               ZIO.attempt(
-                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted_1__shard2")
+                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(1)}")
               )
             )
             .map(_.execute())
@@ -341,16 +330,15 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ZIO
             .fromAutoCloseable(
               ZIO.attempt(
-                trinoConnection.prepareStatement("drop table iceberg.test.backfill_shard__test_interrupted_1__shard3")
+                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(2)}")
               )
             )
             .map(_.execute())
         }
         // leave shard1 as COMBINED
         // re-run and expect identical result to a full backfill
-        (result, shards) <- runBackfill(
+        (result, shards, _, _) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
-          getBackfillTableName("generic__test_interrupted_1"),
           "test_interrupted_1"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
