@@ -94,6 +94,12 @@ class DeclaredMetrics:
   val streamingWatermarkAge: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.watermark.streaming_age")
 
+  val backfillStagedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_staged")
+
+  val backfillCombinedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_combined")
+
 object DeclaredMetrics:
 
   /** Creates a new instance of the DeclaredMetrics.

@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.backfill
 
 import extensions.ZExtensions.trySetBuffering
+import logging.ZIOLogAnnotations.zlogStream
 import models.backfill.DefaultSourceBackfill
 import models.settings.backfill.BackfillSettings
 import models.settings.sources.SourceBufferingSettings
@@ -61,6 +62,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       .flatMap { startFrom =>
         backfillStream(startFrom, snapshotVersion, shards)
           .via(collectShards)
+          .flatMap(v => zlogStream("Prepared total %s shards for the backfill", v.size.toString) *> ZStream.succeed(v))
           .flatMap { bootstrapped =>
             val outputStream = ZStream.fromIterable(bootstrapped.map { case unshaped: DefaultBootstrappedShard =>
               unshaped.copy(
