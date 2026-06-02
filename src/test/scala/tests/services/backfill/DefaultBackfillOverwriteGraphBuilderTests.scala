@@ -20,6 +20,7 @@ import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestTrinoConnection.newTrinoConnection
 
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -46,7 +47,8 @@ final class TestShardFactory extends ShardFactory:
     new StreamingBatchQuery {
       override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shard.shardTableName}"
     },
-    shard.backfillId
+    shard.backfillId,
+    "backfill__overwrite_graph_builder_test"
   )
 
   override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = CompletionShard(
@@ -58,7 +60,8 @@ final class TestShardFactory extends ShardFactory:
       override def query: String =
         s"CREATE OR REPLACE TABLE ${shard.targetTableName} AS SELECT * FROM ${shard.combinedTableName}"
     },
-    shard.backfillId
+    shard.backfillId,
+    "backfill__overwrite_graph_builder_test"
   )
 
 object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
@@ -104,7 +107,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       "shard1",
       backfillTableName,
       targetName,
-      id
+      id,
+      "backfill__overwrite_graph_builder_test"
     ),
     DefaultBootstrappedShard(
       shardStream = (
@@ -127,7 +131,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       "shard2",
       backfillTableName,
       targetName,
-      id
+      id,
+      "backfill__overwrite_graph_builder_test"
     ),
     DefaultBootstrappedShard(
       shardStream = (
@@ -145,7 +150,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       "shard3",
       backfillTableName,
       targetName,
-      id
+      id,
+      "backfill__overwrite_graph_builder_test"
     )
   )
 
@@ -288,10 +294,16 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     },
     test("picks up backfill when a shard has been combined") {
       for
+        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
+          sinkSettings = TestDynamicSinkSettings("iceberg.test.interrupted_1_backfill_stream"),
+          backfillId = "test_interrupted_1",
+          streamId = "overwrite_graph_builder_test"
+        ))
+        backfillTableName <- nameGenerator.getBackfillTableName
         trinoConnection <- newTrinoConnection
         _ <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
-          getBackfillTableName("generic__test_interrupted_1"),
+          backfillTableName,
           "test_interrupted_1"
         )
         // now simulate interruption:
@@ -309,7 +321,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             .fromAutoCloseable(
               ZIO.attempt(
                 trinoConnection.prepareStatement(
-                  s"delete from iceberg.test.${getBackfillTableName("generic__test_interrupted_1")} where colB > 2"
+                  s"delete from iceberg.test.$backfillTableName where colB > 2"
                 )
               )
             )

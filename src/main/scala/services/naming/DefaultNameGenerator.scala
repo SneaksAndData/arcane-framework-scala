@@ -4,8 +4,9 @@ package services.naming
 import models.app.PluginStreamContext
 import models.settings.TableNaming.{isValid, parts}
 import models.settings.sink.SinkSettings
+import models.settings.{BackfillIdentifier, StreamIdentifier}
+import models.sharding.SourceShard
 
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillIdentifier, StreamIdentifier}
 import zio.{Task, ZIO, ZLayer}
 
 final class DefaultNameGenerator(
@@ -27,7 +28,16 @@ final class DefaultNameGenerator(
 
   override def getTargetTableFullName: Task[String] = ZIO.succeed(sinkSettings.targetTableFullName)
   
-  override def getShardTableName: Task[String] = ???
+  override def getShardTableName(shard: SourceShard): Task[String] = for
+    prefix <- getBackfillTablesPrefix
+    _ <- ZIO.when(shard.backfillId != backfillId)(ZIO.fail(new Throwable(s"Shard carries an unknown backfill identifier: ${shard.backfillId}")))
+    _ <- ZIO.unless(backfillId.isValid)(ZIO.fail(new Throwable(s"Invalid backfillId: '$backfillId'")))
+  yield Seq(
+    prefix,
+    backfillId,
+    "shard",
+    shard.shardId
+  ).mkString("__")
 
   override def getStagingTableName: Task[String] = ???
   

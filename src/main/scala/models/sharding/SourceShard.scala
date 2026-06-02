@@ -18,13 +18,6 @@ trait SourceShard:
   final val shardId =
     s"${shardSourceEntityName.replace("-", "_").replace(".", "_").replace(":", "_").stripSuffix("/").toLowerCase}"
 
-  final val shardTableName: String = Seq(
-    prefix,
-    backfillId,
-    "shard",
-    shardId
-  ).mkString("__")
-
 case class CompletedShard(
     combinedTableName: String,
     targetTableName: String,
