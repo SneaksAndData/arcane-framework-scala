@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import services.storage.models.azure.AdlsStoragePath
-import services.synapse.base.SynapseLinkReader
+import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.*
 
@@ -15,11 +15,11 @@ import java.time.{Duration, OffsetDateTime}
 object SynapseLinkReaderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkReader")(
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingSource")(
     test("streams changes belonging to the configured table") {
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path))
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
@@ -35,7 +35,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
     test("reads schema from a storage container and parses it successfully") {
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path))
         schema            <- synapseLinkReader.getSchema
       // 25 fields plus ARCANE_MERGE_KEY
       yield assertTrue(schema.size == 26)
@@ -45,7 +45,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         path <- ZIO.succeed(
           AdlsStoragePath(s"abfss://$malformedSchemaContainer@$storageAccount.dfs.core.windows.net/").get
         )
-        synapseLinkReader <- ZIO.succeed(SynapseLinkReader(storageReader, tableName, path))
+        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path))
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))

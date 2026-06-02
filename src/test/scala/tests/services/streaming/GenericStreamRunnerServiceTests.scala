@@ -2,34 +2,16 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.schemas.{
-  ArcaneSchema,
-  ArcaneType,
-  DataCell,
-  IndexedField,
-  IndexedMergeKeyField,
-  MergeKeyField,
-  given_CanAdd_ArcaneSchema
-}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.schemas.ArcaneType.StringType
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient, SchemaProvider, StreamingSource}
 import services.filters.FieldsFilteringService
-import services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergStagingEntityManager,
-  IcebergTablePropertyManager
-}
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergStagingEntityManager, IcebergTablePropertyManager}
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import services.streaming.base.StreamDataProvider
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.base.{StreamDataProvider, TimestampOnlyWatermark}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
@@ -102,11 +84,12 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       ZLayer.succeed(mergeServiceClient),
       ZLayer.succeed(new StreamingSource {
         override type SchemaType = ArcaneSchema
+        override type WatermarkType = TimestampOnlyWatermark
         override def getSchema: Task[SchemaType] = ZIO.succeed(Seq(MergeKeyField))
 
         override def deleteShards(streamId: String): Task[Unit] = ZIO.unit
 
-        override def getShards(backfillId: String): ZStream[Any, Throwable, ShardMetadata] = ZStream.empty
+        override def getShards(backfillId: String, rangeStart: TimestampOnlyWatermark, rangeEnd: TimestampOnlyWatermark): ZStream[Any, Throwable, ShardMetadata] = ZStream.empty
 
         override def empty: SchemaType = ArcaneSchema.empty()
       }),

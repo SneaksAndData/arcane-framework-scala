@@ -33,14 +33,13 @@ final class MsSqlBackfillSourceDataProvider(
       sourceBufferingSettings,
       stateManager
     ):
-
-  // TODO: backfill-merge should not shard but rather run a single load. NYI
+  
   override protected def backfillStream(
       backfillStart: MsSqlWatermark,
       backfillEnd: MsSqlWatermark,
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
-    case None          => dataProvider.getShards(backfillId)
+    case None          => dataProvider.getShards(backfillId, backfillStart, backfillEnd)
     case Some(sources) => ZStream.fromIterable(sources)
   )
     .mapZIO { preparedShardTableName =>
