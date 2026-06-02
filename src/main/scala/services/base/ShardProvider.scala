@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
+import models.settings.StreamIdentifier
+
 import zio.Task
 import zio.stream.ZStream
 
@@ -9,7 +11,7 @@ trait ShardProvider:
 
   /** Deletes all shards created for the provided streamId
     */
-  def deleteShards(streamId: String): Task[Unit]
+  def deleteShards(prefix: String): Task[Unit]
 
   /** Retrieve a shard data stream
     * @return

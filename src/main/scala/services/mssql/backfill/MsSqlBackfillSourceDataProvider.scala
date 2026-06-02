@@ -2,16 +2,15 @@ package com.sneaksanddata.arcane.framework
 package services.mssql.backfill
 
 import models.app.PluginStreamContext
-import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillSettings
-import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
+import services.mssql.base.MsSqlStreamingSource
+import services.mssql.versioning.MsSqlWatermark
+import services.naming.NameGenerator
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
-import com.sneaksanddata.arcane.framework.services.mssql.base.MsSqlStreamingSource
-import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -22,15 +21,14 @@ import java.time.OffsetDateTime
 final class MsSqlBackfillSourceDataProvider(
     dataProvider: MsSqlStreamingSource,
     backfillSettings: BackfillSettings,
-    sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,
+    nameGenerator: NameGenerator,
     backfillId: String
 ) extends DefaultBackfillSourceDataProvider[MsSqlWatermark](
       dataProvider,
       backfillSettings,
-      sinkSettings,
       throughputShaperBuilder,
       sourceBufferingSettings,
       stateManager
@@ -46,13 +44,18 @@ final class MsSqlBackfillSourceDataProvider(
     case Some(sources) => ZStream.fromIterable(sources)
   )
     .mapZIO { preparedShardTableName =>
-      for shardStream <- dataProvider.createShardStream(preparedShardTableName)
+      for 
+        shardStream <- dataProvider.createShardStream(preparedShardTableName)
+        prefix <- nameGenerator.getBackfillTablesPrefix
+        backfillTableName <- nameGenerator.getBackfillTableName
+        targetName <- nameGenerator.getTargetTableFullName
       yield DefaultBootstrappedShard(
         shardStream = shardStream,
         shardSourceEntityName = preparedShardTableName,
-        combinedTableName = getBackfillTableName(backfillId),
-        targetTableName = sinkSettings.targetTableFullName,
-        backfillId = backfillId
+        combinedTableName = backfillTableName,
+        targetTableName = targetName,
+        backfillId = backfillId,
+        prefix = prefix
       )
     }
 
@@ -75,14 +78,15 @@ object MsSqlBackfillSourceDataProvider:
       stateManager <- ZIO.service[DefaultBackfillStateManager]
       context      <- ZIO.service[PluginStreamContext]
       shaper       <- ZIO.service[ThroughputShaperBuilder]
-      backfillId   <- context.backfillId
+      nameGenerator <- ZIO.service[NameGenerator]
+      backfillId <- context.backfillId
     yield new MsSqlBackfillSourceDataProvider(
       dataProvider = dataProvider,
       backfillSettings = context.streamMode.backfill,
-      sinkSettings = context.sink,
       stateManager = stateManager,
       backfillId = backfillId,
       throughputShaperBuilder = shaper,
-      sourceBufferingSettings = context.source.buffering
+      sourceBufferingSettings = context.source.buffering,
+      nameGenerator = nameGenerator
     )
   }

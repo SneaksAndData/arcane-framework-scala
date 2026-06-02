@@ -17,7 +17,8 @@ class MsSqlShardFactory extends ShardFactory:
     combinedTableName = shard.combinedTableName,
     targetTableName = shard.targetTableName,
     commitQuery = MsSqlShardStageQuery(shard.shardTableName, shard.combinedTableName),
-    backfillId = shard.backfillId
+    backfillId = shard.backfillId,
+    prefix = shard.prefix
   )
 
   /** Completion shard provisioner. Commit query swaps data from combine into a target table.
@@ -28,7 +29,8 @@ class MsSqlShardFactory extends ShardFactory:
     shardSourceEntityName = shard.shardSourceEntityName,
     combinedTableName = shard.combinedTableName,
     commitQuery = MsSqlShardCommitQuery(shard.targetTableName, shard.combinedTableName),
-    backfillId = shard.backfillId
+    backfillId = shard.backfillId,
+    prefix = shard.prefix
   )
 
 object MsSqlShardFactory:

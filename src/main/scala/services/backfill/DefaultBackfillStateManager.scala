@@ -5,11 +5,11 @@ import models.app.PluginStreamContext
 import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
-import models.settings.TableNaming.getBackfillTableName
 import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.naming.NameGenerator
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -75,12 +75,12 @@ object DefaultBackfillStateManager:
       stagingEntityManager   <- ZIO.service[StagingEntityManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       shardFactory           <- ZIO.service[ShardFactory]
-      context                <- ZIO.service[PluginStreamContext]
-      backfillId             <- context.backfillId
+      nameGenerator                <- ZIO.service[NameGenerator]
+      backfillTableName <- nameGenerator.getBackfillTableName
     yield new DefaultBackfillStateManager(
       stagingEntityManager = stagingEntityManager,
       stagingPropertyManager = stagingPropertyManager,
       shardFactory = shardFactory,
-      stagedBackfillTableName = getBackfillTableName(backfillId)
+      stagedBackfillTableName = backfillTableName
     )
   }

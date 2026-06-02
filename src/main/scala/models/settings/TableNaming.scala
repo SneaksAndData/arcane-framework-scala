@@ -2,6 +2,8 @@ package com.sneaksanddata.arcane.framework
 package models.settings
 
 type TableName = String
+type BackfillIdentifier = String
+type StreamIdentifier = String
 
 object TableNaming:
   extension (tableName: TableName)
@@ -12,5 +14,7 @@ object TableNaming:
           throw new RuntimeException(
             s"Invalid table name format for $tableName. Must be {warehouse}.{namespace}.{name}"
           )
-
-  def getBackfillTableName(backfillId: String): String = s"backfill__$backfillId"
+          
+  extension (backfillId: BackfillIdentifier)
+    def isValid: Boolean = backfillId.nonEmpty
+  end extension

@@ -15,7 +15,8 @@ final class SynapseShardFactory extends ShardFactory:
     combinedTableName = shard.combinedTableName,
     targetTableName = shard.targetTableName,
     commitQuery = SynapseLinkShardStageQuery(shard.shardTableName, shard.combinedTableName),
-    backfillId = shard.backfillId
+    backfillId = shard.backfillId,
+    prefix = shard.prefix
   )
 
   override def createCompletionShard(shard: StagedShard, watermark: String): CompletionShard = CompletionShard(
@@ -24,7 +25,8 @@ final class SynapseShardFactory extends ShardFactory:
     shardSourceEntityName = shard.shardSourceEntityName,
     combinedTableName = shard.combinedTableName,
     commitQuery = SynapseLinkShardCommitQuery(shard.targetTableName, shard.combinedTableName),
-    backfillId = shard.backfillId
+    backfillId = shard.backfillId,
+    prefix = shard.prefix
   )
 
 object SynapseShardFactory:

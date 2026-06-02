@@ -5,7 +5,6 @@ import extensions.ZExtensions.trySetBuffering
 import models.backfill.DefaultSourceBackfill
 import models.schemas.ArcaneSchema
 import models.settings.backfill.BackfillSettings
-import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.base.BackfillSourceDataProvider
@@ -28,7 +27,6 @@ import java.time.OffsetDateTime
 abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
     dataProvider: SchemaProvider[ArcaneSchema],
     backfillSettings: BackfillSettings,
-    sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,
     stateManager: DefaultBackfillStateManager

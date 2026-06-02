@@ -415,13 +415,13 @@ class MsSqlStreamingSource(
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query.replaceFirst("SELECT", "SELECT TOP 1")))
     yield resultSet.next()
 
-  override def deleteShards(streamId: String): Task[Unit] = for
+  override def deleteShards(prefix: String): Task[Unit] = for
     matchingShards <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) {
       statement =>
         ZIO.acquireReleaseWith(
           ZIO.attempt(
             statement.executeQuery(
-              QueryProvider.getFindMatchingTablesQuery(s"${streamId}__", connectionSettings.backfillShardSchemaName)
+              QueryProvider.getFindMatchingTablesQuery(prefix, connectionSettings.backfillShardSchemaName)
             )
           )
         )(rs => rs.closeSafe(statement)) { rs =>
