@@ -22,18 +22,22 @@ class DefaultBackfillStateManager(
   override type StateImpl = DefaultSourceBackfill
 
   override def commitState(state: StateImpl): Task[Unit] =
-    nameGenerator.getBackfillTableName.flatMap(stagedBackfillTableName => stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state)))
+    nameGenerator.getBackfillTableName.flatMap(stagedBackfillTableName =>
+      stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state))
+    )
 
   override def readState: Task[Option[StateImpl]] =
-    nameGenerator.getBackfillTableName.flatMap(stagedBackfillTableName => stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(upickle.read(_))))
+    nameGenerator.getBackfillTableName.flatMap(stagedBackfillTableName =>
+      stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(upickle.read(_)))
+    )
 
-  override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for 
+  override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for
     shardTableName <- nameGenerator.getShardTableName(shard)
-    _ <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, false))
+    _              <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, false))
   yield ()
 
   override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
-    nameGenerator.getShardTableName(completionShard).flatMap{ shardTableName =>
+    nameGenerator.getShardTableName(completionShard).flatMap { shardTableName =>
       stagingPropertyManager
         .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString)
         .flatMap(_ =>
@@ -42,7 +46,6 @@ class DefaultBackfillStateManager(
         )
         .map(_ => completionShard)
     }
-    
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
     nameGenerator.getShardTableName(shard).flatMap { shardTableName =>
@@ -50,11 +53,10 @@ class DefaultBackfillStateManager(
         .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.STAGED.toString)
         .map(_ => shard)
     }
-    
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
     shardTableName <- nameGenerator.getShardTableName(shard)
-    tableExists <- stagingEntityManager.tableExists(shardTableName)
+    tableExists    <- stagingEntityManager.tableExists(shardTableName)
     result <- ZIO.when(tableExists)(
       stagingPropertyManager
         .getProperty(shardTableName, processingStatePropertyName)
@@ -71,9 +73,12 @@ class DefaultBackfillStateManager(
     hasState <- stagingPropertyManager
       .getProperty(shardTableName, processingStatePropertyName)
       .map(_.exists(_ == ShardProcessingState.COMBINED.toString))
-    watermark <- ZIO.when(hasState)(
-      stagingPropertyManager
-        .getProperty(shardTableName, watermarkPropertyName)).map(_.flatten)
+    watermark <- ZIO
+      .when(hasState)(
+        stagingPropertyManager
+          .getProperty(shardTableName, watermarkPropertyName)
+      )
+      .map(_.flatten)
     result <- ZIO.when(watermark.isDefined)(shardFactory.createCompletionShard(shard, watermark.get))
   yield result
 
@@ -83,7 +88,7 @@ object DefaultBackfillStateManager:
       stagingEntityManager   <- ZIO.service[StagingEntityManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       shardFactory           <- ZIO.service[ShardFactory]
-      nameGenerator                <- ZIO.service[NameGenerator]
+      nameGenerator          <- ZIO.service[NameGenerator]
     yield new DefaultBackfillStateManager(
       stagingEntityManager = stagingEntityManager,
       stagingPropertyManager = stagingPropertyManager,

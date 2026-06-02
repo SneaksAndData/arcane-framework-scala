@@ -25,7 +25,7 @@ final class SynapseBackfillSourceDataProvider(
     stateManager: DefaultBackfillStateManager,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,
-    nameGenerator: NameGenerator,                       
+    nameGenerator: NameGenerator,
     backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
@@ -45,10 +45,11 @@ final class SynapseBackfillSourceDataProvider(
         .getData(backfillStart, backfillEnd)
     case Some(sources) => dataProvider.getData(sources)
   )
-    .mapZIO { case (stream, source) => for
+    .mapZIO { case (stream, source) =>
+      for
         backfillTableName <- nameGenerator.getBackfillTableName
-        prefix <- nameGenerator.getBackfillTablesPrefix
-        targetName <- nameGenerator.getTargetTableFullName
+        prefix            <- nameGenerator.getBackfillTablesPrefix
+        targetName        <- nameGenerator.getTargetTableFullName
       yield DefaultBootstrappedShard(
         shardStream = stream,
         shardSourceEntityName = source,
@@ -70,12 +71,12 @@ final class SynapseBackfillSourceDataProvider(
 object SynapseBackfillSourceDataProvider:
   val layer = ZLayer {
     for
-      dataProvider <- ZIO.service[SynapseLinkReader]
-      stateManager <- ZIO.service[DefaultBackfillStateManager]
-      context      <- ZIO.service[PluginStreamContext]
-      shaper       <- ZIO.service[ThroughputShaperBuilder]
+      dataProvider  <- ZIO.service[SynapseLinkReader]
+      stateManager  <- ZIO.service[DefaultBackfillStateManager]
+      context       <- ZIO.service[PluginStreamContext]
+      shaper        <- ZIO.service[ThroughputShaperBuilder]
       nameGenerator <- ZIO.service[NameGenerator]
-      backfillId   <- context.backfillId
+      backfillId    <- context.backfillId
     yield new SynapseBackfillSourceDataProvider(
       dataProvider = dataProvider,
       backfillSettings = context.streamMode.backfill,

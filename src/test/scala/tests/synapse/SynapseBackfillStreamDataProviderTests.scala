@@ -6,7 +6,11 @@ import models.settings.TableNaming.parts
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
-import services.synapse.backfill.{SynapseBackfillSourceDataProvider, SynapseBackfillStreamDataProvider, SynapseShardFactory}
+import services.synapse.backfill.{
+  SynapseBackfillSourceDataProvider,
+  SynapseBackfillStreamDataProvider,
+  SynapseShardFactory
+}
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
@@ -27,10 +31,14 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
       "streams correct number of shards and rows"
     ) {
       for
-        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.synapse_new_backfill"))
-        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
-          sinkSettings = tableSinkSettings, backfillId = "backfill_new", streamId = "synapse-backfill-stream-data-provider-tests"
-        ))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.synapse_new_backfill"))
+        nameGenerator <- ZIO.succeed(
+          new DefaultNameGenerator(
+            sinkSettings = tableSinkSettings,
+            backfillId = "backfill_new",
+            streamId = "synapse-backfill-stream-data-provider-tests"
+          )
+        )
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
         // shaper requires target table to exist
         _ <- icebergUtilBackfill.prepareWatermark(
@@ -94,10 +102,14 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
       "resumes an interrupted backfill"
     ) {
       for
-        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.synapse_interrupted_backfill"))
-        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
-          sinkSettings = tableSinkSettings, backfillId = "backfill_interrupted", streamId = "synapse-backfill-stream-data-provider-tests"
-        ))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.synapse_interrupted_backfill"))
+        nameGenerator <- ZIO.succeed(
+          new DefaultNameGenerator(
+            sinkSettings = tableSinkSettings,
+            backfillId = "backfill_interrupted",
+            streamId = "synapse-backfill-stream-data-provider-tests"
+          )
+        )
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
         // shaper requires target table to exist
         _ <- icebergUtilBackfill.prepareWatermark(

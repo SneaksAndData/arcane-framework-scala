@@ -44,11 +44,11 @@ final class MsSqlBackfillSourceDataProvider(
     case Some(sources) => ZStream.fromIterable(sources)
   )
     .mapZIO { preparedShardTableName =>
-      for 
-        shardStream <- dataProvider.createShardStream(preparedShardTableName)
-        prefix <- nameGenerator.getBackfillTablesPrefix
+      for
+        shardStream       <- dataProvider.createShardStream(preparedShardTableName)
+        prefix            <- nameGenerator.getBackfillTablesPrefix
         backfillTableName <- nameGenerator.getBackfillTableName
-        targetName <- nameGenerator.getTargetTableFullName
+        targetName        <- nameGenerator.getTargetTableFullName
       yield DefaultBootstrappedShard(
         shardStream = shardStream,
         shardSourceEntityName = preparedShardTableName,
@@ -73,12 +73,12 @@ final class MsSqlBackfillSourceDataProvider(
 object MsSqlBackfillSourceDataProvider:
   val layer = ZLayer {
     for
-      dataProvider <- ZIO.service[MsSqlStreamingSource]
-      stateManager <- ZIO.service[DefaultBackfillStateManager]
-      context      <- ZIO.service[PluginStreamContext]
-      shaper       <- ZIO.service[ThroughputShaperBuilder]
+      dataProvider  <- ZIO.service[MsSqlStreamingSource]
+      stateManager  <- ZIO.service[DefaultBackfillStateManager]
+      context       <- ZIO.service[PluginStreamContext]
+      shaper        <- ZIO.service[ThroughputShaperBuilder]
       nameGenerator <- ZIO.service[NameGenerator]
-      backfillId <- context.backfillId
+      backfillId    <- context.backfillId
     yield new MsSqlBackfillSourceDataProvider(
       dataProvider = dataProvider,
       backfillSettings = context.streamMode.backfill,

@@ -18,38 +18,36 @@ import com.sneaksanddata.arcane.framework.services.naming.NameGenerator
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
-                                 stagingEntityManager: StagingEntityManager,
-                                 sinkEntityManager: SinkEntityManager,
-                                 sinkPropertyManager: SinkPropertyManager,
-                                 streamingSource: StreamingSource,
-                                 nameGenerator: NameGenerator,
-                                 stagingSettings: StagingSettings,
-                                 backfillSettings: BackfillSettings,
-                                 isBackfilling: Boolean,
+    stagingEntityManager: StagingEntityManager,
+    sinkEntityManager: SinkEntityManager,
+    sinkPropertyManager: SinkPropertyManager,
+    streamingSource: StreamingSource,
+    nameGenerator: NameGenerator,
+    stagingSettings: StagingSettings,
+    backfillSettings: BackfillSettings,
+    isBackfilling: Boolean
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
     zlog("Looking for staging tables from previous run, using prefix %s", prefix) *> stagingEntityManager.deleteTables(
       prefix
     )
 
-  override def cleanupOutdatedBackfill: Task[Unit] = for
-    _ <- ZIO.unless(isBackfilling) {
+  override def cleanupOutdatedBackfill: Task[Unit] = for _ <- ZIO.unless(isBackfilling) {
       for
-        _ <- zlog("Looking for outdated backfill tables")
+        _      <- zlog("Looking for outdated backfill tables")
         prefix <- nameGenerator.getBackfillTablesPrefix.map(v => s"${v}__")
-        _ <- stagingEntityManager.deleteTables(prefix)
-        _ <- streamingSource.deleteShards(prefix)
-      yield ()  
+        _      <- stagingEntityManager.deleteTables(prefix)
+        _      <- streamingSource.deleteShards(prefix)
+      yield ()
     }
-  yield ()  
+  yield ()
 
   override def createBackFillTable: Task[Unit] =
-    for
-      _ <- ZIO.when(isBackfilling) {
+    for _ <- ZIO.when(isBackfilling) {
         for
-          schema <- streamingSource.getSchema
+          schema    <- streamingSource.getSchema
           tableName <- nameGenerator.getBackfillTableName
-          _      <- zlog("Creating backfill table %s", tableName)
+          _         <- zlog("Creating backfill table %s", tableName)
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
               name = tableName,
@@ -62,10 +60,10 @@ class DefaultStreamBootstrapper(
     yield ()
 
   override def createTargetTable: Task[Unit] = for
-    schema <- streamingSource.getSchema
+    schema         <- streamingSource.getSchema
     targetFullName <- nameGenerator.getTargetTableFullName
-    targetName <- nameGenerator.getTargetTableName
-    _      <- zlog("Creating target table %s", targetFullName)
+    targetName     <- nameGenerator.getTargetTableName
+    _              <- zlog("Creating target table %s", targetFullName)
     _ <- sinkEntityManager.createTable(
       CreateTableRequest(
         name = targetName,
@@ -94,7 +92,7 @@ object DefaultStreamBootstrapper:
       nameGenerator: NameGenerator,
       stagingSettings: StagingSettings,
       backfillSettings: BackfillSettings,
-      isBackfilling: Boolean,
+      isBackfilling: Boolean
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
     sinkEntityManager = sinkEntityManager,
@@ -103,7 +101,7 @@ object DefaultStreamBootstrapper:
     nameGenerator = nameGenerator,
     stagingSettings = stagingSettings,
     backfillSettings = backfillSettings,
-    isBackfilling = isBackfilling,
+    isBackfilling = isBackfilling
   )
 
   val layer = ZLayer {
@@ -114,7 +112,7 @@ object DefaultStreamBootstrapper:
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
       streamingSource      <- ZIO.service[StreamingSource]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
-      nameGenerator <- ZIO.service[NameGenerator]
+      nameGenerator        <- ZIO.service[NameGenerator]
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
@@ -123,6 +121,6 @@ object DefaultStreamBootstrapper:
       nameGenerator = nameGenerator,
       stagingSettings = context.staging,
       backfillSettings = context.streamMode.backfill,
-      isBackfilling = isBackfilling,
+      isBackfilling = isBackfilling
     )
   }

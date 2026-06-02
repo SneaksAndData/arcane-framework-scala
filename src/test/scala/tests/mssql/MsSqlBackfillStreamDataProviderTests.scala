@@ -82,12 +82,14 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => prepareSourceTable(connection, testTableName)
         )
-        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_new_backfill"))
-        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
-          sinkSettings = tableSinkSettings, 
-          backfillId = backfillId, 
-          streamId = "mssql_backfill_data_provider_tests"
-        ))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_new_backfill"))
+        nameGenerator <- ZIO.succeed(
+          new DefaultNameGenerator(
+            sinkSettings = tableSinkSettings,
+            backfillId = backfillId,
+            streamId = "mssql_backfill_data_provider_tests"
+          )
+        )
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
         // for shaper
@@ -170,12 +172,14 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => prepareSourceTable(connection, testTableName)
         )
-        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_interrupted_backfill"))
-        nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
-          sinkSettings = tableSinkSettings,
-          backfillId = backfillId,
-          streamId = "mssql_backfill_data_provider_tests"
-        ))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_interrupted_backfill"))
+        nameGenerator <- ZIO.succeed(
+          new DefaultNameGenerator(
+            sinkSettings = tableSinkSettings,
+            backfillId = backfillId,
+            streamId = "mssql_backfill_data_provider_tests"
+          )
+        )
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
         // for shaper

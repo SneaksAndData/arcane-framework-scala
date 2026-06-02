@@ -31,7 +31,7 @@ trait BaseStreamContext:
     */
   def backfillId: ZIO[Any, SecurityException, BackfillIdentifier] = zio.System
     .envOrElse("STREAMCONTEXT__BACKFILL_ID", "")
-  
+
   /** Kind of the stream
     */
   def streamKind: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_KIND").map {

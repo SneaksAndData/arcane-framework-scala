@@ -11,28 +11,29 @@ import zio.{Task, ULayer, ZIO, ZLayer}
 /** Backfill shard factory for SynapseLink
   */
 final class SynapseShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
-  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] = for
-    shardTableName <- nameGenerator.getShardTableName(shard)
-  yield DefaultStagedShard(
-    shardSourceEntityName = shard.shardSourceEntityName,
-    combinedTableName = shard.combinedTableName,
-    targetTableName = shard.targetTableName,
-    commitQuery = SynapseLinkShardStageQuery(shardTableName, shard.combinedTableName),
-    backfillId = shard.backfillId
-  ) 
+  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] =
+    for shardTableName <- nameGenerator.getShardTableName(shard)
+    yield DefaultStagedShard(
+      shardSourceEntityName = shard.shardSourceEntityName,
+      combinedTableName = shard.combinedTableName,
+      targetTableName = shard.targetTableName,
+      commitQuery = SynapseLinkShardStageQuery(shardTableName, shard.combinedTableName),
+      backfillId = shard.backfillId
+    )
 
-  override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] = ZIO.succeed(CompletionShard(
-    watermark = watermark,
-    targetTableName = shard.targetTableName,
-    shardSourceEntityName = shard.shardSourceEntityName,
-    combinedTableName = shard.combinedTableName,
-    commitQuery = SynapseLinkShardCommitQuery(shard.targetTableName, shard.combinedTableName),
-    backfillId = shard.backfillId
-  ))
+  override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] = ZIO.succeed(
+    CompletionShard(
+      watermark = watermark,
+      targetTableName = shard.targetTableName,
+      shardSourceEntityName = shard.shardSourceEntityName,
+      combinedTableName = shard.combinedTableName,
+      commitQuery = SynapseLinkShardCommitQuery(shard.targetTableName, shard.combinedTableName),
+      backfillId = shard.backfillId
+    )
+  )
 
 object SynapseShardFactory:
   val layer = ZLayer {
-    for
-      nameGenerator <- ZIO.service[NameGenerator]
-    yield new SynapseShardFactory(nameGenerator)  
+    for nameGenerator <- ZIO.service[NameGenerator]
+    yield new SynapseShardFactory(nameGenerator)
   }

@@ -40,27 +40,33 @@ final class TestBackfillStreamDataProvider(targetName: String, shards: Seq[Boots
     )
 
 final class TestShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
-  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] = nameGenerator.getShardTableName(shard).map(shardTableName => DefaultStagedShard(
-    shard.shardSourceEntityName,
-    shard.combinedTableName,
-    shard.targetTableName,
-    new StreamingBatchQuery {
-      override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shardTableName}"
-    },
-    shard.backfillId
-  ))
+  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] = nameGenerator
+    .getShardTableName(shard)
+    .map(shardTableName =>
+      DefaultStagedShard(
+        shard.shardSourceEntityName,
+        shard.combinedTableName,
+        shard.targetTableName,
+        new StreamingBatchQuery {
+          override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shardTableName}"
+        },
+        shard.backfillId
+      )
+    )
 
-  override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] = ZIO.succeed(CompletionShard(
-    watermark = watermark,
-    targetTableName = shard.targetTableName,
-    shardSourceEntityName = shard.shardSourceEntityName,
-    combinedTableName = shard.combinedTableName,
-    commitQuery = new StreamingBatchQuery {
-      override def query: String =
-        s"CREATE OR REPLACE TABLE ${shard.targetTableName} AS SELECT * FROM ${shard.combinedTableName}"
-    },
-    shard.backfillId
-  ))
+  override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] = ZIO.succeed(
+    CompletionShard(
+      watermark = watermark,
+      targetTableName = shard.targetTableName,
+      shardSourceEntityName = shard.shardSourceEntityName,
+      combinedTableName = shard.combinedTableName,
+      commitQuery = new StreamingBatchQuery {
+        override def query: String =
+          s"CREATE OR REPLACE TABLE ${shard.targetTableName} AS SELECT * FROM ${shard.combinedTableName}"
+      },
+      shard.backfillId
+    )
+  )
 
 object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
   private val streamSchema = ArcaneSchema(
@@ -152,13 +158,17 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
 
   private def runBackfill(targetName: String, backfillId: String) =
     for
-      nameGenerator <- ZIO.succeed(new DefaultNameGenerator(
-        sinkSettings = TestDynamicSinkSettings(targetName), backfillId = backfillId, streamId = "default-backfill-overwrite-graph-builder"
-      ))
+      nameGenerator <- ZIO.succeed(
+        new DefaultNameGenerator(
+          sinkSettings = TestDynamicSinkSettings(targetName),
+          backfillId = backfillId,
+          streamId = "default-backfill-overwrite-graph-builder"
+        )
+      )
       backfillTableName <- nameGenerator.getBackfillTableName
-      shards <- ZIO.succeed(getShards(targetName, backfillTableName, backfillId))
-      shardTableNames <- ZStream.fromIterable(shards).mapZIO(nameGenerator.getShardTableName).runCollect.map(_.toList)
-      writer <- ZIO.service[IcebergS3CatalogWriter]
+      shards            <- ZIO.succeed(getShards(targetName, backfillTableName, backfillId))
+      shardTableNames   <- ZStream.fromIterable(shards).mapZIO(nameGenerator.getShardTableName).runCollect.map(_.toList)
+      writer            <- ZIO.service[IcebergS3CatalogWriter]
       mergeService <- ZIO.succeed(
         new JdbcMergeServiceClient(
           TestJdbcMergeServiceClientSettings,

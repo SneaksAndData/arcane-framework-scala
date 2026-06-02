@@ -10,16 +10,18 @@ import models.sharding.SourceShard
 import zio.{Task, ZIO, ZLayer}
 
 final class DefaultNameGenerator(
-                                sinkSettings: SinkSettings,
-                                backfillId: BackfillIdentifier,
-                                streamId: StreamIdentifier,
-                                ) extends NameGenerator:
-  private val nameSafeStreamId = streamId.replace("-", "_")
+    sinkSettings: SinkSettings,
+    backfillId: BackfillIdentifier,
+    streamId: StreamIdentifier
+) extends NameGenerator:
+  private val nameSafeStreamId   = streamId.replace("-", "_")
   private val nameSafeBackfillId = backfillId.replace("-", "_")
-  
+
   override def getBackfillTableName: Task[String] = for
     prefix <- getBackfillTablesPrefix
-    name <- ZIO.when(backfillId.isValid)(ZIO.succeed(s"${prefix}__$backfillId")).flatMap(ZIO.getOrFailWith(new Throwable(s"Invalid backfillId: '$backfillId'")))
+    name <- ZIO
+      .when(backfillId.isValid)(ZIO.succeed(s"${prefix}__$backfillId"))
+      .flatMap(ZIO.getOrFailWith(new Throwable(s"Invalid backfillId: '$backfillId'")))
   yield name
 
   override def getBackfillTablesPrefix: Task[String] = ZIO.succeed(s"backfill__$streamId")
@@ -27,10 +29,12 @@ final class DefaultNameGenerator(
   override def getTargetTableName: Task[String] = ZIO.succeed(sinkSettings.targetTableFullName.parts.name)
 
   override def getTargetTableFullName: Task[String] = ZIO.succeed(sinkSettings.targetTableFullName)
-  
+
   override def getShardTableName(shard: SourceShard): Task[String] = for
     prefix <- getBackfillTablesPrefix
-    _ <- ZIO.when(shard.backfillId != backfillId)(ZIO.fail(new Throwable(s"Shard carries an unknown backfill identifier: ${shard.backfillId}")))
+    _ <- ZIO.when(shard.backfillId != backfillId)(
+      ZIO.fail(new Throwable(s"Shard carries an unknown backfill identifier: ${shard.backfillId}"))
+    )
     _ <- ZIO.unless(backfillId.isValid)(ZIO.fail(new Throwable(s"Invalid backfillId: '$backfillId'")))
   yield Seq(
     prefix,
@@ -40,12 +44,12 @@ final class DefaultNameGenerator(
   ).mkString("__")
 
   override def getStagingTableName: Task[String] = ???
-  
+
 object DefaultNameGenerator:
   val layer = ZLayer {
     for
-      context <- ZIO.service[PluginStreamContext]
-      streamId <- context.streamId
+      context    <- ZIO.service[PluginStreamContext]
+      streamId   <- context.streamId
       backfillId <- context.backfillId
     yield new DefaultNameGenerator(context.sink, backfillId, streamId)
   }
