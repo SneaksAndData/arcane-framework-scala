@@ -2,40 +2,23 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import models.*
-import models.schemas.{
-  ArcaneSchema,
-  ArcaneType,
-  DataCell,
-  IndexedField,
-  IndexedMergeKeyField,
-  MergeKeyField,
-  given_CanAdd_ArcaneSchema
-}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.schemas.ArcaneType.StringType
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient, SchemaProvider, StreamingSource}
 import services.filters.FieldsFilteringService
-import services.iceberg.{
-  IcebergEntityManager,
-  IcebergS3CatalogWriter,
-  IcebergStagingEntityManager,
-  IcebergTablePropertyManager
-}
+import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergStagingEntityManager, IcebergTablePropertyManager}
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
 import services.streaming.base.StreamDataProvider
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
 import services.streaming.graph.DefaultStreamingGraphBuilder
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import org.easymock.EasyMock
 import org.easymock.EasyMock.{replay, verify}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -119,7 +102,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,
       IcebergTablePropertyManager.stagingLayer,
-      DefaultStreamBootstrapper.layer
+      DefaultStreamBootstrapper.layer,
+      DefaultNameGenerator.layer,
     )
 
     // Act
