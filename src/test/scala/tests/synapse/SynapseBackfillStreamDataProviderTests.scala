@@ -53,7 +53,8 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             stagingEntityManager,
             stagingPropertyManager,
             new SynapseShardFactory(nameGenerator),
-            nameGenerator
+            nameGenerator,
+            DeclaredMetrics()
           )
         )
         shaperBuilder <- ZIO.succeed(
@@ -124,7 +125,8 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             stagingEntityManager,
             stagingPropertyManager,
             new SynapseShardFactory(nameGenerator),
-            nameGenerator
+            nameGenerator,
+            DeclaredMetrics()
           )
         )
         shaperBuilder <- ZIO.succeed(

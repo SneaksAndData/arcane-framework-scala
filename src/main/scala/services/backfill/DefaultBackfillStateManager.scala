@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
-import models.app.PluginStreamContext
 import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
@@ -9,6 +8,7 @@ import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.metrics.DeclaredMetrics
 import services.naming.NameGenerator
 
 import zio.{Task, ZIO, ZLayer}
@@ -17,7 +17,8 @@ class DefaultBackfillStateManager(
     stagingEntityManager: StagingEntityManager,
     stagingPropertyManager: StagingPropertyManager,
     shardFactory: ShardFactory,
-    nameGenerator: NameGenerator
+    nameGenerator: NameGenerator,
+    declaredMetrics: DeclaredMetrics
 ) extends BackfillStateManager:
   override type StateImpl = DefaultSourceBackfill
 
@@ -44,14 +45,20 @@ class DefaultBackfillStateManager(
           stagingPropertyManager
             .setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
         )
-        .map(_ => completionShard)
+        .flatMap { _ =>
+          for _ <- ZIO.succeed(1) @@ declaredMetrics.backfillCombinedShards
+          yield completionShard
+        }
     }
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
     nameGenerator.getShardTableName(shard).flatMap { shardTableName =>
       stagingPropertyManager
         .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.STAGED.toString)
-        .map(_ => shard)
+        .flatMap { _ =>
+          for _ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
+          yield shard
+        }
     }
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
@@ -89,10 +96,12 @@ object DefaultBackfillStateManager:
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       shardFactory           <- ZIO.service[ShardFactory]
       nameGenerator          <- ZIO.service[NameGenerator]
+      declaredMetrics        <- ZIO.service[DeclaredMetrics]
     yield new DefaultBackfillStateManager(
       stagingEntityManager = stagingEntityManager,
       stagingPropertyManager = stagingPropertyManager,
       shardFactory = shardFactory,
-      nameGenerator = nameGenerator
+      nameGenerator = nameGenerator,
+      declaredMetrics = declaredMetrics
     )
   }
