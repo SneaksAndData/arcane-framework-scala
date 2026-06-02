@@ -126,7 +126,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
           .rechunk(1)
           .via(stagingProcessor.process(testSchema))
           .run(ZSink.collectAll)
-      } yield assertTrue(result.size == 2 && result.head.name.startsWith("staging_table__"))
+      } yield assertTrue(result.size == 2 && result.head.name.startsWith("stream__staging_processor_tests__stage"))
     }
   ).provide(
     IcebergEntityManager.stagingLayer,
