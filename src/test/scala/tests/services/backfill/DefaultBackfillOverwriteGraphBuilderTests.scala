@@ -4,7 +4,6 @@ package tests.services.backfill
 import models.queries.StreamingBatchQuery
 import models.schemas.*
 import models.schemas.ArcaneType.{IntType, StringType}
-import models.settings.TableNaming.getBackfillTableName
 import models.sharding.*
 import services.backfill.DefaultBackfillStateManager
 import services.backfill.base.{BackfillStreamDataProvider, ShardFactory, ShardProcessingState}
