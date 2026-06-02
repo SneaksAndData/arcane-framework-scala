@@ -20,11 +20,11 @@ final class DefaultNameGenerator(
   override def getBackfillTableName: Task[String] = for
     prefix <- getBackfillTablesPrefix
     name <- ZIO
-      .when(backfillId.isValid)(ZIO.succeed(s"${prefix}__$backfillId"))
-      .flatMap(ZIO.getOrFailWith(new Throwable(s"Invalid backfillId: '$backfillId'")))
+      .when(backfillId.isValid)(ZIO.succeed(s"${prefix}__$nameSafeBackfillId"))
+      .flatMap(ZIO.getOrFailWith(new Throwable(s"Invalid backfillId: '$nameSafeBackfillId'")))
   yield name
 
-  override def getBackfillTablesPrefix: Task[String] = ZIO.succeed(s"backfill__$streamId")
+  override def getBackfillTablesPrefix: Task[String] = ZIO.succeed(s"backfill__$nameSafeStreamId")
 
   override def getTargetTableName: Task[String] = ZIO.succeed(sinkSettings.targetTableFullName.parts.name)
 
@@ -38,7 +38,7 @@ final class DefaultNameGenerator(
     _ <- ZIO.unless(backfillId.isValid)(ZIO.fail(new Throwable(s"Invalid backfillId: '$backfillId'")))
   yield Seq(
     prefix,
-    backfillId,
+    nameSafeBackfillId,
     "shard",
     shard.shardId
   ).mkString("__")

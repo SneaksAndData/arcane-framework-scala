@@ -285,7 +285,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         // update shard1 table back to Staged
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
         _ <- stagingPropertyManager.setProperty(
-          "backfill_shard__test_interrupted__shard1",
+          shardTableNames.head,
           "processing-state",
           ShardProcessingState.STAGED.toString
         )
