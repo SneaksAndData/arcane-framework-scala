@@ -111,7 +111,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
             stagingEntityManager,
             stagingPropertyManager,
             new MsSqlShardFactory(nameGenerator),
-            nameGenerator
+            nameGenerator,
+            DeclaredMetrics()
           )
         )
         shaperBuilder <- ZIO.succeed(
@@ -201,7 +202,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
             stagingEntityManager,
             stagingPropertyManager,
             new MsSqlShardFactory(nameGenerator),
-            nameGenerator
+            nameGenerator,
+            DeclaredMetrics()
           )
         )
         shaperBuilder <- ZIO.succeed(
