@@ -11,10 +11,6 @@ import java.util.UUID
   */
 trait StagingTableSettings:
 
-  /** The prefix for the staging table name
-    */
-  val stagingTablePrefix: String
-
   /** The name of the catalog where the staging table is located
     */
   val stagingCatalogName: String
@@ -31,15 +27,7 @@ trait StagingTableSettings:
     */
   val maxRowsPerFile: Option[Int]
 
-  /** Creates a name for the staging table
-    */
-  def newStagingTableName: String =
-    val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
-    val id                           = UUID.randomUUID().toString
-    s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$id".replace('-', '_')
-
 case class DefaultStagingTableSettings(
-    override val stagingTablePrefix: String,
     override val maxRowsPerFile: Option[Int],
     override val stagingCatalogName: String,
     override val stagingSchemaName: String,

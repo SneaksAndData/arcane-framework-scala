@@ -9,6 +9,8 @@ import models.sharding.SourceShard
 
 import zio.{Task, ZIO, ZLayer}
 
+import java.util.UUID
+
 final class DefaultNameGenerator(
     sinkSettings: SinkSettings,
     backfillId: BackfillIdentifier,
@@ -43,7 +45,12 @@ final class DefaultNameGenerator(
     shard.shardId
   ).mkString("__")
 
-  override def getStagingTableName: Task[String] = ???
+  override def getStagingTablePrefix: Task[String] = ZIO.succeed(s"stream__${nameSafeStreamId}__stage")
+
+  override def getStagingTableName: Task[String] = for
+    tableId <- ZIO.succeed(UUID.randomUUID().toString.replace("-", "_"))
+    prefix  <- getStagingTablePrefix
+  yield s"${prefix}__$tableId"
 
 object DefaultNameGenerator:
   val layer = ZLayer {

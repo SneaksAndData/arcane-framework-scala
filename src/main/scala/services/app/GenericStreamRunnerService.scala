@@ -24,7 +24,6 @@ import scala.collection.SortedMap
 class GenericStreamRunnerService(
     builder: StreamingGraphBuilder,
     lifetimeService: StreamLifetimeService,
-    stagingDataSettings: StagingTableSettings,
     bootstrapper: StreamBootstrapper,
     tagProvider: MetricTagProvider
 ) extends StreamRunnerService:
@@ -41,9 +40,7 @@ class GenericStreamRunnerService(
       .flatMap(tags =>
         (for
           _ <- zlog("Starting the stream runner")
-          _ <- bootstrapper.cleanupStagingTables(
-            stagingDataSettings.stagingTablePrefix
-          )
+          _ <- bootstrapper.cleanupStagingTables
           _ <- bootstrapper.cleanupOutdatedBackfill
 
           _ <- bootstrapper.createTargetTable
@@ -67,8 +64,7 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & PluginStreamContext & StreamBootstrapper &
-    MetricTagProvider
+  type Environment = StreamLifetimeService & StreamingGraphBuilder & StreamBootstrapper & MetricTagProvider
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
@@ -82,14 +78,12 @@ object GenericStreamRunnerService:
   def apply(
       builder: StreamingGraphBuilder,
       lifetimeService: StreamLifetimeService,
-      stagingDataSettings: StagingTableSettings,
       bootstrapper: StreamBootstrapper,
       tagProvider: MetricTagProvider
   ): GenericStreamRunnerService =
     new GenericStreamRunnerService(
       builder,
       lifetimeService,
-      stagingDataSettings,
       bootstrapper,
       tagProvider
     )
@@ -101,13 +95,11 @@ object GenericStreamRunnerService:
       for
         lifetimeService <- ZIO.service[StreamLifetimeService]
         builder         <- ZIO.service[StreamingGraphBuilder]
-        context         <- ZIO.service[PluginStreamContext]
         bootstrapper    <- ZIO.service[StreamBootstrapper]
         tagProvider     <- ZIO.service[MetricTagProvider]
       yield GenericStreamRunnerService(
         builder,
         lifetimeService,
-        context.staging.table,
         bootstrapper,
         tagProvider
       )
