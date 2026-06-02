@@ -4,9 +4,8 @@ package services.bootstrap.base
 import zio.Task
 
 trait StreamBootstrapper:
-  /** Cleans up streaming staging tables left after previous run. This method is used to ensure that the
-    * staging tables are cleaned up after the streaming job restart.
-    *.
+  /** Cleans up streaming staging tables left after previous run. This method is used to ensure that the staging tables
+    * are cleaned up after the streaming job restart. .
     */
   def cleanupStagingTables: Task[Unit]
 

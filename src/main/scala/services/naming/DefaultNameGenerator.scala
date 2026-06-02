@@ -49,7 +49,7 @@ final class DefaultNameGenerator(
 
   override def getStagingTableName: Task[String] = for
     tableId <- ZIO.succeed(UUID.randomUUID().toString.replace("-", "_"))
-    prefix <- getStagingTablePrefix
+    prefix  <- getStagingTablePrefix
   yield s"${prefix}__$tableId"
 
 object DefaultNameGenerator:

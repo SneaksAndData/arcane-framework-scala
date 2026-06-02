@@ -5,41 +5,33 @@ import models.sharding.SourceShard
 
 import zio.Task
 
-/**
- * Table name generator that ensures all names are bound to stream identifier
- */
+/** Table name generator that ensures all names are bound to stream identifier
+  */
 trait NameGenerator:
-  /**
-   * Generate name for a new staging table (streaming)
-   */
+  /** Generate name for a new staging table (streaming)
+    */
   def getStagingTableName: Task[String]
 
-  /**
-   * Get prefix used for all staging tables (streaming)
-   */
+  /** Get prefix used for all staging tables (streaming)
+    */
   def getStagingTablePrefix: Task[String]
 
-  /**
-   * Generate name for a new backfill table (overwrite and merge)
-   */
+  /** Generate name for a new backfill table (overwrite and merge)
+    */
   def getBackfillTableName: Task[String]
 
-  /**
-   * Get prefix used for all staging tables (backfill)
-   */
+  /** Get prefix used for all staging tables (backfill)
+    */
   def getBackfillTablesPrefix: Task[String]
 
-  /**
-   * Generate name for the provided backfill source shard
-   */
+  /** Generate name for the provided backfill source shard
+    */
   def getShardTableName(shard: SourceShard): Task[String]
 
-  /**
-   * Generate target name (proxied from SinkSettings).
-   */
+  /** Generate target name (proxied from SinkSettings).
+    */
   def getTargetTableName: Task[String]
 
-  /**
-   * Generate target name for JDBC client.
-   */
+  /** Generate target name for JDBC client.
+    */
   def getTargetTableFullName: Task[String]

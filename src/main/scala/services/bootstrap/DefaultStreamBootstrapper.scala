@@ -24,8 +24,8 @@ class DefaultStreamBootstrapper(
 ) extends StreamBootstrapper:
   override def cleanupStagingTables: Task[Unit] = for
     prefix <- nameGenerator.getStagingTablePrefix
-    _ <- zlog("Looking for staging tables from previous run, using prefix %s", prefix)
-    _ <- stagingEntityManager.deleteTables(prefix)
+    _      <- zlog("Looking for staging tables from previous run, using prefix %s", prefix)
+    _      <- stagingEntityManager.deleteTables(prefix)
   yield ()
 
   override def cleanupOutdatedBackfill: Task[Unit] = for _ <- ZIO.unless(isBackfilling) {

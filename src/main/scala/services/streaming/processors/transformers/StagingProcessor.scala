@@ -130,7 +130,7 @@ object StagingProcessor:
         catalogWriter      <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         stagedBatchFactory <- ZIO.service[StagedBatchFactory]
         declaredMetrics    <- ZIO.service[DeclaredMetrics]
-        nameGenerator <- ZIO.service[NameGenerator]
+        nameGenerator      <- ZIO.service[NameGenerator]
       yield StagingProcessor(
         context.sink.targetTableFullName,
         context.staging.icebergCatalog,
