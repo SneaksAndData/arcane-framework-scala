@@ -18,6 +18,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.{ZSink, ZStream}
@@ -50,13 +51,20 @@ object StagingProcessorTests extends ZIOSpecDefault:
   )
   private val getProcessor = for {
     catalogWriterService <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+    nameGenerator <- ZIO.succeed(
+      new DefaultNameGenerator(
+        sinkSettings = TestSinkSettings,
+        backfillId = "",
+        streamId = "staging-processor-tests"
+      )
+    )
     stagingProcessor = StagingProcessor(
-      TestStagingTableSettings,
       TestSinkSettings.targetTableFullName,
       TestIcebergStagingSettings,
       catalogWriterService,
       new TestStagedBatchFactory(),
-      DeclaredMetrics()
+      DeclaredMetrics(),
+      nameGenerator
     )
   } yield stagingProcessor
 
