@@ -1,8 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.settings.StreamIdentifier
-
 import zio.Task
 import zio.stream.ZStream
 

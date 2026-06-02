@@ -4,16 +4,12 @@ package services.bootstrap
 import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
-import models.settings.StreamIdentifier
-import models.settings.TableNaming.*
-import models.settings.backfill.BackfillSettings
-import models.settings.sink.SinkSettings
 import models.settings.staging.StagingSettings
 import services.base.StreamingSource
 import services.bootstrap.base.StreamBootstrapper
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager}
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
-import com.sneaksanddata.arcane.framework.services.naming.NameGenerator
+import services.naming.NameGenerator
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -24,7 +20,6 @@ class DefaultStreamBootstrapper(
     streamingSource: StreamingSource,
     nameGenerator: NameGenerator,
     stagingSettings: StagingSettings,
-    backfillSettings: BackfillSettings,
     isBackfilling: Boolean
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
@@ -91,7 +86,6 @@ object DefaultStreamBootstrapper:
       streamingSource: StreamingSource,
       nameGenerator: NameGenerator,
       stagingSettings: StagingSettings,
-      backfillSettings: BackfillSettings,
       isBackfilling: Boolean
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
@@ -100,7 +94,6 @@ object DefaultStreamBootstrapper:
     streamingSource = streamingSource,
     nameGenerator = nameGenerator,
     stagingSettings = stagingSettings,
-    backfillSettings = backfillSettings,
     isBackfilling = isBackfilling
   )
 
@@ -120,7 +113,6 @@ object DefaultStreamBootstrapper:
       streamingSource = streamingSource,
       nameGenerator = nameGenerator,
       stagingSettings = context.staging,
-      backfillSettings = context.streamMode.backfill,
       isBackfilling = isBackfilling
     )
   }

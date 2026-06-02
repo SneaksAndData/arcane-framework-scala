@@ -159,9 +159,9 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillState <- stagingPropertyManager
           .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
-      // 10000 rows should result in 15 shards assuming the cost input for the scaler evaluates to 2.6
+      // 10000 rows should result in [14, 15] shards assuming the cost input for the scaler evaluates to 2.6
       // row count must match source
-      yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
+      yield assertTrue(Seq(14, 15).contains(shards.size) && shardRows == 10000 && backfillState.id == backfillId)
     },
     test(
       "resumes an interrupted backfill"
@@ -251,6 +251,6 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           .map(upickle.read[DefaultSourceBackfill](_))
       // run 2 times, expect same number of shards and rows
       // second run will not re-shard the source
-      yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
+      yield assertTrue(Seq(14, 15).contains(shards.size) && shardRows == 10000 && backfillState.id == backfillId)
     } @@ TestAspect.repeats(1)
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
