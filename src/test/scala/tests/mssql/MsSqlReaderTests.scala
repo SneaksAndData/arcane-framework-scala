@@ -8,7 +8,7 @@ import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
-import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlStreamingSource, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.*
@@ -92,7 +92,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("columns_query_test", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -118,7 +118,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("schema_query_test", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -149,7 +149,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("backfill_query", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -192,7 +192,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("field_selection_rule", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -232,7 +232,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             ZIO.attemptBlocking(createTable("field_selection_rule_no_pk", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -264,7 +264,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("field_selection_rule_pk", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -288,7 +288,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
           connection => ZIO.attemptBlocking(createTable("extracts_schema_columns", connection, fieldString, pkString))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -330,7 +330,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_rows"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -355,7 +355,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_columns"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -386,7 +386,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "backfill_columns_filtered"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -414,7 +414,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_rows"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -463,7 +463,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_rows_filtered"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -511,7 +511,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_columns"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -544,7 +544,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, "get_changes_deletes"))
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"

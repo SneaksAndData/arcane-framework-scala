@@ -3,7 +3,7 @@ package services.mssql
 
 import models.schemas.MergeKeyField
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlReader}
+import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlStreamingSource}
 
 import zio.{Task, ZIO}
 
@@ -23,7 +23,7 @@ object QueryProvider:
     * @return
     *   A future containing the schema query for the Microsoft SQL Server database.
     */
-  extension (reader: MsSqlReader)
+  extension (reader: MsSqlStreamingSource)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries(
@@ -52,7 +52,7 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (reader: MsSqlReader)
+  extension (reader: MsSqlStreamingSource)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries(
@@ -79,7 +79,7 @@ object QueryProvider:
     * @return
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
-  extension (reader: MsSqlReader)
+  extension (reader: MsSqlStreamingSource)
     def getBackfillQuery(shardSchemaName: String, shardTableName: String): Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, shardTableName)
@@ -118,6 +118,16 @@ object QueryProvider:
           .replace("{table}", tableName)
       yield query
     }
+
+  def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery =
+    s"""SELECT 
+       |  t.name
+       |FROM 
+       |    sys.tables t
+       |INNER JOIN 
+       |    sys.schemas s ON t.schema_id = s.schema_id and s.name = '$schemaName'
+       |WHERE 
+       |    t.name LIKE '$tablePrefix%'""".stripMargin
 
   def getCreatePrimaryKeyQuery(
       shardSchemaName: String,
@@ -192,8 +202,6 @@ object QueryProvider:
     s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
 
   /** Retrieve commit time associated with the provided version
-    * @param version
-    * @return
     */
   def getVersionCommitTime(version: Long): MsSqlQuery =
     s"SELECT MIN(commit_time) FROM sys.dm_tran_commit_table WHERE commit_ts = $version"

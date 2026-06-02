@@ -4,16 +4,12 @@ package services.bootstrap
 import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
-import models.schemas.ArcaneSchema
-import models.settings.TableNaming.*
-import models.settings.backfill.BackfillBehavior.Overwrite
-import models.settings.backfill.BackfillSettings
-import models.settings.sink.SinkSettings
 import models.settings.staging.StagingSettings
-import services.base.SchemaProvider
+import services.base.StreamingSource
 import services.bootstrap.base.StreamBootstrapper
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager}
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
+import services.naming.NameGenerator
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -21,26 +17,35 @@ class DefaultStreamBootstrapper(
     stagingEntityManager: StagingEntityManager,
     sinkEntityManager: SinkEntityManager,
     sinkPropertyManager: SinkPropertyManager,
-    schemaProvider: SchemaProvider[ArcaneSchema],
-    sinkSettings: SinkSettings,
+    streamingSource: StreamingSource,
+    nameGenerator: NameGenerator,
     stagingSettings: StagingSettings,
-    backfillSettings: BackfillSettings,
-    isBackfilling: Boolean,
-    backfillId: Option[String]
+    isBackfilling: Boolean
 ) extends StreamBootstrapper:
   override def cleanupStagingTables(prefix: String): Task[Unit] =
     zlog("Looking for staging tables from previous run, using prefix %s", prefix) *> stagingEntityManager.deleteTables(
       prefix
     )
 
+  override def cleanupOutdatedBackfill: Task[Unit] = for _ <- ZIO.unless(isBackfilling) {
+      for
+        _      <- zlog("Looking for outdated backfill tables")
+        prefix <- nameGenerator.getBackfillTablesPrefix.map(v => s"${v}__")
+        _      <- stagingEntityManager.deleteTables(prefix)
+        _      <- streamingSource.deleteShards(prefix)
+      yield ()
+    }
+  yield ()
+
   override def createBackFillTable: Task[Unit] =
-    for _ <- ZIO.when(isBackfilling && backfillId.isDefined) {
+    for _ <- ZIO.when(isBackfilling) {
         for
-          schema <- schemaProvider.getSchema
-          _      <- zlog("Creating backfill table %s", getBackfillTableName(backfillId.get))
+          schema    <- streamingSource.getSchema
+          tableName <- nameGenerator.getBackfillTableName
+          _         <- zlog("Creating backfill table %s", tableName)
           _ <- stagingEntityManager.createTable(
             CreateTableRequest(
-              name = getBackfillTableName(backfillId.get),
+              name = tableName,
               schema = schema,
               replace = false
             )
@@ -50,11 +55,13 @@ class DefaultStreamBootstrapper(
     yield ()
 
   override def createTargetTable: Task[Unit] = for
-    schema <- schemaProvider.getSchema
-    _      <- zlog("Creating target table %s", sinkSettings.targetTableFullName)
+    schema         <- streamingSource.getSchema
+    targetFullName <- nameGenerator.getTargetTableFullName
+    targetName     <- nameGenerator.getTargetTableName
+    _              <- zlog("Creating target table %s", targetFullName)
     _ <- sinkEntityManager.createTable(
       CreateTableRequest(
-        name = sinkSettings.targetTableFullName.parts.name,
+        name = targetName,
         schema = schema,
         replace = false
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
@@ -63,10 +70,10 @@ class DefaultStreamBootstrapper(
     // pre-migrate sources with unified schema and skip migration of each staged batch
     _ <- ZIO.when(stagingSettings.table.isUnifiedSchema) {
       for
-        targetSchema <- sinkPropertyManager.getTableSchema(sinkSettings.targetTableFullName.parts.name)
+        targetSchema <- sinkPropertyManager.getTableSchema(targetName)
         // note that if a table was not created by Arcane, this will lead to merge failure later on, as we assume target schema has MergeKeyField
         // in case when a target was not created by Arcane, it should be dropped and re-created by the bootstrapper
-        _ <- sinkEntityManager.migrateSchema(targetSchema, schema, sinkSettings.targetTableFullName.parts.name)
+        _ <- sinkEntityManager.migrateSchema(targetSchema, schema, targetName)
       yield ()
     }
   yield ()
@@ -76,22 +83,18 @@ object DefaultStreamBootstrapper:
       stagingEntityManager: StagingEntityManager,
       sinkEntityManager: SinkEntityManager,
       sinkPropertyManager: SinkPropertyManager,
-      schemaProvider: SchemaProvider[ArcaneSchema],
-      sinkSettings: SinkSettings,
+      streamingSource: StreamingSource,
+      nameGenerator: NameGenerator,
       stagingSettings: StagingSettings,
-      backfillSettings: BackfillSettings,
-      isBackfilling: Boolean,
-      backfillId: Option[String]
+      isBackfilling: Boolean
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
     sinkEntityManager = sinkEntityManager,
     sinkPropertyManager = sinkPropertyManager,
-    schemaProvider = schemaProvider,
-    sinkSettings = sinkSettings,
+    streamingSource = streamingSource,
+    nameGenerator = nameGenerator,
     stagingSettings = stagingSettings,
-    backfillSettings = backfillSettings,
-    isBackfilling = isBackfilling,
-    backfillId = backfillId
+    isBackfilling = isBackfilling
   )
 
   val layer = ZLayer {
@@ -100,18 +103,16 @@ object DefaultStreamBootstrapper:
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       sinkEntityManager    <- ZIO.service[SinkEntityManager]
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
-      schemaProvider       <- ZIO.service[SchemaProvider[ArcaneSchema]]
+      streamingSource      <- ZIO.service[StreamingSource]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
-      backfillId           <- ZIO.when(isBackfilling)(context.backfillId)
+      nameGenerator        <- ZIO.service[NameGenerator]
     yield DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
       sinkPropertyManager = sinkPropertyManager,
-      schemaProvider = schemaProvider,
-      sinkSettings = context.sink,
+      streamingSource = streamingSource,
+      nameGenerator = nameGenerator,
       stagingSettings = context.staging,
-      backfillSettings = context.streamMode.backfill,
-      isBackfilling = isBackfilling,
-      backfillId = backfillId
+      isBackfilling = isBackfilling
     )
   }

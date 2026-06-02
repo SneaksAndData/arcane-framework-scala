@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.synapse.backfill
 
 import models.app.PluginStreamContext
-import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillSettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
 import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager}
+import services.naming.NameGenerator
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.base.SynapseLinkReader
 import services.synapse.versioning.SynapseWatermark
@@ -22,15 +22,14 @@ import java.time.OffsetDateTime
 final class SynapseBackfillSourceDataProvider(
     dataProvider: SynapseLinkReader,
     backfillSettings: BackfillSettings,
-    sinkSettings: SinkSettings,
     stateManager: DefaultBackfillStateManager,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,
+    nameGenerator: NameGenerator,
     backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
-      sinkSettings,
       throughputShaperBuilder,
       sourceBufferingSettings,
       stateManager
@@ -46,12 +45,16 @@ final class SynapseBackfillSourceDataProvider(
         .getData(backfillStart, backfillEnd)
     case Some(sources) => dataProvider.getData(sources)
   )
-    .map { case (stream, source) =>
-      DefaultBootstrappedShard(
+    .mapZIO { case (stream, source) =>
+      for
+        backfillTableName <- nameGenerator.getBackfillTableName
+        prefix            <- nameGenerator.getBackfillTablesPrefix
+        targetName        <- nameGenerator.getTargetTableFullName
+      yield DefaultBootstrappedShard(
         shardStream = stream,
         shardSourceEntityName = source,
-        combinedTableName = getBackfillTableName(backfillId),
-        targetTableName = sinkSettings.targetTableFullName,
+        combinedTableName = backfillTableName,
+        targetTableName = targetName,
         backfillId = backfillId
       )
     }
@@ -68,18 +71,19 @@ final class SynapseBackfillSourceDataProvider(
 object SynapseBackfillSourceDataProvider:
   val layer = ZLayer {
     for
-      dataProvider <- ZIO.service[SynapseLinkReader]
-      stateManager <- ZIO.service[DefaultBackfillStateManager]
-      context      <- ZIO.service[PluginStreamContext]
-      shaper       <- ZIO.service[ThroughputShaperBuilder]
-      backfillId   <- context.backfillId
+      dataProvider  <- ZIO.service[SynapseLinkReader]
+      stateManager  <- ZIO.service[DefaultBackfillStateManager]
+      context       <- ZIO.service[PluginStreamContext]
+      shaper        <- ZIO.service[ThroughputShaperBuilder]
+      nameGenerator <- ZIO.service[NameGenerator]
+      backfillId    <- context.backfillId
     yield new SynapseBackfillSourceDataProvider(
       dataProvider = dataProvider,
       backfillSettings = context.streamMode.backfill,
-      sinkSettings = context.sink,
       stateManager = stateManager,
       backfillId = backfillId,
       throughputShaperBuilder = shaper,
-      sourceBufferingSettings = context.source.buffering
+      sourceBufferingSettings = context.source.buffering,
+      nameGenerator = nameGenerator
     )
   }

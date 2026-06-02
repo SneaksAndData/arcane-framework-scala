@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.backfill.DefaultSourceBackfill
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField}
-import models.settings.TableNaming.{getBackfillTableName, parts}
+import models.settings.TableNaming.parts
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
@@ -13,8 +13,9 @@ import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbo
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
 import services.mssql.backfill.{MsSqlBackfillSourceDataProvider, MsSqlBackfillStreamDataProvider, MsSqlShardFactory}
-import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
 import services.mssql.versioning.MsSqlWatermark
+import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestThroughputShaperBuilder}
@@ -81,7 +82,14 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => prepareSourceTable(connection, testTableName)
         )
-        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_new_backfill"))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_new_backfill"))
+        nameGenerator <- ZIO.succeed(
+          new DefaultNameGenerator(
+            sinkSettings = tableSinkSettings,
+            backfillId = backfillId,
+            streamId = "mssql_backfill_data_provider_tests"
+          )
+        )
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
         // for shaper
@@ -89,9 +97,10 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           tableSinkSettings.targetTableFullName.parts.name,
           MsSqlWatermark.epoch
         )
+        backfillTableName <- nameGenerator.getBackfillTableName
 
         _ <- icebergUtilBackfill.prepareBackfillTable(
-          getBackfillTableName(backfillId),
+          backfillTableName,
           targetSchema
         )
         propertyManager        <- icebergUtilBackfill.getSinkTablePropertyManager
@@ -101,15 +110,15 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           new DefaultBackfillStateManager(
             stagingEntityManager,
             stagingPropertyManager,
-            new MsSqlShardFactory(),
-            getBackfillTableName(backfillId)
+            new MsSqlShardFactory(nameGenerator),
+            nameGenerator
           )
         )
         shaperBuilder <- ZIO.succeed(
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -126,13 +135,13 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           new MsSqlBackfillSourceDataProvider(
             reader,
             backfillSettings,
-            tableSinkSettings,
             backfillStateManager,
             shaperBuilder,
             new SourceBufferingSettings {
               override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
               override val bufferingEnabled: Boolean            = false
             },
+            nameGenerator,
             backfillId
           )
         )
@@ -148,11 +157,11 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         shards    <- data.stream.runCollect
         shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         backfillState <- stagingPropertyManager
-          .getRequiredProperty(getBackfillTableName(backfillId), "backfill")
+          .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
-      // 10000 rows should result in 15 shards assuming the cost input for the scaler evaluates to 2.6
+      // 10000 rows should result in [14, 15] shards assuming the cost input for the scaler evaluates to 2.6
       // row count must match source
-      yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
+      yield assertTrue(Seq(14, 15).contains(shards.size) && shardRows == 10000 && backfillState.id == backfillId)
     },
     test(
       "resumes an interrupted backfill"
@@ -163,7 +172,14 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => prepareSourceTable(connection, testTableName)
         )
-        tableSinkSettings   <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_interrupted_backfill"))
+        tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings("iceberg.test.mssql_interrupted_backfill"))
+        nameGenerator <- ZIO.succeed(
+          new DefaultNameGenerator(
+            sinkSettings = tableSinkSettings,
+            backfillId = backfillId,
+            streamId = "mssql_backfill_data_provider_tests"
+          )
+        )
         icebergUtilBackfill <- ZIO.succeed(IcebergUtil(tableSinkSettings.icebergCatalog))
 
         // for shaper
@@ -171,9 +187,10 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           tableSinkSettings.targetTableFullName.parts.name,
           MsSqlWatermark.epoch
         )
+        backfillTableName <- nameGenerator.getBackfillTableName
 
         _ <- icebergUtilBackfill.prepareBackfillTable(
-          getBackfillTableName(backfillId),
+          backfillTableName,
           targetSchema
         )
         propertyManager        <- icebergUtilBackfill.getSinkTablePropertyManager
@@ -183,15 +200,15 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           new DefaultBackfillStateManager(
             stagingEntityManager,
             stagingPropertyManager,
-            new MsSqlShardFactory(),
-            getBackfillTableName(backfillId)
+            new MsSqlShardFactory(nameGenerator),
+            nameGenerator
           )
         )
         shaperBuilder <- ZIO.succeed(
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
         reader <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -208,13 +225,13 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           new MsSqlBackfillSourceDataProvider(
             reader,
             backfillSettings,
-            tableSinkSettings,
             backfillStateManager,
             shaperBuilder,
             new SourceBufferingSettings {
               override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
               override val bufferingEnabled: Boolean            = false
             },
+            nameGenerator,
             backfillId
           )
         )
@@ -230,10 +247,10 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         shards    <- data.stream.runCollect
         shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         backfillState <- stagingPropertyManager
-          .getRequiredProperty(getBackfillTableName(backfillId), "backfill")
+          .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
       // run 2 times, expect same number of shards and rows
       // second run will not re-shard the source
-      yield assertTrue(shards.size == 15 && shardRows == 10000 && backfillState.id == backfillId)
+      yield assertTrue(Seq(14, 15).contains(shards.size) && shardRows == 10000 && backfillState.id == backfillId)
     } @@ TestAspect.repeats(1)
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock

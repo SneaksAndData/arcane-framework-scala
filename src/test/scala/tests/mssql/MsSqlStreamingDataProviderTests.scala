@@ -2,14 +2,13 @@ package com.sneaksanddata.arcane.framework
 package tests.mssql
 
 import models.app.BaseStreamContext
-import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
-import services.mssql.base.{ColumnSummary, MsSqlReader, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlStreamingSource, MsSqlServerFieldsFilteringService}
 import services.mssql.versioning.MsSqlWatermark
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
@@ -56,7 +55,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
   private val streamContext = new BaseStreamContext:
     override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
 
-  private val defaultSinkSettings = TestDynamicSinkSettings(getBackfillTableName("mssql__mssql_test"))
+  private val defaultSinkSettings = TestDynamicSinkSettings("mssql__mssql_test")
   private val icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
@@ -92,7 +91,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
               .flatMap(_ => insertData(connection, testTableName))
         )
         connection <- ZIO.succeed(
-          MsSqlReader(
+          MsSqlStreamingSource(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"

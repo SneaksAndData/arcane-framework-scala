@@ -44,6 +44,7 @@ class GenericStreamRunnerService(
           _ <- bootstrapper.cleanupStagingTables(
             stagingDataSettings.stagingTablePrefix
           )
+          _ <- bootstrapper.cleanupOutdatedBackfill
 
           _ <- bootstrapper.createTargetTable
           _ <- bootstrapper.createBackFillTable

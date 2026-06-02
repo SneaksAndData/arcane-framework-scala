@@ -1,11 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models.app
 
-import upickle.ReadWriter
-import zio.{IO, ZIO, ZLayer}
-import zio.metrics.connectors.MetricsConfig
-import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
+import models.settings.{BackfillIdentifier, StreamIdentifier}
+
+import zio.{IO, ZIO}
 
 import java.time.Duration
 
@@ -15,7 +13,7 @@ trait BaseStreamContext:
 
   /** The id of the stream.
     */
-  def streamId: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_ID").map {
+  def streamId: IO[SecurityException, StreamIdentifier] = zio.System.env("STREAMCONTEXT__STREAM_ID").map {
     case Some(value) => value
     case None =>
       throw new RuntimeException(
@@ -31,17 +29,8 @@ trait BaseStreamContext:
   /** Identifier for the backfill. Providing the same value in the env variable will result in resuming the backfill if
     * it was interrupted
     */
-  def backfillId: IO[SecurityException, String] =
-    zio.System
-      .env("STREAMCONTEXT__BACKFILL_ID")
-      .map {
-        case Some(value) if value.nonEmpty => value
-        case _ =>
-          throw new RuntimeException(
-            "Unable to create a backfill stream: STREAMCONTEXT__BACKFILL_ID environment variable must be provided with a non-empty value"
-          )
-      }
-      .flatMap(id => streamId.map(sid => s"${streamId}__$id".replace("-", "_")))
+  def backfillId: ZIO[Any, SecurityException, BackfillIdentifier] = zio.System
+    .envOrElse("STREAMCONTEXT__BACKFILL_ID", "")
 
   /** Kind of the stream
     */

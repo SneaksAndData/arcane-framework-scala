@@ -10,7 +10,6 @@ import zio.stream.ZStream
   */
 trait BootstrappedShard extends SourceShard:
   val shardStream: StructuredZStream
-  val shardSourceEntityName: String
 
 case class DefaultBootstrappedShard(
     override val shardStream: StructuredZStream,

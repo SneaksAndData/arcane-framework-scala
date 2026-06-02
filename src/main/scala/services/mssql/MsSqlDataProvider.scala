@@ -5,7 +5,7 @@ import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import services.iceberg.base.SinkPropertyManager
-import services.mssql.base.MsSqlReader
+import services.mssql.base.MsSqlStreamingSource
 import services.mssql.versioning.MsSqlWatermark
 import services.mssql.versioning.MsSqlWatermark.*
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
@@ -19,7 +19,7 @@ import zio.{Task, ZIO, ZLayer}
   *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-    reader: MsSqlReader,
+    reader: MsSqlStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
@@ -67,7 +67,7 @@ object MsSqlDataProvider:
     ZLayer {
       for
         context         <- ZIO.service[PluginStreamContext]
-        reader          <- ZIO.service[MsSqlReader]
+        reader          <- ZIO.service[MsSqlStreamingSource]
         propertyManager <- ZIO.service[SinkPropertyManager]
         shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
       yield new MsSqlDataProvider(

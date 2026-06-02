@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.blobsource
 
 import models.app.{BaseStreamContext, PluginStreamContext}
-import models.settings.TableNaming.getBackfillTableName
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
@@ -50,7 +49,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val icebergUtil =
     IcebergUtil(
-      TestDynamicSinkSettings(getBackfillTableName("test__test")).icebergCatalog
+      TestDynamicSinkSettings("test__test").icebergCatalog
     )
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(

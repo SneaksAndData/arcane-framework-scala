@@ -5,11 +5,11 @@ import models.app.PluginStreamContext
 import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
-import models.settings.TableNaming.getBackfillTableName
 import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, ShardFactory, ShardProcessingState}
 import services.iceberg.base.{StagingEntityManager, StagingPropertyManager}
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
+import services.naming.NameGenerator
 
 import zio.{Task, ZIO, ZLayer}
 
@@ -17,39 +17,49 @@ class DefaultBackfillStateManager(
     stagingEntityManager: StagingEntityManager,
     stagingPropertyManager: StagingPropertyManager,
     shardFactory: ShardFactory,
-    stagedBackfillTableName: String
+    nameGenerator: NameGenerator
 ) extends BackfillStateManager:
   override type StateImpl = DefaultSourceBackfill
 
   override def commitState(state: StateImpl): Task[Unit] =
-    stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state))
+    nameGenerator.getBackfillTableName.flatMap(stagedBackfillTableName =>
+      stagingPropertyManager.setProperty(stagedBackfillTableName, statePropertyName, upickle.write(state))
+    )
 
   override def readState: Task[Option[StateImpl]] =
-    stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(upickle.read(_)))
+    nameGenerator.getBackfillTableName.flatMap(stagedBackfillTableName =>
+      stagingPropertyManager.getProperty(stagedBackfillTableName, statePropertyName).map(_.map(upickle.read(_)))
+    )
 
-  override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for _ <-
-      stagingEntityManager.createTable(CreateTableRequest(shard.shardTableName, schema, false))
+  override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for
+    shardTableName <- nameGenerator.getShardTableName(shard)
+    _              <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, false))
   yield ()
 
   override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
-    stagingPropertyManager
-      .setProperty(completionShard.shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString)
-      .flatMap(_ =>
-        stagingPropertyManager
-          .setProperty(completionShard.shardTableName, watermarkPropertyName, completionShard.watermark)
-      )
-      .map(_ => completionShard)
+    nameGenerator.getShardTableName(completionShard).flatMap { shardTableName =>
+      stagingPropertyManager
+        .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString)
+        .flatMap(_ =>
+          stagingPropertyManager
+            .setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
+        )
+        .map(_ => completionShard)
+    }
 
   override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
-    stagingPropertyManager
-      .setProperty(shard.shardTableName, processingStatePropertyName, ShardProcessingState.STAGED.toString)
-      .map(_ => shard)
+    nameGenerator.getShardTableName(shard).flatMap { shardTableName =>
+      stagingPropertyManager
+        .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.STAGED.toString)
+        .map(_ => shard)
+    }
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
-    tableExists <- stagingEntityManager.tableExists(shard.shardTableName)
+    shardTableName <- nameGenerator.getShardTableName(shard)
+    tableExists    <- stagingEntityManager.tableExists(shardTableName)
     result <- ZIO.when(tableExists)(
       stagingPropertyManager
-        .getProperty(shard.shardTableName, processingStatePropertyName)
+        .getProperty(shardTableName, processingStatePropertyName)
         .map(
           _.exists(state =>
             state == ShardProcessingState.STAGED.toString || state == ShardProcessingState.COMBINED.toString
@@ -59,15 +69,18 @@ class DefaultBackfillStateManager(
   yield result.getOrElse(false)
 
   override def isCombined(shard: StagedShard): Task[Option[CompletionShard]] = for
+    shardTableName <- nameGenerator.getShardTableName(shard)
     hasState <- stagingPropertyManager
-      .getProperty(shard.shardTableName, processingStatePropertyName)
+      .getProperty(shardTableName, processingStatePropertyName)
       .map(_.exists(_ == ShardProcessingState.COMBINED.toString))
-    result <- ZIO.when(hasState)(
-      stagingPropertyManager
-        .getProperty(shard.shardTableName, watermarkPropertyName)
-        .map(wm => wm.map(value => shardFactory.createCompletionShard(shard, value)))
-    )
-  yield result.flatten
+    watermark <- ZIO
+      .when(hasState)(
+        stagingPropertyManager
+          .getProperty(shardTableName, watermarkPropertyName)
+      )
+      .map(_.flatten)
+    result <- ZIO.when(watermark.isDefined)(shardFactory.createCompletionShard(shard, watermark.get))
+  yield result
 
 object DefaultBackfillStateManager:
   val layer = ZLayer {
@@ -75,12 +88,11 @@ object DefaultBackfillStateManager:
       stagingEntityManager   <- ZIO.service[StagingEntityManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
       shardFactory           <- ZIO.service[ShardFactory]
-      context                <- ZIO.service[PluginStreamContext]
-      backfillId             <- context.backfillId
+      nameGenerator          <- ZIO.service[NameGenerator]
     yield new DefaultBackfillStateManager(
       stagingEntityManager = stagingEntityManager,
       stagingPropertyManager = stagingPropertyManager,
       shardFactory = shardFactory,
-      stagedBackfillTableName = getBackfillTableName(backfillId)
+      nameGenerator = nameGenerator
     )
   }

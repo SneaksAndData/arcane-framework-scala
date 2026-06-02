@@ -18,6 +18,7 @@ import services.iceberg.{
 }
 import services.streaming.base.JsonWatermark
 
+import com.sneaksanddata.arcane.framework.services.naming.DefaultNameGenerator
 import zio.{Scope, Task, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}

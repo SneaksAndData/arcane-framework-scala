@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
 import java.sql.{ResultSet, Statement}
-import MsSqlReader.closeSafe
+import MsSqlStreamingSource.closeSafe
 
 /** AutoCloseable mixin for classes that own a result set.
   */

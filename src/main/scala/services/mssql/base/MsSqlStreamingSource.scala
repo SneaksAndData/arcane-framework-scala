@@ -5,10 +5,10 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.SchemaProvider
+import services.base.{SchemaProvider, ShardProvider, StreamingSource}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
-import services.mssql.base.MsSqlReader.{closeSafe, executeQuerySafe}
+import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
@@ -40,11 +40,13 @@ type MsSqlQuery = String
   * @param connectionSettings
   *   The connection options for the database.
   */
-class MsSqlReader(
+class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldsFilteringService: MsSqlServerFieldsFilteringService
 ) extends AutoCloseable
-    with SchemaProvider[ArcaneSchema]:
+    with StreamingSource:
+
+  override type ShardMetadata = String
 
   lazy val catalog: String        = connection.getCatalog
   private val shardingParallelism = Runtime.getRuntime.availableProcessors() * 2
@@ -154,84 +156,6 @@ class MsSqlReader(
     }
   yield tableName
 
-  /** Evaluate shard count and prep shard tables on source side. Emits table names.
-    */
-  def prepareShardTables(backfillId: String, advisedShardSizeMib: Option[Int]): ZStream[Any, Throwable, String] = ZStream
-    .fromZIO(for
-      columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
-      // first take estimate of a `select * from` query cost
-      totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st =>
-        ZIO.succeed(st.close())
-      ) { statement =>
-        ZIO.acquireReleaseWith(
-          ZIO
-            .attempt(
-              statement.execute(
-                QueryProvider.getStatsProfileQuery(connectionSettings.schemaName, connectionSettings.tableName)
-              )
-            )
-            .map { _ =>
-              // skip first
-              val _ = statement.getResultSet
-              val _ = statement.getMoreResults()
-              statement.getResultSet
-            }
-        )(rs => rs.closeSafe(statement)) { rs =>
-          ZStream
-            .unfold(rs.next()) { hasNext =>
-              if hasNext then
-                Some(
-                  Option(rs.getDouble("EstimateIO")).getOrElse(0.0) + Option(rs.getDouble("EstimateCPU"))
-                    .getOrElse(0.0),
-                  rs.next()
-                )
-              else None
-            }
-            .runSum
-        }
-      }
-      shardProfile <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) {
-        statement =>
-          val profileQuery = advisedShardSizeMib match
-            case Some(advisedSize) =>
-              QueryProvider
-                .getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, advisedSize)
-            case None =>
-              QueryProvider
-                .getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, totalReadCost)
-
-          ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(profileQuery)))(rs => rs.closeSafe(statement)) {
-            rs =>
-              if rs.next() then
-                ZIO.succeed(
-                  (
-                    sizeGib = rs.getDouble(1),
-                    shardCount = rs.getInt(2),
-                    recordsPerShard = rs.getLong(3),
-                    summaries = columnSummaries
-                  )
-                )
-              else
-                ZIO.fail(
-                  new Throwable(
-                    s"Unable to determine row count for source entity ${connectionSettings.schemaName}.${connectionSettings.tableName}"
-                  )
-                )
-          }
-      }
-      _ <- zlog(
-        s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard",
-        shardProfile.sizeGib.toString,
-        shardProfile.shardCount.toString,
-        shardProfile.recordsPerShard.toString
-      )
-    yield shardProfile)
-    .flatMap { profile =>
-      ZStream
-        .fromIterable(0 until profile.shardCount)
-        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
-    }
-
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
       batch: T
   ): ZStream[Any, Throwable, DataRow] =
@@ -258,7 +182,7 @@ class MsSqlReader(
               // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
               // And the LazyQueryResult will close the statement/result set when it is closed.
               result <- executeQuery(changesQuery, connection, LazyQueryResult.apply)
-            yield MsSqlReader.ensureHead(result)
+            yield MsSqlStreamingSource.ensureHead(result)
           })
           .flatMap(batch => unfoldBatch(batch))
           .map(_.handleSpecialTypes),
@@ -413,7 +337,119 @@ class MsSqlReader(
       resultSet <- ZIO.attemptBlocking(statement.executeQuery(query.replaceFirst("SELECT", "SELECT TOP 1")))
     yield resultSet.next()
 
-object MsSqlReader:
+  override def deleteShards(prefix: String): Task[Unit] = for
+    matchingShards <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) {
+      statement =>
+        ZIO.acquireReleaseWith(
+          ZIO.attempt(
+            statement.executeQuery(
+              QueryProvider.getFindMatchingTablesQuery(prefix, connectionSettings.backfillShardSchemaName)
+            )
+          )
+        )(rs => rs.closeSafe(statement)) { rs =>
+          ZStream
+            .unfold(rs.next()) { hasNext =>
+              if hasNext then
+                Some(
+                  rs.getString(0),
+                  rs.next()
+                )
+              else None
+            }
+            .runCollect
+        }
+    }
+    _ <- ZStream
+      .fromIterable(matchingShards)
+      .mapZIO(shard =>
+        ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
+          zlog("Deleting outdated backfill shard %s", shard) *> ZIO.attempt(
+            statement.execute(
+              s"DROP TABLE [${connectionSettings.backfillShardSchemaName}].[$shard]"
+            )
+          )
+        }
+      )
+      .runDrain
+  yield ()
+
+  override def getShards(backfillId: String): ZStream[Any, Throwable, String] = ZStream
+    .fromZIO(for
+      columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
+      // first take estimate of a `select * from` query cost
+      totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st =>
+        ZIO.succeed(st.close())
+      ) { statement =>
+        ZIO.acquireReleaseWith(
+          ZIO
+            .attempt(
+              statement.execute(
+                QueryProvider.getStatsProfileQuery(connectionSettings.schemaName, connectionSettings.tableName)
+              )
+            )
+            .map { _ =>
+              // skip first
+              val _ = statement.getResultSet
+              val _ = statement.getMoreResults()
+              statement.getResultSet
+            }
+        )(rs => rs.closeSafe(statement)) { rs =>
+          ZStream
+            .unfold(rs.next()) { hasNext =>
+              if hasNext then
+                Some(
+                  Option(rs.getDouble("EstimateIO")).getOrElse(0.0) + Option(rs.getDouble("EstimateCPU"))
+                    .getOrElse(0.0),
+                  rs.next()
+                )
+              else None
+            }
+            .runSum
+        }
+      }
+      shardProfile <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) {
+        statement =>
+          val profileQuery = connectionSettings.shardSizeMegabytes match
+            case Some(advisedSize) =>
+              QueryProvider
+                .getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, advisedSize)
+            case None =>
+              QueryProvider
+                .getSourcePhysicalStatsQuery(connectionSettings.schemaName, connectionSettings.tableName, totalReadCost)
+
+          ZIO.acquireReleaseWith(ZIO.attempt(statement.executeQuery(profileQuery)))(rs => rs.closeSafe(statement)) {
+            rs =>
+              if rs.next() then
+                ZIO.succeed(
+                  (
+                    sizeGib = rs.getDouble(1),
+                    shardCount = rs.getInt(2),
+                    recordsPerShard = rs.getLong(3),
+                    summaries = columnSummaries
+                  )
+                )
+              else
+                ZIO.fail(
+                  new Throwable(
+                    s"Unable to determine row count for source entity ${connectionSettings.schemaName}.${connectionSettings.tableName}"
+                  )
+                )
+          }
+      }
+      _ <- zlog(
+        s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard",
+        shardProfile.sizeGib.toString,
+        shardProfile.shardCount.toString,
+        shardProfile.recordsPerShard.toString
+      )
+    yield shardProfile)
+    .flatMap { profile =>
+      ZStream
+        .fromIterable(0 until profile.shardCount)
+        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
+    }
+
+object MsSqlStreamingSource:
 
   type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
@@ -430,18 +466,20 @@ object MsSqlReader:
   def apply(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       fieldsFilteringService: MsSqlServerFieldsFilteringService
-  ): MsSqlReader =
-    new MsSqlReader(connectionSettings, fieldsFilteringService)
+  ): MsSqlStreamingSource =
+    new MsSqlStreamingSource(connectionSettings, fieldsFilteringService)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
-  def getLayer(extractor: SettingsExtractor): ZLayer[Environment, Nothing, MsSqlReader & SchemaProvider[ArcaneSchema]] =
+  def getLayer(
+      extractor: SettingsExtractor
+  ): ZLayer[Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           context                <- ZIO.service[PluginStreamContext]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-        yield MsSqlReader(extractor(context), fieldsFilteringService)
+        yield MsSqlStreamingSource(extractor(context), fieldsFilteringService)
       }
     }
 
