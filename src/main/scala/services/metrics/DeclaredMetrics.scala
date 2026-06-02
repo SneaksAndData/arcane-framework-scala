@@ -94,6 +94,12 @@ class DeclaredMetrics:
   val watermarkUpdateCounter: Counter[Long] = Metric
     .counter(s"$metricsNamespace.watermark.updates")
 
+  val backfillStagedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_staged")
+
+  val backfillCombinedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_combined")
+
 object DeclaredMetrics:
 
   /** Creates a new instance of the DeclaredMetrics.

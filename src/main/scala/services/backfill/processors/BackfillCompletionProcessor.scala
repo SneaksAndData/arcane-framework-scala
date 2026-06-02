@@ -39,6 +39,7 @@ class BackfillCompletionProcessor(
         _ <- ZIO.attempt(
           TimestampOnlyWatermark.fromJson(shard.watermark).age.toDouble
         ) @@ declaredMetrics.watermarkAge
+        _ <- zlog("Backfill process completed")
       yield shard.toCompleted
     }
 

@@ -48,7 +48,7 @@ final class TestShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
         shard.combinedTableName,
         shard.targetTableName,
         new StreamingBatchQuery {
-          override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM ${shardTableName}"
+          override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM $shardTableName"
         },
         shard.backfillId
       )
@@ -193,7 +193,8 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           stagingEntityManager,
           stagingPropertyManager,
           shardFactory,
-          nameGenerator
+          nameGenerator,
+          DeclaredMetrics()
         )
       )
       builder <- ZIO.succeed(
