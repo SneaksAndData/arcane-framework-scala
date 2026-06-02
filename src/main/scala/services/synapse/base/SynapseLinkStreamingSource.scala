@@ -177,15 +177,16 @@ final class SynapseLinkStreamingSource(location: AdlsStoragePath, entityName: St
 
   private def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
-  
+
   def getShardFolderStream(folder: String): Task[Option[ShardMetadata]] = for
     watermark <- ZIO.succeed(StoredBlob(name = folder, createdOn = None).asWatermark)
     result <- ZIO.ifZIO(isValidSynapseBatch(watermark.prefix))(
       getBatchSchema(watermark.prefix)
         .map(batchSchema => Some((stream = (getChangesForVersion(watermark), batchSchema), source = watermark.prefix))),
-      ZIO.succeed(None))
-  yield result 
-  
+      ZIO.succeed(None)
+    )
+  yield result
+
   /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
     * https://github.com/SneaksAndData/arcane-framework-scala/issues/125
     */
@@ -250,14 +251,18 @@ final class SynapseLinkStreamingSource(location: AdlsStoragePath, entityName: St
     case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
   /** Deletes all shards created for the provided streamId
-   */
+    */
   override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
 
   /** Retrieve a shard data stream
-   *
-   * @return
-   */
-  override def getShards(backfillId: String, rangeStart: SynapseWatermark, rangeEnd: SynapseWatermark): ZStream[Any, Throwable, (stream: (ZStream[Any, Throwable, DataRow], ArcaneSchema), source: String)] =
+    *
+    * @return
+    */
+  override def getShards(
+      backfillId: String,
+      rangeStart: SynapseWatermark,
+      rangeEnd: SynapseWatermark
+  ): ZStream[Any, Throwable, (stream: (ZStream[Any, Throwable, DataRow], ArcaneSchema), source: String)] =
     ZStream
       .fromZIO(getWatermarks(rangeStart, rangeEnd))
       .flatMap(ZStream.fromIterable(_))

@@ -33,7 +33,7 @@ final class MsSqlBackfillSourceDataProvider(
       sourceBufferingSettings,
       stateManager
     ):
-  
+
   override protected def backfillStream(
       backfillStart: MsSqlWatermark,
       backfillEnd: MsSqlWatermark,

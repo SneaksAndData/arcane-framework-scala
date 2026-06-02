@@ -14,11 +14,11 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 class SynapseLinkDataProvider(
-                               synapseReader: SynapseLinkStreamingSource,
-                               sinkPropertyManager: SinkPropertyManager,
-                               sinkSettings: SinkSettings,
-                               throughputShaperBuilder: ThroughputShaperBuilder,
-                               sourceBufferingSettings: SourceBufferingSettings
+    synapseReader: SynapseLinkStreamingSource,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[SynapseWatermark](
       sinkPropertyManager,
       sinkSettings,

@@ -20,13 +20,13 @@ import java.time.OffsetDateTime
 /** Backfill source data provider for Synapse Link
   */
 final class SynapseBackfillSourceDataProvider(
-                                               dataProvider: SynapseLinkStreamingSource,
-                                               backfillSettings: BackfillSettings,
-                                               stateManager: DefaultBackfillStateManager,
-                                               throughputShaperBuilder: ThroughputShaperBuilder,
-                                               sourceBufferingSettings: SourceBufferingSettings,
-                                               nameGenerator: NameGenerator,
-                                               backfillId: String
+    dataProvider: SynapseLinkStreamingSource,
+    backfillSettings: BackfillSettings,
+    stateManager: DefaultBackfillStateManager,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    nameGenerator: NameGenerator,
+    backfillId: String
 ) extends DefaultBackfillSourceDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
@@ -42,9 +42,10 @@ final class SynapseBackfillSourceDataProvider(
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
     case None =>
       dataProvider.getShards(backfillId, backfillStart, backfillEnd)
-    case Some(sources) => ZStream.fromIterable(sources).mapZIO(dataProvider.getShardFolderStream).collect {
-      case Some(streamMetadata) => streamMetadata
-    }
+    case Some(sources) =>
+      ZStream.fromIterable(sources).mapZIO(dataProvider.getShardFolderStream).collect { case Some(streamMetadata) =>
+        streamMetadata
+      }
   )
     .mapZIO { case (stream, source) =>
       for

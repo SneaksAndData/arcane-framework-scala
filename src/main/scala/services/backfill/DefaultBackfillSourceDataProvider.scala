@@ -24,11 +24,11 @@ import java.time.OffsetDateTime
   * or it may produce nothing if the backfill was interrupted.
   */
 abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
-                                                                                                            dataProvider: StreamingSource,
-                                                                                                            backfillSettings: BackfillSettings,
-                                                                                                            throughputShaperBuilder: ThroughputShaperBuilder,
-                                                                                                            sourceBufferingSettings: SourceBufferingSettings,
-                                                                                                            stateManager: DefaultBackfillStateManager
+    dataProvider: StreamingSource,
+    backfillSettings: BackfillSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    stateManager: DefaultBackfillStateManager
 )(implicit rw: ReadWriter[WatermarkType])
     extends BackfillSourceDataProvider[WatermarkType]:
 

@@ -375,7 +375,11 @@ class MsSqlStreamingSource(
   yield ()
 
   // TODO: backfill-merge should respect start and end
-  override def getShards(backfillId: String, rangeStart: MsSqlWatermark, rangeEnd: MsSqlWatermark): ZStream[Any, Throwable, String] = ZStream
+  override def getShards(
+      backfillId: String,
+      rangeStart: MsSqlWatermark,
+      rangeEnd: MsSqlWatermark
+  ): ZStream[Any, Throwable, String] = ZStream
     .fromZIO(for
       columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
       // first take estimate of a `select * from` query cost
