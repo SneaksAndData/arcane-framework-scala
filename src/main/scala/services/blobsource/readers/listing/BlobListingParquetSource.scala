@@ -6,12 +6,11 @@ import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import services.base.SchemaProvider
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.storage.base.BlobStorageReader
-import services.storage.models.base.BlobPath
+import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 import services.streaming.base.StructuredZStream
@@ -28,8 +27,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
     sourceSchema: Option[String]
-) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
-    with SchemaProvider[ArcaneSchema]:
+) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys):
 
   override def getSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
@@ -69,26 +67,34 @@ class BlobListingParquetSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
+  def fileToStream(sourceFile: StoredBlob): Task[StructuredZStream] =
+    reader
+      .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+      .map(filePath => ParquetScanner(filePath, useNameMapping))
+      .flatMap { scanner =>
+        scanner.getIcebergSchema
+          .map(implicitly)
+          .map(schema =>
+            (
+              scanner.getRows.map(
+                BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+              ),
+              schema
+            )
+          )
+      }
+
   override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .streamPrefixes(sourcePath)
     .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-    .mapZIO { sourceFile =>
-      reader
-        .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
-        .map(filePath => (ParquetScanner(filePath, useNameMapping), sourceFile))
-    }
-    .mapZIO { case (scanner, sourceFile) =>
-      scanner.getIcebergSchema
-        .map(implicitly)
-        .map(schema =>
-          (
-            scanner.getRows.map(
-              BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
-            ),
-            schema
-          )
-        )
-    }
+    .mapZIO(fileToStream)
+
+//  override def getShards(backfillId: String, rangeStart: BlobSourceWatermark, rangeEnd: BlobSourceWatermark): ZStream[Any, Throwable, StoredBlob] = reader
+//    .streamPrefixes(sourcePath)
+//    .collect {
+//      case blob if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
+//       && blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) <= rangeEnd => blob
+//    }
 
 object BlobListingParquetSource:
   def apply(

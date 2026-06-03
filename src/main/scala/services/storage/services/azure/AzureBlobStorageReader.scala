@@ -123,6 +123,8 @@ final class AzureBlobStorageReader(
 
   override def downloadRandomBlob(rootPath: AdlsStoragePath, localPath: String): Task[Option[String]] = ???
 
+  override def blobMetadata(blobPath: String): Task[StoredBlob] = ???
+
 object AzureBlobStorageReader:
   def apply(
       storageConnectionSettings: AzureStorageConnectionSettings
