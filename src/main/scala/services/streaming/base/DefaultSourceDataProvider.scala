@@ -1,15 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{DataRow, JsonWatermarkRow}
+import extensions.ZExtensions.trySetBuffering
+import logging.ZIOLogAnnotations.zlog
+import models.schemas.JsonWatermarkRow
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
-import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
+import models.settings.sources.SourceBufferingSettings
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
-import com.sneaksanddata.arcane.framework.extensions.ZExtensions.trySetBuffering
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
@@ -50,7 +50,7 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     )
   )
 
-  override def firstVersion: Task[WatermarkType] = for
+  override def currentWatermark: Task[WatermarkType] = for
     watermarkString <- sinkPropertyManager.getRequiredProperty(sinkSettings.targetTableFullName.parts.name, "comment")
     _               <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
     watermark <- ZIO

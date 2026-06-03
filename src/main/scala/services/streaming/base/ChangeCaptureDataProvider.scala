@@ -40,4 +40,4 @@ trait ChangeCaptureDataProvider[DataVersionType <: SourceWatermark[String]]:
 
   /** The first version of the data.
     */
-  def firstVersion: Task[DataVersionType]
+  def currentWatermark: Task[DataVersionType]

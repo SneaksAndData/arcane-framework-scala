@@ -10,11 +10,8 @@ import org.apache.iceberg.aws.s3.S3FileIO
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
 import org.apache.iceberg.rest.{HTTPClient, RESTSessionCatalog}
-import zio.cache.Cache
-import zio.{Cached, Schedule, Scope, Task, ZIO, ZLayer}
+import zio.{Cached, Schedule, Scope, Task, ZIO}
 
-import java.time.Instant
-import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 

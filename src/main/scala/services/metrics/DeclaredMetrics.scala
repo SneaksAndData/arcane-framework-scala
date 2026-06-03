@@ -88,11 +88,11 @@ class DeclaredMetrics:
   val targetAnalyzeDuration: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.target.analyze_duration")
 
-  val appliedWatermarkAge: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.watermark.applied_age")
+  val watermarkAge: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.watermark.age")
 
-  val streamingWatermarkAge: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.watermark.streaming_age")
+  val watermarkUpdateCounter: Counter[Long] = Metric
+    .counter(s"$metricsNamespace.watermark.updates")
 
   val backfillStagedShards: Counter[Int] = Metric
     .counterInt(s"$metricsNamespace.backfill.shards_staged")
