@@ -38,16 +38,6 @@ class BlobSourceDataProvider(
   ): ZStream[Any, Throwable, StructuredZStream] =
     sourceReader.getChanges(previousVersion)
 
-//  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): BlobSourceWatermark =
-//    BlobSourceWatermark.fromEpochSecond(
-//      startTime.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).toInstant.toEpochMilli / 1000
-//    )
-//
-//  override protected def backfillStream(
-//      backfillStartDate: Option[OffsetDateTime]
-//  ): ZStream[Any, Throwable, StructuredZStream] =
-//    sourceReader.getChanges(getBackfillStartWatermark(backfillStartDate))
-
 object BlobSourceDataProvider:
   private type Environment = BlobSourceReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
 
