@@ -7,13 +7,7 @@ import services.storage.models.base.StoredBlob
 import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
-import software.amazon.awssdk.auth.credentials.{
-  AwsBasicCredentials,
-  AwsCredentials,
-  AwsCredentialsProvider,
-  DefaultCredentialsProvider,
-  StaticCredentialsProvider
-}
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
 import software.amazon.awssdk.retries.api.BackoffStrategy
 import software.amazon.awssdk.services.s3.S3Client
@@ -24,9 +18,9 @@ import software.amazon.awssdk.services.s3.model.{
   NoSuchKeyException
 }
 import zio.stream.{ZSink, ZStream}
-import zio.{Task, ZIO}
+import zio.{Chunk, Task, ZIO}
 
-import java.io.{BufferedReader, ByteArrayInputStream, InputStreamReader}
+import java.io.{BufferedReader, InputStreamReader}
 import java.nio.file.Paths
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
@@ -98,12 +92,12 @@ final class S3BlobStorageReader(
       .maxKeys(maxKeys)
 
   override def streamPrefixes(rootPrefix: S3StoragePath): ZStream[Any, Throwable, StoredBlob] = ZStream
-    .paginate(
+    .paginateChunk(
       s3Client.listObjectsV2(preBuildListObjectsV2Request(rootPrefix).build())
     ) { response =>
       if (response.isTruncated()) {
         (
-          response.contents().asScala.toList,
+          Chunk(response.contents().asScala),
           Some(
             s3Client.listObjectsV2(
               preBuildListObjectsV2Request(rootPrefix)
@@ -113,11 +107,12 @@ final class S3BlobStorageReader(
           )
         )
       } else {
-        (response.contents().asScala.toList, None)
+        (Chunk(response.contents().asScala), None)
       }
     }
-    .map(objects => objects.map((rootPrefix.bucket, _)))
-    .flatMap(v => ZStream.fromIterable(v.map(implicitly)))
+    .flatMap(ZStream.fromIterable)
+    .rechunk(1)
+    .mapChunks(v => v.map((rootPrefix.bucket, _)))
 
   override def streamBlob(blobPath: S3StoragePath): ZStream[Any, Throwable, Byte] =
     zlogStream("Streaming file %s/%s content (bytes) from S3", blobPath.bucket, blobPath.objectKey).flatMap(_ =>
