@@ -3,14 +3,13 @@ package services.blobsource.readers.listing
 
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
-import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.schemas.ArcaneSchema
 import models.settings.sources.blob.JsonBlobSourceSettings
-import services.base.SchemaProvider
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
 import services.storage.base.BlobStorageReader
-import services.storage.models.base.BlobPath
+import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageReader
 import services.streaming.base.StructuredZStream
@@ -27,8 +26,7 @@ class BlobListingJsonSource[PathType <: BlobPath](
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]]
-) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys)
-    with SchemaProvider[ArcaneSchema]:
+) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys):
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
@@ -50,24 +48,22 @@ class BlobListingJsonSource[PathType <: BlobPath](
   override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .streamPrefixes(sourcePath)
     .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-    .mapZIO { sourceFile =>
-      reader
-        .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
-        .flatMap(v => sourceSchema.map(schema => (schema, v)))
-        .map { case (schema, filePath) =>
-          (JsonScanner(filePath, schema, jsonPointerExpr, jsonArrayPointers), sourceFile)
+    .mapZIO(fileToStream)
+
+  def fileToStream(sourceFile: StoredBlob): Task[StructuredZStream] =
+    reader
+      .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+      .flatMap(v => sourceSchema.map(schema => (schema, v)))
+      .flatMap { case (avroSchema, filePath) =>
+        getSchema.map { schema =>
+          (
+            JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers).getRows.map(
+              BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+            ),
+            schema
+          )
         }
-    }
-    .mapZIO { case (scanner, sourceFile) =>
-      getSchema.map { schema =>
-        (
-          scanner.getRows.map(
-            BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
-          ),
-          schema
-        )
       }
-    }
 
 object BlobListingJsonSource:
   def apply(
