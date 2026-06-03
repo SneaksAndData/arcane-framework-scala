@@ -83,7 +83,6 @@ trait BlobStorageReader[PathType <: BlobPath]:
     */
   def blobExists(blobPath: PathType): Task[Boolean]
 
-  /**
-   * Retrieve metadata from the object under specified prefix
-   */
+  /** Retrieve metadata from the object under specified prefix
+    */
   def blobMetadata(blobPath: String): Task[StoredBlob]

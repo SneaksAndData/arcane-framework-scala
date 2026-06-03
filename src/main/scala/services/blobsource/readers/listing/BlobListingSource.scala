@@ -17,7 +17,7 @@ abstract class BlobListingSource[PathType <: BlobPath](
     reader: BlobStorageReader[PathType],
     primaryKeys: Seq[String]
 ) extends BlobSourceReader:
-  
+
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = reader.blobMetadata(sourceFile)
 
   final override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
@@ -36,9 +36,17 @@ abstract class BlobListingSource[PathType <: BlobPath](
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ZIO.succeed(true)
 
-  final override def getShards(backfillId: String, rangeStart: BlobSourceWatermark, rangeEnd: BlobSourceWatermark): ZStream[Any, Throwable, StoredBlob] = reader
+  final override def getShards(
+      backfillId: String,
+      rangeStart: BlobSourceWatermark,
+      rangeEnd: BlobSourceWatermark
+  ): ZStream[Any, Throwable, StoredBlob] = reader
     .streamPrefixes(sourcePath)
     .collect {
-      case blob if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
-        && blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) <= rangeEnd => blob
+      case blob
+          if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
+            && blob.createdOn
+              .map(BlobSourceWatermark.fromEpochSecond)
+              .getOrElse(BlobSourceWatermark.epoch) <= rangeEnd =>
+        blob
     }

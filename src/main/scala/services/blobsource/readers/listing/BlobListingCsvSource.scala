@@ -11,7 +11,7 @@ import zio.Task
 import zio.stream.ZStream
 
 class BlobListingCsvSource[PathType <: BlobPath](
-                                                  sourcePath: PathType,
+    sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     schema: ArcaneSchema,
     primaryKeys: Seq[String]
@@ -32,7 +32,6 @@ class BlobListingCsvSource[PathType <: BlobPath](
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ???
 
-  /**
-   * Creates a structured stream for a provided file address
-   */
+  /** Creates a structured stream for a provided file address
+    */
   override def fileToStream(sourceFile: StoredBlob): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???

@@ -71,18 +71,17 @@ class BlobListingParquetSource[PathType <: BlobPath](
     reader
       .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
       .map(filePath => ParquetScanner(filePath, useNameMapping))
-      .flatMap {
-        scanner =>
-          scanner.getIcebergSchema
-            .map(implicitly)
-            .map(schema =>
-              (
-                scanner.getRows.map(
-                  BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
-                ),
-                schema
-              )
+      .flatMap { scanner =>
+        scanner.getIcebergSchema
+          .map(implicitly)
+          .map(schema =>
+            (
+              scanner.getRows.map(
+                BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+              ),
+              schema
             )
+          )
       }
 
   override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
@@ -93,10 +92,9 @@ class BlobListingParquetSource[PathType <: BlobPath](
 //  override def getShards(backfillId: String, rangeStart: BlobSourceWatermark, rangeEnd: BlobSourceWatermark): ZStream[Any, Throwable, StoredBlob] = reader
 //    .streamPrefixes(sourcePath)
 //    .collect {
-//      case blob if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart 
+//      case blob if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
 //       && blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) <= rangeEnd => blob
 //    }
-  
 
 object BlobListingParquetSource:
   def apply(

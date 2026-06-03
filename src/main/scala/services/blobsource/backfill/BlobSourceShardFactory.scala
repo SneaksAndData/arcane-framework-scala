@@ -10,8 +10,9 @@ import zio.{Task, ZIO}
 
 class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
   /** Staged shard provisioner. Commit query targets combine table.
-   */
-  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] = for shardTableName <- nameGenerator.getShardTableName(shard)
+    */
+  override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] =
+    for shardTableName <- nameGenerator.getShardTableName(shard)
     yield DefaultStagedShard(
       shardSourceEntityName = shard.shardSourceEntityName,
       combinedTableName = shard.combinedTableName,
@@ -20,9 +21,8 @@ class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       backfillId = shard.backfillId
     )
 
-
   /** Completion shard provisioner. Commit query swaps data from combine into a target table.
-   */
+    */
   override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] = ZIO.succeed(
     CompletionShard(
       watermark = watermark,
@@ -33,4 +33,3 @@ class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       backfillId = shard.backfillId
     )
   )
-

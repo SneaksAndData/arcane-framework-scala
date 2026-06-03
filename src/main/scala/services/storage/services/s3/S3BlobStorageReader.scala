@@ -154,9 +154,9 @@ final class S3BlobStorageReader(
   yield result
 
   override def blobMetadata(blobPath: String): Task[StoredBlob] = for
-    s3Path <- ZIO.attempt(S3StoragePath(blobPath).get)
+    s3Path      <- ZIO.attempt(S3StoragePath(blobPath).get)
     headRequest <- ZIO.succeed(HeadObjectRequest.builder().bucket(s3Path.bucket).key(s3Path.objectKey).build())
-    response <- ZIO.attemptBlocking(s3Client.headObject(headRequest))
+    response    <- ZIO.attemptBlocking(s3Client.headObject(headRequest))
   yield StoredBlob(
     name = s"${s3Path.bucket}/${s3Path.objectKey}",
     createdOn = Some(response.lastModified().getEpochSecond)
