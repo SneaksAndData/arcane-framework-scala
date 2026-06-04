@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.batches.{MergeableBatch, StagedBackfillBatch, StagedBatch, StagedVersionedBatch}
+import models.batches.StagedBatch
 
 import zio.Task
 

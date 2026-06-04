@@ -11,15 +11,8 @@ import services.streaming.processors.transformers.FieldFilteringTransformer
 import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{ZIO, ZLayer}
 
-/** Provides the complete data stream for the streaming process including all the stages and services except the sink
-  * and lifetime service.
-  *
-  * This graph builder is used for running a backfill process when backfill behavior is set to overwrite. The graph
-  * builder works in the following way:
-  *   1. Creates the backfilling stream data provider that manages the backfilling process and produces the mergeable
-  *      batch targeting the intermediate table used as target for backfill stream.
-  *   2. Applying the resulting batch to the target table using the SQL `CREATE OR REPLACE TABLE` statement.
-  *   3. Since the table is replaced, the dispose batch processor is not needed and the graph builder.
+/**
+ * Generates a stream graph for backfill OVERWRITE mode.
   */
 class DefaultBackfillOverwriteGraphBuilder(
     streamDataProvider: BackfillStreamDataProvider,

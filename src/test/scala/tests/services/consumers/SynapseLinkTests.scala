@@ -66,41 +66,6 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
 
 // NB. 2.2 release temporary removes support for table partitioning and merge statement generation for partitioned tables
 // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
-
-//  "SynapseLinkBackfillMergeBatch" should "generate a valid backfill merge batch" in {
-//    val batch = SynapseLinkBackfillMergeBatch(
-//      "test.staged_a",
-//      Seq(
-//        MergeKeyField,
-//        Field(
-//          name = "colA",
-//          fieldType = StringType
-//        ),
-//        Field(
-//          name = "colB",
-//          fieldType = StringType
-//        ),
-//        Field(
-//          name = "Id",
-//          fieldType = StringType
-//        ),
-//        Field(
-//          name = "versionnumber",
-//          fieldType = LongType
-//        )
-//      ),
-//      "test.table_a",
-//      CustomTablePropertiesSettings(Seq("bucket(colA, 32)", "year(colB)")),
-//      Some("1234")
-//    )
-//
-//    val expected =
-//      Using(Source.fromURL(getClass.getResource("/generate_a_valid_synapse_link_backfill_merge_query.sql"))) {
-//        _.getLines().mkString("\n")
-//      }.get
-//
-//    batch.batchQuery.query should equal(expected)
-//  }
 //
 //  "SynapseLinkMergeBatch" should "generate a valid versioned batch" in {
 //    val batch = SynapseLinkMergeBatch(
