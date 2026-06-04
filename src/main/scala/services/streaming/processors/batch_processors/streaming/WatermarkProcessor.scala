@@ -17,8 +17,7 @@ import zio.{ZIO, ZLayer}
 class WatermarkProcessor(
     propertyManager: SinkPropertyManager,
     targetTableShortName: String,
-    declaredMetrics: DeclaredMetrics,
-    finishOnApply: Boolean
+    declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline[BatchType]
     .mapZIO { batch =>
@@ -29,22 +28,16 @@ class WatermarkProcessor(
           declaredMetrics,
           "WatermarkProcessor"
         )
-        _ <- ZIO.when(finishOnApply)(zlog("Stream is configured to finish on watermark update, will terminate now"))
-      yield
-        if finishOnApply then None
-        else Some(batch)
+      yield batch
     }
-    .takeWhile(_.isDefined)
-    .map(_.get)
 
 object WatermarkProcessor:
   def apply(
       propertyManager: SinkPropertyManager,
       targetTableShortName: String,
-      declaredMetrics: DeclaredMetrics,
-      finishOnApply: Boolean
+      declaredMetrics: DeclaredMetrics
   ): WatermarkProcessor =
-    new WatermarkProcessor(propertyManager, targetTableShortName, declaredMetrics, finishOnApply)
+    new WatermarkProcessor(propertyManager, targetTableShortName, declaredMetrics)
 
   /** The required environment for the WatermarkProcessor.
     */
@@ -61,7 +54,6 @@ object WatermarkProcessor:
       yield WatermarkProcessor(
         iceberg,
         context.sink.targetTableFullName.parts.name,
-        declaredMetrics,
-        context.streamMode.backfill.backfillBehavior == Merge
+        declaredMetrics
       )
     }

@@ -1,13 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill.graph
 
+import services.backfill.base.BackfillStreamDataProvider
 import services.streaming.base.StreamDataProvider
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -16,7 +12,7 @@ import zio.{ZIO, ZLayer}
 /** Generates a stream graph for backfill MERGE mode.
   */
 class DefaultBackfillMergeGraphBuilder(
-    streamDataProvider: StreamDataProvider,
+    streamDataProvider: BackfillStreamDataProvider,
     fieldFilteringProcessor: FieldFilteringTransformer,
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
@@ -37,13 +33,13 @@ class DefaultBackfillMergeGraphBuilder(
 
 object DefaultBackfillMergeGraphBuilder:
 
-  type Environment = StreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
+  type Environment = BackfillStreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
     WatermarkProcessor & SchemaMigrationProcessor
 
   val layer: ZLayer[Environment, Nothing, DefaultBackfillMergeGraphBuilder] =
     ZLayer {
       for
-        streamDataProvider       <- ZIO.service[StreamDataProvider]
+        streamDataProvider       <- ZIO.service[BackfillStreamDataProvider]
         fieldFilteringProcessor  <- ZIO.service[FieldFilteringTransformer]
         stagingProcessor         <- ZIO.service[StagingProcessor]
         mergeProcessor           <- ZIO.service[MergeBatchProcessor]

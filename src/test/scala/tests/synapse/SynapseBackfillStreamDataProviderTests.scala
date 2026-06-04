@@ -8,7 +8,7 @@ import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.synapse.backfill.{
   SynapseBackfillSourceDataProvider,
-  SynapseBackfillStreamDataProvider,
+  SynapseShardedBackfillStreamDataProvider,
   SynapseShardFactory
 }
 import services.synapse.base.SynapseLinkStreamingSource
@@ -78,7 +78,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           )
         )
         provider <- ZIO.succeed(
-          SynapseBackfillStreamDataProvider(
+          SynapseShardedBackfillStreamDataProvider(
             synapseLinkDataProvider,
             defaultStreamMode.backfill,
             backfillStateManager,
@@ -167,7 +167,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
           )
         )
         provider <- ZIO.succeed(
-          SynapseBackfillStreamDataProvider(
+          SynapseShardedBackfillStreamDataProvider(
             synapseLinkDataProvider,
             defaultStreamMode.backfill,
             backfillStateManager,

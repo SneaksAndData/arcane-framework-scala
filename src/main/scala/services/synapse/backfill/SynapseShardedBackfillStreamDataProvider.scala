@@ -1,34 +1,34 @@
 package com.sneaksanddata.arcane.framework
-package services.mssql.backfill
+package services.synapse.backfill
 
 import models.app.PluginStreamContext
 import models.settings.backfill.BackfillSettings
-import services.backfill.{DefaultBackfillStateManager, DefaultBackfillStreamDataProvider}
+import services.backfill.{DefaultBackfillStateManager, DefaultShardedBackfillStreamDataProvider}
 import services.metrics.DeclaredMetrics
-import services.mssql.versioning.MsSqlWatermark
+import services.synapse.versioning.SynapseWatermark
 
 import zio.{ZIO, ZLayer}
 
-class MsSqlBackfillStreamDataProvider(
-    dataProvider: MsSqlBackfillSourceDataProvider,
+class SynapseShardedBackfillStreamDataProvider(
+    dataProvider: SynapseBackfillSourceDataProvider,
     backfillSettings: BackfillSettings,
     stateManager: DefaultBackfillStateManager,
     declaredMetrics: DeclaredMetrics
-) extends DefaultBackfillStreamDataProvider[MsSqlWatermark](
+) extends DefaultShardedBackfillStreamDataProvider[SynapseWatermark](
       dataProvider,
       backfillSettings,
       stateManager,
       declaredMetrics
     )
 
-object MsSqlBackfillStreamDataProvider:
+object SynapseShardedBackfillStreamDataProvider:
   val layer = ZLayer {
     for
-      dataProvider <- ZIO.service[MsSqlBackfillSourceDataProvider]
+      dataProvider <- ZIO.service[SynapseBackfillSourceDataProvider]
       context      <- ZIO.service[PluginStreamContext]
       stateManager <- ZIO.service[DefaultBackfillStateManager]
       metrics      <- ZIO.service[DeclaredMetrics]
-    yield new MsSqlBackfillStreamDataProvider(
+    yield new SynapseShardedBackfillStreamDataProvider(
       dataProvider = dataProvider,
       backfillSettings = context.streamMode.backfill,
       stateManager = stateManager,

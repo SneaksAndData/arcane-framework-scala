@@ -12,7 +12,7 @@ import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
-import services.mssql.backfill.{MsSqlBackfillSourceDataProvider, MsSqlBackfillStreamDataProvider, MsSqlShardFactory}
+import services.mssql.backfill.{MsSqlBackfillSourceDataProvider, MsSqlShardedBackfillStreamDataProvider, MsSqlShardFactory}
 import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
@@ -147,7 +147,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           )
         )
         provider <- ZIO.succeed(
-          new MsSqlBackfillStreamDataProvider(
+          new MsSqlShardedBackfillStreamDataProvider(
             dataProvider,
             backfillSettings,
             backfillStateManager,
@@ -238,7 +238,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           )
         )
         provider <- ZIO.succeed(
-          new MsSqlBackfillStreamDataProvider(
+          new MsSqlShardedBackfillStreamDataProvider(
             dataProvider,
             backfillSettings,
             backfillStateManager,
