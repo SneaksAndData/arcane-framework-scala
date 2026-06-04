@@ -35,12 +35,6 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
 
   private val throughputShaper = throughputShaperBuilder.build
 
-  /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
-    *
-    * @return
-    */
-  protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[WatermarkType]
-
   /** Implements data streaming logic for public `requestBackfill`
     *
     * @return

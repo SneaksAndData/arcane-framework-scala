@@ -7,6 +7,8 @@ import services.streaming.base.SourceWatermark
 import zio.Task
 import zio.stream.ZStream
 
+import java.time.OffsetDateTime
+
 /** Provides a way to retrieve a source snapshot watermarked with a specified watermark type.
   *
   * @tparam DataVersionType
@@ -27,3 +29,9 @@ trait BackfillSourceDataProvider[DataVersionType <: SourceWatermark[String]]:
   /** Most recent version of the dataset at a time when a backfill was initiated.
     */
   def getSnapshotVersion: Task[DataVersionType]
+
+  /** Evaluates watermark to be used when evaluating current snapshot version at the start of a backfill process
+    *
+    * @return
+    */
+  def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[DataVersionType]

@@ -3,7 +3,12 @@ package services.streaming.graph
 
 import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream

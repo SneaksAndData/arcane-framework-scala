@@ -16,8 +16,8 @@ object StreamGraphResolver:
 
   /** The environment required for the graph builder to be created.
     */
-  type Environment = DefaultBackfillOverwriteGraphBuilder.Environment & DefaultStreamingGraphBuilder.Environment & DefaultBackfillMergeGraphBuilder.Environment &
-    PluginStreamContext
+  type Environment = DefaultBackfillOverwriteGraphBuilder.Environment & DefaultStreamingGraphBuilder.Environment &
+    DefaultBackfillMergeGraphBuilder.Environment & PluginStreamContext
 
   /** The ZLayer for the graph builder injection with runtime dependency resolution.
     */

@@ -14,13 +14,13 @@ import zio.{ZIO, ZLayer}
 /** Generates a stream graph for backfill OVERWRITE mode.
   */
 class DefaultBackfillOverwriteGraphBuilder(
-                                            streamDataProvider: ShardedBackfillStreamDataProvider,
-                                            shardStageProcessor: ShardStagingProcessor,
-                                            mergeServiceClient: MergeServiceClient,
-                                            stateManager: BackfillStateManager,
-                                            shardFactory: ShardFactory,
-                                            fieldFilteringProcessor: FieldFilteringTransformer,
-                                            backfillCompletionProcessor: BackfillCompletionProcessor
+    streamDataProvider: ShardedBackfillStreamDataProvider,
+    shardStageProcessor: ShardStagingProcessor,
+    mergeServiceClient: MergeServiceClient,
+    stateManager: BackfillStateManager,
+    shardFactory: ShardFactory,
+    fieldFilteringProcessor: FieldFilteringTransformer,
+    backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
 
   private val backfillParallelism     = Runtime.getRuntime.availableProcessors() * 2
@@ -107,13 +107,13 @@ object DefaultBackfillOverwriteGraphBuilder:
   /** Creates a new DefaultBackfillOverwriteGraphBuilder.
     */
   def apply(
-             streamDataProvider: ShardedBackfillStreamDataProvider,
-             shardStageProcessor: ShardStagingProcessor,
-             mergeServiceClient: MergeServiceClient,
-             fieldFilteringProcessor: FieldFilteringTransformer,
-             backfillCompletionProcessor: BackfillCompletionProcessor,
-             stateManager: BackfillStateManager,
-             shardFactory: ShardFactory
+      streamDataProvider: ShardedBackfillStreamDataProvider,
+      shardStageProcessor: ShardStagingProcessor,
+      mergeServiceClient: MergeServiceClient,
+      fieldFilteringProcessor: FieldFilteringTransformer,
+      backfillCompletionProcessor: BackfillCompletionProcessor,
+      stateManager: BackfillStateManager,
+      shardFactory: ShardFactory
   ): DefaultBackfillOverwriteGraphBuilder =
     new DefaultBackfillOverwriteGraphBuilder(
       streamDataProvider,
