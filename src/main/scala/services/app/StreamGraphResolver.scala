@@ -27,7 +27,8 @@ object StreamGraphResolver:
       >+> DefaultBackfillMergeGraphBuilder.layer
       >>> ZLayer.fromZIO(resolveGraphBuilder)
 
-  private type ResolverEnvironment = Environment & DefaultBackfillOverwriteGraphBuilder & DefaultStreamingGraphBuilder & DefaultBackfillMergeGraphBuilder
+  private type ResolverEnvironment = Environment & DefaultBackfillOverwriteGraphBuilder & DefaultStreamingGraphBuilder &
+    DefaultBackfillMergeGraphBuilder
 
   private def resolveGraphBuilder: ZIO[ResolverEnvironment, Nothing, StreamingGraphBuilder] =
     for
@@ -36,7 +37,7 @@ object StreamGraphResolver:
       _             <- zlog("resoling graph builder using stream context and backfill settings")
       isBackfilling <- context.isBackfilling.orElseSucceed(false)
       builder <- (isBackfilling, context.streamMode.backfill.backfillBehavior) match
-        case (false, _) => ZIO.service[DefaultStreamingGraphBuilder]
+        case (false, _)                         => ZIO.service[DefaultStreamingGraphBuilder]
         case (true, BackfillBehavior.Merge)     => ZIO.service[DefaultBackfillMergeGraphBuilder]
         case (true, BackfillBehavior.Overwrite) => ZIO.service[DefaultBackfillOverwriteGraphBuilder]
       _ <- zlog("Using the stream graph builder: %s", builder.getClass.getName)

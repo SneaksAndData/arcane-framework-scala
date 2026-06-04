@@ -20,20 +20,22 @@ class WatermarkProcessor(
     declaredMetrics: DeclaredMetrics,
     finishOnApply: Boolean
 ) extends StagedBatchProcessor:
-  override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline[BatchType].mapZIO { batch =>
-    for 
-      _ <- batch.applyWatermark(
-        propertyManager,
-        targetTableShortName,
-        declaredMetrics,
-        "WatermarkProcessor"
-      )
-      _ <- ZIO.when(finishOnApply)(zlog("Stream is configured to finish on watermark update, will terminate now"))
-    yield if finishOnApply then
-        None
-      else
-        Some(batch)  
-  }.takeWhile(_.isDefined).map(_.get)
+  override def process: ZPipeline[Any, Throwable, BatchType, BatchType] = ZPipeline[BatchType]
+    .mapZIO { batch =>
+      for
+        _ <- batch.applyWatermark(
+          propertyManager,
+          targetTableShortName,
+          declaredMetrics,
+          "WatermarkProcessor"
+        )
+        _ <- ZIO.when(finishOnApply)(zlog("Stream is configured to finish on watermark update, will terminate now"))
+      yield
+        if finishOnApply then None
+        else Some(batch)
+    }
+    .takeWhile(_.isDefined)
+    .map(_.get)
 
 object WatermarkProcessor:
   def apply(
@@ -56,5 +58,10 @@ object WatermarkProcessor:
         iceberg         <- ZIO.service[SinkPropertyManager]
         context         <- ZIO.service[PluginStreamContext]
         declaredMetrics <- ZIO.service[DeclaredMetrics]
-      yield WatermarkProcessor(iceberg, context.sink.targetTableFullName.parts.name, declaredMetrics, context.streamMode.backfill.backfillBehavior == Merge)
+      yield WatermarkProcessor(
+        iceberg,
+        context.sink.targetTableFullName.parts.name,
+        declaredMetrics,
+        context.streamMode.backfill.backfillBehavior == Merge
+      )
     }

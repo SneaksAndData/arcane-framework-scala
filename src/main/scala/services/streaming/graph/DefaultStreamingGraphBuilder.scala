@@ -1,16 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph
 
-import models.app.PluginStreamContext
-import services.app.base.StreamLifetimeService
 import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 import zio.stream.ZStream
@@ -50,14 +43,12 @@ class DefaultStreamingGraphBuilder(
 
 object DefaultStreamingGraphBuilder:
 
-  /** 
-   * The environment required for the DefaultStreamingGraphBuilder.
+  /** The environment required for the DefaultStreamingGraphBuilder.
     */
   type Environment = StreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
     DisposeBatchProcessor & WatermarkProcessor & SchemaMigrationProcessor & TargetMaintenanceProcessor
 
-  /** 
-   * Creates a new DefaultStreamingGraphBuilder.
+  /** Creates a new DefaultStreamingGraphBuilder.
     */
   def apply(
       streamDataProvider: StreamDataProvider,

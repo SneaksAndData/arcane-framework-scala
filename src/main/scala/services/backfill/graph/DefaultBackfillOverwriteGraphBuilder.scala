@@ -11,8 +11,7 @@ import services.streaming.processors.transformers.FieldFilteringTransformer
 import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{ZIO, ZLayer}
 
-/**
- * Generates a stream graph for backfill OVERWRITE mode.
+/** Generates a stream graph for backfill OVERWRITE mode.
   */
 class DefaultBackfillOverwriteGraphBuilder(
     streamDataProvider: BackfillStreamDataProvider,
