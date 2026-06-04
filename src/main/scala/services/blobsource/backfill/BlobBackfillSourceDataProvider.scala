@@ -34,7 +34,7 @@ class BlobBackfillSourceDataProvider(
     *
     * @return
     */
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[BlobSourceWatermark] =
+  override def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[BlobSourceWatermark] =
     ZIO.succeed(
       BlobSourceWatermark.fromEpochSecond(
         startTime.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).toInstant.toEpochMilli / 1000

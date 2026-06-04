@@ -25,9 +25,9 @@ class BackfillCompletionProcessor(
   override def process: ZPipeline[Any, Throwable, IncomingElement, OutgoingElement] = ZPipeline[IncomingElement]
     .mapZIO { shard =>
       for
-        _                 <- zlog("All shards have been combined in %s, ready for target swap", shard.combinedTableName)
-        _                 <- mergeServiceClient.commitShard(shard)
-        _                 <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
+        _ <- zlog("All shards have been combined in %s, ready for target update", shard.combinedTableName)
+        _ <- mergeServiceClient.commitShard(shard)
+        _ <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
         previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName.parts.name, "comment")
         _                 <- propertyManager.comment(shard.targetTableName.parts.name, shard.watermark)
         _ <- zlog(
@@ -51,11 +51,11 @@ object BackfillCompletionProcessor:
   ): BackfillCompletionProcessor =
     new BackfillCompletionProcessor(propertyManager, mergeServiceClient, declaredMetrics)
 
-  /** The required environment for the BackfillWatermarkProcessor.
+  /** The required environment for the BackfillCompletionProcessor.
     */
   type Environment = SinkPropertyManager & MergeServiceClient & DeclaredMetrics
 
-  /** The ZLayer that creates the BackfillWatermarkProcessor.
+  /** The ZLayer that creates the BackfillCompletionProcessor.
     */
   val layer: ZLayer[Environment, Nothing, BackfillCompletionProcessor] =
     ZLayer {

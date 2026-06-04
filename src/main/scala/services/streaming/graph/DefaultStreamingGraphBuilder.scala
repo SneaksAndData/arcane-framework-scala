@@ -1,8 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.graph
 
-import models.app.PluginStreamContext
-import services.app.base.StreamLifetimeService
 import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
@@ -50,25 +48,12 @@ class DefaultStreamingGraphBuilder(
 
 object DefaultStreamingGraphBuilder:
 
-  /** The environment required for the GenericStreamingGraphBuilder.
+  /** The environment required for the DefaultStreamingGraphBuilder.
     */
   type Environment = StreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
-    DisposeBatchProcessor & StreamLifetimeService & WatermarkProcessor & PluginStreamContext &
-    SchemaMigrationProcessor & TargetMaintenanceProcessor
+    DisposeBatchProcessor & WatermarkProcessor & SchemaMigrationProcessor & TargetMaintenanceProcessor
 
-  /** Creates a new GenericStreamingGraphBuilder.
-    * @param streamDataProvider
-    *   The stream data provider.
-    * @param fieldFilteringProcessor
-    *   The field filtering processor.
-    * @param stagingProcessor
-    *   The staging processor.
-    * @param mergeProcessor
-    *   The merge processor.
-    * @param disposeBatchProcessor
-    *   The dispose batch processor.
-    * @return
-    *   The GenericStreamingGraphBuilder instance.
+  /** Creates a new DefaultStreamingGraphBuilder.
     */
   def apply(
       streamDataProvider: StreamDataProvider,
@@ -91,13 +76,9 @@ object DefaultStreamingGraphBuilder:
       targetMaintenanceProcessor
     )
 
-  /** The ZLayer for the GenericStreamingGraphBuilder. This layer is used to inject the GenericStreamingGraphBuilder
-    * into the DI container.
-    */
   val layer: ZLayer[Environment, Nothing, DefaultStreamingGraphBuilder] =
     ZLayer {
       for
-        context                    <- ZIO.service[PluginStreamContext]
         streamDataProvider         <- ZIO.service[StreamDataProvider]
         fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
         stagingProcessor           <- ZIO.service[StagingProcessor]

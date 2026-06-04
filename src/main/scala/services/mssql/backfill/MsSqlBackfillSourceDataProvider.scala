@@ -57,7 +57,7 @@ final class MsSqlBackfillSourceDataProvider(
       )
     }
 
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[MsSqlWatermark] = for wm <-
+  override def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[MsSqlWatermark] = for wm <-
       ZIO
         .attempt(startTime match
           case Some(start) => dataProvider.timestampToVersion(start)

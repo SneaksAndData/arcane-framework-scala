@@ -44,20 +44,6 @@ trait StagedBatch:
     */
   def isEmpty: Boolean = name.isBlank
 
-/** Common trait for StagedBatch that performs a backfill operation on the table.
-  */
-trait StagedBackfillBatch extends StagedBatch with MergeableBatch
-
-/** StagedBatch that performs a backfill operation on the table in CREATE OR REPLACE mode.
-  */
-trait StagedBackfillOverwriteBatch extends StagedBackfillBatch:
-  override type Query = OverwriteQuery
-
-/** StagedBatch that performs a backfill operation on the table in MERGE mode.
-  */
-trait StagedBackfillMergeBatch extends StagedBackfillBatch:
-  override type Query = MergeQuery
-
 /** StagedBatch that updates data in the table
   */
 trait StagedVersionedBatch extends StagedBatch:

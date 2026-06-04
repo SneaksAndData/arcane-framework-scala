@@ -3,7 +3,7 @@ package services.backfill.graph
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.sharding.{CompletedShard, CompletionShard, StagedShard}
-import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory}
+import services.backfill.base.{BackfillStateManager, ShardedBackfillStreamDataProvider, ShardFactory}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
 import services.streaming.processors.transformers.FieldFilteringTransformer
@@ -11,18 +11,10 @@ import services.streaming.processors.transformers.FieldFilteringTransformer
 import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{ZIO, ZLayer}
 
-/** Provides the complete data stream for the streaming process including all the stages and services except the sink
-  * and lifetime service.
-  *
-  * This graph builder is used for running a backfill process when backfill behavior is set to overwrite. The graph
-  * builder works in the following way:
-  *   1. Creates the backfilling stream data provider that manages the backfilling process and produces the mergeable
-  *      batch targeting the intermediate table used as target for backfill stream.
-  *   2. Applying the resulting batch to the target table using the SQL `CREATE OR REPLACE TABLE` statement.
-  *   3. Since the table is replaced, the dispose batch processor is not needed and the graph builder.
+/** Generates a stream graph for backfill OVERWRITE mode.
   */
 class DefaultBackfillOverwriteGraphBuilder(
-    streamDataProvider: BackfillStreamDataProvider,
+    streamDataProvider: ShardedBackfillStreamDataProvider,
     shardStageProcessor: ShardStagingProcessor,
     mergeServiceClient: MergeServiceClient,
     stateManager: BackfillStateManager,
@@ -109,13 +101,13 @@ object DefaultBackfillOverwriteGraphBuilder:
 
   /** The environment required for the DefaultBackfillOverwriteGraphBuilder.
     */
-  type Environment = BackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient &
+  type Environment = ShardedBackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient &
     FieldFilteringTransformer & BackfillCompletionProcessor & BackfillStateManager & ShardFactory
 
   /** Creates a new DefaultBackfillOverwriteGraphBuilder.
     */
   def apply(
-      streamDataProvider: BackfillStreamDataProvider,
+      streamDataProvider: ShardedBackfillStreamDataProvider,
       shardStageProcessor: ShardStagingProcessor,
       mergeServiceClient: MergeServiceClient,
       fieldFilteringProcessor: FieldFilteringTransformer,
@@ -138,7 +130,7 @@ object DefaultBackfillOverwriteGraphBuilder:
   val layer: ZLayer[Environment, Nothing, DefaultBackfillOverwriteGraphBuilder] =
     ZLayer {
       for
-        streamDataProvider         <- ZIO.service[BackfillStreamDataProvider]
+        streamDataProvider         <- ZIO.service[ShardedBackfillStreamDataProvider]
         shardStageProcessor        <- ZIO.service[ShardStagingProcessor]
         mergeServiceClient         <- ZIO.service[MergeServiceClient]
         fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]

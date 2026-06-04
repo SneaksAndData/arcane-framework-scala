@@ -89,13 +89,6 @@ class BlobListingParquetSource[PathType <: BlobPath](
     .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
     .mapZIO(fileToStream)
 
-//  override def getShards(backfillId: String, rangeStart: BlobSourceWatermark, rangeEnd: BlobSourceWatermark): ZStream[Any, Throwable, StoredBlob] = reader
-//    .streamPrefixes(sourcePath)
-//    .collect {
-//      case blob if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
-//       && blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) <= rangeEnd => blob
-//    }
-
 object BlobListingParquetSource:
   def apply(
       sourcePath: S3StoragePath,

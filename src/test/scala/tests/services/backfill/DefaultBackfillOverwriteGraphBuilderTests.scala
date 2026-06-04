@@ -6,7 +6,7 @@ import models.schemas.*
 import models.schemas.ArcaneType.{IntType, StringType}
 import models.sharding.*
 import services.backfill.DefaultBackfillStateManager
-import services.backfill.base.{BackfillStreamDataProvider, ShardFactory, ShardProcessingState}
+import services.backfill.base.{ShardedBackfillStreamDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.filters.FieldsFilteringService
@@ -29,8 +29,8 @@ import zio.{Schedule, Scope, Task, ZIO, ZLayer}
 import java.sql.Connection
 import java.time.OffsetDateTime
 
-final class TestBackfillStreamDataProvider(targetName: String, shards: Seq[BootstrappedShard])
-    extends BackfillStreamDataProvider:
+final class TestShardedBackfillStreamDataProvider(targetName: String, shards: Seq[BootstrappedShard])
+    extends ShardedBackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     ZIO.succeed(
       (
@@ -199,7 +199,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       )
       builder <- ZIO.succeed(
         DefaultBackfillOverwriteGraphBuilder(
-          new TestBackfillStreamDataProvider(targetName, shards),
+          new TestShardedBackfillStreamDataProvider(targetName, shards),
           new ShardStagingProcessor(
             writer,
             shardFactory,

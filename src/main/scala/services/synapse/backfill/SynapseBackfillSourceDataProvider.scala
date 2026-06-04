@@ -61,7 +61,7 @@ final class SynapseBackfillSourceDataProvider(
       )
     }
 
-  override protected def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[SynapseWatermark] = for
+  override def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[SynapseWatermark] = for
     _  <- ZIO.when(startTime.isEmpty)(ZIO.fail(new IllegalArgumentException("Backfill start date is not set")))
     wm <- dataProvider.getWatermark(startTime.get)
   yield wm
