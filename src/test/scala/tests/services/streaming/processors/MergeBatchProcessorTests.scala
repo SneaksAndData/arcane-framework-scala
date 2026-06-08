@@ -40,44 +40,20 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
   it should "run merges" in {
     // Arrange
     val mergeServiceClient     = mock[MergeServiceClient]
-    val sinkPropertyManager    = mock[SinkPropertyManager]
-    val sinkEntityManager      = mock[SinkEntityManager]
-    val stagingPropertyManager = mock[StagingPropertyManager]
-    val stagingEntityManager   = mock[StagingEntityManager]
     val declaredMetrics        = DeclaredMetrics()
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
-      sinkPropertyManager
-        .getTableSchema(EasyMock.anyString())
-        .andReturn(ZIO.succeed(implicitly[Schema](using ArcaneSchema(Seq(MergeKeyField)))))
-        .times(40)
-      sinkEntityManager
-        .migrateSchema(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyString())
-        .andReturn(ZIO.unit)
-        .times(40)
-
     }
     replay(
       mergeServiceClient,
-      sinkEntityManager,
-      sinkPropertyManager,
-      stagingEntityManager,
-      stagingPropertyManager
     )
 
     val mergeBatchProcessor =
       MergeBatchProcessor(
         mergeServiceClient,
-        sinkEntityManager,
-        sinkPropertyManager,
-        stagingEntityManager,
-        stagingPropertyManager,
-        TestSinkSettings,
         declaredMetrics,
-        true,
-        false
       )
 
     // Act
