@@ -196,8 +196,12 @@ given Conversion[Schema, Seq[IndexedField]] with
 
 given Conversion[Schema, ArcaneSchema] with
   override def apply(icebergSchema: Schema): ArcaneSchema =
-    ArcaneSchema(
-      mapFields(icebergSchema) ++ Seq(
-        IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
+    // ensure we do not add merge key field twice
+    if icebergSchema.columns().asScala.exists(f => f.name().toLowerCase == MergeKeyField.name.toLowerCase) then
+      ArcaneSchema(mapFields(icebergSchema))
+    else
+      ArcaneSchema(
+        mapFields(icebergSchema) ++ Seq(
+          IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
+        )
       )
-    )
