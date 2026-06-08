@@ -56,6 +56,7 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
         .provide(
           StreamGraphResolver.composedLayer,
           ZLayer.succeed(streamContext),
+          ZLayer.succeed(mock[StreamDataProvider]),
           ZLayer.succeed(mock[BackfillStreamDataProvider]),
           ZLayer.succeed(mock[StagingProcessor]),
           ZLayer.succeed(mock[FieldFilteringTransformer]),
