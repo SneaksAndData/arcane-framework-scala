@@ -97,11 +97,10 @@ object UpsertBlobMergeBatch:
       batchSchema.mergeKey.name
     )
 
-class UpsertBlobWatermarkBatch(
+class UpsertBlobWatermarkOnlyBatch(
     targetName: String,
     watermarkValue: String
-) extends StagedVersionedBatch
-    with MergeableBatch:
+) extends WatermarkOnlyBatch:
   override val name: String            = "watermark"
   override val schema: ArcaneSchema    = ArcaneSchema.empty()
   override val targetTableName: String = targetName
@@ -112,8 +111,8 @@ class UpsertBlobWatermarkBatch(
 
   override val batchQuery: MergeQuery = UpsertBlobMergeQuery.empty
 
-object UpsertBlobWatermarkBatch:
+object UpsertBlobWatermarkOnlyBatch:
   def apply(
       targetName: String,
       watermarkValue: String
-  ): UpsertBlobWatermarkBatch = new UpsertBlobWatermarkBatch(targetName, watermarkValue)
+  ): UpsertBlobWatermarkOnlyBatch = new UpsertBlobWatermarkOnlyBatch(targetName, watermarkValue)

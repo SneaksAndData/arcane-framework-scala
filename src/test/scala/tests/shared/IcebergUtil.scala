@@ -68,7 +68,7 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
     yield result
   }
 
-  def prepareWatermark(tableName: String, value: JsonWatermark): Task[Unit] = ZIO
+  def prepareWatermark(tableName: String, value: JsonWatermark, schema: Option[ArcaneSchema] = None): Task[Unit] = ZIO
     .scoped {
       for
         targetName      <- ZIO.succeed(tableName)
@@ -77,7 +77,7 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
         // prepare target table metadata
         watermarkTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).minusHours(3))
         _ <- entityManager.createTable(
-          CreateTableRequest(targetName, ArcaneSchema(Seq(Field("test", StringType))), true)
+          CreateTableRequest(targetName, schema.getOrElse(ArcaneSchema(Seq(Field("test", StringType)))), true)
         )
         _ <- propertyManager.comment(targetName, value.toJson)
       yield ()

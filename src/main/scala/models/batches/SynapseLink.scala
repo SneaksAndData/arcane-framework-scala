@@ -94,11 +94,10 @@ class SynapseLinkMergeBatch(
 
 /** Watermark-only batch
   */
-class SynapseLinkWatermarkBatch(
+class SynapseLinkWatermarkOnlyBatch(
     watermarkValue: String,
     targetName: String
-) extends StagedVersionedBatch
-    with MergeableBatch:
+) extends WatermarkOnlyBatch:
   override val name: String            = "watermark"
   override val schema: ArcaneSchema    = ArcaneSchema.empty()
   override val targetTableName: String = targetName
@@ -109,12 +108,12 @@ class SynapseLinkWatermarkBatch(
 
   override val completedWatermarkValue: Option[String] = Some(watermarkValue)
 
-object SynapseLinkWatermarkBatch:
+object SynapseLinkWatermarkOnlyBatch:
   def apply(
       watermarkValue: String,
       targetName: String
-  ): SynapseLinkWatermarkBatch =
-    new SynapseLinkWatermarkBatch(
+  ): SynapseLinkWatermarkOnlyBatch =
+    new SynapseLinkWatermarkOnlyBatch(
       watermarkValue,
       targetName
     )

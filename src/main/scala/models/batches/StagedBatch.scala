@@ -48,3 +48,9 @@ trait StagedBatch:
   */
 trait StagedVersionedBatch extends StagedBatch:
   override type Query = MergeQuery
+
+/**
+ * Streaming batch that contains watermark only
+  */
+trait WatermarkOnlyBatch extends StagedVersionedBatch with MergeableBatch:
+  final override def isEmpty: Boolean = true
