@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.batches.{SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingWatermarkBatch}
+import models.batches.{SqlServerChangeTrackingMergeBatch, SqlServerChangeTrackingWatermarkOnlyBatch}
 import models.schemas.ArcaneSchema
 import models.settings.EmptyTablePropertiesSettings
 import services.streaming.batching.StagedBatchFactory
@@ -10,7 +10,7 @@ import zio.{Task, ULayer, ZIO, ZLayer}
 
 class MsSqlStagedBatchFactory extends StagedBatchFactory:
   override type OutputBatch    = SqlServerChangeTrackingMergeBatch
-  override type WatermarkBatch = SqlServerChangeTrackingWatermarkBatch
+  override type WatermarkBatch = SqlServerChangeTrackingWatermarkOnlyBatch
 
   override def createDataBatch(
       stagedTableName: String,
@@ -24,8 +24,8 @@ class MsSqlStagedBatchFactory extends StagedBatchFactory:
   override def createWatermarkBatch(
       targetTableName: String,
       watermark: String
-  ): Task[SqlServerChangeTrackingWatermarkBatch] =
-    ZIO.succeed(SqlServerChangeTrackingWatermarkBatch(targetTableName, watermark))
+  ): Task[SqlServerChangeTrackingWatermarkOnlyBatch] =
+    ZIO.succeed(SqlServerChangeTrackingWatermarkOnlyBatch(targetTableName, watermark))
 
 object MsSqlStagedBatchFactory:
   val layer: ULayer[MsSqlStagedBatchFactory] = ZLayer.succeed(new MsSqlStagedBatchFactory())
