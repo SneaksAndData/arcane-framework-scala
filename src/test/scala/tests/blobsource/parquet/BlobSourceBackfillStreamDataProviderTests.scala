@@ -8,7 +8,11 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
 import services.backfill.DefaultBackfillStateManager
-import services.blobsource.backfill.{BlobBackfillSourceDataProvider, BlobShardedBackfillStreamDataProvider, BlobSourceShardFactory}
+import services.blobsource.backfill.{
+  BlobBackfillSourceDataProvider,
+  BlobShardedBackfillStreamDataProvider,
+  BlobSourceShardFactory
+}
 import services.blobsource.readers.listing.BlobListingParquetSource
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
@@ -41,113 +45,127 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
       IndexedField("col6", LongType, 8),
       IndexedField("col7", StringType, 9),
       IndexedField("col8", LongType, 10),
-      IndexedField("col9", StructType(ArcaneSchema(
-        Seq(
-          IndexedField("nested_col_0", LongType, 11),
-          IndexedField("nested_col_1", StringType, 12),
-          IndexedField("nested_col_2", LongType, 13),
-          IndexedField("nested_col_3", StringType, 14),
-          IndexedField("nested_col_4", LongType, 15),
-        )
-      )), 16),
-      IndexedField("col10", StructType(ArcaneSchema(
-        Seq(
-          IndexedField("nested_col_0", LongType, 17),
-          IndexedField("nested_col_1", StringType, 18),
-          IndexedField("nested_col_2", LongType, 19),
-          IndexedField("nested_col_3", StringType, 20),
-          IndexedField("nested_col_4", LongType, 21),
-        )
-      )), 22)
+      IndexedField(
+        "col9",
+        StructType(
+          ArcaneSchema(
+            Seq(
+              IndexedField("nested_col_0", LongType, 11),
+              IndexedField("nested_col_1", StringType, 12),
+              IndexedField("nested_col_2", LongType, 13),
+              IndexedField("nested_col_3", StringType, 14),
+              IndexedField("nested_col_4", LongType, 15)
+            )
+          )
+        ),
+        16
+      ),
+      IndexedField(
+        "col10",
+        StructType(
+          ArcaneSchema(
+            Seq(
+              IndexedField("nested_col_0", LongType, 17),
+              IndexedField("nested_col_1", StringType, 18),
+              IndexedField("nested_col_2", LongType, 19),
+              IndexedField("nested_col_3", StringType, 20),
+              IndexedField("nested_col_4", LongType, 21)
+            )
+          )
+        ),
+        22
+      )
     )
   )
 
   private def runBackfill(targetName: String) = for
-      path <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-      backfillId <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
-      tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"iceberg.test.$targetName"))
+    path              <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+    backfillId        <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
+    tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"iceberg.test.$targetName"))
 
-      nameGenerator <- ZIO.succeed(
-        new DefaultNameGenerator(
-          sinkSettings = tableSinkSettings,
-          backfillId = backfillId,
-          streamId = targetName
-        )
+    nameGenerator <- ZIO.succeed(
+      new DefaultNameGenerator(
+        sinkSettings = tableSinkSettings,
+        backfillId = backfillId,
+        streamId = targetName
       )
-      backfillTableName <- nameGenerator.getBackfillTableName
-      _ <- icebergUtilBackfill.prepareBackfillTable(
-        backfillTableName,
-        targetSchema,
-      )
-      // for shaper
-      _ <- icebergUtilBackfill.prepareWatermark(
-        tableSinkSettings.targetTableFullName.parts.name,
-        BlobSourceWatermark.epoch
-      )
+    )
+    backfillTableName <- nameGenerator.getBackfillTableName
+    _ <- icebergUtilBackfill.prepareBackfillTable(
+      backfillTableName,
+      targetSchema
+    )
+    // for shaper
+    _ <- icebergUtilBackfill.prepareWatermark(
+      tableSinkSettings.targetTableFullName.parts.name,
+      BlobSourceWatermark.epoch
+    )
 
-      propertyManager <- icebergUtilBackfill.getSinkTablePropertyManager
-      stagingPropertyManager <- icebergUtilBackfill.getStagingTablePropertyManager
-      stagingEntityManager <- icebergUtilBackfill.getStagingEntityManager
-      backfillStateManager <- ZIO.succeed(
-        new DefaultBackfillStateManager(
-          stagingEntityManager,
-          stagingPropertyManager,
-          new BlobSourceShardFactory(nameGenerator),
-          nameGenerator,
-          DeclaredMetrics()
+    propertyManager        <- icebergUtilBackfill.getSinkTablePropertyManager
+    stagingPropertyManager <- icebergUtilBackfill.getStagingTablePropertyManager
+    stagingEntityManager   <- icebergUtilBackfill.getStagingEntityManager
+    backfillStateManager <- ZIO.succeed(
+      new DefaultBackfillStateManager(
+        stagingEntityManager,
+        stagingPropertyManager,
+        new BlobSourceShardFactory(nameGenerator),
+        nameGenerator,
+        DeclaredMetrics()
+      )
+    )
+    shaperBuilder <- ZIO.succeed(
+      TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
+    )
+    reader <- ZIO.succeed(
+      BlobListingParquetSource(
+        sourcePath = path,
+        s3Reader = storageReader,
+        tempPath = "/tmp",
+        primaryKeys = Seq("col0"),
+        useNameMapping = false,
+        sourceSchema = None
+      )
+    )
+    backfillSettings <- ZIO.succeed(
+      new BackfillSettings {
+        override val backfillStartDate: Option[OffsetDateTime] = Some(
+          OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
         )
+        override val backfillBehavior: BackfillBehavior = Overwrite
+      }
+    )
+    dataProvider <- ZIO.succeed(
+      new BlobBackfillSourceDataProvider(
+        dataProvider = reader,
+        backfillSettings = backfillSettings,
+        stateManager = backfillStateManager,
+        throughputShaperBuilder = shaperBuilder,
+        sourceBufferingSettings = new SourceBufferingSettings {
+          override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
+          override val bufferingEnabled: Boolean            = false
+        },
+        nameGenerator = nameGenerator,
+        backfillId = backfillId
       )
-      shaperBuilder <- ZIO.succeed(
-        TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
+    )
+    provider <- ZIO.succeed(
+      new BlobShardedBackfillStreamDataProvider(
+        dataProvider,
+        backfillSettings,
+        backfillStateManager,
+        DeclaredMetrics()
       )
-      reader <- ZIO.succeed(
-        BlobListingParquetSource(
-          sourcePath = path,
-          s3Reader = storageReader,
-          tempPath = "/tmp",
-          primaryKeys = Seq("col0"),
-          useNameMapping = false,
-          sourceSchema = None
-        )
-      )
-      backfillSettings <- ZIO.succeed(
-        new BackfillSettings {
-          override val backfillStartDate: Option[OffsetDateTime] = Some(
-            OffsetDateTime.now(ZoneOffset.UTC).minus(Duration.ofHours(12))
-          )
-          override val backfillBehavior: BackfillBehavior = Overwrite
-        }
-      )
-      dataProvider <- ZIO.succeed(
-        new BlobBackfillSourceDataProvider(
-          dataProvider = reader,
-          backfillSettings = backfillSettings,
-          stateManager = backfillStateManager,
-          throughputShaperBuilder = shaperBuilder,
-          sourceBufferingSettings = new SourceBufferingSettings {
-            override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
-            override val bufferingEnabled: Boolean = false
-          },
-          nameGenerator = nameGenerator,
-          backfillId = backfillId
-        )
-      )
-      provider <- ZIO.succeed(
-        new BlobShardedBackfillStreamDataProvider(
-          dataProvider,
-          backfillSettings,
-          backfillStateManager,
-          DeclaredMetrics()
-        )
-      )
+    )
   yield (provider, stagingPropertyManager, backfillTableName, backfillId)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceBackfillStreamDataProviderTests")(
     test("streams correct number of shards and rows") {
       for
-        (provider, stagingPropertyManager, backfillTableName, backfillId) <- runBackfill("blob-source-backfill-sdp-test-once")
-        data <- provider.backfillStream
-        shards <- data.stream.runCollect
+        (provider, stagingPropertyManager, backfillTableName, backfillId) <- runBackfill(
+          "blob-source-backfill-sdp-test-once"
+        )
+        data      <- provider.backfillStream
+        shards    <- data.stream.runCollect
         shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         backfillState <- stagingPropertyManager
           .getRequiredProperty(backfillTableName, "backfill")
@@ -158,9 +176,11 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
     },
     test("resumes an interrupted backfill") {
       for
-        (provider, stagingPropertyManager, backfillTableName, backfillId) <- runBackfill("blob-source-backfill-sdp-test-repeat")
-        data <- provider.backfillStream
-        shards <- data.stream.runCollect
+        (provider, stagingPropertyManager, backfillTableName, backfillId) <- runBackfill(
+          "blob-source-backfill-sdp-test-repeat"
+        )
+        data      <- provider.backfillStream
+        shards    <- data.stream.runCollect
         shardRows <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         backfillState <- stagingPropertyManager
           .getRequiredProperty(backfillTableName, "backfill")
