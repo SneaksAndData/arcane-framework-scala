@@ -53,38 +53,6 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     )
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
-    // TODO: backfill test temporary disabled
-//    test("streams rows in backfill mode correctly") {
-//      for
-//        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-//        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-//        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
-//        propertyManager <- icebergUtil.getSinkTablePropertyManager
-//        dataProvider <- ZIO.succeed(
-//          BlobSourceDataProvider(
-//            source,
-//            propertyManager,
-//            new TestDynamicSinkSettings("demo.test.test"),
-//            defaultStreamMode,
-//            TestThroughputShaperBuilder.default(
-//              propertyManager,
-//              new TestDynamicSinkSettings(s"demo.test.test")
-//            ),
-//            TestSourceBufferingSettings
-//          )
-//        )
-//        sdp <- ZIO.succeed(
-//          BlobSourceStreamingDataProvider(
-//            dataProvider,
-//            defaultStreamMode.changeCapture,
-//            defaultStreamMode.backfill,
-//            true,
-//            DeclaredMetrics()
-//          )
-//        )
-//        rows <- sdp.stream.flatMap(_._1).runCollect
-//      yield assertTrue(rows.size == 50 * 100 + 1 && rows.last.isWatermark) // watermark must be present at the end
-//    },
     test("stream changes correctly") {
       for
         path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)

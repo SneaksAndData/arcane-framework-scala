@@ -96,8 +96,8 @@ class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField
     * @return
     */
   def isIndexed: Boolean = fields.head match
-    case IndexedField(_, _, _) => true
-    case _                     => false
+    case _: IndexedArcaneSchemaField => true
+    case _                           => false
 
   /** Returns a pure schema without Arcane metadata
     * @return
