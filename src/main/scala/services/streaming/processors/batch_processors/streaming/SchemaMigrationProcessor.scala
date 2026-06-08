@@ -36,9 +36,13 @@ class SchemaMigrationProcessor(
       for _ <- ZIO.when(!batch.isEmpty && schemaMigrationEnabled) {
           for
             // for streams, we migrate sink table
-            _ <- ZIO.unless(isTargetInStaging)(alignSchemas(batch.schema, sinkEntityManager, batch.targetTableName))
+            _ <- ZIO.unless(isTargetInStaging)(
+              alignSchemas(batch.schema, sinkEntityManager, batch.targetTableName.parts.name)
+            )
             // for backfills, we migrate staging table
-            _ <- ZIO.when(isTargetInStaging)(alignSchemas(batch.schema, stagingEntityManager, batch.targetTableName))
+            _ <- ZIO.when(isTargetInStaging)(
+              alignSchemas(batch.schema, stagingEntityManager, batch.targetTableName.parts.name)
+            )
           yield ()
         }
       yield batch
