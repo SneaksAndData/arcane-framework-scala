@@ -15,7 +15,11 @@ import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.streaming.base.{StructuredZStream, TimestampOnlyWatermark}
 import services.streaming.batching.StagedBatchFactory
-import services.streaming.processors.batch_processors.streaming.{MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
@@ -34,14 +38,18 @@ final class TestBackfillMergeStreamDataProvider(data: Seq[DataRow], schema: Arca
   )
 
 final class BackfillMergeTestBatch(stagedTableName: String, tableName: String, batchSchema: ArcaneSchema)
-  extends StagedVersionedBatch
+    extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String                            = stagedTableName
   override val schema: ArcaneSchema                    = batchSchema
   override val targetTableName: String                 = tableName
   override val completedWatermarkValue: Option[String] = None
-  override val batchQuery: MergeQuery                  = MergeQuery(tableName, s"select * from $stagedTableName") ++ OnSegment(Map(), "colA", Seq()) ++ new WhenNotMatchedInsert {
-    override val columns: Seq[String] = Seq("colA", "colB", "ARCANE_MERGE_KEY")
+  override val batchQuery: MergeQuery = MergeQuery(tableName, s"select * from $stagedTableName") ++ OnSegment(
+    Map(),
+    "colA",
+    Seq()
+  ) ++ new WhenNotMatchedInsert {
+    override val columns: Seq[String]             = Seq("colA", "colB", "ARCANE_MERGE_KEY")
     override val segmentCondition: Option[String] = None
   }
   override def reduceExpr: String = ""
@@ -57,17 +65,17 @@ final class BackfillWatermarkTestOnlyBatch(tableName: String, watermark: String)
   override def reduceExpr: String = ""
 
 final class BackfillMergeTestBatchFactory extends StagedBatchFactory:
-  override type OutputBatch = BackfillMergeTestBatch
+  override type OutputBatch    = BackfillMergeTestBatch
   override type WatermarkBatch = BackfillWatermarkTestOnlyBatch
 
   override def createWatermarkBatch(targetTableName: String, watermark: String): Task[BackfillWatermarkTestOnlyBatch] =
     ZIO.succeed(new BackfillWatermarkTestOnlyBatch(targetTableName, watermark))
 
   override def createDataBatch(
-                                stagedTableName: String,
-                                targetTableName: String,
-                                batchSchema: ArcaneSchema
-                              ): Task[BackfillMergeTestBatch] =
+      stagedTableName: String,
+      targetTableName: String,
+      batchSchema: ArcaneSchema
+  ): Task[BackfillMergeTestBatch] =
     ZIO.succeed(new BackfillMergeTestBatch(stagedTableName, targetTableName, batchSchema))
 
 object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
@@ -104,7 +112,11 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
       recreate = false
     )
     // target table should exist
-    _ <- icebergUtilBackfill.prepareWatermark(targetName, TimestampOnlyWatermark(OffsetDateTime.now()), Some(streamSchema))
+    _ <- icebergUtilBackfill.prepareWatermark(
+      targetName,
+      TimestampOnlyWatermark(OffsetDateTime.now()),
+      Some(streamSchema)
+    )
     mergeService <- ZIO.succeed(
       new JdbcMergeServiceClient(
         TestJdbcMergeServiceClientSettings,
@@ -160,7 +172,7 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
           )
         )
         (builder, backfillTableName) <- runBackfill("test_backfill_merge", "backfill-merge-new", rows, streamSchema)
-        result  <- builder.produce().runCollect
+        result                       <- builder.produce().runCollect
       yield assertTrue(result.size == 1)
     }
   ).provide(
