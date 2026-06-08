@@ -4,6 +4,7 @@ package services.streaming.processors.batch_processors.streaming
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
+import models.settings.TableNaming.parts
 import services.iceberg.base.*
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StagedBatchProcessor
@@ -84,7 +85,7 @@ object SchemaMigrationProcessor:
       processor <- live(
         sinkEntityManager = sinkEntityManager,
         stagingEntityManager = stagingEntityManager,
-        tableName = context.sink.targetTableFullName,
+        tableName = context.sink.targetTableFullName.parts.name,
         sinkPropertyManager = sinkPropertyManager,
         schemaMigrationEnabled = !context.staging.table.isUnifiedSchema,
         isTargetInStaging = backfilling
