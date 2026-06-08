@@ -81,7 +81,7 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
   private def runBackfill(targetName: String) = for
     path              <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
     backfillId        <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
-    tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"iceberg.test.$targetName"))
+    tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"iceberg.test.${targetName.replace("-", "_")}"))
 
     nameGenerator <- ZIO.succeed(
       new DefaultNameGenerator(
