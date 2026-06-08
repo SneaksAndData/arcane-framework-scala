@@ -23,10 +23,18 @@ object TestTrinoConnection:
         else 0
       }
   }
-  
-  def getFieldValueInTarget(con: Connection, tableName: String, fieldName: String, pkKey: String, pkValue: String): ZIO[Any, Throwable, String] = ZIO.scoped {
+
+  def getFieldValueInTarget(
+      con: Connection,
+      tableName: String,
+      fieldName: String,
+      pkKey: String,
+      pkValue: String
+  ): ZIO[Any, Throwable, String] = ZIO.scoped {
     ZIO
-      .fromAutoCloseable(ZIO.attempt(con.prepareStatement(s"select $fieldName from $tableName where $pkKey = '$pkValue'")))
+      .fromAutoCloseable(
+        ZIO.attempt(con.prepareStatement(s"select $fieldName from $tableName where $pkKey = '$pkValue'"))
+      )
       .map { st =>
         val rs = st.executeQuery()
         if rs.next() then rs.getString(1)
