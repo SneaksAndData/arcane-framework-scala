@@ -1,29 +1,28 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
-import models.schemas.{ArcaneSchema, DataRow}
+import models.schemas.ArcaneType.{IntType, StringType}
+import models.schemas.{ArcaneSchema, DataCell, DataRow, IndexedField, IndexedMergeKeyField, JsonWatermarkRow, MergeKeyField}
 import services.backfill.base.BackfillStreamDataProvider
 import services.backfill.graph.DefaultBackfillMergeGraphBuilder
 import services.filters.FieldsFilteringService
-import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
+import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.merging.JdbcMergeServiceClient
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
-import services.streaming.base.StructuredZStream
-import services.streaming.processors.batch_processors.streaming.{
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.base.{StructuredZStream, TimestampOnlyWatermark}
+import services.streaming.processors.batch_processors.streaming.{MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.*
+import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 
 import zio.stream.ZStream
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
+
+import java.time.OffsetDateTime
 
 final class TestBackfillMergeStreamDataProvider(data: Seq[DataRow], schema: ArcaneSchema)
     extends BackfillStreamDataProvider:
@@ -40,8 +39,11 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
       result        = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
     yield result
   }
+  private val streamSchema = ArcaneSchema(
+    Seq(IndexedMergeKeyField(1), IndexedField("colA", StringType, 2), IndexedField("colB", IntType, 3))
+  )
 
-  private def runBackfill(targetName: String, backfillId: String) = for
+  private def runBackfill(targetName: String, backfillId: String, changeSet: Seq[DataRow], schema: ArcaneSchema) = for
     writer                   <- ZIO.service[IcebergS3CatalogWriter]
     sinkPropertyManager      <- ZIO.service[SinkPropertyManager]
     stagingEntityManager     <- ZIO.service[StagingEntityManager]
@@ -65,7 +67,7 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
     )
     builder <- ZIO.succeed(
       DefaultBackfillMergeGraphBuilder(
-        streamDataProvider = new TestBackfillMergeStreamDataProvider(Seq(), ArcaneSchema.empty()),
+        streamDataProvider = new TestBackfillMergeStreamDataProvider(changeSet, schema),
         fieldFilteringProcessor =
           new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
         stagingProcessor = new StagingProcessor(
@@ -93,9 +95,24 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillMergeGraphBuilderTests")(
     test("performs backfill merge by streaming exactly one changeset") {
       for
-        builder <- runBackfill("test_backfill_merge", "backfill-merge-new")
+        rows <- ZIO.succeed(
+          Seq(
+            List(
+              DataCell(MergeKeyField.name, StringType, "k1"),
+              DataCell("colA", StringType, "one"),
+              DataCell("colB", IntType, 1)
+            ),
+            List(
+              DataCell(MergeKeyField.name, StringType, "k2"),
+              DataCell("colA", StringType, "two"),
+              DataCell("colB", IntType, 2)
+            ),
+            JsonWatermarkRow(TimestampOnlyWatermark(OffsetDateTime.now()))
+          )
+        )
+        builder <- runBackfill("test_backfill_merge", "backfill-merge-new", rows, streamSchema)
         result  <- builder.produce().runCollect
-      yield assertTrue(1 == 1)
+      yield assertTrue(result.size == 1)
     }
   ).provide(
     writerLayer,
