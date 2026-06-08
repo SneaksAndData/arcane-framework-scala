@@ -38,13 +38,6 @@ class MergeBatchProcessor(
 object MergeBatchProcessor:
 
   /** Factory method to create MergeProcessor
-    *
-    * @param mergeServiceClient
-    *   The JDBC consumer.
-    * @param targetTableSettings
-    *   The target table settings.
-    * @return
-    *   The initialized MergeProcessor instance
     */
   def apply(
       mergeServiceClient: MergeServiceClient,

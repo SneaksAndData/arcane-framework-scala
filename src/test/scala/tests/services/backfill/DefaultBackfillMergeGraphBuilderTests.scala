@@ -3,8 +3,8 @@ package tests.services.backfill
 
 import models.batches.{MergeableBatch, StagedVersionedBatch, WatermarkOnlyBatch}
 import models.queries.{MergeQuery, OnSegment, WhenMatchedUpdate, WhenNotMatchedInsert}
-import models.schemas.ArcaneType.{IntType, StringType}
 import models.schemas.*
+import models.schemas.ArcaneType.{IntType, StringType}
 import services.backfill.base.BackfillStreamDataProvider
 import services.backfill.graph.DefaultBackfillMergeGraphBuilder
 import services.filters.FieldsFilteringService
@@ -23,12 +23,8 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
+import tests.shared.TestTrinoConnection.{getFieldValueInTarget, getRowsInTarget, newTrinoConnection}
 
-import com.sneaksanddata.arcane.framework.tests.shared.TestTrinoConnection.{
-  getFieldValueInTarget,
-  getRowsInTarget,
-  newTrinoConnection
-}
 import zio.stream.ZStream
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
