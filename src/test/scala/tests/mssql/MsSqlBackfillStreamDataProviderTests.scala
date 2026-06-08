@@ -79,7 +79,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
     yield ()
 
   private def runBackfill(sourceTableName: String, targetName: String) = for
-    backfillId    <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
+    backfillId <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
     _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
       connection => prepareSourceTable(connection, sourceTableName)
     )
