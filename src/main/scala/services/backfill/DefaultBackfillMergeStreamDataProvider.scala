@@ -7,7 +7,7 @@ import services.streaming.base.{ChangeCaptureDataProvider, JsonWatermark, Source
 
 import zio.stream.ZStream
 
-final class DefaultBackfillMergeStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
+abstract class DefaultBackfillMergeStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
     dataProvider: ChangeCaptureDataProvider[WatermarkType],
     backfillSourceDataProvider: BackfillSourceDataProvider[WatermarkType],
     backfillSettings: BackfillSettings
