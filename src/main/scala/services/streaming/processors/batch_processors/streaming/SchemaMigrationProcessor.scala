@@ -5,6 +5,7 @@ import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.schemas.ArcaneSchema
 import models.settings.TableNaming.parts
+import models.settings.backfill.BackfillBehavior.Overwrite
 import services.iceberg.base.*
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.streaming.base.StagedBatchProcessor
@@ -36,9 +37,13 @@ class SchemaMigrationProcessor(
       for _ <- ZIO.when(!batch.isEmpty && schemaMigrationEnabled) {
           for
             // for streams, we migrate sink table
-            _ <- ZIO.unless(isTargetInStaging)(alignSchemas(batch.schema, sinkEntityManager, batch.targetTableName))
+            _ <- ZIO.unless(isTargetInStaging)(
+              alignSchemas(batch.schema, sinkEntityManager, batch.targetTableName.parts.name)
+            )
             // for backfills, we migrate staging table
-            _ <- ZIO.when(isTargetInStaging)(alignSchemas(batch.schema, stagingEntityManager, batch.targetTableName))
+            _ <- ZIO.when(isTargetInStaging)(
+              alignSchemas(batch.schema, stagingEntityManager, batch.targetTableName.parts.name)
+            )
           yield ()
         }
       yield batch
@@ -81,14 +86,14 @@ object SchemaMigrationProcessor:
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
       context              <- ZIO.service[PluginStreamContext]
-      backfilling          <- context.isBackfilling
+      backfillMode         <- ZIO.succeed(context.streamMode.backfill.backfillBehavior)
       processor <- live(
         sinkEntityManager = sinkEntityManager,
         stagingEntityManager = stagingEntityManager,
         tableName = context.sink.targetTableFullName.parts.name,
         sinkPropertyManager = sinkPropertyManager,
         schemaMigrationEnabled = !context.staging.table.isUnifiedSchema,
-        isTargetInStaging = backfilling
+        isTargetInStaging = backfillMode == Overwrite
       )
     yield processor
   }
