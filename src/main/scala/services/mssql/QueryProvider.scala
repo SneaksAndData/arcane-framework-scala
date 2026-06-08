@@ -170,8 +170,10 @@ object QueryProvider:
 
   private def costToSize(cost: Double): Double =
     val calculatedCost = 1.0 + pow(log(cost), 3)
-    // Hard cap at 1000
-    if (calculatedCost > 1000.0) 1000.0 else calculatedCost
+    calculatedCost match
+      case x if x < 0    => 1
+      case x if x > 1000 => 1000
+      case _             => calculatedCost
 
   def getSourcePhysicalStatsQuery(schemaName: String, tableName: String, cost: Double): MsSqlQuery =
     val shardSizeEstimate = costToSize(cost)
