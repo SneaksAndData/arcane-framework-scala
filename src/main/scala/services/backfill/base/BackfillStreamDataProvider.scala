@@ -1,6 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill.base
 
-import services.streaming.base.StreamDataProvider
+import services.streaming.base.StructuredZStream
 
-trait BackfillStreamDataProvider extends StreamDataProvider
+import zio.stream.ZStream
+
+trait BackfillStreamDataProvider:
+  /** Returns the stream of elements.
+    */
+  def stream: ZStream[Any, Throwable, StructuredZStream]
