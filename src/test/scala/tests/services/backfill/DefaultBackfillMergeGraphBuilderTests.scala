@@ -11,7 +11,11 @@ import services.merging.JdbcMergeServiceClient
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.streaming.base.StructuredZStream
-import services.streaming.processors.batch_processors.streaming.{MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.*
@@ -21,11 +25,11 @@ import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
 
-final class TestBackfillMergeStreamDataProvider(data: Seq[DataRow], schema: ArcaneSchema) extends BackfillStreamDataProvider:
+final class TestBackfillMergeStreamDataProvider(data: Seq[DataRow], schema: ArcaneSchema)
+    extends BackfillStreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream.succeed(
     (ZStream.fromIterable(data), schema)
   )
-    
 
 object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
   private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
@@ -33,15 +37,15 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
     for
       factory <- IcebergCatalogFactory.live(defaultIcebergStagingSettings)
       entityManager = IcebergStagingEntityManager(defaultIcebergStagingSettings, factory)
-      result = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
+      result        = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
     yield result
   }
-  
+
   private def runBackfill(targetName: String, backfillId: String) = for
-    writer <- ZIO.service[IcebergS3CatalogWriter]
-    sinkPropertyManager <- ZIO.service[SinkPropertyManager]
-    stagingEntityManager <- ZIO.service[StagingEntityManager]
-    stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+    writer                   <- ZIO.service[IcebergS3CatalogWriter]
+    sinkPropertyManager      <- ZIO.service[SinkPropertyManager]
+    stagingEntityManager     <- ZIO.service[StagingEntityManager]
+    stagingPropertyManager   <- ZIO.service[StagingPropertyManager]
     schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
     nameGenerator <- ZIO.succeed(
       new DefaultNameGenerator(
@@ -62,7 +66,8 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
     builder <- ZIO.succeed(
       DefaultBackfillMergeGraphBuilder(
         streamDataProvider = new TestBackfillMergeStreamDataProvider(Seq(), ArcaneSchema.empty()),
-        fieldFilteringProcessor = new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
+        fieldFilteringProcessor =
+          new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
         stagingProcessor = new StagingProcessor(
           targetTableFullName = s"iceberg.test.$targetName",
           icebergCatalogSettings = defaultIcebergStagingSettings,
@@ -74,7 +79,6 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
         mergeProcessor = new MergeBatchProcessor(
           mergeServiceClient = mergeService,
           declaredMetrics = DeclaredMetrics()
-          
         ),
         watermarkProcessor = new WatermarkProcessor(
           propertyManager = sinkPropertyManager,
@@ -84,18 +88,20 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
         schemaMigrationProcessor = schemaMigrationProcessor
       )
     )
-  yield builder  
-  
+  yield builder
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillMergeGraphBuilderTests")(
     test("performs backfill merge by streaming exactly one changeset") {
       for
         builder <- runBackfill("test_backfill_merge", "backfill-merge-new")
-        result <- builder.produce().runCollect
-      yield assertTrue(1==1) 
+        result  <- builder.produce().runCollect
+      yield assertTrue(1 == 1)
     }
-  ).provide(writerLayer,
+  ).provide(
+    writerLayer,
     VoidSchemaMigrationProcessor.layer,
     icebergUtilBackfill.getSinkEntityManagerLayer,
     icebergUtilBackfill.getStagingTablePropertyManagerLayer,
     icebergUtilBackfill.getStagingEntityManagerLayer,
-    icebergUtilBackfill.getSinkTablePropertyManagerLayer) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
+    icebergUtilBackfill.getSinkTablePropertyManagerLayer
+  ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

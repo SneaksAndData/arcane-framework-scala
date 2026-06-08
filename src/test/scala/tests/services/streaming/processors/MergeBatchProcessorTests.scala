@@ -39,21 +39,21 @@ class MergeBatchProcessorTests extends AsyncFlatSpec with Matchers with EasyMock
 
   it should "run merges" in {
     // Arrange
-    val mergeServiceClient     = mock[MergeServiceClient]
-    val declaredMetrics        = DeclaredMetrics()
+    val mergeServiceClient = mock[MergeServiceClient]
+    val declaredMetrics    = DeclaredMetrics()
 
     expecting {
       // Calling once for each batch in batch set
       mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(40)
     }
     replay(
-      mergeServiceClient,
+      mergeServiceClient
     )
 
     val mergeBatchProcessor =
       MergeBatchProcessor(
         mergeServiceClient,
-        declaredMetrics,
+        declaredMetrics
       )
 
     // Act

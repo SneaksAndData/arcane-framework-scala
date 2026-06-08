@@ -15,7 +15,7 @@ import zio.{ZIO, ZLayer}
   */
 class MergeBatchProcessor(
     mergeServiceClient: MergeServiceClient,
-    declaredMetrics: DeclaredMetrics,
+    declaredMetrics: DeclaredMetrics
 ) extends StagedBatchProcessor:
 
   /** Processes the incoming data.
@@ -48,7 +48,7 @@ object MergeBatchProcessor:
     */
   def apply(
       mergeServiceClient: MergeServiceClient,
-      declaredMetrics: DeclaredMetrics,
+      declaredMetrics: DeclaredMetrics
   ): MergeBatchProcessor =
     new MergeBatchProcessor(
       mergeServiceClient,
@@ -64,9 +64,9 @@ object MergeBatchProcessor:
   val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
-        context                <- ZIO.service[PluginStreamContext]
-        jdbcConsumer           <- ZIO.service[MergeServiceClient]
-        declaredMetrics        <- ZIO.service[DeclaredMetrics]
+        context         <- ZIO.service[PluginStreamContext]
+        jdbcConsumer    <- ZIO.service[MergeServiceClient]
+        declaredMetrics <- ZIO.service[DeclaredMetrics]
       yield MergeBatchProcessor(
         jdbcConsumer,
         declaredMetrics
