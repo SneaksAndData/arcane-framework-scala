@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
 import models.batches.{MergeableBatch, StagedVersionedBatch, WatermarkOnlyBatch}
-import models.queries.{MergeQuery, OnSegment, WhenNotMatchedInsert}
+import models.queries.{MergeQuery, OnSegment, WhenMatchedUpdate, WhenNotMatchedInsert}
 import models.schemas.ArcaneType.{IntType, StringType}
 import models.schemas.*
 import services.backfill.base.BackfillStreamDataProvider
@@ -15,15 +15,12 @@ import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.streaming.base.{StructuredZStream, TimestampOnlyWatermark}
 import services.streaming.batching.StagedBatchFactory
-import services.streaming.processors.batch_processors.streaming.{
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 
+import com.sneaksanddata.arcane.framework.tests.shared.TestTrinoConnection.{getFieldValueInTarget, getRowsInTarget, newTrinoConnection}
 import zio.stream.ZStream
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -46,10 +43,13 @@ final class BackfillMergeTestBatch(stagedTableName: String, tableName: String, b
   override val completedWatermarkValue: Option[String] = None
   override val batchQuery: MergeQuery = MergeQuery(tableName, s"select * from $stagedTableName") ++ OnSegment(
     Map(),
-    "colA",
+    "ARCANE_MERGE_KEY",
     Seq()
   ) ++ new WhenNotMatchedInsert {
     override val columns: Seq[String]             = Seq("colA", "colB", "ARCANE_MERGE_KEY")
+    override val segmentCondition: Option[String] = None
+  } ++ new WhenMatchedUpdate {
+    override val columns: Seq[String] = Seq("colA", "colB")
     override val segmentCondition: Option[String] = None
   }
   override def reduceExpr: String = ""
@@ -91,7 +91,7 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
     Seq(IndexedMergeKeyField(1), IndexedField("colA", StringType, 2), IndexedField("colB", IntType, 3))
   )
 
-  private def runBackfill(targetName: String, backfillId: String, changeSet: Seq[DataRow], schema: ArcaneSchema) = for
+  private def runBackfill(targetName: String, backfillId: String, changeSet: Seq[DataRow], schema: ArcaneSchema, createTarget: Boolean = true) = for
     writer                   <- ZIO.service[IcebergS3CatalogWriter]
     sinkPropertyManager      <- ZIO.service[SinkPropertyManager]
     stagingEntityManager     <- ZIO.service[StagingEntityManager]
@@ -112,11 +112,11 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
       recreate = false
     )
     // target table should exist
-    _ <- icebergUtilBackfill.prepareWatermark(
+    _ <- ZIO.when(createTarget)(icebergUtilBackfill.prepareWatermark(
       targetName,
       TimestampOnlyWatermark(OffsetDateTime.now()),
       Some(streamSchema)
-    )
+    ))
     mergeService <- ZIO.succeed(
       new JdbcMergeServiceClient(
         TestJdbcMergeServiceClientSettings,
@@ -154,8 +154,9 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
   yield (builder, backfillTableName)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillMergeGraphBuilderTests")(
-    test("performs backfill merge by streaming exactly one changeset") {
+    test("performs backfill merge by streaming exactly one changeset into an empty table") {
       for
+        trinoConnection <- newTrinoConnection
         rows <- ZIO.succeed(
           Seq(
             List(
@@ -173,7 +174,49 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
         )
         (builder, backfillTableName) <- runBackfill("test_backfill_merge", "backfill-merge-new", rows, streamSchema)
         result                       <- builder.produce().runCollect
-      yield assertTrue(result.size == 1)
+        resultRows <- getRowsInTarget(trinoConnection, "iceberg.test.test_backfill_merge")
+      yield assertTrue(result.size == 1 && resultRows == rows.size - 1)
+    },
+    test("backfill merge correctly updates rows in target") {
+      for
+        trinoConnection <- newTrinoConnection
+        firstRows <- ZIO.succeed(
+          Seq(
+            List(
+              DataCell(MergeKeyField.name, StringType, "k1"),
+              DataCell("colA", StringType, "one"),
+              DataCell("colB", IntType, 1)
+            ),
+            List(
+              DataCell(MergeKeyField.name, StringType, "k2"),
+              DataCell("colA", StringType, "two"),
+              DataCell("colB", IntType, 2)
+            ),
+            JsonWatermarkRow(TimestampOnlyWatermark(OffsetDateTime.now()))
+          )
+        )
+        secondRows <- ZIO.succeed(
+          Seq(
+            List(
+              DataCell(MergeKeyField.name, StringType, "k1"),
+              DataCell("colA", StringType, "two"),
+              DataCell("colB", IntType, 3)
+            ),
+            List(
+              DataCell(MergeKeyField.name, StringType, "k3"),
+              DataCell("colA", StringType, "three"),
+              DataCell("colB", IntType, 3)
+            ),
+            JsonWatermarkRow(TimestampOnlyWatermark(OffsetDateTime.now()))
+          )
+        )
+        (firstBuilder, _) <- runBackfill("test_backfill_merge_updated", "backfill-merge-updated", firstRows, streamSchema)
+        _                       <- firstBuilder.produce().runCollect
+        (secondBuilder, _) <- runBackfill("test_backfill_merge_updated", "backfill-merge-updated", secondRows, streamSchema, createTarget = false)
+        _ <- secondBuilder.produce().runCollect
+        resultRowCount <- getRowsInTarget(trinoConnection, "iceberg.test.test_backfill_merge_updated")
+        resultK1Update <- getFieldValueInTarget(trinoConnection, "iceberg.test.test_backfill_merge_updated", "colA", MergeKeyField.name, "k1")
+      yield assertTrue(resultRowCount == 3 && resultK1Update == "two")
     }
   ).provide(
     writerLayer,

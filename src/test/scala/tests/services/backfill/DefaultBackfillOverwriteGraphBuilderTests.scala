@@ -6,7 +6,7 @@ import models.schemas.*
 import models.schemas.ArcaneType.{IntType, StringType}
 import models.sharding.*
 import services.backfill.DefaultBackfillStateManager
-import services.backfill.base.{ShardedBackfillStreamDataProvider, ShardFactory, ShardProcessingState}
+import services.backfill.base.{ShardFactory, ShardProcessingState, ShardedBackfillStreamDataProvider}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.filters.FieldsFilteringService
@@ -19,14 +19,13 @@ import services.streaming.base.{JsonWatermark, TimestampOnlyWatermark}
 import services.streaming.processors.transformers.FieldFilteringTransformer
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
-import tests.shared.TestTrinoConnection.newTrinoConnection
+import tests.shared.TestTrinoConnection.{getRowsInTarget, newTrinoConnection}
 
 import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Schedule, Scope, Task, ZIO, ZLayer}
 
-import java.sql.Connection
 import java.time.OffsetDateTime
 
 final class TestShardedBackfillStreamDataProvider(targetName: String, shards: Seq[BootstrappedShard])
@@ -80,15 +79,6 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     yield result
   }
   private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
-  private def getRowsInTarget(con: Connection, tableName: String) = ZIO.scoped {
-    ZIO
-      .fromAutoCloseable(ZIO.attempt(con.prepareStatement(s"select count (1) from $tableName")))
-      .map { st =>
-        val rs = st.executeQuery()
-        if rs.next() then rs.getInt(1)
-        else 0
-      }
-  }
   private def getShards(targetName: String, backfillTableName: String, id: String) = Seq(
     DefaultBootstrappedShard(
       shardStream = (
