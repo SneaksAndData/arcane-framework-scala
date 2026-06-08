@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.merging.cleanup
 
-import models.batches.{MergeableBatch, StagedBatch, StagedVersionedBatch}
+import models.batches.StagedBatch
 import services.base.{BatchDisposeResult, DisposeServiceClient}
 import services.iceberg.base.StagingEntityManager
 
-import zio.Task
+import zio.{Task, ZIO, ZLayer}
 
 /** Batch dispose client implementation that uses Iceberg REST Catalog API
   */
@@ -22,3 +22,9 @@ class CatalogDisposeServiceClient(
     */
   override def disposeBatch(batch: StagedBatch): Task[BatchDisposeResult] =
     stagingEntityManager.delete(batch.name).map(BatchDisposeResult(_))
+
+object CatalogDisposeServiceClient:
+  val layer = ZLayer {
+    for stagingEntityManager <- ZIO.service[StagingEntityManager]
+    yield new CatalogDisposeServiceClient(stagingEntityManager)
+  }
