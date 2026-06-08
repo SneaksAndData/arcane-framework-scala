@@ -41,8 +41,8 @@ lazy val root = (project in file("."))
     Test / logBuffered := false,
 
     // Framework dependencies
-    libraryDependencies += "dev.zio" %% "zio" % "2.1.24",
-    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.24",
+    libraryDependencies += "dev.zio" %% "zio" % "2.1.26",
+    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.26",
       libraryDependencies += "dev.zio" %% "zio-cache" % "0.2.8",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.2.jre11",
     libraryDependencies += "software.amazon.awssdk" % "s3" % "2.33.13",
@@ -73,13 +73,13 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
     libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.3",
     // https://mvnrepository.com/artifact/io.trino/trino-jdbc
-    libraryDependencies += "io.trino" % "trino-jdbc" % "478",
+    libraryDependencies += "io.trino" % "trino-jdbc" % "481",
 
     // Azure dependencies
     // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
     libraryDependencies += "com.azure" % "azure-storage-blob" % "12.32.0",
     // https://mvnrepository.com/artifact/com.azure/azure-identity
-    libraryDependencies += "com.azure" % "azure-identity" % "1.18.1",
+    libraryDependencies += "com.azure" % "azure-identity" % "1.18.3",
     // Jackson pin
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.1",
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-core" % "2.18.1",
@@ -91,8 +91,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-6" % "3.2.20.0" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
 
     // Logging and metrics
     // For ZIO
@@ -101,10 +101,10 @@ lazy val root = (project in file("."))
     
     // For DataDog
     libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.25.3",
-    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.32",
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.34",
     libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "9.0",
 
     // Metrics
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.5.5",
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.5",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.5.6",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.6",
   )
