@@ -43,11 +43,6 @@ class DeclaredMetrics:
   val mbsGCProbability: Gauge[Double] = Metric
     .gauge(s"$metricsNamespace.mbs.gc_probability")
 
-  /** Time it takes to transform a source rows into a mergeable batch
-    */
-  val batchTransformDuration: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.batch.grouping_duration")
-
   /** Time it takes to create a staging table from incoming row chunk
     */
   val batchStageDuration: Gauge[Double] = Metric
