@@ -187,7 +187,8 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
           )
         )
         builder <- getStreamBuilder(rowsToStream, "stream_builder")
-        result  <- builder.produce().runCollect
+        // 2 processed batches: all rows + watermark
+        result <- builder.produce().runCollect
       yield assertTrue(result.size == 2)
     }
   ).provide(
