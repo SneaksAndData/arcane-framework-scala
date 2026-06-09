@@ -130,7 +130,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           override val shardSizeMegabytes: Option[Int]                = None
           override val backfillShardSchemaName: String                = "dbo"
         },
-        emptyFieldsFilteringService
+        emptyFieldsFilteringService,
+        nameGenerator,
       )
     )
     dataProvider <- ZIO.succeed(

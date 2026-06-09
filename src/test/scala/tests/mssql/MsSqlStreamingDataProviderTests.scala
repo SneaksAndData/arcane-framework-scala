@@ -8,8 +8,9 @@ import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
-import services.mssql.base.{ColumnSummary, MsSqlStreamingSource, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
 import services.mssql.versioning.MsSqlWatermark
+import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
@@ -80,6 +81,13 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
       }
     yield ()
 
+  private val nameGenerator =
+    new DefaultNameGenerator(
+      sinkSettings = TestSinkSettings,
+      backfillId = "",
+      streamId = "mssql_reader_tests"
+    )  
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlDataProviderTests") {
     test("returns correct number of rows while streaming") {
       for
@@ -101,7 +109,8 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         propertyManager <- icebergUtil.getSinkTablePropertyManager
