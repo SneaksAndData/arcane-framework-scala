@@ -79,7 +79,6 @@ class StagingProcessor(
           )
         yield staged.getOrElse(Chunk.empty)
       )
-      .filter(!_.isEmpty)
 
   private def writeDataRows(
       rows: Chunk[DataRow],
