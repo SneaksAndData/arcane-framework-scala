@@ -108,7 +108,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
         override def deleteShards(streamId: String): Task[Unit] = ZIO.unit
 
         override def getShards(
-            backfillId: String,
             rangeStart: TimestampOnlyWatermark,
             rangeEnd: TimestampOnlyWatermark
         ): ZStream[Any, Throwable, ShardMetadata] = ZStream.empty

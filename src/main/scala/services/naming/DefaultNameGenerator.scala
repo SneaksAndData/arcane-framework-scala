@@ -45,6 +45,16 @@ final class DefaultNameGenerator(
     shard.shardId
   ).mkString("__")
 
+  override def getShardSourceTableName(shardId: String): Task[String] = for
+    prefix <- getBackfillTablesPrefix
+    _      <- ZIO.unless(backfillId.isValid)(ZIO.fail(new Throwable(s"Invalid backfillId: '$backfillId'")))
+  yield Seq(
+    prefix,
+    nameSafeBackfillId,
+    "shard",
+    shardId
+  ).mkString("__")
+
   override def getStagingTablePrefix: Task[String] = ZIO.succeed(s"stream__${nameSafeStreamId}__stage")
 
   override def getStagingTableName: Task[String] = for
