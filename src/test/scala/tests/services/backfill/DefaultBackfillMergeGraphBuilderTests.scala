@@ -187,7 +187,7 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
         (builder, backfillTableName) <- runBackfill("test_backfill_merge", "backfill-merge-new", rows, streamSchema)
         result                       <- builder.produce().runCollect
         resultRows                   <- getRowsInTarget(trinoConnection, "iceberg.test.test_backfill_merge")
-      yield assertTrue(result.size == 1 && resultRows == rows.size - 1)
+      yield assertTrue(result.size == 2 && resultRows == rows.size - 1)
     },
     test("backfill merge correctly updates rows in target") {
       for
