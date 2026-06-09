@@ -259,7 +259,6 @@ final class SynapseLinkStreamingSource(location: AdlsStoragePath, entityName: St
     * @return
     */
   override def getShards(
-      backfillId: String,
       rangeStart: SynapseWatermark,
       rangeEnd: SynapseWatermark
   ): ZStream[Any, Throwable, (stream: (ZStream[Any, Throwable, DataRow], ArcaneSchema), source: String)] =

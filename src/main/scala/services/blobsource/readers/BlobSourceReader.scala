@@ -40,7 +40,6 @@ trait BlobSourceReader extends StreamingSource:
   def fileToBlob(sourceFile: String): Task[StoredBlob]
 
   override def getShards(
-      backfillId: String,
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
   ): ZStream[Any, Throwable, StoredBlob]

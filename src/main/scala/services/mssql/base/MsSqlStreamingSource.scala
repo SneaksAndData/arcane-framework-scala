@@ -17,6 +17,7 @@ import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.services.naming.NameGenerator
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -42,7 +43,8 @@ type MsSqlQuery = String
   */
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
-    fieldsFilteringService: MsSqlServerFieldsFilteringService
+    fieldsFilteringService: MsSqlServerFieldsFilteringService,
+    nameGenerator: NameGenerator
 ) extends AutoCloseable
     with StreamingSource:
 
@@ -105,10 +107,9 @@ class MsSqlStreamingSource(
   private def createShardTable(
       shardNumber: Int,
       totalShards: Int,
-      backfillId: String,
       summaries: List[ColumnSummary]
   ): Task[String] = for
-    tableName <- ZIO.succeed(s"${backfillId}__shard_$shardNumber")
+    tableName <- nameGenerator.getShardSourceTableName(shardNumber.toString)
     _         <- zlog("Creating a table %s for shard #%s", tableName, shardNumber.toString)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(
@@ -374,9 +375,7 @@ class MsSqlStreamingSource(
       .runDrain
   yield ()
 
-  // TODO: backfill-merge should respect start and end
   override def getShards(
-      backfillId: String,
       rangeStart: MsSqlWatermark,
       rangeEnd: MsSqlWatermark
   ): ZStream[Any, Throwable, String] = ZStream
@@ -452,12 +451,12 @@ class MsSqlStreamingSource(
     .flatMap { profile =>
       ZStream
         .fromIterable(0 until profile.shardCount)
-        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, backfillId, profile.summaries))
+        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, profile.summaries))
     }
 
 object MsSqlStreamingSource:
 
-  type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService
+  type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService & NameGenerator
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
 
   /** Creates a new Microsoft SQL Server connection.
@@ -471,9 +470,10 @@ object MsSqlStreamingSource:
     */
   def apply(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
-      fieldsFilteringService: MsSqlServerFieldsFilteringService
+      fieldsFilteringService: MsSqlServerFieldsFilteringService,
+      nameGenerator: NameGenerator
   ): MsSqlStreamingSource =
-    new MsSqlStreamingSource(connectionSettings, fieldsFilteringService)
+    new MsSqlStreamingSource(connectionSettings, fieldsFilteringService, nameGenerator)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
@@ -485,7 +485,8 @@ object MsSqlStreamingSource:
         for
           context                <- ZIO.service[PluginStreamContext]
           fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-        yield MsSqlStreamingSource(extractor(context), fieldsFilteringService)
+          nameGenerator          <- ZIO.service[NameGenerator]
+        yield MsSqlStreamingSource(extractor(context), fieldsFilteringService, nameGenerator)
       }
     }
 

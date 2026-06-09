@@ -52,7 +52,7 @@ class BlobBackfillSourceDataProvider(
   ): ZStream[Any, Throwable, BootstrappedShard] =
     (shardSources match
       case Some(sources) => ZStream.fromIterable(sources).mapZIO(dataProvider.fileToBlob)
-      case None          => dataProvider.getShards(backfillId, backfillStart, backfillEnd)
+      case None          => dataProvider.getShards(backfillStart, backfillEnd)
     )
       .mapZIO { sourceFile =>
         dataProvider
