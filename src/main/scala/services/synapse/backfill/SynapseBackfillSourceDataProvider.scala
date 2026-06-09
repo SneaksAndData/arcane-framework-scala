@@ -41,7 +41,7 @@ final class SynapseBackfillSourceDataProvider(
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
     case None =>
-      dataProvider.getShards(backfillId, backfillStart, backfillEnd)
+      dataProvider.getShards(backfillStart, backfillEnd)
     case Some(sources) =>
       ZStream.fromIterable(sources).mapZIO(dataProvider.getShardFolderStream).collect { case Some(streamMetadata) =>
         streamMetadata

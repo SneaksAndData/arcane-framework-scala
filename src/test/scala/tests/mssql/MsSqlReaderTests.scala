@@ -8,10 +8,12 @@ import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
-import services.mssql.base.{ColumnSummary, MsSqlStreamingSource, MsSqlServerFieldsFilteringService}
+import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
 import services.mssql.versioning.MsSqlWatermark
+import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.*
+import tests.shared.TestSinkSettings
 
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
@@ -85,6 +87,13 @@ object MsSqlReaderTests extends ZIOSpecDefault:
       yield ()
     }
 
+  private val nameGenerator =
+    new DefaultNameGenerator(
+      sinkSettings = TestSinkSettings,
+      backfillId = "",
+      streamId = "mssql_reader_tests"
+    )
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlConnectionTests")(
     test("QueryProvider generates columns query") {
       for
@@ -102,7 +111,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         query <- QueryProvider.getColumnSummariesQuery(
@@ -128,7 +138,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         query <- QueryProvider.getSchemaQuery(reader)
@@ -159,7 +170,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
@@ -202,7 +214,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            nameGenerator
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
@@ -242,7 +255,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            nameGenerator
           )
         )
         result <- reader.getBackfillQuery("dbo", "field_selection_rule_no_pk").exit
@@ -274,7 +288,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            nameGenerator
           )
         )
         result <- reader.getBackfillQuery("dbo", "field_selection_rule_pk").exit
@@ -298,7 +313,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         expected <- ZIO.succeed(
@@ -340,7 +356,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         rows <- ZStream.fromZIO(reader.createShardStream("backfill_rows")).flatMap(_._1).runCollect
@@ -365,7 +382,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         rows <- ZStream.fromZIO(reader.createShardStream("backfill_columns")).flatMap(_._1).runCollect
@@ -396,7 +414,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            nameGenerator
           )
         )
         expected <- ZIO.succeed(
@@ -424,7 +443,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         rows <- reader
@@ -473,7 +493,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
+            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            nameGenerator
           )
         )
         rows <- reader
@@ -521,7 +542,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         rows <- reader
@@ -554,7 +576,8 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService
+            emptyFieldsFilteringService,
+            nameGenerator
           )
         )
         nextTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))

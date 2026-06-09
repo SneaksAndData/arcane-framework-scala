@@ -24,9 +24,13 @@ trait NameGenerator:
     */
   def getBackfillTablesPrefix: Task[String]
 
-  /** Generate name for the provided backfill source shard
+  /** Generate name for the provided backfill source shard in the staging catalog
     */
   def getShardTableName(shard: SourceShard): Task[String]
+
+  /** Generate name for the provided backfill source shard in the source
+    */
+  def getShardSourceTableName(shardId: String): Task[String]
 
   /** Generate target name (proxied from SinkSettings).
     */

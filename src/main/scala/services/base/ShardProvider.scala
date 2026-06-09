@@ -16,7 +16,6 @@ trait ShardProvider:
     * @return
     */
   def getShards(
-      backfillId: String,
       rangeStart: WatermarkType,
       rangeEnd: WatermarkType
   ): ZStream[Any, Throwable, ShardMetadata]

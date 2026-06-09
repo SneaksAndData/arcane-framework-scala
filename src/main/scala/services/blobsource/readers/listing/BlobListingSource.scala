@@ -37,7 +37,6 @@ abstract class BlobListingSource[PathType <: BlobPath](
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ZIO.succeed(true)
 
   final override def getShards(
-      backfillId: String,
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
   ): ZStream[Any, Throwable, StoredBlob] = reader
