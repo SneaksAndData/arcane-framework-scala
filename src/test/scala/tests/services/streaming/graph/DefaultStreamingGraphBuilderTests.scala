@@ -178,6 +178,11 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
               DataCell("colA", StringType, "two"),
               DataCell("colB", IntType, 2)
             ),
+            List(
+              DataCell(MergeKeyField.name, StringType, "k2"),
+              DataCell("colA", StringType, "three"),
+              DataCell("colB", IntType, 3)
+            ),
             JsonWatermarkRow(TimestampOnlyWatermark(OffsetDateTime.now()))
           )
         )
