@@ -16,7 +16,12 @@ import services.streaming.base.{StreamDataProvider, StructuredZStream, Timestamp
 import services.streaming.batching.StagedBatchFactory
 import services.streaming.graph.DefaultStreamingGraphBuilder
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
@@ -28,14 +33,13 @@ import zio.{Ref, Scope, Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
 
-final class TestStreamDataProvider(data: Seq[DataRow], schema: ArcaneSchema)
-  extends StreamDataProvider:
+final class TestStreamDataProvider(data: Seq[DataRow], schema: ArcaneSchema) extends StreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream.succeed(
     (ZStream.fromIterable(data), schema)
   )
 
 final class StreamTestBatch(stagedTableName: String, tableName: String, batchSchema: ArcaneSchema)
-  extends StagedVersionedBatch
+    extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String                            = stagedTableName
   override val schema: ArcaneSchema                    = batchSchema
@@ -72,12 +76,11 @@ final class StreamTestBatchFactory extends StagedBatchFactory:
     ZIO.succeed(new StreamWatermarkOnlyTestBatch(targetTableName, watermark))
 
   override def createDataBatch(
-                                stagedTableName: String,
-                                targetTableName: String,
-                                batchSchema: ArcaneSchema
-                              ): Task[StreamTestBatch] =
+      stagedTableName: String,
+      targetTableName: String,
+      batchSchema: ArcaneSchema
+  ): Task[StreamTestBatch] =
     ZIO.succeed(new StreamTestBatch(stagedTableName, targetTableName, batchSchema))
-
 
 object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
   private val icebergUtil = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
@@ -85,7 +88,7 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
     for
       factory <- IcebergCatalogFactory.live(defaultIcebergStagingSettings)
       entityManager = IcebergStagingEntityManager(defaultIcebergStagingSettings, factory)
-      result = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
+      result        = IcebergS3CatalogWriter(entityManager, TestStagingSettings())
     yield result
   }
   private val streamSchema = ArcaneSchema(
@@ -100,11 +103,11 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
   )
 
   private def getStreamBuilder(input: Seq[DataRow], targetName: String) = for
-    writer <- ZIO.service[IcebergS3CatalogWriter]
-    sinkPropertyManager <- ZIO.service[SinkPropertyManager]
-    stagingEntityManager <- ZIO.service[StagingEntityManager]
+    writer                   <- ZIO.service[IcebergS3CatalogWriter]
+    sinkPropertyManager      <- ZIO.service[SinkPropertyManager]
+    stagingEntityManager     <- ZIO.service[StagingEntityManager]
     schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
-    counter     <- Ref.make(0L)
+    counter                  <- Ref.make(0L)
     nameGenerator <- ZIO.succeed(
       new DefaultNameGenerator(
         sinkSettings = TestDynamicSinkSettings(targetName),
@@ -121,7 +124,8 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
     builder <- ZIO.succeed(
       DefaultStreamingGraphBuilder(
         streamDataProvider = new TestStreamDataProvider(input, streamSchema),
-        fieldFilteringProcessor = new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
+        fieldFilteringProcessor =
+          new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
         stagingProcessor = new StagingProcessor(
           targetTableFullName = s"iceberg.test.$targetName",
           icebergCatalogSettings = defaultIcebergStagingSettings,
@@ -178,7 +182,7 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
           )
         )
         builder <- getStreamBuilder(rowsToStream, "stream_builder")
-        result <- builder.produce().runCollect
+        result  <- builder.produce().runCollect
       yield assertTrue(result.size == 2)
     }
   ).provide(
