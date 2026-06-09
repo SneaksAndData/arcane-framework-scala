@@ -86,7 +86,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
       sinkSettings = TestSinkSettings,
       backfillId = "",
       streamId = "mssql_reader_tests"
-    )  
+    )
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlDataProviderTests") {
     test("returns correct number of rows while streaming") {

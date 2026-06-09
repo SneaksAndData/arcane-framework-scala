@@ -86,7 +86,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         }
       yield ()
     }
-    
+
   private val nameGenerator =
     new DefaultNameGenerator(
       sinkSettings = TestSinkSettings,
