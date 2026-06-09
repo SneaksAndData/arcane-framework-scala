@@ -87,7 +87,6 @@ class StagingProcessor(
     for staged <- ZIO.when(rows.nonEmpty) {
         for
           tableName <- nameGenerator.getStagingTableName
-          _         <- zlog("Preparing %s rows for batch %s", rows.size.toString, tableName)
           _ <- catalogWriter.write(
             rows,
             tableName,
