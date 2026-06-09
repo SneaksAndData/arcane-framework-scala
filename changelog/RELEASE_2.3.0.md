@@ -1,9 +1,3 @@
-# Arcane Framework Release Notes Draft (from v2.2.1 to HEAD)
-
-This draft contains a comprehensive changelog of commits and updates introduced between tag **v2.2.1** and the current **HEAD** (spanning Pull Requests #390 through #430).
-
----
-
 ## Framework / Core
 - **Introduce StructuredZStream**: Introduced `StructuredZStream`, which allows schema information to be passed along with a stream. Now schema migration can be carried out once (for the first batch) rather than at every batch when `isUnifiedSchema` is set to `false`.
 - **Backfill**: Backfill OVERWRITE has been re-written to utilize source sharding to drastically improve backfill times. OVERWRITE mode now supports resumable backfills when the same STREAMCONTEXT__BACKFILL_ID is provided on a restart.
