@@ -353,7 +353,7 @@ class MsSqlStreamingSource(
             .unfold(rs.next()) { hasNext =>
               if hasNext then
                 Some(
-                  rs.getString(0),
+                  rs.getString(1),
                   rs.next()
                 )
               else None
