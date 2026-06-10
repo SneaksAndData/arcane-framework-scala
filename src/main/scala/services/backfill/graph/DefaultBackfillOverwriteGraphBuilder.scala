@@ -43,7 +43,7 @@ class DefaultBackfillOverwriteGraphBuilder(
     .flatMap { case (stream, watermark) =>
 
       stream
-        .flatMapPar(backfillParallelism, 1) { shard =>
+        .flatMapPar(backfillParallelism, backfillParallelism / 2) { shard =>
           ZStream
             .fromZIO(stateManager.isStaged(shard))
             .flatMap { isStaged =>
