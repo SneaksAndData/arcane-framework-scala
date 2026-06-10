@@ -28,7 +28,7 @@ object DataDog {
 
     val jvmLayer = ZLayer {
       for tagProvider <- ZIO.service[GlobalMetricTagProvider]
-      yield (DefaultJvmMetrics.liveV2 >>> statsdUDS >>> datadog.live).build @@ ZIOAspect.tagged(
+      yield (DefaultJvmMetrics.liveV2 >>> layer).build @@ ZIOAspect.tagged(
         Option(tagProvider.getTags).getOrElse(SortedMap.empty[String, String]).toList*
       )
     }
