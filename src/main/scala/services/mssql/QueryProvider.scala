@@ -189,7 +189,7 @@ object QueryProvider:
     s"""SELECT
        |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
        |    ceiling((page_count * 8.0) / 1024 / $shardSize) as shards,
-       |    record_count / cast((page_count * 8.0) / 1024 / ceiling((page_count * 8.0) / 1024 / $shardSize) as records_per_shard
+       |    record_count / ceiling((page_count * 8.0) / 1024 / $shardSize) as records_per_shard
        |FROM
        |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
        |where index_level = 0""".stripMargin

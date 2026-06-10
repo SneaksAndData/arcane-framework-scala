@@ -442,8 +442,8 @@ class MsSqlStreamingSource(
           }
       }
       _ <- zlog(
-        s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard",
-        shardProfile.sizeGib.toString,
+        s"Created a shard profile for the backfill: table of size %s Gib will be split into %s shards, with %s rows/shard",
+        "%1$.2f".format(shardProfile.sizeGib),
         shardProfile.shardCount.toString,
         shardProfile.recordsPerShard.toString
       )
