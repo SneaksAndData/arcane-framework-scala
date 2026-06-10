@@ -132,7 +132,7 @@ class MsSqlStreamingSource(
             connectionSettings.tableName,
             connectionSettings.backfillShardSchemaName,
             tableName,
-            QueryProvider.getMergeExpression(summaries, "tq"),
+            QueryProvider.primaryKeyList(summaries),
             totalShards,
             shardNumber
           )

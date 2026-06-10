@@ -142,14 +142,14 @@ object QueryProvider:
       sourceTableName: String,
       shardSchemaName: String,
       shardTableName: String,
-      mergeExpression: String,
+      primaryKeyExpression: String,
       shardCount: Int,
       shardId: Int
   ): MsSqlQuery =
     s"""INSERT INTO [$shardSchemaName].[$shardTableName] WITH (TABLOCK)
       |SELECT *
       |FROM [$sourceSchemaName].[$sourceTableName] as tq
-      |WHERE ABS(CAST(CHECKSUM($mergeExpression) AS BIGINT)) % $shardCount = $shardId
+      |WHERE ABS(CAST(CHECKSUM($primaryKeyExpression) AS BIGINT)) % $shardCount = $shardId
       |OPTION (MIN_GRANT_PERCENT = 25, MAXDOP 0)""".stripMargin
 
   def getCreateCloneQuery(
@@ -215,10 +215,15 @@ object QueryProvider:
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
-  def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
+  private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
       .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
       .mkString(" + '#' + ")
+
+  def primaryKeyList(cs: List[ColumnSummary]): String = cs
+    .collect { case (name, isPrimaryKey) if isPrimaryKey => name }
+    .map(v => s"[$v]")
+    .mkString(",")
 
   private def getMatchStatement(
       cs: List[ColumnSummary],
