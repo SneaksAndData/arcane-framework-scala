@@ -345,6 +345,81 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
       yield assertTrue(rowsInTarget == expectedRowsInTarget)
+    },
+    test("prevents overcommitting data to shards on backfill restart when a shard is partially staged") {
+      for
+        trinoConnection <- newTrinoConnection
+        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+          "iceberg.test.overcommit_backfill_stream",
+          "test_overcommit_prevention"
+        )
+        // now simulate interruption where shard1 was partially staged, but backfill was interrupted and restarted
+
+        // truncate target
+        _ <- ZIO.scoped {
+          ZIO
+            .fromAutoCloseable(
+              ZIO.attempt(trinoConnection.prepareStatement("truncate table iceberg.test.overcommit_backfill_stream"))
+            )
+            .map(_.execute())
+        }
+        // truncate combined
+        _ <- ZIO.scoped {
+          ZIO
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement(
+                  s"truncate table iceberg.test.$backfillTableName"
+                )
+              )
+            )
+            .map(_.execute())
+        }
+        // drop shard2 and shard3 tables
+        _ <- ZIO.scoped {
+          ZIO
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(1)}")
+              )
+            )
+            .map(_.execute())
+        }
+        _ <- ZIO.scoped {
+          ZIO
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(2)}")
+              )
+            )
+            .map(_.execute())
+        }
+        // simulate partial staging on shard1: delete 1 row from it to simulate partial write during interruption
+        _ <- ZIO.scoped {
+          ZIO
+            .fromAutoCloseable(
+              ZIO.attempt(
+                trinoConnection.prepareStatement(s"delete from iceberg.test.${shardTableNames.head} where colB = 1")
+              )
+            )
+            .map(_.execute())
+        }
+
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        // remove processing state from shard1
+        _ <- stagingPropertyManager.setProperty(
+          shardTableNames.head,
+          "processing-state",
+          ""
+        )
+        // re-run and expect identical result to a full backfill (without duplicated data in shard1)
+        (_, shards, _, _) <- runBackfill(
+          "iceberg.test.overcommit_backfill_stream",
+          "test_overcommit_prevention"
+        )
+        expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
+        rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.overcommit_backfill_stream")
+      yield assertTrue(rowsInTarget == expectedRowsInTarget)
     }
   ).provide(
     writerLayer,
