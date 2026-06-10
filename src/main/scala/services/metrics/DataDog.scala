@@ -1,11 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.metrics
 
-import zio.{URLayer, ZIO, ZIOAspect, ZLayer}
+import services.metrics.base.MetricTagProvider
+
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.{DatagramSocketConfig, StatsdClient, statsdUDS}
-import zio.metrics.connectors.{MetricsConfig, datadog, statsd}
+import zio.metrics.connectors.{MetricsConfig, datadog}
 import zio.metrics.jvm.DefaultJvmMetrics
+import zio.{URLayer, ZIO, ZIOAspect, ZLayer}
 
 import scala.collection.SortedMap
 
@@ -27,7 +29,7 @@ object DataDog {
     val layer: ZLayer[Environment, Nothing, Unit] = udsLayer >>> datadog.live
 
     val jvmLayer = ZLayer {
-      for tagProvider <- ZIO.service[GlobalMetricTagProvider]
+      for tagProvider <- ZIO.service[MetricTagProvider]
       yield (DefaultJvmMetrics.liveV2 >>> layer).build @@ ZIOAspect.tagged(
         Option(tagProvider.getTags).getOrElse(SortedMap.empty[String, String]).toList*
       )
