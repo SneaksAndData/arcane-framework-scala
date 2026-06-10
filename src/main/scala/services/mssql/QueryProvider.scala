@@ -146,10 +146,11 @@ object QueryProvider:
       shardCount: Int,
       shardId: Int
   ): MsSqlQuery =
-    s"""INSERT INTO [$shardSchemaName].[$shardTableName]
+    s"""INSERT INTO [$shardSchemaName].[$shardTableName] WITH (TABLOCK)
       |SELECT *
       |FROM [$sourceSchemaName].[$sourceTableName] as tq
-      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId""".stripMargin
+      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId
+      |OPTION (MIN_GRANT_PERCENT = 25, MAXDOP 0)""".stripMargin
 
   def getCreateCloneQuery(
       sourceSchemaName: String,
