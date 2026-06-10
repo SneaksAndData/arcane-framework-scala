@@ -34,7 +34,8 @@ class DefaultBackfillStateManager(
 
   override def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit] = for
     shardTableName <- nameGenerator.getShardTableName(shard)
-    _              <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, false))
+    // replace = true ensures we do not append to the previously created shard table, in case a backfill was interrupted
+    _ <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, true))
   yield ()
 
   override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
