@@ -40,6 +40,7 @@ class TargetMaintenanceProcessor(
   private def executeMaintenanceQuery(query: String): Task[Unit] =
     ZIO.scoped {
       for
+        _         <- zlog("Running maintenance: %s", query)
         statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
         _ <- ZIO
           .attempt(statement.execute())
@@ -102,9 +103,9 @@ class TargetMaintenanceProcessor(
 
   override def process
       : ZPipeline[Any, Throwable, StagedVersionedBatch & MergeableBatch, StagedVersionedBatch & MergeableBatch] =
-    ZPipeline.mapZIO { batch =>
+    ZPipeline[BatchType].mapZIO { batch =>
       for
-        _ <- counterRef.update(_ + 1L)
+        _ <- ZIO.unless(batch.isEmpty)(counterRef.update(_ + 1L))
         _ <- optimizeTable(batch.targetTableName, maintenanceSettings.targetOptimizeSettings)
         _ <- expireSnapshots(batch.targetTableName, maintenanceSettings.targetSnapshotExpirationSettings)
         _ <- expireOrphanFiles(batch.targetTableName, maintenanceSettings.targetOrphanFilesExpirationSettings)
