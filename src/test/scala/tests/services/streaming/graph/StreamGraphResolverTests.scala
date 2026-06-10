@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package tests.services.streaming.graph_builders
+package tests.services.streaming.graph
 
 import models.settings.backfill.BackfillBehavior
 import services.app.StreamGraphResolver

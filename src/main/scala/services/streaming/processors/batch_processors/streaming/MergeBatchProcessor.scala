@@ -25,13 +25,7 @@ class MergeBatchProcessor(
     */
   override def process: ZPipeline[Any, Throwable, BatchType, BatchType] =
     ZPipeline.mapZIO(batch =>
-      (for
-        _ <- zlog(
-          "Applying batch %s",
-          Seq(getAnnotation("processor", "MergeBatchProcessor")),
-          batch.name
-        )
-        _ <- ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch))
+      (for _ <- ZIO.unless(batch.isEmpty)(mergeServiceClient.applyBatch(batch))
       yield batch).gaugeDuration(declaredMetrics.batchMergeDuration)
     )
 

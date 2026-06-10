@@ -87,14 +87,13 @@ class StagingProcessor(
     for staged <- ZIO.when(rows.nonEmpty) {
         for
           tableName <- nameGenerator.getStagingTableName
-          table <- ZIO.when(rows.nonEmpty)(
-            catalogWriter.write(
-              rows,
-              tableName,
-              rowSchema,
-              Seq(getAnnotation("processor", "StagingProcessor"))
-            )
+          _ <- catalogWriter.write(
+            rows,
+            tableName,
+            rowSchema,
+            Seq(getAnnotation("processor", "StagingProcessor"))
           )
+
           batch <- batchFactory.createDataBatch(tableName, targetTableFullName, rowSchema)
         yield batch
       }
