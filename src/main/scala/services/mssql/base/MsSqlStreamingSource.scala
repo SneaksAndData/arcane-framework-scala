@@ -15,9 +15,9 @@ import services.mssql.versioning.MsSqlWatermark
 import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
+import services.naming.NameGenerator
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.services.naming.NameGenerator
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -353,7 +353,7 @@ class MsSqlStreamingSource(
             .unfold(rs.next()) { hasNext =>
               if hasNext then
                 Some(
-                  rs.getString(0),
+                  rs.getString(1),
                   rs.next()
                 )
               else None
