@@ -83,9 +83,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
           previousVersion.version
         ) *> ZIO.unit
       }
-      _ <- ZIO.unless(currentTargetVersion == previousVersion)(
-        ZIO.succeed(currentTargetVersion.age.toDouble) @@ declaredMetrics.watermarkAge
-      )
+      _ <- ZIO.succeed(currentTargetVersion.age.toDouble) @@ declaredMetrics.watermarkAge
     yield isChanged
 
   override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream
