@@ -262,9 +262,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        summaries <- reader.getColumnSummaries
-        result    <- reader.getBackfillQuery("dbo", "field_selection_rule_no_pk", summaries).exit
-      yield zio.test.assert(result)(
+        tryGetSummaries <- reader.getColumnSummaries.exit
+      yield zio.test.assert(tryGetSummaries)(
         fails(
           hasMessage(equalTo("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"))
         )
@@ -297,9 +296,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        summaries <- reader.getColumnSummaries
-        result    <- reader.getBackfillQuery("dbo", "field_selection_rule_pk", summaries).exit
-      yield zio.test.assert(result)(
+        tryGetSummaries <- reader.getColumnSummaries.exit
+      yield zio.test.assert(tryGetSummaries)(
         fails(hasMessage(equalTo("Fields ['x'] are primary keys, and must be included in the field selection rule")))
       )
     },
