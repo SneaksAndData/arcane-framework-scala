@@ -451,7 +451,9 @@ class MsSqlStreamingSource(
     .flatMap { profile =>
       ZStream
         .fromIterable(0 until profile.shardCount)
-        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, profile.summaries))
+        .mapZIOParUnordered(shardingParallelism, shardingParallelism / 2)(id =>
+          createShardTable(id, profile.shardCount, profile.summaries)
+        )
     }
 
 object MsSqlStreamingSource:
