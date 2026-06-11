@@ -114,17 +114,18 @@ class MsSqlStreamingSource(
   private def createShardTable(shardNumber: Int): Task[(name: String, id: Int)] = for
     tableName <- nameGenerator.getShardSourceTableName(shardNumber.toString)
     _         <- zlog("Creating a table %s for shard #%s", tableName, shardNumber.toString)
-    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.attempt(
-        statement.execute(
-          QueryProvider.getCreateCloneQuery(
-            connectionSettings.schemaName,
-            connectionSettings.tableName,
-            connectionSettings.backfillShardSchemaName,
-            tableName
+    _ <- ZIO.acquireReleaseWith(ZIO.attemptBlocking(connection.createStatement()))(st => ZIO.succeed(st.close())) {
+      statement =>
+        ZIO.attemptBlocking(
+          statement.execute(
+            QueryProvider.getCreateCloneQuery(
+              connectionSettings.schemaName,
+              connectionSettings.tableName,
+              connectionSettings.backfillShardSchemaName,
+              tableName
+            )
           )
         )
-      )
     }
   yield (tableName, shardNumber)
 
@@ -135,20 +136,21 @@ class MsSqlStreamingSource(
       summaries: List[ColumnSummary]
   ): Task[String] = for
     _ <- zlog("Filling shard table %s", tableName)
-    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.attempt(
-        statement.execute(
-          QueryProvider.getFillShardQuery(
-            connectionSettings.schemaName,
-            connectionSettings.tableName,
-            connectionSettings.backfillShardSchemaName,
-            tableName,
-            QueryProvider.primaryKeyList(summaries),
-            totalShards,
-            shardNumber
+    _ <- ZIO.acquireReleaseWith(ZIO.attemptBlocking(connection.createStatement()))(st => ZIO.succeed(st.close())) {
+      statement =>
+        ZIO.attemptBlocking(
+          statement.execute(
+            QueryProvider.getFillShardQuery(
+              connectionSettings.schemaName,
+              connectionSettings.tableName,
+              connectionSettings.backfillShardSchemaName,
+              tableName,
+              QueryProvider.primaryKeyList(summaries),
+              totalShards,
+              shardNumber
+            )
           )
         )
-      )
     }
     _ <- zlog("Shard table %s ready for streaming", tableName)
   yield tableName
@@ -449,7 +451,7 @@ class MsSqlStreamingSource(
         .fromZIO(ZIO.foreach(0 until profile.shardCount)(createShardTable))
         .flatMap(ZStream.fromIterable)
         // then populate shards in parallel
-        .mapZIOParUnordered(shardingParallelism, shardingParallelism / 2) { case (tableName, id) =>
+        .mapZIOParUnordered(shardingParallelism / 2, shardingParallelism) { case (tableName, id) =>
           populateShardTable(tableName, id, profile.shardCount, profile.summaries)
         }
     }
