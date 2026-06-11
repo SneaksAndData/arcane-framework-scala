@@ -75,34 +75,41 @@ class MsSqlStreamingSource(
 
   /** Create a stream from a provided shard table.
     */
-  def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] = getSchema.map { schema =>
-    (
-      for
-        query <- ZStream.fromZIO(this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName, columnSummaries))
-        statement <- ZStream
-          .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
-        resultSet <- ZStream
-          .acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-        _ <- zlogStream(
-          "Acquired shard %s result set with fetch size %s",
-          shardTableName,
-          resultSet.getFetchSize.toString
-        )
-        _ <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
-        _ <- zlogStream("Updated shard %s result set fetch size to %s", shardTableName, resultSet.getFetchSize.toString)
-        stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-          if hasNext then
-            for
-              columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-              row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-              hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-            yield Some((row.handleSpecialTypes, hasNextRow))
-          else ZIO.succeed(None)
-        }
-      yield stream,
-      schema
-    )
-  }
+  def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] =
+    getSchema.map { schema =>
+      (
+        for
+          query <- ZStream.fromZIO(
+            this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName, columnSummaries)
+          )
+          statement <- ZStream
+            .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
+          resultSet <- ZStream
+            .acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
+          _ <- zlogStream(
+            "Acquired shard %s result set with fetch size %s",
+            shardTableName,
+            resultSet.getFetchSize.toString
+          )
+          _ <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
+          _ <- zlogStream(
+            "Updated shard %s result set fetch size to %s",
+            shardTableName,
+            resultSet.getFetchSize.toString
+          )
+          stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
+            if hasNext then
+              for
+                columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
+              yield Some((row.handleSpecialTypes, hasNextRow))
+            else ZIO.succeed(None)
+          }
+        yield stream,
+        schema
+      )
+    }
 
   private def createShardTable(
       shardNumber: Int,

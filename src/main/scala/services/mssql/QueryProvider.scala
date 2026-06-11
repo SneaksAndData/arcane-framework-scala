@@ -74,7 +74,11 @@ object QueryProvider:
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
   extension (reader: MsSqlStreamingSource)
-    def getBackfillQuery(shardSchemaName: String, shardTableName: String, columnSummaries: List[ColumnSummary]): Task[MsSqlQuery] =
+    def getBackfillQuery(
+        shardSchemaName: String,
+        shardTableName: String,
+        columnSummaries: List[ColumnSummary]
+    ): Task[MsSqlQuery] =
       for
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")

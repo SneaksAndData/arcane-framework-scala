@@ -30,7 +30,7 @@ import scala.List
 import scala.language.postfixOps
 import scala.util.Success
 
-object MsSqlReaderTests extends ZIOSpecDefault:
+object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val fieldString = "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
@@ -190,7 +190,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
             |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
             |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
         summaries <- reader.getColumnSummaries
-        query <- reader.getBackfillQuery("dbo", "backfill_query", summaries)
+        query     <- reader.getBackfillQuery("dbo", "backfill_query", summaries)
       yield assertTrue(query == expected)
     },
     test("QueryProvider handles field selection rule") {
@@ -231,7 +231,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
               |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
               |FROM [arcane].[dbo].[field_selection_rule] tq""".stripMargin)
         summaries <- reader.getColumnSummaries
-        query <- reader.getBackfillQuery("dbo", "field_selection_rule", summaries)
+        query     <- reader.getBackfillQuery("dbo", "field_selection_rule", summaries)
       yield assertTrue(query == expected)
     },
     test("QueryProvider does not allow PKs in filters") {
@@ -263,7 +263,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
 
         summaries <- reader.getColumnSummaries
-        result <- reader.getBackfillQuery("dbo", "field_selection_rule_no_pk", summaries).exit
+        result    <- reader.getBackfillQuery("dbo", "field_selection_rule_no_pk", summaries).exit
       yield zio.test.assert(result)(
         fails(
           hasMessage(equalTo("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"))
@@ -298,7 +298,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
 
         summaries <- reader.getColumnSummaries
-        result <- reader.getBackfillQuery("dbo", "field_selection_rule_pk", summaries).exit
+        result    <- reader.getBackfillQuery("dbo", "field_selection_rule_pk", summaries).exit
       yield zio.test.assert(result)(
         fails(hasMessage(equalTo("Fields ['x'] are primary keys, and must be included in the field selection rule")))
       )
@@ -368,7 +368,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
 
         summaries <- reader.getColumnSummaries
-        rows <- ZStream.fromZIO(reader.createShardStream("backfill_rows", summaries)).flatMap(_._1).runCollect
+        rows      <- ZStream.fromZIO(reader.createShardStream("backfill_rows", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
     test("MsSqlConnection returns correct number of columns on a shard stream") {
@@ -396,7 +396,7 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
 
         summaries <- reader.getColumnSummaries
-        rows <- ZStream.fromZIO(reader.createShardStream("backfill_columns", summaries)).flatMap(_._1).runCollect
+        rows      <- ZStream.fromZIO(reader.createShardStream("backfill_columns", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.head.size == 11)
     },
     test("MsSqlConnection returns correct number of columns on a shard stream with filter") {
@@ -433,7 +433,10 @@ object MsSqlReaderTests extends ZIOSpecDefault:
         )
 
         summaries <- reader.getColumnSummaries
-        rows <- ZStream.fromZIO(reader.createShardStream("backfill_columns_filtered", summaries)).flatMap(_._1).runCollect
+        rows <- ZStream
+          .fromZIO(reader.createShardStream("backfill_columns_filtered", summaries))
+          .flatMap(_._1)
+          .runCollect
       yield zio.test.assert(rows.head.map(_.name))(equalTo(expected))
     },
     test("MsSqlConnection returns correct number of rows on getChanges") {
