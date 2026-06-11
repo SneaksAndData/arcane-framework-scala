@@ -23,7 +23,7 @@ class DefaultBackfillOverwriteGraphBuilder(
     backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
 
-  private val backfillParallelism     = Runtime.getRuntime.availableProcessors() * 2
+  private val backfillParallelism     = Runtime.getRuntime.availableProcessors()
   private def aggregateStagedShards   = ZPipeline.fromSink(ZSink.last[StagedShard])
   private def aggregateCombinedShards = ZPipeline.fromSink(ZSink.last[CompletionShard])
 
