@@ -44,7 +44,8 @@ final class MsSqlBackfillSourceDataProvider(
   )
     .mapZIO { preparedShardTableName =>
       for
-        shardStream       <- dataProvider.createShardStream(preparedShardTableName)
+        summaries         <- dataProvider.getColumnSummaries
+        shardStream       <- dataProvider.createShardStream(preparedShardTableName, summaries)
         prefix            <- nameGenerator.getBackfillTablesPrefix
         backfillTableName <- nameGenerator.getBackfillTableName
         targetName        <- nameGenerator.getTargetTableFullName

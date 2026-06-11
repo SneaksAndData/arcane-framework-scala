@@ -26,10 +26,7 @@ object QueryProvider:
   extension (reader: MsSqlStreamingSource)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(
-          reader.connectionSettings.schemaName,
-          reader.connectionSettings.tableName
-        )
+        columnSummaries <- reader.getColumnSummaries
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
@@ -55,10 +52,7 @@ object QueryProvider:
   extension (reader: MsSqlStreamingSource)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(
-          reader.connectionSettings.schemaName,
-          reader.connectionSettings.tableName
-        )
+        columnSummaries <- reader.getColumnSummaries
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
@@ -80,9 +74,12 @@ object QueryProvider:
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
   extension (reader: MsSqlStreamingSource)
-    def getBackfillQuery(shardSchemaName: String, shardTableName: String): Task[MsSqlQuery] =
+    def getBackfillQuery(
+        shardSchemaName: String,
+        shardTableName: String,
+        columnSummaries: List[ColumnSummary]
+    ): Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, shardTableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
@@ -142,14 +139,15 @@ object QueryProvider:
       sourceTableName: String,
       shardSchemaName: String,
       shardTableName: String,
-      mergeExpression: String,
+      primaryKeyExpression: String,
       shardCount: Int,
       shardId: Int
   ): MsSqlQuery =
-    s"""INSERT INTO [$shardSchemaName].[$shardTableName]
+    s"""INSERT INTO [$shardSchemaName].[$shardTableName] WITH (TABLOCK)
       |SELECT *
       |FROM [$sourceSchemaName].[$sourceTableName] as tq
-      |WHERE ABS(CAST(HASHBYTES('MD5', $mergeExpression) AS BIGINT)) % $shardCount = $shardId""".stripMargin
+      |WHERE ABS(CAST(CHECKSUM($primaryKeyExpression) AS BIGINT)) % $shardCount = $shardId
+      |OPTION (MIN_GRANT_PERCENT = 25, MAXDOP 0)""".stripMargin
 
   def getCreateCloneQuery(
       sourceSchemaName: String,
@@ -189,7 +187,7 @@ object QueryProvider:
     s"""SELECT
        |    (page_count * 8.0) / 1024 / 1024 as total_size_gib,
        |    ceiling((page_count * 8.0) / 1024 / $shardSize) as shards,
-       |    record_count / cast((page_count * 8.0) / 1024 / ceiling((page_count * 8.0) / 1024 / $shardSize) as records_per_shard
+       |    record_count / ceiling((page_count * 8.0) / 1024 / $shardSize) as records_per_shard
        |FROM
        |    sys.dm_db_index_physical_stats(DB_ID(), OBJECT_ID('$schemaName.$tableName'), 1, NULL, 'DETAILED')
        |where index_level = 0""".stripMargin
@@ -214,10 +212,15 @@ object QueryProvider:
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
-  def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
+  private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
       .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
       .mkString(" + '#' + ")
+
+  def primaryKeyList(cs: List[ColumnSummary]): String = cs
+    .collect { case (name, isPrimaryKey) if isPrimaryKey => name }
+    .map(v => s"[$v]")
+    .mkString(",")
 
   private def getMatchStatement(
       cs: List[ColumnSummary],

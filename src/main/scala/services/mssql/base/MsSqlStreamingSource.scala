@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.{SchemaProvider, ShardProvider, StreamingSource}
+import services.base.{SchemaProvider, StreamingSource}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
@@ -63,7 +63,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the column summaries for the table in the database.
     */
-  def getColumnSummaries(schemaName: String, tableName: String): Task[List[ColumnSummary]] =
+  def getColumnSummaries: Task[List[ColumnSummary]] =
     for
       query <- QueryProvider.getColumnSummariesQuery(
         connectionSettings.schemaName,
@@ -75,40 +75,43 @@ class MsSqlStreamingSource(
 
   /** Create a stream from a provided shard table.
     */
-  def createShardStream(shardTableName: String): Task[StructuredZStream] = getSchema.map { schema =>
-    (
-      for
-        query <- ZStream.fromZIO(this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName))
-        statement <- ZStream
-          .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
-        resultSet <- ZStream
-          .acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
-        _ <- zlogStream(
-          "Acquired shard %s result set with fetch size %s",
-          shardTableName,
-          resultSet.getFetchSize.toString
-        )
-        _ <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
-        _ <- zlogStream("Updated shard %s result set fetch size to %s", shardTableName, resultSet.getFetchSize.toString)
-        stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-          if hasNext then
-            for
-              columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-              row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-              hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-            yield Some((row.handleSpecialTypes, hasNextRow))
-          else ZIO.succeed(None)
-        }
-      yield stream,
-      schema
-    )
-  }
+  def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] =
+    getSchema.map { schema =>
+      (
+        for
+          query <- ZStream.fromZIO(
+            this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName, columnSummaries)
+          )
+          statement <- ZStream
+            .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
+          resultSet <- ZStream
+            .acquireReleaseWith(ZIO.attempt(statement.executeQuery(query)))(rs => rs.closeSafe(statement))
+          _ <- zlogStream(
+            "Acquired shard %s result set with fetch size %s",
+            shardTableName,
+            resultSet.getFetchSize.toString
+          )
+          _ <- ZStream.succeed(resultSet.setFetchSize(connectionSettings.fetchSize.getOrElse(1000)))
+          _ <- zlogStream(
+            "Updated shard %s result set fetch size to %s",
+            shardTableName,
+            resultSet.getFetchSize.toString
+          )
+          stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
+            if hasNext then
+              for
+                columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
+              yield Some((row.handleSpecialTypes, hasNextRow))
+            else ZIO.succeed(None)
+          }
+        yield stream,
+        schema
+      )
+    }
 
-  private def createShardTable(
-      shardNumber: Int,
-      totalShards: Int,
-      summaries: List[ColumnSummary]
-  ): Task[String] = for
+  private def createShardTable(shardNumber: Int): Task[(name: String, id: Int)] = for
     tableName <- nameGenerator.getShardSourceTableName(shardNumber.toString)
     _         <- zlog("Creating a table %s for shard #%s", tableName, shardNumber.toString)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
@@ -123,6 +126,14 @@ class MsSqlStreamingSource(
         )
       )
     }
+  yield (tableName, shardNumber)
+
+  private def populateShardTable(
+      tableName: String,
+      shardNumber: Int,
+      totalShards: Int,
+      summaries: List[ColumnSummary]
+  ): Task[String] = for
     _ <- zlog("Filling shard table %s", tableName)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(
@@ -132,30 +143,14 @@ class MsSqlStreamingSource(
             connectionSettings.tableName,
             connectionSettings.backfillShardSchemaName,
             tableName,
-            QueryProvider.getMergeExpression(summaries, "tq"),
+            QueryProvider.primaryKeyList(summaries),
             totalShards,
             shardNumber
           )
         )
       )
     }
-    _ <- zlog("Preparing shard table %s for streaming", tableName)
-    // add PK
-    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.attempt(
-        statement.execute(
-          QueryProvider.getCreatePrimaryKeyQuery(connectionSettings.backfillShardSchemaName, tableName, summaries)
-        )
-      )
-    }
-    // enable Change Tracking
-    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.attempt(
-        statement.execute(
-          s"ALTER TABLE [${connectionSettings.backfillShardSchemaName}].[$tableName] ENABLE CHANGE_TRACKING"
-        )
-      )
-    }
+    _ <- zlog("Shard table %s ready for streaming", tableName)
   yield tableName
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
@@ -380,7 +375,7 @@ class MsSqlStreamingSource(
       rangeEnd: MsSqlWatermark
   ): ZStream[Any, Throwable, String] = ZStream
     .fromZIO(for
-      columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
+      columnSummaries <- getColumnSummaries
       // first take estimate of a `select * from` query cost
       totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st =>
         ZIO.succeed(st.close())
@@ -442,16 +437,21 @@ class MsSqlStreamingSource(
           }
       }
       _ <- zlog(
-        s"Created a shard profile for the backfill: table of size %s will be split into %s shards, with %s rows/shard",
-        shardProfile.sizeGib.toString,
+        s"Created a shard profile for the backfill: table of size %s Gib will be split into %s shards, with %s rows/shard",
+        "%1$.2f".format(shardProfile.sizeGib),
         shardProfile.shardCount.toString,
         shardProfile.recordsPerShard.toString
       )
     yield shardProfile)
     .flatMap { profile =>
+      // create all tables first
       ZStream
-        .fromIterable(0 until profile.shardCount)
-        .mapZIOPar(shardingParallelism)(id => createShardTable(id, profile.shardCount, profile.summaries))
+        .fromZIO(ZIO.foreach(0 until profile.shardCount)(createShardTable))
+        .flatMap(ZStream.fromIterable)
+        // then populate shards in parallel
+        .mapZIOParUnordered(shardingParallelism, shardingParallelism / 2) { case (tableName, id) =>
+          populateShardTable(tableName, id, profile.shardCount, profile.summaries)
+        }
     }
 
 object MsSqlStreamingSource:
