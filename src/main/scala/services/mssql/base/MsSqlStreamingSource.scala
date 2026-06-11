@@ -134,7 +134,6 @@ class MsSqlStreamingSource(
       totalShards: Int,
       summaries: List[ColumnSummary]
   ): Task[String] = for
-
     _ <- zlog("Filling shard table %s", tableName)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(
@@ -445,9 +444,11 @@ class MsSqlStreamingSource(
       )
     yield shardProfile)
     .flatMap { profile =>
+      // create all tables first
       ZStream
-        .fromIterable(0 until profile.shardCount)
-        .mapZIO(id => createShardTable(id))
+        .fromZIO(ZIO.foreach(0 until profile.shardCount)(createShardTable))
+        .flatMap(ZStream.fromIterable)
+        // then populate shards in parallel
         .mapZIOParUnordered(shardingParallelism, shardingParallelism / 2) { case (tableName, id) =>
           populateShardTable(tableName, id, profile.shardCount, profile.summaries)
         }
