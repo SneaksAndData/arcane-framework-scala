@@ -5,7 +5,7 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.{SchemaProvider, ShardProvider, StreamingSource}
+import services.base.{SchemaProvider, StreamingSource}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
@@ -111,11 +111,7 @@ class MsSqlStreamingSource(
       )
     }
 
-  private def createShardTable(
-      shardNumber: Int,
-      totalShards: Int,
-      summaries: List[ColumnSummary]
-  ): Task[String] = for
+  private def createShardTable(shardNumber: Int): Task[(name: String, id: Int)] = for
     tableName <- nameGenerator.getShardSourceTableName(shardNumber.toString)
     _         <- zlog("Creating a table %s for shard #%s", tableName, shardNumber.toString)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
@@ -130,6 +126,15 @@ class MsSqlStreamingSource(
         )
       )
     }
+  yield (tableName, shardNumber)
+
+  private def populateShardTable(
+      tableName: String,
+      shardNumber: Int,
+      totalShards: Int,
+      summaries: List[ColumnSummary]
+  ): Task[String] = for
+
     _ <- zlog("Filling shard table %s", tableName)
     _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
       ZIO.attempt(
@@ -442,9 +447,10 @@ class MsSqlStreamingSource(
     .flatMap { profile =>
       ZStream
         .fromIterable(0 until profile.shardCount)
-        .mapZIOParUnordered(shardingParallelism, shardingParallelism / 2)(id =>
-          createShardTable(id, profile.shardCount, profile.summaries)
-        )
+        .mapZIO(id => createShardTable(id))
+        .mapZIOParUnordered(shardingParallelism, shardingParallelism / 2) { case (tableName, id) =>
+          populateShardTable(tableName, id, profile.shardCount, profile.summaries)
+        }
     }
 
 object MsSqlStreamingSource:
