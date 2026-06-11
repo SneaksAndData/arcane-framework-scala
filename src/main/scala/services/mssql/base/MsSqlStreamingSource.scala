@@ -146,7 +146,7 @@ class MsSqlStreamingSource(
         )
       )
     }
-    _ <- zlog("Shard table %s ready streaming", tableName)
+    _ <- zlog("Shard table %s ready for streaming", tableName)
   yield tableName
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
