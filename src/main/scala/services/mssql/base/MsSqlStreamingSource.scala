@@ -63,7 +63,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the column summaries for the table in the database.
     */
-  def getColumnSummaries(schemaName: String, tableName: String): Task[List[ColumnSummary]] =
+  def getColumnSummaries: Task[List[ColumnSummary]] =
     for
       query <- QueryProvider.getColumnSummariesQuery(
         connectionSettings.schemaName,
@@ -75,10 +75,10 @@ class MsSqlStreamingSource(
 
   /** Create a stream from a provided shard table.
     */
-  def createShardStream(shardTableName: String): Task[StructuredZStream] = getSchema.map { schema =>
+  def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] = getSchema.map { schema =>
     (
       for
-        query <- ZStream.fromZIO(this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName))
+        query <- ZStream.fromZIO(this.getBackfillQuery(connectionSettings.backfillShardSchemaName, shardTableName, columnSummaries))
         statement <- ZStream
           .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
         resultSet <- ZStream
@@ -139,23 +139,7 @@ class MsSqlStreamingSource(
         )
       )
     }
-    _ <- zlog("Preparing shard table %s for streaming", tableName)
-    // add PK
-    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.attempt(
-        statement.execute(
-          QueryProvider.getCreatePrimaryKeyQuery(connectionSettings.backfillShardSchemaName, tableName, summaries)
-        )
-      )
-    }
-    // enable Change Tracking
-    _ <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close())) { statement =>
-      ZIO.attempt(
-        statement.execute(
-          s"ALTER TABLE [${connectionSettings.backfillShardSchemaName}].[$tableName] ENABLE CHANGE_TRACKING"
-        )
-      )
-    }
+    _ <- zlog("Shard table %s ready streaming", tableName)
   yield tableName
 
   private def unfoldBatch[T <: AutoCloseable & QueryResult[Iterator[DataRow]]](
@@ -380,7 +364,7 @@ class MsSqlStreamingSource(
       rangeEnd: MsSqlWatermark
   ): ZStream[Any, Throwable, String] = ZStream
     .fromZIO(for
-      columnSummaries <- getColumnSummaries(connectionSettings.schemaName, connectionSettings.tableName)
+      columnSummaries <- getColumnSummaries
       // first take estimate of a `select * from` query cost
       totalReadCost <- ZIO.acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st =>
         ZIO.succeed(st.close())

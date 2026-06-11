@@ -26,10 +26,7 @@ object QueryProvider:
   extension (reader: MsSqlStreamingSource)
     def getSchemaQuery: Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(
-          reader.connectionSettings.schemaName,
-          reader.connectionSettings.tableName
-        )
+        columnSummaries <- reader.getColumnSummaries
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
@@ -55,10 +52,7 @@ object QueryProvider:
   extension (reader: MsSqlStreamingSource)
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(
-          reader.connectionSettings.schemaName,
-          reader.connectionSettings.tableName
-        )
+        columnSummaries <- reader.getColumnSummaries
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
@@ -80,9 +74,8 @@ object QueryProvider:
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
   extension (reader: MsSqlStreamingSource)
-    def getBackfillQuery(shardSchemaName: String, shardTableName: String): Task[MsSqlQuery] =
+    def getBackfillQuery(shardSchemaName: String, shardTableName: String, columnSummaries: List[ColumnSummary]): Task[MsSqlQuery] =
       for
-        columnSummaries <- reader.getColumnSummaries(reader.connectionSettings.schemaName, shardTableName)
         mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
