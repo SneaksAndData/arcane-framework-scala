@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.backfill
 
+import models.app.PluginStreamContext
 import models.settings.backfill.BackfillSettings
 import models.settings.sources.SourceBufferingSettings
 import models.sharding.{BootstrappedShard, DefaultBootstrappedShard}
@@ -11,7 +12,7 @@ import services.naming.NameGenerator
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import zio.stream.ZStream
-import zio.{Task, ZIO}
+import zio.{Task, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
@@ -75,3 +76,23 @@ class BlobBackfillSourceDataProvider(
   /** Most recent version of the dataset at a time when a backfill was initiated.
     */
   override def getSnapshotVersion: Task[BlobSourceWatermark] = dataProvider.getLatestVersion
+
+object BlobBackfillSourceDataProvider:
+  val layer = ZLayer {
+    for
+      dataProvider            <- ZIO.service[BlobSourceReader]
+      context                 <- ZIO.service[PluginStreamContext]
+      stateManager            <- ZIO.service[DefaultBackfillStateManager]
+      throughputShaperBuilder <- ZIO.service[ThroughputShaperBuilder]
+      nameGenerator           <- ZIO.service[NameGenerator]
+      backfillId              <- context.backfillId
+    yield new BlobBackfillSourceDataProvider(
+      dataProvider = dataProvider,
+      backfillSettings = context.streamMode.backfill,
+      stateManager = stateManager,
+      throughputShaperBuilder = throughputShaperBuilder,
+      sourceBufferingSettings = context.source.buffering,
+      nameGenerator = nameGenerator,
+      backfillId = backfillId
+    )
+  }
