@@ -452,7 +452,7 @@ class MsSqlStreamingSource(
         .flatMap(ZStream.fromIterable)
         .rechunk(1)
         // then populate shards in parallel
-        .mapZIOParUnordered(shardingParallelism / 2, shardingParallelism) { case (tableName, id) =>
+        .mapZIOParUnordered(shardingParallelism, profile.shardCount) { case (tableName, id) =>
           populateShardTable(tableName, id, profile.shardCount, profile.summaries)
         }
     }
