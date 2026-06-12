@@ -23,8 +23,7 @@ class DefaultBackfillOverwriteGraphBuilder(
     backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
 
-  private val backfillParallelism     = Runtime.getRuntime.availableProcessors() * 2
-  private def aggregateStagedShards   = ZPipeline.fromSink(ZSink.last[StagedShard])
+  private val backfillParallelism     = Runtime.getRuntime.availableProcessors()
   private def aggregateCombinedShards = ZPipeline.fromSink(ZSink.last[CompletionShard])
 
   /** @inheritdoc
@@ -43,7 +42,7 @@ class DefaultBackfillOverwriteGraphBuilder(
     .flatMap { case (stream, watermark) =>
 
       stream
-        .flatMapPar(backfillParallelism, backfillParallelism / 2) { shard =>
+        .flatMapPar(backfillParallelism / 2, backfillParallelism) { shard =>
           ZStream
             .fromZIO(stateManager.isStaged(shard))
             .flatMap { isStaged =>
@@ -54,16 +53,19 @@ class DefaultBackfillOverwriteGraphBuilder(
               else
                 ZStream
                   .fromZIO(stateManager.prepareShardStage(shard, shard.shardStream._2))
-                  .flatMap(_ =>
-                    shard.shardStream._1
+                  .flatMap { _ =>
+                    val downloadedShard = shard.shardStream._1
                       .via(fieldFilteringProcessor.process)
                       .via(shardStageProcessor.process(shard, shard.shardStream._2))
-                      .via(aggregateStagedShards)
+                      .runLast
+
+                    ZStream
+                      .fromZIO(downloadedShard)
                       .collect { case Some(staged) =>
                         staged
                       }
                       .mapZIO(stateManager.commitStagedShard)
-                  )
+                  }
             }
         }
         .flatMap(staged =>

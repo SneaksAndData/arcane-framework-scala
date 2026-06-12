@@ -29,6 +29,10 @@ object ZIOLogAnnotations:
     */
   private lazy val streamVersion = sys.env.getOrElse("APPLICATION_VERSION", "0.0.0")
 
+  /** Backfill identifier, if backfilling
+    */
+  private lazy val backfillId = sys.env.get("STREAMCONTEXT__BACKFILL_ID")
+
   /** Extra properties to be added to the log
     * @note
     *   This is a JSON string with key-value pairs. For example: {"key1": "value1", "key2": "value2"}
@@ -71,7 +75,15 @@ object ZIOLogAnnotations:
     (getStringAnnotation(name = "streamId"), streamId.camelCaseToSnakeCase),
     (getStringAnnotation(name = "ApplicationVersion"), streamVersion),
     (getStringAnnotation(name = "Application"), applicationName)
-  ) ++ read[Map[String, String]](streamExtraProperties).map { (key, value) => (getStringAnnotation(key), value) }
+  ) ++ backfillId
+    .map(id =>
+      Seq(
+        (getStringAnnotation(name = "BackfillId"), id)
+      )
+    )
+    .getOrElse(Seq()) ++ read[Map[String, String]](streamExtraProperties).map { (key, value) =>
+    (getStringAnnotation(key), value)
+  }
 
   private def defaultsWithTemplate(template: String): Seq[(LogAnnotation[String], String)] =
     defaults ++ Seq((getStringAnnotation(name = "messageTemplate"), template))

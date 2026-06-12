@@ -68,7 +68,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
         flowRate         <- shaper.estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
         currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
         expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
-        expectedElements <- ZIO.succeed(0.5 * currentMemory / (expectedRowSize + 1) / 2)
+        expectedElements <- ZIO.succeed(0.2 * currentMemory / (expectedRowSize + 1) / 2)
       // no GC - default 1 for count -> 0.999 probability / 10s interval -> 10% rate uplift
       yield assertTrue(
         (1 - chunkSize.Elements.toDouble / expectedElements) < 0.01 && chunkSize.ElementSize == expectedRowSize && (flowRate.elements.toDouble / chunkSize.Elements) < 0.15
