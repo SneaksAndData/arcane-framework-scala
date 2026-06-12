@@ -58,7 +58,7 @@ class MemoryBoundShaper(
   /** Estimate memory pool available for chunks. Larger tables get larger pool to allow bigger chunks
     */
   private def estimateMemoryCutoff(estRows: Long, estSize: Long): Double = if estRows * estSize == 0
-  then 0.5
+  then 0.2
   else
     scaledSigmoid(
       0.8,
