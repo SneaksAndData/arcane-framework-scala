@@ -6,7 +6,7 @@ import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, 
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
-import zio.{Task, ZIO}
+import zio.{Task, ZIO, ZLayer}
 
 class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
   /** Staged shard provisioner. Commit query targets combine table.
@@ -33,3 +33,9 @@ class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       backfillId = shard.backfillId
     )
   )
+
+object BlobSourceShardFactory:
+  val layer = ZLayer {
+    for nameGenerator <- ZIO.service[NameGenerator]
+    yield new BlobSourceShardFactory(nameGenerator)
+  }
