@@ -17,6 +17,7 @@ class GlobalMetricTagProvider(
     streamKind: String,
     isBackfilling: Boolean,
     streamId: String,
+    backfillId: Option[String],
     observabilitySettings: ObservabilitySettings
 ) extends MetricTagProvider:
   private val metricPrefix = "arcane.sneaksanddata.com"
@@ -32,7 +33,7 @@ class GlobalMetricTagProvider(
     s"$metricPrefix/stream_id" -> streamId
   ) ++ observabilitySettings.metricTags.map { case (tagKey, tagValue) =>
     s"$metricPrefix/$tagKey" -> tagValue
-  }
+  } ++ backfillId.map(id => SortedMap(s"$metricPrefix/backfill_id" -> id)).map(SortedMap.empty)
 
   private def getStreamMode(isBackfilling: Boolean): String = if isBackfilling then "backfill" else "stream"
 
@@ -52,18 +53,20 @@ object GlobalMetricTagProvider:
       streamKind: String,
       isBackfilling: Boolean,
       streamId: String,
+      backfillId: Option[String],
       observabilitySettings: ObservabilitySettings
   ): GlobalMetricTagProvider =
-    new GlobalMetricTagProvider(streamKind, isBackfilling, streamId, observabilitySettings)
+    new GlobalMetricTagProvider(streamKind, isBackfilling, streamId, backfillId, observabilitySettings)
 
   /** The ZLayer that creates the MetricTagProvider Instance.
     */
-  val layer: ZLayer[PluginStreamContext, Nothing, MetricTagProvider] =
+  val layer =
     ZLayer {
       for
         context       <- ZIO.service[PluginStreamContext]
         kind          <- context.streamKind.orDie
         streamId      <- context.streamId.orDie
         isBackfilling <- context.isBackfilling.orElseSucceed(false)
-      yield GlobalMetricTagProvider(kind, isBackfilling, streamId, context.observability)
+        backfillId    <- ZIO.when(isBackfilling)(context.backfillId)
+      yield GlobalMetricTagProvider(kind, isBackfilling, streamId, backfillId, context.observability)
     }
