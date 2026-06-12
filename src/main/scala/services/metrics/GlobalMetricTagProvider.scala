@@ -33,7 +33,7 @@ class GlobalMetricTagProvider(
     s"$metricPrefix/stream_id" -> streamId
   ) ++ observabilitySettings.metricTags.map { case (tagKey, tagValue) =>
     s"$metricPrefix/$tagKey" -> tagValue
-  } ++ backfillId.map(id => SortedMap(s"$metricPrefix/backfill_id" -> id)).map(SortedMap.empty)
+  } ++ backfillId.map(id => SortedMap(s"$metricPrefix/backfill_id" -> id)).getOrElse(SortedMap.empty[String, String])
 
   private def getStreamMode(isBackfilling: Boolean): String = if isBackfilling then "backfill" else "stream"
 
