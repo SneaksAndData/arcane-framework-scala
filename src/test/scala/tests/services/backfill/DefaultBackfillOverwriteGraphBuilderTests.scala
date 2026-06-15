@@ -14,6 +14,7 @@ import models.schemas.{
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
+import models.settings.TableNaming.parts
 import models.sharding.*
 import services.backfill.base.{BackfillSourceDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
@@ -231,6 +232,12 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         backfillTableName,
         streamSchema,
         recreate = false
+      )
+      // target table should exist
+      _ <- icebergUtilBackfill.prepareWatermark(
+        targetName.parts.name,
+        TimestampOnlyWatermark(OffsetDateTime.now()),
+        Some(streamSchema)
       )
       shardFactory           <- ZIO.succeed(new TestShardFactory(nameGenerator))
       propertyManager        <- ZIO.service[SinkPropertyManager]
