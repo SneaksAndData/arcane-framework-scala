@@ -74,7 +74,12 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
                 snapshotVersion.toJson,
                 bootstrapped.map(_.shardSourceEntityName)
               )
-              ZStream.fromZIO(zlog("Backfill will commit watermark %s", backfillMetadata.watermarkValue) *> stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)
+              ZStream
+                .fromZIO(
+                  zlog("Backfill will commit watermark %s", backfillMetadata.watermarkValue) *> stateManager
+                    .commitState(backfillMetadata)
+                )
+                .flatMap(_ => outputStream)
             }
           }
       }

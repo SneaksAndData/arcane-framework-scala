@@ -17,17 +17,22 @@ class DefaultShardedBackfillStreamDataProvider[WatermarkType <: SourceWatermark[
     backfillSettings: BackfillSettings,
     stateManager: DefaultBackfillStateManager,
     declaredMetrics: DeclaredMetrics
-)(implicit rw: ReadWriter[WatermarkType]) extends ShardedBackfillStreamDataProvider:
+)(implicit rw: ReadWriter[WatermarkType])
+    extends ShardedBackfillStreamDataProvider:
 
   def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     stateManager.readState
-      .flatMap{
-        case Some(state) => 
+      .flatMap {
+        case Some(state) =>
           for
             existingWatermark <- ZIO.attempt(upickle.read(state.backfillEnd))
-            _ <- zlog("Resuming backfill with watermark '%s'", state.watermarkValue)
-          yield (stream = dataProvider.requestBackfill(upickle.read(state.backfillEnd), Some(state.shardSources)), watermark = upickle.read(state.backfillEnd))
-          
-        case None => dataProvider.getSnapshotVersion
-          .map(watermark => (stream = dataProvider.requestBackfill(watermark, None), watermark = watermark))
+            _                 <- zlog("Resuming backfill with watermark '%s'", state.watermarkValue)
+          yield (
+            stream = dataProvider.requestBackfill(upickle.read(state.backfillEnd), Some(state.shardSources)),
+            watermark = upickle.read(state.backfillEnd)
+          )
+
+        case None =>
+          dataProvider.getSnapshotVersion
+            .map(watermark => (stream = dataProvider.requestBackfill(watermark, None), watermark = watermark))
       }
