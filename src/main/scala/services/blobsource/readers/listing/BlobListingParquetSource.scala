@@ -72,8 +72,7 @@ class BlobListingParquetSource[PathType <: BlobPath](
       .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
       .map(filePath => ParquetScanner(filePath, useNameMapping))
       .flatMap { scanner =>
-        scanner.getIcebergSchema
-          .map(implicitly)
+        getSchema
           .map(schema =>
             (
               scanner.getRows.map(
