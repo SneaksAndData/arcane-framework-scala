@@ -26,7 +26,11 @@ class DefaultShardedBackfillStreamDataProvider[WatermarkType <: SourceWatermark[
         case Some(state) =>
           for
             existingWatermark <- ZIO.attempt(upickle.read(state.backfillEnd))
-            _                 <- zlog("Resuming backfill with watermark '%s'", state.watermarkValue)
+            _ <- zlog(
+              "Resuming backfill with watermark '%s', total shards %s",
+              state.watermarkValue,
+              state.shardSources.size.toString
+            )
           yield (
             stream = dataProvider.requestBackfill(upickle.read(state.backfillEnd), Some(state.shardSources)),
             watermark = upickle.read(state.backfillEnd)
