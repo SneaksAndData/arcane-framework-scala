@@ -16,7 +16,7 @@ abstract class DefaultBackfillMergeStreamDataProvider[WatermarkType <: SourceWat
     .fromZIO {
       for
         startFrom <- backfillSourceDataProvider.getBackfillStartWatermark(backfillSettings.backfillStartDate)
-        endAt     <- dataProvider.currentWatermark
+        endAt     <- dataProvider.getCurrentVersion(startFrom)
       yield (startFrom, endAt)
     }
     .flatMap { case (startWatermark, endWatermark) =>
