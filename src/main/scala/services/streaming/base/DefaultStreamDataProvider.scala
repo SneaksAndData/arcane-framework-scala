@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.base
 
-import logging.ZIOLogAnnotations.{getAnnotation, zlog}
+import logging.ZIOLogAnnotations.{getAnnotation, zlog, zlogStream}
 import models.schemas.{ArcaneSchema, DataRow, JsonWatermarkRow}
 import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
@@ -27,10 +27,12 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
 
     Duration.ofMillis(baseDuration + offset)
 
-  private def nextVersion(version: Task[WatermarkType]) =
+  private def nextVersion(version: Task[(WatermarkType, Boolean)]) =
     for
-      previousVersion <- version
-      currentVersion  <- dataProvider.getCurrentVersion(previousVersion)
+      (previousVersion, isSeed) <- version
+      // seedFlag allows to mark initial version and use it for watermark advance for rarely updated sources, on restart
+      seedFlag       <- ZIO.succeed(if isSeed then false else isSeed)
+      currentVersion <- dataProvider.getCurrentVersion(previousVersion)
       // each version loop we read watermark from target to report its age if source has changes
       targetWatermark   <- dataProvider.currentWatermark
       hasVersionUpdated <- ZIO.succeed(currentVersion > previousVersion)
@@ -53,7 +55,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
           ) *> ZIO.sleep(nextSleepDuration)
         yield ()
       }
-    yield Some((currentVersion, previousVersion, targetWatermark) -> ZIO.succeed(currentVersion))
+    yield Some((currentVersion, previousVersion, targetWatermark, seedFlag) -> ZIO.succeed((currentVersion, seedFlag)))
 
   private def hasChanges(previousVersion: WatermarkType, currentTargetVersion: WatermarkType): Task[Boolean] =
     for
@@ -87,22 +89,25 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
     yield isChanged
 
   override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream
-    .unfoldZIO(dataProvider.currentWatermark)(nextVersion)
+    .unfoldZIO(dataProvider.currentWatermark.map(v => (v, true)))(nextVersion)
     .flatMap {
-      case (current, previous, currentTarget) if current > previous =>
+      case (current, previous, currentTarget, seedFlag) if current > previous =>
         ZStream
           .fromZIO(hasChanges(previous, currentTarget))
           .flatMap { sourceUpdated =>
-            // TODO: review this
-            (sourceUpdated, currentTarget == previous) match
+            (sourceUpdated, seedFlag) match
               // if source entity has been updated, stream changes. Data provider attaches watermark to the end of the changeset
               case (true, _) => dataProvider.requestChanges(previous, current)
 
               // if source entity hasn't been updated despite global version change, we should emit an empty stream
               // however, this will lead to target watermark `age` growing infinitely until it eventually receives an update
               // to prevent this, we advance watermark on stream start (when target version matches version used to seed the loop)
-              case (false, true) => ZStream.succeed((ZStream.succeed(JsonWatermarkRow(current)), ArcaneSchema.empty()))
-              case _             => ZStream.empty
+              case (false, true) =>
+                zlogStream(
+                  "No updates detected on startup - will advance target watermark to %s to avoid excessive age increase",
+                  current.version
+                ) *> ZStream.succeed((ZStream.succeed(JsonWatermarkRow(current)), ArcaneSchema.empty()))
+              case _ => ZStream.empty
           }
       case _ => ZStream.empty
     }
