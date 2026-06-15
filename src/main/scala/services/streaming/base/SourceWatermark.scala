@@ -46,7 +46,7 @@ case class TimestampOnlyWatermark(timestamp: OffsetDateTime) extends SourceWater
   override def toJson: String = upickle.write(this)
 
   /** Current source version associated with this watermark
-   */
+    */
   override val version: String = timestamp.toEpochSecond.toString
 
   override def compare(that: SourceWatermark[String]): Int = this.version.compareTo(that.version)
