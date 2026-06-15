@@ -2,21 +2,39 @@ package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
 import models.queries.StreamingBatchQuery
-import models.schemas.*
 import models.schemas.ArcaneType.{IntType, StringType}
+import models.schemas.{
+  ArcaneSchema,
+  DataCell,
+  IndexedField,
+  IndexedMergeKeyField,
+  MergeKeyField,
+  given_CanAdd_ArcaneSchema
+}
+import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
+import models.settings.TableNaming.parts
 import models.sharding.*
-import services.backfill.DefaultBackfillStateManager
-import services.backfill.base.{ShardFactory, ShardProcessingState, ShardedBackfillStreamDataProvider}
+import services.backfill.base.{BackfillSourceDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
+import services.backfill.{
+  DefaultBackfillSourceDataProvider,
+  DefaultBackfillStateManager,
+  DefaultShardedBackfillStreamDataProvider
+}
+import services.base.StreamingSource
 import services.filters.FieldsFilteringService
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.merging.JdbcMergeServiceClient
 import services.metrics.DeclaredMetrics
 import services.naming.{DefaultNameGenerator, NameGenerator}
-import services.streaming.base.{JsonWatermark, TimestampOnlyWatermark}
+import services.streaming.base.TimestampOnlyWatermark
+import services.streaming.base.TimestampOnlyWatermark.rw
 import services.streaming.processors.transformers.FieldFilteringTransformer
+import services.streaming.throughput.base.ThroughputShaperBuilder
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestTrinoConnection.{getRowsInTarget, newTrinoConnection}
@@ -28,15 +46,56 @@ import zio.{Schedule, Scope, Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
 
-final class TestShardedBackfillStreamDataProvider(targetName: String, shards: Seq[BootstrappedShard])
-    extends ShardedBackfillStreamDataProvider:
-  override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
-    ZIO.succeed(
-      (
-        stream = ZStream.fromIterable(shards),
-        watermark = TimestampOnlyWatermark(OffsetDateTime.now())
-      )
-    )
+final class TestBackfillOverwriteSource(shards: Seq[BootstrappedShard], schema: ArcaneSchema) extends StreamingSource:
+  override type ShardMetadata = String
+  override type WatermarkType = TimestampOnlyWatermark
+
+  override def getSchema: Task[SchemaType] = ZIO.succeed(schema)
+
+  override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
+
+  override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
+    ZStream.fromIterable(shards.map(_.shardId))
+
+  def createShard(source: ShardMetadata): Task[BootstrappedShard] = ZIO.attempt(shards.find(_.shardId == source).get)
+
+  override def empty: SchemaType = ArcaneSchema.empty()
+
+final class TestBackfillSourceDataProvider(
+    dataProvider: TestBackfillOverwriteSource,
+    backfillSettings: BackfillSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    stateManager: DefaultBackfillStateManager
+) extends DefaultBackfillSourceDataProvider(
+      dataProvider,
+      backfillSettings,
+      throughputShaperBuilder,
+      sourceBufferingSettings,
+      stateManager
+    ):
+  override protected def backfillStream(
+      backfillStart: TimestampOnlyWatermark,
+      backfillEnd: TimestampOnlyWatermark,
+      shardSources: Option[Seq[String]]
+  ): ZStream[Any, Throwable, BootstrappedShard] = (shardSources match
+    case Some(sources) => ZStream.fromIterable(sources)
+    case None          => dataProvider.getShards(backfillStart, backfillEnd)
+  )
+    .mapZIO(dataProvider.createShard)
+
+  override def getBackfillStartWatermark(startTime: Option[OffsetDateTime]): Task[TimestampOnlyWatermark] =
+    ZIO.succeed(startTime.map(TimestampOnlyWatermark.apply).getOrElse(TimestampOnlyWatermark(OffsetDateTime.now())))
+
+  override def getSnapshotVersion: Task[TimestampOnlyWatermark] =
+    ZIO.succeed(TimestampOnlyWatermark(OffsetDateTime.now()))
+
+final class TestShardedBackfillStreamDataProvider(
+    dataProvider: BackfillSourceDataProvider[TimestampOnlyWatermark],
+    backfillSettings: BackfillSettings,
+    stateManager: DefaultBackfillStateManager,
+    declaredMetrics: DeclaredMetrics
+) extends DefaultShardedBackfillStreamDataProvider(dataProvider, backfillSettings, stateManager, declaredMetrics)
 
 final class TestShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
   override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] = nameGenerator
@@ -174,6 +233,12 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         streamSchema,
         recreate = false
       )
+      // target table should exist
+      _ <- icebergUtilBackfill.prepareWatermark(
+        targetName.parts.name,
+        TimestampOnlyWatermark(OffsetDateTime.now()),
+        Some(streamSchema)
+      )
       shardFactory           <- ZIO.succeed(new TestShardFactory(nameGenerator))
       propertyManager        <- ZIO.service[SinkPropertyManager]
       stagingPropertyManager <- ZIO.service[StagingPropertyManager]
@@ -187,9 +252,34 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           DeclaredMetrics()
         )
       )
+      backfillSettings <- ZIO.succeed(new BackfillSettings {
+        override val backfillStartDate: Option[OffsetDateTime] = None
+        override val backfillBehavior: BackfillBehavior        = Overwrite
+      })
+      dataSource <- ZIO.succeed(
+        new TestBackfillOverwriteSource(shards, streamSchema)
+      )
+      dataProvider <- ZIO.succeed(
+        new TestBackfillSourceDataProvider(
+          dataProvider = dataSource,
+          backfillSettings = backfillSettings,
+          throughputShaperBuilder =
+            TestThroughputShaperBuilder.default(propertyManager, TestDynamicSinkSettings(targetName)),
+          sourceBufferingSettings = new SourceBufferingSettings {
+            override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
+            override val bufferingEnabled: Boolean            = false
+          },
+          stateManager = backfillStateManager
+        )
+      )
       builder <- ZIO.succeed(
         DefaultBackfillOverwriteGraphBuilder(
-          new TestShardedBackfillStreamDataProvider(targetName, shards),
+          new TestShardedBackfillStreamDataProvider(
+            dataProvider = dataProvider,
+            backfillSettings = backfillSettings,
+            stateManager = backfillStateManager,
+            declaredMetrics = DeclaredMetrics()
+          ),
           new ShardStagingProcessor(
             writer,
             shardFactory,
@@ -206,7 +296,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       // expect the following:
       // a single row - CompletedShard is the output
       result <- builder.produce().runCollect
-    yield (result, shards, backfillTableName, shardTableNames)
+    yield (result, shards, backfillTableName, shardTableNames, backfillStateManager)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillOverwriteGraphBuilderTests")(
     test("stages shards, aggregates them and swaps correct data into target table") {
@@ -214,7 +304,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         trinoConnection <- newTrinoConnection
         // expect the following:
         // a single row - CompletedShard is the output
-        (result, shards, backfillTableName, _) <- runBackfill(
+        (result, shards, backfillTableName, _, _) <- runBackfill(
           "iceberg.test.generic_stream",
           "test_combined"
         )
@@ -229,7 +319,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     test("picks up backfill when a shard has been staged") {
       for
         trinoConnection <- newTrinoConnection
-        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+        (_, _, backfillTableName, shardTableNames, backfillStateManager) <- runBackfill(
           "iceberg.test.interrupted_backfill_stream",
           "test_interrupted"
         )
@@ -280,19 +370,21 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           "processing-state",
           ShardProcessingState.STAGED.toString
         )
+        expectedWatermark <- backfillStateManager.readState.map(_.map(_.watermarkValue))
         // re-run and expect identical result to a full backfill
-        (result, shards, backfillTableName, _) <- runBackfill(
+        (result, shards, backfillTableName, _, _) <- runBackfill(
           "iceberg.test.interrupted_backfill_stream",
           "test_interrupted"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
-      yield assertTrue(rowsInTarget == expectedRowsInTarget)
+        commitedWatermark    <- stagingPropertyManager.getRequiredProperty("interrupted_backfill_stream", "comment")
+      yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("picks up backfill when a shard has been combined") {
       for
         trinoConnection <- newTrinoConnection
-        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+        (_, _, backfillTableName, shardTableNames, backfillStateManager) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
           "test_interrupted_1"
         )
@@ -336,20 +428,23 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             )
             .map(_.execute())
         }
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        expectedWatermark      <- backfillStateManager.readState.map(_.map(_.watermarkValue))
         // leave shard1 as COMBINED
         // re-run and expect identical result to a full backfill
-        (result, shards, _, _) <- runBackfill(
+        (result, shards, _, _, _) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
           "test_interrupted_1"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
-      yield assertTrue(rowsInTarget == expectedRowsInTarget)
+        commitedWatermark    <- stagingPropertyManager.getRequiredProperty("interrupted_1_backfill_stream", "comment")
+      yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("prevents overcommitting data to shards on backfill restart when a shard is partially staged") {
       for
         trinoConnection <- newTrinoConnection
-        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+        (_, _, backfillTableName, shardTableNames, _) <- runBackfill(
           "iceberg.test.overcommit_backfill_stream",
           "test_overcommit_prevention"
         )
@@ -413,7 +508,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ""
         )
         // re-run and expect identical result to a full backfill (without duplicated data in shard1)
-        (_, shards, _, _) <- runBackfill(
+        (_, shards, _, _, _) <- runBackfill(
           "iceberg.test.overcommit_backfill_stream",
           "test_overcommit_prevention"
         )
