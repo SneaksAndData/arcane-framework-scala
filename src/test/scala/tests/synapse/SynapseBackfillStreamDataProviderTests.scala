@@ -8,8 +8,8 @@ import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.synapse.backfill.{
   SynapseBackfillSourceDataProvider,
-  SynapseShardedBackfillStreamDataProvider,
-  SynapseShardFactory
+  SynapseShardFactory,
+  SynapseShardedBackfillStreamDataProvider
 }
 import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
@@ -21,6 +21,8 @@ import zio.stream.ZStream
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
+
+import java.time.OffsetDateTime
 
 object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName     = "dimensionattributelevelvalue"
@@ -148,8 +150,16 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             upickle.write(
               DefaultSourceBackfill(
                 id = "backfill_interrupted",
-                backfillStart = "2025-01-01T00:00:00Z",
-                backfillEnd = "2025-01-02T00:00:00Z",
+                backfillStart = SynapseWatermark(
+                  version = "2025-01-01T00:00:00Z",
+                  timestamp = OffsetDateTime.now(),
+                  prefix = "2025-01-01T00:00:00Z"
+                ).toJson,
+                backfillEnd = SynapseWatermark(
+                  version = "2025-01-02T00:00:00Z",
+                  timestamp = OffsetDateTime.now(),
+                  prefix = "2025-01-02T00:00:00Z"
+                ).toJson,
                 shardSources = folders.map(_.name).take(4)
               )
             )
