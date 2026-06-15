@@ -42,8 +42,14 @@ trait JsonWatermark:
 object JsonWatermark:
   def apply(value: String)(implicit rw: ReadWriter[JsonWatermark]): JsonWatermark = upickle.read(value)
 
-case class TimestampOnlyWatermark(timestamp: OffsetDateTime) extends Watermark with JsonWatermark:
+case class TimestampOnlyWatermark(timestamp: OffsetDateTime) extends SourceWatermark[String] with JsonWatermark:
   override def toJson: String = upickle.write(this)
+
+  /** Current source version associated with this watermark
+   */
+  override val version: String = timestamp.toEpochSecond.toString
+
+  override def compare(that: SourceWatermark[String]): Int = this.version.compareTo(that.version)
 
 object TimestampOnlyWatermark:
   import models.serialization.OffsetDateTimeRW.*
