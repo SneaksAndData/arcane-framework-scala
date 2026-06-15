@@ -268,7 +268,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
       // expect the following:
       // a single row - CompletedShard is the output
       result <- builder.produce().runCollect
-    yield (result, shards, backfillTableName, shardTableNames)
+    yield (result, shards, backfillTableName, shardTableNames, backfillStateManager)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DefaultBackfillOverwriteGraphBuilderTests")(
     test("stages shards, aggregates them and swaps correct data into target table") {
@@ -276,7 +276,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         trinoConnection <- newTrinoConnection
         // expect the following:
         // a single row - CompletedShard is the output
-        (result, shards, backfillTableName, _) <- runBackfill(
+        (result, shards, backfillTableName, _, _) <- runBackfill(
           "iceberg.test.generic_stream",
           "test_combined"
         )
@@ -291,7 +291,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
     test("picks up backfill when a shard has been staged") {
       for
         trinoConnection <- newTrinoConnection
-        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+        (_, _, backfillTableName, shardTableNames, backfillStateManager) <- runBackfill(
           "iceberg.test.interrupted_backfill_stream",
           "test_interrupted"
         )
@@ -342,19 +342,21 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           "processing-state",
           ShardProcessingState.STAGED.toString
         )
+        expectedWatermark <- backfillStateManager.readState.map(_.map(_.watermarkValue))
         // re-run and expect identical result to a full backfill
-        (result, shards, backfillTableName, _) <- runBackfill(
+        (result, shards, backfillTableName, _, _) <- runBackfill(
           "iceberg.test.interrupted_backfill_stream",
           "test_interrupted"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
-      yield assertTrue(rowsInTarget == expectedRowsInTarget)
+        commitedWatermark <- stagingPropertyManager.getRequiredProperty("interrupted_backfill_stream", "comment")
+      yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("picks up backfill when a shard has been combined") {
       for
         trinoConnection <- newTrinoConnection
-        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+        (_, _, backfillTableName, shardTableNames, backfillStateManager) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
           "test_interrupted_1"
         )
@@ -398,20 +400,23 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             )
             .map(_.execute())
         }
+        stagingPropertyManager <- ZIO.service[StagingPropertyManager]
+        expectedWatermark <- backfillStateManager.readState.map(_.map(_.watermarkValue))
         // leave shard1 as COMBINED
         // re-run and expect identical result to a full backfill
-        (result, shards, _, _) <- runBackfill(
+        (result, shards, _, _, _) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
           "test_interrupted_1"
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
-      yield assertTrue(rowsInTarget == expectedRowsInTarget)
+        commitedWatermark <- stagingPropertyManager.getRequiredProperty("interrupted_1_backfill_stream", "comment")
+      yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("prevents overcommitting data to shards on backfill restart when a shard is partially staged") {
       for
         trinoConnection <- newTrinoConnection
-        (_, _, backfillTableName, shardTableNames) <- runBackfill(
+        (_, _, backfillTableName, shardTableNames, _) <- runBackfill(
           "iceberg.test.overcommit_backfill_stream",
           "test_overcommit_prevention"
         )
@@ -475,7 +480,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
           ""
         )
         // re-run and expect identical result to a full backfill (without duplicated data in shard1)
-        (_, shards, _, _) <- runBackfill(
+        (_, shards, _, _, _) <- runBackfill(
           "iceberg.test.overcommit_backfill_stream",
           "test_overcommit_prevention"
         )
