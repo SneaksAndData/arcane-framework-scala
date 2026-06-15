@@ -40,7 +40,10 @@ jobs:
         shell: bash
         run: |
           export $(cat unit-tests.env| xargs)
-          sbt clean coverage test coverageReport
+          sbt clean && \
+          sbt coverage && \
+          sbt test && \
+          sbt coverageReport
 
       - name: Validate formatting
         shell: bash

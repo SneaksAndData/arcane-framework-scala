@@ -93,6 +93,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
         ZStream
           .fromZIO(hasChanges(previous, currentTarget))
           .flatMap { sourceUpdated =>
+            // TODO: review this
             (sourceUpdated, currentTarget == previous) match
               // if source entity has been updated, stream changes. Data provider attaches watermark to the end of the changeset
               case (true, _) => dataProvider.requestChanges(previous, current)
