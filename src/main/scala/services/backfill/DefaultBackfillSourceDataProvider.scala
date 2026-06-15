@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.backfill
 
 import extensions.ZExtensions.trySetBuffering
-import logging.ZIOLogAnnotations.zlogStream
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.backfill.DefaultSourceBackfill
 import models.settings.backfill.BackfillSettings
 import models.settings.sources.SourceBufferingSettings
@@ -74,7 +74,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
                 snapshotVersion.toJson,
                 bootstrapped.map(_.shardSourceEntityName)
               )
-              ZStream.fromZIO(stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)
+              ZStream.fromZIO(zlog("Backfill will commit watermark %s", backfillMetadata.watermarkValue) *> stateManager.commitState(backfillMetadata)).flatMap(_ => outputStream)
             }
           }
       }
