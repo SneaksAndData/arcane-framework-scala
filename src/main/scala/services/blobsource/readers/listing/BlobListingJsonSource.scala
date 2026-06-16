@@ -58,7 +58,7 @@ class BlobListingJsonSource[PathType <: BlobPath](
         getSchema.map { schema =>
           (
             JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers).getRows.map(
-              BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher)
+              BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
             ),
             schema
           )
