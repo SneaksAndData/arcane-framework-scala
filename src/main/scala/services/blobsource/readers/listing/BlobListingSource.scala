@@ -22,9 +22,9 @@ abstract class BlobListingSource[PathType <: BlobPath](
 
   final override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
 
-  /** SHA-256 hasher. Note that this is NOT thread safe and must not be created outside the BlobListingSource
+  /** SHA-256 hasher.
     */
-  protected val mergeKeyHasher: MessageDigest = MessageDigest.getInstance("SHA-256")
+  protected def mergeKeyHasher(): MessageDigest = MessageDigest.getInstance("SHA-256")
 
   override def getLatestVersion: Task[BlobSourceWatermark] = reader
     .streamPrefixes(sourcePath)
