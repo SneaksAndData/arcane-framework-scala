@@ -24,6 +24,7 @@ class DefaultBackfillOverwriteGraphBuilder(
 ) extends BackfillStreamingGraphBuilder:
 
   private val backfillParallelism     = Runtime.getRuntime.availableProcessors()
+  private def aggregateStagedShards   = ZPipeline.fromSink(ZSink.last[StagedShard])
   private def aggregateCombinedShards = ZPipeline.fromSink(ZSink.last[CompletionShard])
 
   /** @inheritdoc
@@ -54,17 +55,14 @@ class DefaultBackfillOverwriteGraphBuilder(
                 ZStream
                   .fromZIO(stateManager.prepareShardStage(shard, shard.shardStream._2))
                   .flatMap { _ =>
-                    val downloadedShard = shard.shardStream._1
+                    shard.shardStream._1
                       .via(fieldFilteringProcessor.process)
                       .via(shardStageProcessor.process(shard, shard.shardStream._2))
-                      .runLast
-
-                    ZStream
-                      .fromZIO(downloadedShard)
+                      .via(aggregateStagedShards)
                       .collect { case Some(staged) =>
                         staged
                       }
-                      .mapZIO(stateManager.commitStagedShard)
+                      .tap(stateManager.commitStagedShard)
                   }
             }
         }
@@ -78,19 +76,21 @@ class DefaultBackfillOverwriteGraphBuilder(
                   completion.shardId
                 ) *> ZStream.succeed(completion)
               case None =>
-                ZStream.succeed(staged).mapZIO { staged =>
-                  for
-                    _ <- zlog("Shard %s fully commited, ready for combine", staged.shardId)
-                    _ <- mergeServiceClient.commitShard(staged)
-                    _ <- zlog(
-                      "Shard %s data has been successfully commited to the combined backfill table",
-                      staged.shardId
-                    )
-                    completionShard <- shardFactory.createCompletionShard(staged, watermark.toJson)
-                  yield completionShard
-                }
+                ZStream
+                  .succeed(staged)
+                  .mapZIO { staged =>
+                    for
+                      _ <- zlog("Shard %s fully commited, ready for combine", staged.shardId)
+                      _ <- mergeServiceClient.commitShard(staged)
+                      _ <- zlog(
+                        "Shard %s data has been successfully commited to the combined backfill table",
+                        staged.shardId
+                      )
+                      completionShard <- shardFactory.createCompletionShard(staged, watermark.toJson)
+                    yield completionShard
+                  }
+                  .tap(stateManager.commitCombinedShard)
             }
-            .mapZIO(shard => stateManager.commitCombinedShard(shard))
         )
         .via(aggregateCombinedShards)
         .collect { case Some(completion) =>

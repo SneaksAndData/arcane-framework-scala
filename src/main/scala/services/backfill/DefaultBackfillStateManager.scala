@@ -38,29 +38,26 @@ class DefaultBackfillStateManager(
     _ <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, true))
   yield ()
 
-  override def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard] =
-    nameGenerator.getShardTableName(completionShard).flatMap { shardTableName =>
-      stagingPropertyManager
-        .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.COMBINED.toString)
-        .flatMap(_ =>
-          stagingPropertyManager
-            .setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
-        )
-        .flatMap { _ =>
-          for _ <- ZIO.succeed(1) @@ declaredMetrics.backfillCombinedShards
-          yield completionShard
-        }
-    }
+  override def commitCombinedShard(completionShard: CompletionShard): Task[Unit] = for
+    shardTableName <- nameGenerator.getShardTableName(completionShard)
+    _ <- stagingPropertyManager.setProperty(
+      shardTableName,
+      processingStatePropertyName,
+      ShardProcessingState.COMBINED.toString
+    )
+    _ <- stagingPropertyManager.setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
+    _ <- ZIO.succeed(1) @@ declaredMetrics.backfillCombinedShards
+  yield ()
 
-  override def commitStagedShard(shard: StagedShard): Task[StagedShard] =
-    nameGenerator.getShardTableName(shard).flatMap { shardTableName =>
-      stagingPropertyManager
-        .setProperty(shardTableName, processingStatePropertyName, ShardProcessingState.STAGED.toString)
-        .flatMap { _ =>
-          for _ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
-          yield shard
-        }
-    }
+  override def commitStagedShard(shard: StagedShard): Task[Unit] = for
+    shardTableName <- nameGenerator.getShardTableName(shard)
+    _ <- stagingPropertyManager.setProperty(
+      shardTableName,
+      processingStatePropertyName,
+      ShardProcessingState.STAGED.toString
+    )
+    _ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
+  yield ()
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
     shardTableName <- nameGenerator.getShardTableName(shard)

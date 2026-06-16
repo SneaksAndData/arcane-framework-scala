@@ -5,8 +5,6 @@ import models.backfill.SourceBackfill
 import models.schemas.ArcaneSchema
 import models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 
-import com.sneaksanddata.arcane.framework.services.streaming.base.JsonWatermark
-import upickle.ReadWriter
 import zio.Task
 
 /** Processing state for a shard.
@@ -44,11 +42,11 @@ trait BackfillStateManager:
 
   /** Marks a staged shard table as COMBINED
     */
-  def commitCombinedShard(completionShard: CompletionShard): Task[CompletionShard]
+  def commitCombinedShard(completionShard: CompletionShard): Task[Unit]
 
   /** Marks a staged shard table as STAGED
     */
-  def commitStagedShard(shard: StagedShard): Task[StagedShard]
+  def commitStagedShard(shard: StagedShard): Task[Unit]
 
   /** Check if a provided bootstrapped shard has been successfully staged
     */
