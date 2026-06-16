@@ -33,7 +33,7 @@ object WatermarkProcessingExtensions:
               previousWatermark,
               watermark
             )
-            _ <- ZIO.succeed(1L) @@ declaredMetrics.watermarkUpdateCounter
+            _ <- declaredMetrics.watermarkUpdateCounter.update(1L)
           yield ()
         }
       yield ()
