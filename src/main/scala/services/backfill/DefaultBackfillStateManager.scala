@@ -46,7 +46,7 @@ class DefaultBackfillStateManager(
       ShardProcessingState.COMBINED.toString
     )
     _ <- stagingPropertyManager.setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
-    _ <- declaredMetrics.backfillCombinedShards.update(1L)
+    _ <- declaredMetrics.reportMetric(declaredMetrics.backfillCombinedShards, 1L)
   yield ()
 
   override def commitStagedShard(shard: StagedShard): Task[Unit] = for
@@ -56,7 +56,7 @@ class DefaultBackfillStateManager(
       processingStatePropertyName,
       ShardProcessingState.STAGED.toString
     )
-    _ <- declaredMetrics.backfillStagedShards.update(1L)
+    _ <- declaredMetrics.reportMetric(declaredMetrics.backfillStagedShards, 1L)
   yield ()
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for

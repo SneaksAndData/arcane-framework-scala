@@ -5,9 +5,11 @@ import zio.metrics.Metric.{Counter, Gauge}
 import zio.metrics.{Metric, MetricLabel}
 import zio.{Task, ZIO, ZLayer}
 
+import scala.collection.SortedMap
+
 /** A object that contains the declared metrics names.
   */
-class DeclaredMetrics:
+class DeclaredMetrics(globalTags: SortedMap[String, String]):
 
   /** The namespace for the metrics. Prefixes the metric name with the namespace. For now, it is not configurable.
     */
@@ -100,18 +102,26 @@ class DeclaredMetrics:
   val backfillCombinedShards: Counter[Long] = Metric
     .counter(s"$metricsNamespace.backfill.shards_combined")
 
+  def reportMetric[Type, In, Out](metric: Metric[Type, In, Out], value: In): Task[Unit] =
+    for _ <- ZIO.succeed(value) @@ metric.tagged(globalTags.map { case (key, value) =>
+        MetricLabel(key, value)
+      }.toSet)
+    yield ()
+
 object DeclaredMetrics:
 
   /** Creates a new instance of the DeclaredMetrics.
-    *
-    * @return
-    *   The ArcaneDimensionsProvider instance.
     */
-  def apply(): DeclaredMetrics = new DeclaredMetrics()
+  def apply(): DeclaredMetrics = new DeclaredMetrics(SortedMap.empty)
+
+  def apply(globalTags: SortedMap[String, String]): DeclaredMetrics = new DeclaredMetrics(globalTags)
 
   /** The ZLayer that creates the DeclaredMetrics.
     */
-  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(DeclaredMetrics())
+  val layer: ZLayer[GlobalMetricTagProvider, Nothing, DeclaredMetrics] = ZLayer {
+    for tagProvider <- ZIO.service[GlobalMetricTagProvider]
+    yield DeclaredMetrics(tagProvider.getTags)
+  }
 
   /** Measures running time of each task
     */

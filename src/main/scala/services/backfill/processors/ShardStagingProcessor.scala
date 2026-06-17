@@ -31,6 +31,7 @@ class ShardStagingProcessor(
     .mapChunksZIO { rows =>
       for
         shardTableName <- nameGenerator.getShardTableName(shard)
+        _              <- declaredMetrics.rowsIncoming.update(rows.size.toLong)
         stagedShard <- catalogWriter
           .append(rows, shardTableName, schema, Seq(getAnnotation("processor", "ShardStagingProcessor")))
           .flatMap(_ => shardFactory.createStagedShard(shard).map(v => Chunk(v)))
