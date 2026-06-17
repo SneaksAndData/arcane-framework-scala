@@ -56,7 +56,7 @@ class DefaultBackfillStateManager(
       processingStatePropertyName,
       ShardProcessingState.STAGED.toString
     )
-    _ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
+    //_ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
   yield ()
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
