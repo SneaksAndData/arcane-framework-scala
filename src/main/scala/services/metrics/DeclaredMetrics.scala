@@ -102,16 +102,11 @@ class DeclaredMetrics:
 
 object DeclaredMetrics:
 
-  /** Creates a new instance of the DeclaredMetrics.
-    *
-    * @return
-    *   The ArcaneDimensionsProvider instance.
-    */
-  def apply(): DeclaredMetrics = new DeclaredMetrics()
+  private val metrics = new DeclaredMetrics()
 
   /** The ZLayer that creates the DeclaredMetrics.
     */
-  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(DeclaredMetrics())
+  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(metrics)
 
   /** Measures running time of each task
     */
