@@ -11,6 +11,7 @@ import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.naming.NameGenerator
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultBackfillStateManager(
@@ -46,7 +47,7 @@ class DefaultBackfillStateManager(
       ShardProcessingState.COMBINED.toString
     )
     _ <- stagingPropertyManager.setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
-    _ <- ZIO.succeed(1) @@ declaredMetrics.backfillCombinedShards
+    _ <- declaredMetrics.backfillCombinedShards.update(1).flatMap(_ => zlog("Updated counter backfillCombinedShards by 1"))
   yield ()
 
   override def commitStagedShard(shard: StagedShard): Task[Unit] = for
