@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.services.merging
 
 import models.batches.SynapseLinkMergeBatch
-import models.maintenance.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
 import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField}
 import services.base.SchemaProvider
@@ -10,7 +9,7 @@ import services.filters.FieldsFilteringService
 import services.merging.*
 import services.metrics.DeclaredMetrics
 import tests.services.merging.JdbcMergeServiceClientTests.test
-import tests.shared.{TestJdbcMergeServiceClientSettings, TestObservabilitySettings, TestTablePropertiesSettings}
+import tests.shared.{TestJdbcMergeServiceClientSettings, TestTablePropertiesSettings}
 
 import io.trino.jdbc.TrinoDriver
 import org.scalatestplus.easymock.EasyMockSugar.mock
