@@ -50,6 +50,6 @@ trait BaseStreamContext:
   val datadogSocketPath: String =
     sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog/dsd.socket")
 
-  val metricsPublisherInterval: Duration = Duration.ofMillis(
-    sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
-  )
+  val metricsPublisherInterval: Duration = sys.env.get("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS") match
+    case Some(value) => Duration.ofMillis(value.toInt)
+    case None        => Duration.ofSeconds(10)

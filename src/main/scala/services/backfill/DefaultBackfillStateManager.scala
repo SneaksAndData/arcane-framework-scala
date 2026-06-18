@@ -11,7 +11,6 @@ import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultBackfillStateManager(
@@ -57,7 +56,7 @@ class DefaultBackfillStateManager(
       processingStatePropertyName,
       ShardProcessingState.STAGED.toString
     )
-    //_ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
+    _ <- ZIO.succeed(1) @@ declaredMetrics.backfillStagedShards
   yield ()
 
   override def isStaged(shard: BootstrappedShard): Task[Boolean] = for
