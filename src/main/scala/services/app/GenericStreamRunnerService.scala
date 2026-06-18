@@ -35,16 +35,20 @@ class GenericStreamRunnerService(
     */
   def run: ZIO[Any, Throwable, Unit] =
     lifetimeService.start()
-    for
-      _ <- zlog("Starting the stream runner")
-      _ <- bootstrapper.cleanupStagingTables
-      _ <- bootstrapper.cleanupOutdatedBackfill
+    ZIO
+      .attempt(tagProvider.getTags)
+      .flatMap(tags =>
+        (for
+          _ <- zlog("Starting the stream runner")
+          _ <- bootstrapper.cleanupStagingTables
+          _ <- bootstrapper.cleanupOutdatedBackfill
 
-      _ <- bootstrapper.createTargetTable
-      _ <- bootstrapper.createBackFillTable
-      _ <- builder.produce().via(streamLifetimeGuard).run(logResults)
-      _ <- zlog("Stream completed")
-    yield ()
+          _ <- bootstrapper.createTargetTable
+          _ <- bootstrapper.createBackFillTable
+          _ <- builder.produce().via(streamLifetimeGuard).run(logResults)
+          _ <- zlog("Stream completed")
+        yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
+      )
 
   /** The stage that completes the stream until the lifetime service is cancelled.
     */
