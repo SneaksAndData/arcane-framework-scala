@@ -47,7 +47,7 @@ class DefaultBackfillStateManager(
       ShardProcessingState.COMBINED.toString
     )
     _ <- stagingPropertyManager.setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
-    _ <- declaredMetrics.backfillCombinedShard
+    _ <- ZIO.succeed(1) @@ declaredMetrics.backfillCombinedShards
   yield ()
 
   override def commitStagedShard(shard: StagedShard): Task[Unit] = for
