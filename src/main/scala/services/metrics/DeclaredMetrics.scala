@@ -94,24 +94,21 @@ class DeclaredMetrics:
   val watermarkUpdateCounter: Counter[Long] = Metric
     .counter(s"$metricsNamespace.watermark.updates")
 
-  val backfillStagedShards: Counter[Long] = Metric
-    .counter(s"$metricsNamespace.backfill.shards_staged")
+  val backfillStagedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_staged")
+    .fromConst(1)
 
-  val backfillCombinedShards: Counter[Long] = Metric
-    .counter(s"$metricsNamespace.backfill.shards_combined")
+  val backfillCombinedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_combined")
+    .fromConst(1)
 
 object DeclaredMetrics:
 
-  /** Creates a new instance of the DeclaredMetrics.
-    *
-    * @return
-    *   The ArcaneDimensionsProvider instance.
-    */
-  def apply(): DeclaredMetrics = new DeclaredMetrics()
+  private val metrics = new DeclaredMetrics()
 
   /** The ZLayer that creates the DeclaredMetrics.
     */
-  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(DeclaredMetrics())
+  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(metrics)
 
   /** Measures running time of each task
     */
