@@ -99,6 +99,7 @@ class DeclaredMetrics:
 
   val backfillCombinedShards: Counter[Int] = Metric
     .counterInt(s"$metricsNamespace.backfill.shards_combined")
+    .fromConst(1)
 
 object DeclaredMetrics:
 
