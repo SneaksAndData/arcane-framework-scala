@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.metrics
 
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics.backfillCombinedShards
 import zio.metrics.Metric.{Counter, Gauge}
 import zio.metrics.{Metric, MetricLabel}
 import zio.{Task, ZIO, ZLayer}
@@ -94,11 +95,7 @@ class DeclaredMetrics:
   val watermarkUpdateCounter: Counter[Long] = Metric
     .counter(s"$metricsNamespace.watermark.updates")
 
-  val backfillStagedShards: Counter[Int] = Metric
-    .counterInt(s"$metricsNamespace.backfill.shards_staged")
-
-  val backfillCombinedShards: Counter[Int] = Metric
-    .counterInt(s"$metricsNamespace.backfill.shards_combined")
+  def backfillCombinedShard: ZIO[Any, Nothing, Int] = ZIO.succeed(1) @@ backfillCombinedShards
 
 object DeclaredMetrics:
 
@@ -107,6 +104,10 @@ object DeclaredMetrics:
   /** The ZLayer that creates the DeclaredMetrics.
     */
   val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(metrics)
+
+  val backfillCombinedShards: Counter[Int] = Metric
+    .counterInt("arcane.stream.backfill.shards_combined")
+    .fromConst(1)
 
   /** Measures running time of each task
     */

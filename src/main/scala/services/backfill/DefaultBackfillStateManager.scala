@@ -47,7 +47,7 @@ class DefaultBackfillStateManager(
       ShardProcessingState.COMBINED.toString
     )
     _ <- stagingPropertyManager.setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
-    _ <- declaredMetrics.backfillCombinedShards.update(1).flatMap(_ => zlog("Updated counter backfillCombinedShards by 1"))
+    _ <- declaredMetrics.backfillCombinedShard
   yield ()
 
   override def commitStagedShard(shard: StagedShard): Task[Unit] = for
