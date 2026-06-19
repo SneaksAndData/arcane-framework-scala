@@ -30,6 +30,22 @@ classDiagram
         +toJson: String
     }
 
+    class SchemaProvider~Schema~ {
+        <<interface>>
+        +getSchema: Task[SchemaType]
+        +empty: SchemaType
+    }
+
+    class ShardProvider {
+        <<interface>>
+        +deleteShards(prefix: String): Task[Unit]
+        +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata]
+    }
+
+    class StreamingSource {
+        <<interface>>
+    }
+
     %% Abstract & Default Classes
     class DefaultStreamDataProvider~WatermarkType~ {
         -rng: Random
@@ -44,6 +60,28 @@ classDiagram
         +currentWatermark: Task[WatermarkType]
     }
 
+    %% Example Concrete Implementations
+    class CustomWatermark {
+        +version: String
+        +timestamp: OffsetDateTime
+        +toJson(): String
+    }
+
+    class CustomStreamingDataProvider {
+        +layer: ZLayer
+    }
+
+    class CustomSourceDataProvider {
+        #changeStream(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
+        +hasChanges(previousVersion: CustomWatermark): Task[Boolean]
+        +getCurrentVersion(previousVersion: CustomWatermark): Task[CustomWatermark]
+    }
+
+    class CustomStreamingSource {
+        +getChanges(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
+        +getCurrentVersion: Task[CustomWatermark]
+    }
+
     %% Relationships
     StreamDataProvider <|.. DefaultStreamDataProvider : implements
     ChangeCaptureDataProvider <|.. DefaultSourceDataProvider : implements
@@ -52,4 +90,17 @@ classDiagram
     Watermark <|-- SourceWatermark : extends
     SourceWatermark <|-- WatermarkType : bound
     JsonWatermark <|-- WatermarkType : bound
+
+    SchemaProvider <|-- StreamingSource : extends
+    ShardProvider <|-- StreamingSource : extends
+
+    SourceWatermark <|.. CustomWatermark : implements
+    JsonWatermark <|.. CustomWatermark : implements
+
+    DefaultStreamDataProvider <|-- CustomStreamingDataProvider : extends
+    DefaultSourceDataProvider <|-- CustomSourceDataProvider : extends
+    StreamingSource <|.. CustomStreamingSource : implements
+
+    CustomStreamingDataProvider --> CustomSourceDataProvider : injects
+    CustomSourceDataProvider --> CustomStreamingSource : queries
 ```
