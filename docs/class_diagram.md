@@ -24,84 +24,92 @@ classDiagram
     direction TB
 
     %% ======================================================
-    %% NAMESPACES & CLASSES
+    %% ROW 1: THE FRAMEWORK ARCHITECTURE
     %% ======================================================
-
-    namespace Core_Interfaces_and_Traits {
-        class StreamDataProvider {
-            <<interface>>
-            +stream: ZStream[Any, Throwable, StructuredZStream]
-        }
-        class SchemaProvider~Schema~ {
-            <<interface>>
-            +getSchema: Task[SchemaType]
-            +empty: SchemaType
-        }
-        class ShardProvider {
-            <<interface>>
-            +deleteShards(prefix: String): Task[Unit]
-            +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata]
-        }
-        class StreamingSource {
-            <<interface>>
-        }
+    
+    %% Column 1: Watermarking Core
+    class Watermark {
+        <<interface>>
+        +timestamp: OffsetDateTime
+        +age: Long
+    }
+    class SourceWatermark~VersionType~ {
+        <<interface>>
+        +version: VersionType
+    }
+    class JsonWatermark {
+        <<interface>>
+        +toJson: String
     }
 
-    namespace Orchestration_and_Emitters {
-        class ChangeCaptureDataProvider~WatermarkType~ {
-            <<interface>>
-            +hasChanges(previousVersion: WatermarkType): Task[Boolean]
-            +getCurrentVersion(previousVersion: WatermarkType): Task[WatermarkType]
-            +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
-            +currentWatermark: Task[WatermarkType]
-        }
-        class DefaultStreamDataProvider~WatermarkType~ {
-            -rng: Random
-            -getNextSleepDuration(): Duration
-            +stream: ZStream[Any, Throwable, StructuredZStream]
-        }
-        class DefaultSourceDataProvider~WatermarkType~ {
-            <<abstract>>
-            #changeStream(previousVersion: WatermarkType): ZStream[Any, Throwable, StructuredZStream]*
-            +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
-            +currentWatermark: Task[WatermarkType]
-        }
+    %% Column 2: Stream Orchestration
+    class StreamDataProvider {
+        <<interface>>
+        +stream: ZStream[Any, Throwable, StructuredZStream]
+    }
+    class DefaultStreamDataProvider~WatermarkType~ {
+        -rng: Random
+        -getNextSleepDuration(): Duration
+        +stream: ZStream[Any, Throwable, StructuredZStream]
     }
 
-    namespace Watermarking {
-        class Watermark {
-            <<interface>>
-            +timestamp: OffsetDateTime
-            +age: Long
-        }
-        class SourceWatermark~VersionType~ {
-            <<interface>>
-            +version: VersionType
-        }
-        class JsonWatermark {
-            <<interface>>
-            +toJson: String
-        }
-        class CustomWatermark {
-            +version: String
-            +timestamp: OffsetDateTime
-            +toJson(): String
-        }
+    %% Column 3: Data Emitters / Providers
+    class ChangeCaptureDataProvider~WatermarkType~ {
+        <<interface>>
+        +hasChanges(previousVersion: WatermarkType): Task[Boolean]
+        +getCurrentVersion(previousVersion: WatermarkType): Task[WatermarkType]
+        +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
+        +currentWatermark: Task[WatermarkType]
+    }
+    class DefaultSourceDataProvider~WatermarkType~ {
+        <<abstract>>
+        #changeStream(previousVersion: WatermarkType): ZStream[Any, Throwable, StructuredZStream]*
+        +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
+        +currentWatermark: Task[WatermarkType]
     }
 
-    namespace Custom_Implementation {
-        class CustomStreamingDataProvider {
-            +layer: ZLayer
-        }
-        class CustomSourceDataProvider {
-            #changeStream(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
-            +hasChanges(previousVersion: CustomWatermark): Task[Boolean]
-            +getCurrentVersion(previousVersion: CustomWatermark): Task[CustomWatermark]
-        }
-        class CustomStreamingSource {
-            +getChanges(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
-            +getCurrentVersion: Task[CustomWatermark]
-        }
+    %% Column 4: Physical Streaming Sources
+    class SchemaProvider~Schema~ {
+        <<interface>>
+        +getSchema: Task[SchemaType]
+        +empty: SchemaType
+    }
+    class ShardProvider {
+        <<interface>>
+        +deleteShards(prefix: String): Task[Unit]
+        +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata]
+    }
+    class StreamingSource {
+        <<interface>>
+    }
+
+    %% ======================================================
+    %% ROW 2: YOUR CUSTOM SOURCE IMPLEMENTATION
+    %% ======================================================
+    
+    %% Column 1 implementation
+    class CustomWatermark {
+        +version: String
+        +timestamp: OffsetDateTime
+        +toJson(): String
+    }
+
+    %% Column 2 implementation
+    class CustomStreamingDataProvider {
+        +layer: ZLayer
+    }
+
+    %% Column 3 implementation
+    class CustomSourceDataProvider {
+        #changeStream(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
+        +hasChanges(previousVersion: CustomWatermark): Task[Boolean]
+        +getCurrentVersion(previousVersion: CustomWatermark): Task[CustomWatermark]
+    }
+
+    %% Column 4 implementation
+    class CustomStreamingSource {
+        +getChanges(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
+        +getCurrentVersion: Task[CustomWatermark]
     }
 
     %% ======================================================
@@ -130,13 +138,14 @@ classDiagram
     %% ======================================================
     
     %% Base Framework Relationships
-    StreamDataProvider <|.. DefaultStreamDataProvider : implements
-    ChangeCaptureDataProvider <|.. DefaultSourceDataProvider : implements
-    DefaultStreamDataProvider --> ChangeCaptureDataProvider : orchestrates
-
     Watermark <|-- SourceWatermark : extends
     SourceWatermark <|-- WatermarkType : bound
     JsonWatermark <|-- WatermarkType : bound
+
+    StreamDataProvider <|.. DefaultStreamDataProvider : implements
+    DefaultStreamDataProvider --> ChangeCaptureDataProvider : orchestrates
+
+    ChangeCaptureDataProvider <|.. DefaultSourceDataProvider : implements
 
     SchemaProvider <|-- StreamingSource : extends
     ShardProvider <|-- StreamingSource : extends
