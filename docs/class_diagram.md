@@ -1,4 +1,24 @@
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#fafafa',
+    'primaryTextColor': '#2c3e50',
+    'primaryBorderColor': '#7f8c8d',
+    'lineColor': '#111111',
+    'arrowheadColor': '#111111',
+    'secondaryColor': '#fdfdfd',
+    'tertiaryColor': '#ffffff',
+    'fontSize': '14px',
+    'fontFamily': 'Fira Code, Menlo, Monaco, Consolas, Courier New, monospace'
+  },
+  'flowchart': {
+    'curve': 'linear'
+  },
+  'class': {
+    'curve': 'linear'
+  }
+} }%%
 classDiagram
     %% Direction of diagram flow
     direction TB
@@ -87,23 +107,23 @@ classDiagram
     %% ======================================================
     %% STYLING DEFINITIONS
     %% ======================================================
-    style StreamDataProvider fill:#e0f2f1,stroke:#00897b,stroke-width:2px
-    style SchemaProvider fill:#e0f2f1,stroke:#00897b,stroke-width:2px
-    style ShardProvider fill:#e0f2f1,stroke:#00897b,stroke-width:2px
-    style StreamingSource fill:#e0f2f1,stroke:#00897b,stroke-width:2px
+    style StreamDataProvider fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style SchemaProvider fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style ShardProvider fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style StreamingSource fill:#e0f2f1,stroke:#004d40,stroke-width:2px
 
-    style ChangeCaptureDataProvider fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px
-    style DefaultStreamDataProvider fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px
-    style DefaultSourceDataProvider fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px
+    style ChangeCaptureDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
+    style DefaultStreamDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
+    style DefaultSourceDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
 
-    style Watermark fill:#e8f5e9,stroke:#43a047,stroke-width:2px
-    style SourceWatermark fill:#e8f5e9,stroke:#43a047,stroke-width:2px
-    style JsonWatermark fill:#e8f5e9,stroke:#43a047,stroke-width:2px
-    style CustomWatermark fill:#fff3e0,stroke:#fb8c00,stroke-width:2px
+    style Watermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style SourceWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style JsonWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style CustomWatermark fill:#fff3e0,stroke:#e65100,stroke-width:2px
 
-    style CustomStreamingDataProvider fill:#fff3e0,stroke:#fb8c00,stroke-width:2px
-    style CustomSourceDataProvider fill:#fff3e0,stroke:#fb8c00,stroke-width:2px
-    style CustomStreamingSource fill:#fff3e0,stroke:#fb8c00,stroke-width:2px
+    style CustomStreamingDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style CustomSourceDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style CustomStreamingSource fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
 
     %% ======================================================
     %% RELATIONSHIPS & INHERITANCE
