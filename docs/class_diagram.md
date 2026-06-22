@@ -83,21 +83,8 @@ The framework orchestrates streaming data ingestion using a hierarchy of provide
 classDiagram
     direction TB
 
-    class StreamDataProvider {
-        <<interface>>
-        +stream: ZStream[Any, Throwable, StructuredZStream]
-    }
     class DefaultStreamDataProvider~WatermarkType~ {
-        -rng: Random
-        -getNextSleepDuration(): Duration
         +stream: ZStream[Any, Throwable, StructuredZStream]
-    }
-    class ChangeCaptureDataProvider~WatermarkType~ {
-        <<interface>>
-        +hasChanges(previousVersion: WatermarkType): Task[Boolean]
-        +getCurrentVersion(previousVersion: WatermarkType): Task[WatermarkType]
-        +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
-        +currentWatermark: Task[WatermarkType]
     }
     class DefaultSourceDataProvider~WatermarkType~ {
         <<abstract>>
@@ -105,32 +92,19 @@ classDiagram
         +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
         +currentWatermark: Task[WatermarkType]
     }
-    class SchemaProvider~Schema~ {
+    class StreamingSource {
         <<interface>>
         +getSchema: Task[SchemaType]
         +empty: SchemaType
-    }
-    class ShardProvider {
-        <<interface>>
         +deleteShards(prefix: String): Task[Unit]
         +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata]
     }
-    class StreamingSource {
-        <<interface>>
-    }
 
-    StreamDataProvider <|.. DefaultStreamDataProvider : implements
-    DefaultStreamDataProvider --> ChangeCaptureDataProvider : orchestrates
-    ChangeCaptureDataProvider <|.. DefaultSourceDataProvider : implements
-    SchemaProvider <|-- StreamingSource : extends
-    ShardProvider <|-- StreamingSource : extends
+    DefaultStreamDataProvider --> DefaultSourceDataProvider : orchestrates
+    DefaultSourceDataProvider --> StreamingSource : requires
 
-    style StreamDataProvider fill:#e0f2f1,stroke:#004d40,stroke-width:2px
-    style SchemaProvider fill:#e0f2f1,stroke:#004d40,stroke-width:2px
-    style ShardProvider fill:#e0f2f1,stroke:#004d40,stroke-width:2px
     style StreamingSource fill:#e0f2f1,stroke:#004d40,stroke-width:2px
 
-    style ChangeCaptureDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
     style DefaultStreamDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
     style DefaultSourceDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
 ```
