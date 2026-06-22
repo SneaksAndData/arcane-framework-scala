@@ -34,7 +34,7 @@ class PushStreamingSource(
 ) extends StreamingSource:
 
   private val pushPayloadFieldName: String = "payload"
-  private val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
   override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
     ZStream.empty
@@ -53,8 +53,6 @@ class PushStreamingSource(
     */
   override def getSchema: Task[ArcaneSchema] =
     this.sinkPropertyManager.getTableSchema(sourceTableName).map(implicitly)
-    
-    
 
   private def buildQueryGetChanges(latestVersion: WatermarkType): QueryRequest =
     val tableName    = "test"
@@ -82,8 +80,8 @@ class PushStreamingSource(
       .limit(1)
       .select(Select.COUNT)
       .build()
-    
-  private def buildQueryMaxTimestamp: QueryRequest = ???  
+
+  private def buildQueryMaxTimestamp: QueryRequest = ???
 
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
     for result <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
@@ -134,9 +132,15 @@ class PushStreamingSource(
     .mapZIO { response =>
       getSchema.map(schema => (responseStream(response), schema))
     }
-  
-  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] = runDynamoQuery(buildQueryHasChanges(previousVersion))
-    .map(_.hasItems())
-  
-  def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp).map(_.items().asScala.headOption.map(_.asScala.head._2.s()).map(timeString => PushStreamWatermark(OffsetDateTime.parse(timeString, formatter))))
+
+  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] =
+    runDynamoQuery(buildQueryHasChanges(previousVersion))
+      .map(_.hasItems())
+
+  def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp)
+    .map(
+      _.items().asScala.headOption
+        .map(_.asScala.head._2.s())
+        .map(timeString => PushStreamWatermark(OffsetDateTime.parse(timeString, formatter)))
+    )
     .map(_.getOrElse(PushStreamWatermark.epoch))
