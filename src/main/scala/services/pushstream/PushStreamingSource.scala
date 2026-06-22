@@ -100,7 +100,7 @@ class PushStreamingSource(
     val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
     reader.read(null, decoder)
 
-  private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] = 
+  private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] =
     val avroReader = getAvroReader(avroSchema)
 
     ZStream
@@ -126,8 +126,8 @@ class PushStreamingSource(
   def getChanges(previousVersion: PushStreamWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(runDynamoQuery(buildQueryGetChanges(previousVersion)))
     .mapZIO { response =>
-      getSchemaInfo.map{
-        case (avroSchema, icebergSchema) => (responseStream(response, avroSchema), icebergSchema)
+      getSchemaInfo.map { case (avroSchema, icebergSchema) =>
+        (responseStream(response, avroSchema), icebergSchema)
       }
     }
 
