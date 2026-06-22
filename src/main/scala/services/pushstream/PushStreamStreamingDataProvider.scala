@@ -7,9 +7,11 @@ import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptur
 import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 
 class PushStreamStreamingDataProvider(
-                                       dataProvider: PushStreamSourceDataProvider,
-                                       settings: ChangeCaptureSettings,
-                                       declaredMetrics: DeclaredMetrics
-                                     ) extends DefaultStreamDataProvider(
-  dataProvider, settings, declaredMetrics
-)
+    dataProvider: PushStreamSourceDataProvider,
+    settings: ChangeCaptureSettings,
+    declaredMetrics: DeclaredMetrics
+) extends DefaultStreamDataProvider(
+      dataProvider,
+      settings,
+      declaredMetrics
+    )
