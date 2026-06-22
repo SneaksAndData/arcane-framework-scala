@@ -60,7 +60,7 @@ object ZExtensions:
               }
               _ <- ZIO.ifZIO(ZIO.succeed(exitCode.code == 1))(
                 zlog(s"Stream instructed to fail, reason: ${cause.squashTrace.getMessage}", cause),
-                zlog(s"Stream instructed to fail, reason: ${cause.squashTrace.getMessage}", cause)
+                zlog(s"Stream instructed to restart, reason: ${cause.squashTrace.getMessage}", cause)
               )
               _ <- exitHandler(exitCode)
             yield ()
