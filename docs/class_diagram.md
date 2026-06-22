@@ -101,7 +101,7 @@ classDiagram
     }
 
     DefaultStreamDataProvider --> DefaultSourceDataProvider : orchestrates
-    DefaultSourceDataProvider --> StreamingSource : requires
+    DefaultSourceDataProvider --> StreamingSource : changeStream relies on
 
     style StreamingSource fill:#e0f2f1,stroke:#004d40,stroke-width:2px
 
