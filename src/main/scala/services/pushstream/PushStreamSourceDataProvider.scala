@@ -45,4 +45,4 @@ class PushStreamSourceDataProvider(
     *   Watermark from the previous change capture iteration
     * @return
     */
-  override def getCurrentVersion(previousVersion: PushStreamWatermark): Task[PushStreamWatermark] = ???
+  override def getCurrentVersion(previousVersion: PushStreamWatermark): Task[PushStreamWatermark] = source.getMaxTimestamp
