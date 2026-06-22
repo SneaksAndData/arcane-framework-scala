@@ -42,12 +42,18 @@ classDiagram
         <<interface>>
         +toJson: String
     }
+    class WatermarkType {
+        <<parameter bound>>
+    }
 
     Watermark <|-- SourceWatermark : extends
+    SourceWatermark <|-- WatermarkType : bound
+    JsonWatermark <|-- WatermarkType : bound
 
     style Watermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
     style SourceWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
     style JsonWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style WatermarkType fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
 ```
 
 ---
