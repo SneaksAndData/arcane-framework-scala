@@ -1,12 +1,12 @@
-# Class Diagram
+# Streaming Componetns Diagram for Developers
 
-This document contains class diagrams for the Arcane framework, split into three parts: Framework Architecture, Custom Implementation, and Watermarking.
+This document shows relations between components that are required by streaming graph builders. Developers must implement those when building a custom source for a new plugin.
 
 ---
 
-## 1. Watermarking Core
+## 1. Watermarking
 
-The watermarking core defines the types and interfaces for tracking partition/stream progress.
+Concrete implementation of a watermark is used to track stream progress in relation to source.
 
 ```mermaid
 %%{init: {
@@ -58,9 +58,9 @@ classDiagram
 
 ---
 
-## 2. Framework Architecture
+## 2. Change Capture Components
 
-The framework orchestrates streaming data ingestion using a hierarchy of providers and change-capture components.
+Classes that orchestrate change capture pipeline: extracting changes from source and incorporating them into a Iceberg table.
 
 ```mermaid
 %%{init: {
@@ -112,9 +112,9 @@ classDiagram
 
 ---
 
-## 3. Custom Implementation
+## 3. Custom Components Implementation
 
-Concrete implementations showing how to extend the framework for custom data sources and watermark schemas.
+Concrete implementations of the components above, when provided, will automatically allow continuous data streaming from a custom source.
 
 ```mermaid
 %%{init: {
