@@ -98,6 +98,8 @@ classDiagram
         +empty: SchemaType
         +deleteShards(prefix: String) Task[Unit]
         +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType) ZStream[Any, Throwable, ShardMetadata]
+        +getChanges(startFrom: WatermarkType) ZStream[Any, Throwable, StructuredZStream]
+        +getCurrentVersion: Task[WatermarkType]
     }
 
     DefaultStreamDataProvider --> DefaultSourceDataProvider : orchestrates
@@ -157,7 +159,7 @@ classDiagram
     CustomSourceDataProvider --> CustomStreamingSource : queries
 
     %% Styling
-    style CustomStreamingDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style CustomSourceDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    style CustomStreamingSource fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style CustomStreamingDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style CustomSourceDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style CustomStreamingSource fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
 ```
