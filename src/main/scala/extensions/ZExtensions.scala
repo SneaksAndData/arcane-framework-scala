@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package extensions
 
-import models.settings.sources.SourceBufferingSettings
-
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogStream
+import exceptions.{FatalStreamFailException, TransientStreamFailException}
+import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.settings.sources.{BufferingImpl, SourceBufferingSettings, UnboundedImpl}
-import zio.Task
+
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 /** Extensions for ZIO objects
   */
@@ -30,3 +30,44 @@ object ZExtensions:
             .buffer(buffering.maxBufferSize)
 
         case (false, _) => zlogStream("Running stream with disabled source buffering") *> stream
+
+  /** Extension for plugins to handle failures gracefully.
+    */
+  extension (app: ZIO[Any, Throwable, Unit])
+    def handleAppFailure(exitHandler: zio.ExitCode => Task[Unit]): ZIO[Any, Throwable, Unit] = app.catchAllCause {
+      cause =>
+        (cause.isInterrupted, cause.isDie, cause.isFailure) match
+          case (true, _, _) =>
+            for
+              _ <- zlog("Received SIGTERM/SIGINT, stopping gracefully")
+              _ <- exitHandler(zio.ExitCode(0))
+            yield ()
+          // all Die calls are hard failures
+          case (false, true, _) =>
+            for
+              _ <- zlog(s"Fatal error encountered: ${cause.squashTrace.getMessage}", cause)
+              _ <- exitHandler(zio.ExitCode(1))
+            yield ()
+          case (false, false, true) =>
+            for
+              exitCode <- ZIO.succeed {
+                cause.failureOption match
+                  case Some(failure) =>
+                    failure match
+                      case fse: FatalStreamFailException     => zio.ExitCode(1)
+                      case tse: TransientStreamFailException => zio.ExitCode(2)
+                  case None => zio.ExitCode(1)
+              }
+              _ <- ZIO.ifZIO(ZIO.succeed(exitCode.code == 1))(
+                zlog(s"Stream instructed to fail, reason: ${cause.squashTrace.getMessage}", cause),
+                zlog(s"Stream instructed to fail, reason: ${cause.squashTrace.getMessage}", cause)
+              )
+              _ <- exitHandler(exitCode)
+            yield ()
+          // treat unknown Failure as a transient restart
+          case _ =>
+            for
+              _ <- zlog(s"Stream instructed to restart, reason: ${cause.squashTrace.getMessage}", cause)
+              _ <- exitHandler(zio.ExitCode(2))
+            yield ()
+    }
