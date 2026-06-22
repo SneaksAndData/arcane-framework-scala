@@ -12,14 +12,16 @@ type PushStreamVersionType = String
 
 /** PushStreamWatermark Watermark is a single timestamp.
   */
-case class PushStreamWatermark(timestamp: OffsetDateTime) extends SourceWatermark[PushStreamVersionType] with JsonWatermark:
+case class PushStreamWatermark(timestamp: OffsetDateTime)
+    extends SourceWatermark[PushStreamVersionType]
+    with JsonWatermark:
   override def compare(that: SourceWatermark[PushStreamVersionType]): Int =
     Ordering[Long].compare(version.toLong, that.version.toLong)
 
   override def toJson: String = upickle.write(this)
 
   /** Current source version associated with this watermark
-   */
+    */
   override val version: PushStreamVersionType = timestamp.toEpochSecond.toString
 
 object PushStreamWatermark:

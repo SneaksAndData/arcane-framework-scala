@@ -35,7 +35,7 @@ object DynamodbClientSettings:
       retryBaseDelay: Duration = Duration.ofMillis(100),
       retryMaxDelay: Duration = Duration.ofSeconds(1),
       tableName: String = "arcane-ingestion",
-      autoCreateTable: Boolean = false,
+      autoCreateTable: Boolean = false
   ): DynamodbClientSettings = new DynamodbClientSettings(
     region = region.map(Region.of),
     tableName = tableName,
