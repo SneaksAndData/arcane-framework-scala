@@ -86,9 +86,9 @@ class PushStreamingSource(
     for result <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
     yield result
 
-  private def getAvroSchema: Task[AvroSchema] = this.sinkPropertyManager
+  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] = this.sinkPropertyManager
     .getTableSchema(sourceTableName)
-    .map(icebergSchema => AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name))
+    .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name), icebergSchema))
 
   // TODO: change JSON scanner so it can accept plain string input instead of a filepath
 
@@ -100,24 +100,21 @@ class PushStreamingSource(
     val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
     reader.read(null, decoder)
 
-  private def responseStream(queryResponse: QueryResponse): ZStream[Any, Throwable, DataRow] = ZStream
-    .fromZIO(getAvroSchema)
-    .flatMap { avroSchema =>
-      val avroReader = getAvroReader(avroSchema)
+  private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] = 
+    val avroReader = getAvroReader(avroSchema)
 
-      ZStream
-        .fromIterable(queryResponse.items().asScala)
-        .map(
-          _.asScala
-            .collect {
-              case (fieldName, fieldValue) if fieldName == pushPayloadFieldName => fieldValue
-            }
-            .head
-            .s()
-        )
-        .map(jsonMapper.readTree)
-        .map(node => decodeJson(node.asInstanceOf[ObjectNode], avroSchema, avroReader))
-    }
+    ZStream
+      .fromIterable(queryResponse.items().asScala)
+      .map(
+        _.asScala
+          .collect {
+            case (fieldName, fieldValue) if fieldName == pushPayloadFieldName => fieldValue
+          }
+          .head
+          .s()
+      )
+      .map(jsonMapper.readTree)
+      .map(node => decodeJson(node.asInstanceOf[ObjectNode], avroSchema, avroReader))
 
   /** Gets the changes in the database since the given version.
     *
@@ -129,7 +126,9 @@ class PushStreamingSource(
   def getChanges(previousVersion: PushStreamWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(runDynamoQuery(buildQueryGetChanges(previousVersion)))
     .mapZIO { response =>
-      getSchema.map(schema => (responseStream(response), schema))
+      getSchemaInfo.map{
+        case (avroSchema, icebergSchema) => (responseStream(response, avroSchema), icebergSchema)
+      }
     }
 
   def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] =
