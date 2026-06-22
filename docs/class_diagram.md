@@ -88,16 +88,16 @@ classDiagram
     }
     class DefaultSourceDataProvider~WatermarkType~ {
         <<abstract>>
-        #changeStream(previousVersion: WatermarkType): ZStream[Any, Throwable, StructuredZStream]*
-        +requestChanges(previous, next): ZStream[Any, Throwable, StructuredZStream]
+        #changeStream(previousVersion: WatermarkType) ZStream[Any, Throwable, StructuredZStream]*
+        +requestChanges(previous, next) ZStream[Any, Throwable, StructuredZStream]
         +currentWatermark: Task[WatermarkType]
     }
     class StreamingSource {
         <<interface>>
         +getSchema: Task[SchemaType]
         +empty: SchemaType
-        +deleteShards(prefix: String): Task[Unit]
-        +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata]
+        +deleteShards(prefix: String) Task[Unit]
+        +getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType) ZStream[Any, Throwable, ShardMetadata]
     }
 
     DefaultStreamDataProvider --> DefaultSourceDataProvider : orchestrates
@@ -156,18 +156,18 @@ classDiagram
     class CustomWatermark {
         +version: String
         +timestamp: OffsetDateTime
-        +toJson(): String
+        +toJson() String
     }
     class CustomStreamingDataProvider {
         +layer: ZLayer
     }
     class CustomSourceDataProvider {
-        #changeStream(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
-        +hasChanges(previousVersion: CustomWatermark): Task[Boolean]
-        +getCurrentVersion(previousVersion: CustomWatermark): Task[CustomWatermark]
+        #changeStream(previousVersion: CustomWatermark) ZStream[Any, Throwable, StructuredZStream]
+        +hasChanges(previousVersion: CustomWatermark) Task[Boolean]
+        +getCurrentVersion(previousVersion: CustomWatermark) Task[CustomWatermark]
     }
     class CustomStreamingSource {
-        +getChanges(previousVersion: CustomWatermark): ZStream[Any, Throwable, StructuredZStream]
+        +getChanges(previousVersion: CustomWatermark) ZStream[Any, Throwable, StructuredZStream]
         +getCurrentVersion: Task[CustomWatermark]
     }
 
