@@ -103,10 +103,9 @@ classDiagram
     DefaultStreamDataProvider --> DefaultSourceDataProvider : orchestrates
     DefaultSourceDataProvider --> StreamingSource : changeStream relies on
 
-    style StreamingSource fill:#e0f2f1,stroke:#004d40,stroke-width:2px
-
-    style DefaultStreamDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
-    style DefaultSourceDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
+    style StreamingSource fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style DefaultStreamDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style DefaultSourceDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
 ```
 
 ---
@@ -186,9 +185,9 @@ classDiagram
     %% Styling
     style SourceWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
     style JsonWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    style DefaultStreamDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
-    style DefaultSourceDataProvider fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
-    style StreamingSource fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style DefaultStreamDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style DefaultSourceDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style StreamingSource fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
 
     style CustomWatermark fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style CustomStreamingDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
