@@ -152,11 +152,13 @@ classDiagram
         <<implements StreamingSource>>
         +getChanges(previousVersion: CustomWatermark) ZStream[Any, Throwable, StructuredZStream]
         +getCurrentVersion: Task[CustomWatermark]
+        +deleteShards(prefix: String) Task[Unit]
+        +getShards(rangeStart: CustomWatermark, rangeEnd: CustomWatermark) ZStream[Any, Throwable, ShardMetadata]
     }
 
     %% Relationships
     CustomStreamingDataProvider --> CustomSourceDataProvider : injects
-    CustomSourceDataProvider --> CustomStreamingSource : queries
+    CustomSourceDataProvider --> CustomStreamingSource : requires
 
     %% Styling
     style CustomStreamingDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
