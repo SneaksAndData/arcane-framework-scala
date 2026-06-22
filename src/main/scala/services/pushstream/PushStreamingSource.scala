@@ -1,24 +1,23 @@
 package com.sneaksanddata.arcane.framework
 package services.pushstream
 
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.settings.TableNaming.parts
 import services.base.StreamingSource
+import services.iceberg.base.SinkPropertyManager
+import services.iceberg.{given_Conversion_AvroGenericRecord_DataRow, given_Conversion_Schema_ArcaneSchema}
+import services.pushstream.versioning.PushStreamWatermark
+import services.streaming.base.StructuredZStream
 
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
-import com.sneaksanddata.arcane.framework.services.iceberg.base.SinkPropertyManager
-import com.sneaksanddata.arcane.framework.services.pushstream.versioning.PushStreamWatermark
-import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
-import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_Schema_ArcaneSchema
-import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_AvroGenericRecord_DataRow
 import org.apache.avro.Schema as AvroSchema
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.DecoderFactory
 import org.apache.iceberg.avro.AvroSchemaUtil
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequest, QueryResponse, Select}
-import zio.{Task, ZIO}
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter

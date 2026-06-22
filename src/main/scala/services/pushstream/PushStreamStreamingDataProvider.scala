@@ -1,10 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.pushstream
 
+import models.settings.streaming.ChangeCaptureSettings
+import services.metrics.DeclaredMetrics
 import services.streaming.base.DefaultStreamDataProvider
-
-import com.sneaksanddata.arcane.framework.models.settings.streaming.ChangeCaptureSettings
-import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 
 class PushStreamStreamingDataProvider(
     dataProvider: PushStreamSourceDataProvider,
