@@ -11,7 +11,6 @@ import com.sneaksanddata.arcane.framework.services.pushstream.versioning.PushStr
 import com.sneaksanddata.arcane.framework.services.streaming.base.StructuredZStream
 import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_Schema_ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_AvroGenericRecord_DataRow
-
 import org.apache.avro.Schema as AvroSchema
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.DecoderFactory
@@ -21,6 +20,8 @@ import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequ
 import zio.{Task, ZIO}
 import zio.stream.ZStream
 
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import scala.jdk.CollectionConverters.*
 
 /** This a source that poll output of an Arcane Push Stream Application
@@ -33,6 +34,7 @@ class PushStreamingSource(
 ) extends StreamingSource:
 
   private val pushPayloadFieldName: String = "payload"
+  private val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
   override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
     ZStream.empty
@@ -51,6 +53,8 @@ class PushStreamingSource(
     */
   override def getSchema: Task[ArcaneSchema] =
     this.sinkPropertyManager.getTableSchema(sourceTableName).map(implicitly)
+    
+    
 
   private def buildQueryGetChanges(latestVersion: WatermarkType): QueryRequest =
     val tableName    = "test"
@@ -78,6 +82,8 @@ class PushStreamingSource(
       .limit(1)
       .select(Select.COUNT)
       .build()
+    
+  private def buildQueryMaxTimestamp: QueryRequest = ???  
 
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
     for result <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
@@ -128,3 +134,9 @@ class PushStreamingSource(
     .mapZIO { response =>
       getSchema.map(schema => (responseStream(response), schema))
     }
+  
+  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] = runDynamoQuery(buildQueryHasChanges(previousVersion))
+    .map(_.hasItems())
+  
+  def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp).map(_.items().asScala.headOption.map(_.asScala.head._2.s()).map(timeString => PushStreamWatermark(OffsetDateTime.parse(timeString, formatter))))
+    .map(_.getOrElse(PushStreamWatermark.epoch))
