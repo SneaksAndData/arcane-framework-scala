@@ -135,60 +135,34 @@ Concrete implementations showing how to extend the framework for custom data sou
 classDiagram
     direction TB
 
-    %% Framework Interfaces/Classes (Simplified for context)
-    class SourceWatermark~VersionType~ {
-        <<interface>>
-    }
-    class JsonWatermark {
-        <<interface>>
-    }
-    class DefaultStreamDataProvider~WatermarkType~ {
-        <<abstract>>
-    }
-    class DefaultSourceDataProvider~WatermarkType~ {
-        <<abstract>>
-    }
-    class StreamingSource {
-        <<interface>>
-    }
-
     %% Custom Implementations
     class CustomWatermark {
+        <<implements SourceWatermark, JsonWatermark>>
         +version: String
         +timestamp: OffsetDateTime
         +toJson() String
     }
     class CustomStreamingDataProvider {
+        <<extends DefaultStreamDataProvider>>
         +layer: ZLayer
     }
     class CustomSourceDataProvider {
+        <<extends DefaultSourceDataProvider>>
         #changeStream(previousVersion: CustomWatermark) ZStream[Any, Throwable, StructuredZStream]
         +hasChanges(previousVersion: CustomWatermark) Task[Boolean]
         +getCurrentVersion(previousVersion: CustomWatermark) Task[CustomWatermark]
     }
     class CustomStreamingSource {
+        <<implements StreamingSource>>
         +getChanges(previousVersion: CustomWatermark) ZStream[Any, Throwable, StructuredZStream]
         +getCurrentVersion: Task[CustomWatermark]
     }
 
     %% Relationships
-    SourceWatermark <|.. CustomWatermark : implements
-    JsonWatermark <|.. CustomWatermark : implements
-
-    DefaultStreamDataProvider <|-- CustomStreamingDataProvider : extends
-    DefaultSourceDataProvider <|-- CustomSourceDataProvider : extends
-    StreamingSource <|.. CustomStreamingSource : implements
-
     CustomStreamingDataProvider --> CustomSourceDataProvider : injects
     CustomSourceDataProvider --> CustomStreamingSource : queries
 
     %% Styling
-    style SourceWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    style JsonWatermark fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    style DefaultStreamDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    style DefaultSourceDataProvider fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    style StreamingSource fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-
     style CustomWatermark fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style CustomStreamingDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     style CustomSourceDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
