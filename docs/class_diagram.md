@@ -136,12 +136,6 @@ classDiagram
     direction TB
 
     %% Custom Implementations
-    class CustomWatermark {
-        <<implements SourceWatermark, JsonWatermark>>
-        +version: String
-        +timestamp: OffsetDateTime
-        +toJson() String
-    }
     class CustomStreamingDataProvider {
         <<extends DefaultStreamDataProvider>>
         +layer: ZLayer
@@ -163,7 +157,6 @@ classDiagram
     CustomSourceDataProvider --> CustomStreamingSource : queries
 
     %% Styling
-    style CustomWatermark fill:#fff3e0,stroke:#e65100,stroke-width:2px
     style CustomStreamingDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     style CustomSourceDataProvider fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     style CustomStreamingSource fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
