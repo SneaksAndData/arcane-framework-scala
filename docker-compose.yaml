@@ -169,3 +169,10 @@ services:
     image: "trinodb/trino:478"
     volumes:
       - ./unit-tests.properties:/etc/trino/catalog/iceberg.properties
+  dynamodb-local:
+    image: amazon/dynamodb-local
+    container_name: dynamodb-local
+    ports:
+      - "8000:8000"
+    volumes:
+      - "./data:/home/dynamodblocal/data"

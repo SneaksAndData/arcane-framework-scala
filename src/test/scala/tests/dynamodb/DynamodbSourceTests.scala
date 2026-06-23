@@ -1,39 +1,56 @@
 package com.sneaksanddata.arcane.framework
 package tests.dynamodb
 
-import tests.shared.TestSinkSettings
-
-import services.storage.models.dynamodb.DynamodbClientSettings
-
-import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField}
-import models.settings.*
-import services.naming.DefaultNameGenerator
-
-import org.scalatest.*
-import org.scalatest.matchers.should.Matchers.*
-import zio.stream.ZStream
+import com.sneaksanddata.arcane.framework.services.pushstream.PushStreamingSource
+import software.amazon.awssdk.auth.credentials.*
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
-import zio.test.Assertion.{equalTo, fails, hasMessage}
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
+import zio.Console
 
+import java.net.URI
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
-import scala.List
 import scala.language.postfixOps
-import scala.util.Success
+
+object DynamoTestServices:
+  val access_kid = "test"
+  val access_secret = "test"
+
+  def getClient: Task[DynamoDbClient] =
+    ZIO.attempt(DynamoDbClient.builder().endpointOverride(URI.create("http://localhost:8000")).region(Region.US_EAST_1).credentialsProvider(
+      StaticCredentialsProvider.create(AwsBasicCredentials.create(access_kid, access_secret))
+    ).build())
+
+  def createTable(tableName: String, client: DynamoDbClient): Task[CreateTableResponse] = for {
+    req = CreateTableRequest.builder().tableName(tableName).keySchema(
+      KeySchemaElement.builder().attributeName("userId").keyType(KeyType.HASH).build()
+    ).attributeDefinitions(
+      AttributeDefinition.builder()
+        .attributeName("userId")
+        .attributeType(ScalarAttributeType.S)
+        .build()
+    ).provisionedThroughput(
+      ProvisionedThroughput.builder()
+        .readCapacityUnits(5L)
+        .writeCapacityUnits(5L)
+        .build()
+    ).build()
+    r <- ZIO.attemptBlocking(client.createTable(req))
+  } yield r
+
+  def listTables(client: DynamoDbClient): Task[List[String]] = ZIO.attemptBlocking(
+    client.listTables(ListTablesRequest.builder().build())
+  ).map(_.tableNames().toArray.toList.map(_.toString))
+
+  def deleteTable(client: DynamoDbClient, tableName: String): Task[DeleteTableResponse] =
+    ZIO.attemptBlocking(client.deleteTable(DeleteTableRequest.builder().tableName(tableName).build()))
 
 object DynamodbSourceTests extends ZIOSpecDefault:
-  private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-
-  private val fieldString = "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
-  private val pkString    = "primary key(x)"
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-
-  private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
-    Success(fields)
 
   def insertData(con: Connection, tableName: String): Task[Unit] = ???
 
@@ -43,24 +60,25 @@ object DynamodbSourceTests extends ZIOSpecDefault:
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DynamodbConnectionTests")(
     test("DynamoDB has changes") {
-      for
-        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
-          connection => ZIO.attemptBlocking(createTable("columns_query_test", connection, fieldString, pkString))
-        )
-        reader <- ZIO.succeed(
-          DynamodbStreamingSource(
-            new DynamodbClientSettings {
-              override val connectionUrl: String = "localhost:4566"
-              override val tableName: String     = "test"
-            }
-          )
-        )
-        query <- QueryProvider.getColumnSummariesQuery(
-          reader.connectionSettings.schemaName,
-          reader.connectionSettings.tableName,
-          reader.catalog
-        )
-      yield assertTrue(query.contains("case when kcu.CONSTRAINT_NAME is not null then 1 else 0 end as IsPrimaryKey"))
+      val tableName = "testTable"
+      for {
+        client <- DynamoTestServices.getClient
+        result      <- ZIO.acquireReleaseWith(
+          DynamoTestServices.createTable(tableName, client)
+        )(_ => DynamoTestServices.deleteTable(client, tableName).orDie)
+          { resp =>
+          for {
+            _ <- Console.printLine(resp.toString)
+            tables <- DynamoTestServices.listTables(client)
+            _ <- Console.printLine(s"----------------------\n$tables")
+            _ <- ZIO.succeed(PushStreamingSource(
+              "testTable",
+              "testTable",
+              dynamodbClient = client, sinkPropertyManager = ???
+            ))
+            changes <- pushStreamSource.hasChanges(???)
+          } yield assertTrue(tables.contains(tableName)) && assertTrue(changes)
+        }
+      } yield result
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
-{}
