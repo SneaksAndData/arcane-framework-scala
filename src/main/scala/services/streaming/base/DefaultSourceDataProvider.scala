@@ -10,6 +10,8 @@ import models.settings.sources.SourceBufferingSettings
 import services.iceberg.base.SinkPropertyManager
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sneaksanddata.arcane.framework.services.base.StreamingSource
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
@@ -19,10 +21,12 @@ import zio.{Task, ZIO}
   *   Watermark implementation for the source
   */
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
+    streamingSource: StreamingSource,                                                                                                    
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings
+    sourceBufferingSettings: SourceBufferingSettings,
+    declaredMetrics: DeclaredMetrics
 )(implicit rw: ReadWriter[WatermarkType])
     extends ChangeCaptureDataProvider[WatermarkType]:
 
@@ -44,7 +48,7 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
     (
       throughputShaper
-        .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings))
+        .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings).tap(_ => ZIO.succeed(1L) @@ declaredMetrics.rowsIncoming))
         .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
       changeSet._2
     )

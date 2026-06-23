@@ -11,43 +11,45 @@ import services.mssql.versioning.MsSqlWatermark.*
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 /** A data provider that reads the changes from the Microsoft SQL Server.
-  * @param reader
-  *   The connection to the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-    reader: MsSqlStreamingSource,
-    sinkPropertyManager: SinkPropertyManager,
-    sinkSettings: SinkSettings,
-    throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings
+                         streamingSource: MsSqlStreamingSource,
+                         sinkPropertyManager: SinkPropertyManager,
+                         sinkSettings: SinkSettings,
+                         throughputShaperBuilder: ThroughputShaperBuilder,
+                         sourceBufferingSettings: SourceBufferingSettings,
+                         declaredMetrics: DeclaredMetrics
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
+      streamingSource,
       sinkPropertyManager,
       sinkSettings,
       throughputShaperBuilder,
-      sourceBufferingSettings
+      sourceBufferingSettings,
+      declaredMetrics
     ):
 
-  def hasChanges(previousVersion: MsSqlWatermark): Task[Boolean] = reader.hasChanges(previousVersion)
+  def hasChanges(previousVersion: MsSqlWatermark): Task[Boolean] = streamingSource.hasChanges(previousVersion)
 
   def getCurrentVersion(previousVersion: MsSqlWatermark): Task[MsSqlWatermark] =
     for
       // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
-      version <- reader
+      version <- streamingSource
         .getVersion(QueryProvider.getCurrentVersionQuery)
         .flatMap {
           case Some(value) =>
-            for commitTime <- reader.getVersionCommitTime(value)
+            for commitTime <- streamingSource.getVersionCommitTime(value)
             yield MsSqlWatermark.fromChangeTrackingVersion(value, commitTime)
           case None => ZIO.succeed(previousVersion)
         }
     yield version
 
   override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    reader.getChanges(previousVersion)
+    streamingSource.getChanges(previousVersion)
 
 /** The companion object for the MsSqlDataProvider class.
   */
@@ -62,11 +64,13 @@ object MsSqlDataProvider:
         reader          <- ZIO.service[MsSqlStreamingSource]
         propertyManager <- ZIO.service[SinkPropertyManager]
         shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
+        metrics <- ZIO.service[DeclaredMetrics]
       yield new MsSqlDataProvider(
         reader,
         propertyManager,
         context.sink,
         shaperBuilder,
-        context.source.buffering
+        context.source.buffering,
+        metrics
       )
     }
