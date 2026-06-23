@@ -20,7 +20,7 @@ class DeclaredMetrics:
     .fromConst(1)
 
   /** Number of rows incoming from source
-   */
+    */
   val rowsIncoming: Counter[Long] = Metric
     .counter(s"$metricsNamespace.rows.incoming")
     .fromConst(1)

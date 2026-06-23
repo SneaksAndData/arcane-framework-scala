@@ -7,11 +7,11 @@ import models.schemas.JsonWatermarkRow
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
+import services.base.StreamingSource
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
-import com.sneaksanddata.arcane.framework.services.base.StreamingSource
-import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import upickle.ReadWriter
 import zio.stream.ZStream
 import zio.{Task, ZIO}
@@ -21,7 +21,7 @@ import zio.{Task, ZIO}
   *   Watermark implementation for the source
   */
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
-    streamingSource: StreamingSource,                                                                                                    
+    streamingSource: StreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
@@ -48,7 +48,11 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
     (
       throughputShaper
-        .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings).tap(_ => ZIO.succeed(1L) @@ declaredMetrics.rowsIncoming))
+        .shapeStream(
+          changeSet._1
+            .trySetBuffering(sourceBufferingSettings)
+            .tap(_ => ZIO.succeed(1L) @@ declaredMetrics.rowsIncoming)
+        )
         .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
       changeSet._2
     )

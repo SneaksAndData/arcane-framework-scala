@@ -5,25 +5,25 @@ import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.mssql.base.MsSqlStreamingSource
 import services.mssql.versioning.MsSqlWatermark
 import services.mssql.versioning.MsSqlWatermark.*
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
-import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 /** A data provider that reads the changes from the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
-                         streamingSource: MsSqlStreamingSource,
-                         sinkPropertyManager: SinkPropertyManager,
-                         sinkSettings: SinkSettings,
-                         throughputShaperBuilder: ThroughputShaperBuilder,
-                         sourceBufferingSettings: SourceBufferingSettings,
-                         declaredMetrics: DeclaredMetrics
+    streamingSource: MsSqlStreamingSource,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultSourceDataProvider[MsSqlWatermark](
       streamingSource,
       sinkPropertyManager,
@@ -64,7 +64,7 @@ object MsSqlDataProvider:
         reader          <- ZIO.service[MsSqlStreamingSource]
         propertyManager <- ZIO.service[SinkPropertyManager]
         shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
-        metrics <- ZIO.service[DeclaredMetrics]
+        metrics         <- ZIO.service[DeclaredMetrics]
       yield new MsSqlDataProvider(
         reader,
         propertyManager,
