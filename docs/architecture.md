@@ -10,7 +10,7 @@ graph TD
 
     subgraph Arcane [Arcane Streaming Architecture]
         direction TB
-        Bootstrap["🚀 bootstrap<br/><i>(Target prep & cleanup)</i>"]:::bootstrap
+        Bootstrap["🚀 Bootstrap<br/><i>(Target prep & cleanup)</i>"]:::bootstrap
         StreamDataProvider["📥 Stream Data Provider"]:::core
         SourceBuffering["⏳ Source Buffering"]:::core
         FieldsFiltering["🔍 Fields Filtering<br/>(Optional)"]:::optional
@@ -22,29 +22,29 @@ graph TD
     end
 
     subgraph Infrastructure [Infrastructure Services]
-        S3[("🗄️ S3-compatible storage")]:::storage
         Lakekeeper["🏛️ Lakekeeper<br/><i>(Iceberg Catalog)</i>"]:::catalog
+        S3[("🗄️ S3-compatible storage")]:::storage
         Trino["⚡ Trino<br/><i>(Query Engine)</i>"]:::engine
     end
 
     %% Internal pipeline connections & Data Flows
     Bootstrap -->|Invokes stream| StreamDataProvider
-    StreamDataProvider ==>|"Data rows"| SourceBuffering
-    SourceBuffering ==>|"Data rows"| FieldsFiltering
-    FieldsFiltering ==>|"Data rows"| SchemaDiscoveryMigration
+    StreamDataProvider ==> SourceBuffering
+    SourceBuffering ==> FieldsFiltering
+    FieldsFiltering ==> SchemaDiscoveryMigration
     SchemaDiscoveryMigration ==>|"Data rows"| Staging
     Staging ==>|"Mergeable batch"| Merging
     Merging ==>|"Watermark batch"| WatermarkUpdate
     WatermarkUpdate ==> Disposing
 
     %% External Data and Command Interactions
-    SchemaDiscoveryMigration -.->|"Schema discovery / migration"| Lakekeeper
-    Staging -.->|"Write data to staging table"| S3
-    Staging -.->|"Publish staging table"| Lakekeeper
+    SchemaDiscoveryMigration -.->|"Discovery & Migration"| Lakekeeper
+    Staging -.->|"Write data"| S3
+    Staging -.->|"Register staging"| Lakekeeper
 
-    Merging -.->|"Calls SQL Merge statement"| Trino
-    WatermarkUpdate -.->|"Update watermark on target table"| Lakekeeper
-    Disposing -.->|"Drop staging table"| Trino
+    Merging -.->|"Execute Merge"| Trino
+    WatermarkUpdate -.->|"Commit watermark"| Lakekeeper
+    Disposing -.->|"Drop staging"| Trino
 
     %% Trino Interactions
     Trino -.-> Lakekeeper
