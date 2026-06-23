@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.app
 
+import exceptions.FatalStreamFailException
 import models.settings.{BackfillIdentifier, StreamIdentifier}
 
 import zio.{IO, ZIO}
@@ -16,7 +17,7 @@ trait BaseStreamContext:
   def streamId: IO[SecurityException, StreamIdentifier] = zio.System.env("STREAMCONTEXT__STREAM_ID").map {
     case Some(value) => value
     case None =>
-      throw new RuntimeException(
+      throw FatalStreamFailException(
         "Unable to bootstrap the stream, missing required STREAMCONTEXT__STREAM_ID environment variable"
       )
   }
@@ -37,7 +38,7 @@ trait BaseStreamContext:
   def streamKind: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_KIND").map {
     case Some(value) => value
     case None =>
-      throw new RuntimeException(
+      throw new FatalStreamFailException(
         "Unable to bootstrap the stream, missing required STREAMCONTEXT__STREAM_KIND environment variable"
       )
   }

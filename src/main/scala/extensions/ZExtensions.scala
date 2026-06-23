@@ -56,7 +56,8 @@ object ZExtensions:
                     failure match
                       case fse: FatalStreamFailException     => zio.ExitCode(1)
                       case tse: TransientStreamFailException => zio.ExitCode(2)
-                  case None => zio.ExitCode(1)
+                      case _                                 => zio.ExitCode(2)
+                  case None => zio.ExitCode(2)
               }
               _ <- ZIO.ifZIO(ZIO.succeed(exitCode.code == 1))(
                 zlog(s"Stream instructed to fail, reason: ${cause.squashTrace.getMessage}", cause),
