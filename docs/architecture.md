@@ -12,12 +12,12 @@ graph TD
         direction TB
         Bootstrap["🚀 Bootstrap<br/><i>(Target prep & cleanup)</i>"]:::bootstrap
         StreamDataProvider["📥 Stream Data Provider"]:::core
-        SourceBuffering["⏳ Source Buffering"]:::core
+        SourceBuffering["⏳ Source Buffering<br/>(Optional)"]:::optional
         FieldsFiltering["🔍 Fields Filtering<br/>(Optional)"]:::optional
-        SchemaDiscoveryMigration["🛡️ Schema Discovery & Migration<br/>(Optional)"]:::optional
-        Staging["📦 Staging<br/><i>(Write to Iceberg)</i>"]:::core
-        Merging["🔄 Merging<br/><i>(Apply transactions)</i>"]:::core
-        WatermarkUpdate["💾 Watermark Update"]:::core
+        SchemaDiscoveryMigration["🛡️ Schema Migration<br/>(Optional)"]:::optional
+        Staging["📦 Staging<br/><i>(Iceberg micro-tables)</i>"]:::core
+        Merging["🔄 Merging<br/><i>(Stage into Target)</i>"]:::core
+        WatermarkUpdate["💾 Update Watermark"]:::core
         Disposing["🧹 Disposing<br/><i>(Staging cleanup)</i>"]:::core
     end
 
@@ -39,11 +39,11 @@ graph TD
 
     %% External Data and Command Interactions
     SchemaDiscoveryMigration -.->|"Discovery & Migration"| Lakekeeper
-    Staging -.->|"Write data"| S3
-    Staging -.->|"Register staging"| Lakekeeper
+    Staging -.->|"Iceberg-Parquet"| S3
+    Staging -.->|"Create table"| Lakekeeper
 
-    Merging -.->|"Execute Merge"| Trino
-    WatermarkUpdate -.->|"Commit watermark"| Lakekeeper
+    Merging -.-> Trino
+    WatermarkUpdate -.->|"Update `watermark` property value"| Lakekeeper
     Disposing -.->|"Drop staging"| Trino
 
     %% Trino Interactions
