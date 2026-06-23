@@ -35,7 +35,7 @@ graph TD
     SchemaDiscoveryMigration ==>|"Data rows"| Staging
     Staging ==>|"Mergeable batch"| Merging
     Merging ==>|"Watermark batch"| WatermarkUpdate
-    WatermarkUpdate ==>|"Staged batch"| Disposing
+    WatermarkUpdate ==> Disposing
 
     %% External Data and Command Interactions
     SchemaDiscoveryMigration -.->|"Schema discovery / migration"| Lakekeeper
