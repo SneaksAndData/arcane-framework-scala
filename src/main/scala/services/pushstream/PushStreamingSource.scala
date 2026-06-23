@@ -18,16 +18,28 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequest, QueryResponse, Select}
 import zio.stream.ZStream
 import zio.{Task, ZIO}
+import zio.Console
 
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import scala.jdk.CollectionConverters.*
 
 /** This a source that poll output of an Arcane Push Stream Application
+  * @param primaryKeyFieldName
+  *   the field name of the producer
+  *
+  * @param primaryKeyValue
+  *   The value of the producer column
+  *
+  * @param watermarkFieldName
+  *   the field that contains the watermark
   */
 class PushStreamingSource(
     sourceTableName: String,
     targetTableName: String,
+    primaryKeyFieldName: String,
+    primaryKeyValue: String,
+    watermarkFieldName: String,
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager
 ) extends StreamingSource:
@@ -64,18 +76,21 @@ class PushStreamingSource(
     QueryRequest.builder().build()
 
   private def buildQueryHasChanges(latestVersion: PushStreamWatermark): QueryRequest =
-    // TODO: pushPayloadFieldName
-    val tableName    = "test"
-    val partitionKey = "prducer/number1"
+    val exprNames = Map(
+      "#pk" -> primaryKeyFieldName,
+      "#wm" -> watermarkFieldName
+    ).asJava
+
     val exprVals = Map(
-      ":pk"            -> AttributeValue.builder().s(partitionKey).build(),
-      ":latestVersion" -> AttributeValue.builder().s(latestVersion.toString).build()
+      ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
+      ":t"  -> AttributeValue.builder().s(latestVersion.toString).build()
     ).asJava
     QueryRequest
       .builder()
-      .tableName(tableName)
-      .keyConditionExpression("pk = :pk AND timestampUTC > :t")
+      .tableName(sourceTableName)
+      .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
+      .expressionAttributeNames(exprNames)
       .limit(1)
       .select(Select.COUNT)
       .build()
@@ -131,9 +146,11 @@ class PushStreamingSource(
       }
     }
 
-  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] =
-    runDynamoQuery(buildQueryHasChanges(previousVersion))
+  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] = for {
+    _ <- Console.printLine("hasRows")
+    res <- runDynamoQuery(buildQueryHasChanges(previousVersion))
       .map(_.hasItems())
+  } yield res
 
   def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp)
     .map(

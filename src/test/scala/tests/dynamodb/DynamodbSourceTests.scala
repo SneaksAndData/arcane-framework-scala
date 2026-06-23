@@ -1,22 +1,23 @@
 package com.sneaksanddata.arcane.framework
 package tests.dynamodb
 
-import com.sneaksanddata.arcane.framework.services.pushstream.PushStreamingSource
-import com.sneaksanddata.arcane.framework.services.pushstream.versioning.PushStreamWatermark
+import services.pushstream.PushStreamingSource
+import services.pushstream.versioning.PushStreamWatermark
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
+
+import com.sneaksanddata.*
 import software.amazon.awssdk.auth.credentials.*
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, Task, ZIO}
-import zio.Console
+import zio.{Console, Scope, Task, ZIO}
 
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.net.URI
 import java.time.format.DateTimeFormatter
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
-import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSinkSettings}
 
 object DynamoTestServices:
   val access_kid    = "test"
@@ -39,14 +40,12 @@ object DynamoTestServices:
       .builder()
       .tableName(tableName)
       .keySchema(
-        KeySchemaElement.builder().attributeName("userId").keyType(KeyType.HASH).build()
+        KeySchemaElement.builder().attributeName("producer").keyType(KeyType.HASH).build(),
+        KeySchemaElement.builder().attributeName("timestampUTC").keyType(KeyType.RANGE).build()
       )
       .attributeDefinitions(
-        AttributeDefinition
-          .builder()
-          .attributeName("userId")
-          .attributeType(ScalarAttributeType.S)
-          .build()
+        AttributeDefinition.builder().attributeName("producer").attributeType(ScalarAttributeType.S).build(),
+        AttributeDefinition.builder().attributeName("timestampUTC").attributeType(ScalarAttributeType.S).build()
       )
       .provisionedThroughput(
         ProvisionedThroughput
@@ -87,15 +86,20 @@ object DynamodbSourceTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
-                "testTable",
-                "testTable",
+                sourceTableName = "testTable",
+                targetTableName = "testTable",
+                primaryKeyFieldName = "producer",
+                primaryKeyValue = "producer1",
+                watermarkFieldName = "timestampUTC",
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
             )
-            changes <- pushStreamSource.hasRows(previousVersion =
+            _ <- Console.printLine("after pushStream")
+            changes <- pushStreamSource.hasRows(
               PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )
+            _ <- Console.printLine("almostThere!")
           } yield assertTrue(tables.contains(tableName)) && assertTrue(changes)
         }
       } yield result
