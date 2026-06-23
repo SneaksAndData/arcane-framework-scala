@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.dynamodb
 
 import com.sneaksanddata.arcane.framework.services.pushstream.PushStreamingSource
+import com.sneaksanddata.arcane.framework.services.pushstream.versioning.PushStreamWatermark
 import software.amazon.awssdk.auth.credentials.*
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -11,10 +12,11 @@ import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
 import zio.Console
 
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.net.URI
-import java.sql.Connection
 import java.time.format.DateTimeFormatter
 import scala.language.postfixOps
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSinkSettings}
 
 object DynamoTestServices:
   val access_kid = "test"
@@ -52,15 +54,10 @@ object DynamoTestServices:
 object DynamodbSourceTests extends ZIOSpecDefault:
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
-  def insertData(con: Connection, tableName: String): Task[Unit] = ???
-
-  def updateData(con: Connection, tableName: String): Task[Unit] = ???
-
-  def deleteData(connection: Connection, primaryKeys: Seq[Int], tableName: String): ZIO[Any, Throwable, Unit] = ???
-
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DynamodbConnectionTests")(
     test("DynamoDB has changes") {
       val tableName = "testTable"
+      val icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
       for {
         client <- DynamoTestServices.getClient
         result      <- ZIO.acquireReleaseWith(
@@ -71,12 +68,13 @@ object DynamodbSourceTests extends ZIOSpecDefault:
             _ <- Console.printLine(resp.toString)
             tables <- DynamoTestServices.listTables(client)
             _ <- Console.printLine(s"----------------------\n$tables")
-            _ <- ZIO.succeed(PushStreamingSource(
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            pushStreamSource <- ZIO.succeed(PushStreamingSource(
               "testTable",
               "testTable",
-              dynamodbClient = client, sinkPropertyManager = ???
+              dynamodbClient = client, sinkPropertyManager = sinkPropertyManager
             ))
-            changes <- pushStreamSource.hasChanges(???)
+            changes <- pushStreamSource.hasRows(previousVersion = PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)))
           } yield assertTrue(tables.contains(tableName)) && assertTrue(changes)
         }
       } yield result
