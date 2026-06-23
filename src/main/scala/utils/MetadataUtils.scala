@@ -7,4 +7,4 @@ object MetadataUtils:
   /** Read the current framework version
     */
   def getFrameworkVersion: Task[String] = for pkg <- ZIO.attempt(MetadataUtils.getClass.getPackage)
-  yield Option(pkg.getImplementationVersion).getOrElse(pkg.getSpecificationVersion)
+  yield Option(pkg.getImplementationVersion).getOrElse(Option(pkg.getSpecificationVersion).getOrElse("unknown-version"))
