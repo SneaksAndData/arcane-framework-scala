@@ -38,7 +38,7 @@ trait BaseStreamContext:
   def streamKind: IO[SecurityException, String] = zio.System.env("STREAMCONTEXT__STREAM_KIND").map {
     case Some(value) => value
     case None =>
-      throw new FatalStreamFailException(
+      throw FatalStreamFailException(
         "Unable to bootstrap the stream, missing required STREAMCONTEXT__STREAM_KIND environment variable"
       )
   }

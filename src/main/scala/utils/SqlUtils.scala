@@ -203,7 +203,7 @@ object SqlUtils:
           val (typeName, typeVal) = typeString.split(" ", 2).toList match
             case tpn :: tpv :: _ => (tpn, tpv)
             case _ =>
-              throw new FatalStreamFailException(
+              throw FatalStreamFailException(
                 s"Cannot resolve types for schema migration: invalid type string for ROW type received from JDBC client: $typeString"
               )
 
