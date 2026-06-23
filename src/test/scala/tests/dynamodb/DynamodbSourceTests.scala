@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Console, Scope, Task, ZIO}
-
+import scala.jdk.CollectionConverters._
 import java.net.URI
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
@@ -67,13 +67,37 @@ object DynamoTestServices:
   def deleteTable(client: DynamoDbClient, tableName: String): Task[DeleteTableResponse] =
     ZIO.attemptBlocking(client.deleteTable(DeleteTableRequest.builder().tableName(tableName).build()))
 
+  def insertData(
+      client: DynamoDbClient,
+      tableName: String,
+      primaryKeyField: String,
+      primaryKeyValue: String,
+      watermarkField: String
+  ): Task[PutItemResponse] = for {
+    watermarkValue = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
+    item = (Map(
+      primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
+      watermarkField  -> AttributeValue.builder().s(watermarkValue.toString).build(),
+      "userId"        -> AttributeValue.builder().s("123").build(),
+      "level"         -> AttributeValue.builder().s("user").build()
+    )).asJava
+    response <- ZIO.attemptBlocking(
+      client.putItem(
+        PutItemRequest.builder().tableName(tableName).item(item).build()
+      )
+    )
+  } yield response
+
 object DynamodbSourceTests extends ZIOSpecDefault:
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("DynamodbConnectionTests")(
     test("DynamoDB has changes") {
-      val tableName   = "testTable"
-      val icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
+      val tableName       = "testTable"
+      val primaryKeyField = "producer"
+      val primaryKeyValue = "producer1"
+      val watermarkField  = "timestampUTC"
+      val icebergUtil     = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
       for {
         client <- DynamoTestServices.getClient
         result <- ZIO.acquireReleaseWith(
@@ -86,16 +110,18 @@ object DynamodbSourceTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
-                sourceTableName = "testTable",
-                targetTableName = "testTable",
-                primaryKeyFieldName = "producer",
-                primaryKeyValue = "producer1",
-                watermarkFieldName = "timestampUTC",
+                sourceTableName = tableName,
+                targetTableName = tableName,
+                primaryKeyFieldName = primaryKeyField,
+                primaryKeyValue = primaryKeyValue,
+                watermarkFieldName = watermarkField,
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
             )
-            _ <- Console.printLine("after pushStream")
+            _    <- Console.printLine("after pushStream")
+            resp <- DynamoTestServices.insertData(client, tableName, primaryKeyField, primaryKeyValue, watermarkField)
+            _    <- Console.printLine(s"put response: $resp")
             changes <- pushStreamSource.hasRows(
               PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )

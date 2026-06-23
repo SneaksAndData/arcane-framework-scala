@@ -98,7 +98,9 @@ class PushStreamingSource(
   private def buildQueryMaxTimestamp: QueryRequest = ???
 
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
-    for result <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
+    for
+      result <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
+      _      <- Console.printLine(result)
     yield result
 
   private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] = this.sinkPropertyManager
