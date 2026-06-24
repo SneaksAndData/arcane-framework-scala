@@ -1,25 +1,28 @@
 package com.sneaksanddata.arcane.framework
 package tests.dynamodb
 
+import models.ddl.CreateTableRequest as IcebergCreateTableRequest
+import models.schemas.{ArcaneSchema, ArcaneType, Field}
+import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.pushstream.PushStreamingSource
 import services.pushstream.versioning.PushStreamWatermark
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
 
-import com.sneaksanddata.*
 import software.amazon.awssdk.auth.credentials.*
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Console, Scope, Task, ZIO}
-import scala.jdk.CollectionConverters._
+import zio.{Scope, Task, ZIO}
+
 import java.net.URI
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
+import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
-object DynamoTestServices:
+object PushStreamTestServices:
   val access_kid    = "test"
   val access_secret = "test"
 
@@ -75,12 +78,13 @@ object DynamoTestServices:
       watermarkField: String
   ): Task[PutItemResponse] = for {
     watermarkValue = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
-    item = (Map(
+    item = Map(
       primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
       watermarkField  -> AttributeValue.builder().s(watermarkValue.toString).build(),
-      "userId"        -> AttributeValue.builder().s("123").build(),
-      "level"         -> AttributeValue.builder().s("user").build()
-    )).asJava
+      // "payload"        -> AttributeValue.builder().s("""[{"userId":"123", "level": "user"},{"userId":"456", "level": "admin"}]""").build(),
+      "payload"  -> AttributeValue.builder().s("""{"userId":{"string":"123"},"level":{"string":"user"}}""").build(),
+      "schemaId" -> AttributeValue.builder().n("1").build()
+    ).asJava
     response <- ZIO.attemptBlocking(
       client.putItem(
         PutItemRequest.builder().tableName(tableName).item(item).build()
@@ -88,25 +92,23 @@ object DynamoTestServices:
     )
   } yield response
 
-object DynamodbSourceTests extends ZIOSpecDefault:
+object PushStreamSourceTest extends ZIOSpecDefault:
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("DynamodbConnectionTests")(
-    test("DynamoDB has changes") {
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamTests")(
+    test("DetectHasRows") {
       val tableName       = "testTable"
       val primaryKeyField = "producer"
       val primaryKeyValue = "producer1"
       val watermarkField  = "timestampUTC"
       val icebergUtil     = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
       for {
-        client <- DynamoTestServices.getClient
+        client <- PushStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
-          DynamoTestServices.createTable(tableName, client)
-        )(_ => DynamoTestServices.deleteTable(client, tableName).orDie) { resp =>
+          PushStreamTestServices.createTable(tableName, client)
+        )(_ => PushStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
           for {
-            _                   <- Console.printLine(resp.toString)
-            tables              <- DynamoTestServices.listTables(client)
-            _                   <- Console.printLine(s"----------------------\n$tables")
+            tables              <- PushStreamTestServices.listTables(client)
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
@@ -119,14 +121,81 @@ object DynamodbSourceTests extends ZIOSpecDefault:
                 sinkPropertyManager = sinkPropertyManager
               )
             )
-            _    <- Console.printLine("after pushStream")
-            resp <- DynamoTestServices.insertData(client, tableName, primaryKeyField, primaryKeyValue, watermarkField)
-            _    <- Console.printLine(s"put response: $resp")
+            resp <- PushStreamTestServices.insertData(
+              client,
+              tableName,
+              primaryKeyField,
+              primaryKeyValue,
+              watermarkField
+            )
             changes <- pushStreamSource.hasRows(
               PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )
-            _ <- Console.printLine(s"changes: $changes")
           } yield assertTrue(tables.contains(tableName)) && assertTrue(changes)
+        }
+      } yield result
+    }
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+
+object PushStreamSourceTest2 extends ZIOSpecDefault:
+  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamTests2")(
+    test("DetectHasRows") {
+      val tableName       = "testTable"
+      val primaryKeyField = "producer"
+      val primaryKeyValue = "producer1"
+      val watermarkField  = "timestampUTC"
+      val icebergUtil     = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
+      val schema = ArcaneSchema(
+        Seq(
+          Field("userId", ArcaneType.StringType),
+          Field("level", ArcaneType.StringType)
+        )
+      )
+      for {
+        client <- PushStreamTestServices.getClient
+        // TODO: add a schema to Iceberg sinkPropertyManager
+        result <- ZIO.acquireReleaseWith(
+          PushStreamTestServices.createTable(tableName, client)
+        )(_ => PushStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
+          for {
+            tables            <- PushStreamTestServices.listTables(client)
+            sinkEntityManager <- icebergUtil.getSinkEntityManager
+            _ <- sinkEntityManager.createTable(
+              IcebergCreateTableRequest(s"testWarehouse.testNs.$tableName", schema, true)
+            )
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            pushStreamSource <- ZIO.succeed(
+              PushStreamingSource(
+                sourceTableName = tableName,
+                targetTableName = s"testWarehouse.testNs.$tableName",
+                primaryKeyFieldName = primaryKeyField,
+                primaryKeyValue = primaryKeyValue,
+                watermarkFieldName = watermarkField,
+                dynamodbClient = client,
+                sinkPropertyManager = sinkPropertyManager
+              )
+            )
+            resp <- PushStreamTestServices.insertData(
+              client,
+              tableName,
+              primaryKeyField,
+              primaryKeyValue,
+              watermarkField
+            )
+            changes <- pushStreamSource
+              .getChanges(
+                PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+              )
+              .runCollect
+            (rowStream, catalogSchema) = changes.head
+            rows <- rowStream.runCollect
+          } yield assertTrue(tables.contains(tableName)) &&
+            assertTrue(changes.length == 1) &&
+            assertTrue(rows.nonEmpty) &&
+            // row shape matches the schema (same field names, in order)
+            assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
         }
       } yield result
     }

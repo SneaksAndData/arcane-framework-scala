@@ -65,15 +65,24 @@ class PushStreamingSource(
   override def getSchema: Task[ArcaneSchema] =
     this.sinkPropertyManager.getTableSchema(sourceTableName).map(implicitly)
 
-  private def buildQueryGetChanges(latestVersion: WatermarkType): QueryRequest =
-    val tableName    = "test"
-    val partitionKey = "prducer/number1"
-    val exprVals = Map(
-      ":pk"            -> AttributeValue.builder().s(partitionKey).build(),
-      ":latestVersion" -> AttributeValue.builder().s(latestVersion.toString).build()
+  private def buildQueryGetChanges(latestVersion: PushStreamWatermark, limit: Int = 100): QueryRequest =
+    val exprNames = Map(
+      "#pk" -> primaryKeyFieldName,
+      "#wm" -> watermarkFieldName
     ).asJava
-    // TODO: build
-    QueryRequest.builder().build()
+
+    val exprVals = Map(
+      ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
+      ":t"  -> AttributeValue.builder().s(latestVersion.timestamp.toString).build()
+    ).asJava
+    QueryRequest
+      .builder()
+      .tableName(sourceTableName)
+      .keyConditionExpression("#pk = :pk AND #wm > :t")
+      .expressionAttributeValues(exprVals)
+      .expressionAttributeNames(exprNames)
+      .limit(limit)
+      .build()
 
   private def buildQueryHasChanges(latestVersion: PushStreamWatermark): QueryRequest =
     val exprNames = Map(
@@ -98,14 +107,14 @@ class PushStreamingSource(
   private def buildQueryMaxTimestamp: QueryRequest = ???
 
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
-    for
-      result <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
-      _      <- Console.printLine(result)
-    yield result
+    ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
 
-  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] = this.sinkPropertyManager
-    .getTableSchema(sourceTableName)
-    .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name), icebergSchema))
+  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] = for
+    _ <- Console.printLine(("getSchemaInfo"))
+    res <- this.sinkPropertyManager
+      .getTableSchema(sourceTableName)
+      .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name), icebergSchema))
+  yield res
 
   // TODO: change JSON scanner so it can accept plain string input instead of a filepath
 
@@ -148,13 +157,16 @@ class PushStreamingSource(
       }
     }
 
-  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] = for {
-    _ <- Console.printLine("hasRows")
-    req = buildQueryHasChanges(previousVersion)
-    _ <- Console.printLine(req)
-    res <- runDynamoQuery(req)
+  /** Returns true if the queue has new rows.
+    *
+    * @param previousVersion
+    *   The latest watermark that was already checked.
+    * @return
+    *   true if new rows are present
+    */
+  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] =
+    runDynamoQuery(buildQueryHasChanges(previousVersion))
       .map(_.count() > 0)
-  } yield res
 
   def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp)
     .map(
