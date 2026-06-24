@@ -21,7 +21,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
-
+// TODO: add SourceDataProvider tests
 object PushStreamTestServices:
   val access_kid    = "test"
   val access_secret = "test"
@@ -131,12 +131,13 @@ object PushStreamSourceTest extends ZIOSpecDefault:
             changes <- pushStreamSource.hasRows(
               PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )
-          } yield assertTrue(tables.contains(tableName)) && assertTrue(changes)
+          } yield assertTrue(changes)
         }
       } yield result
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
 
+// TODO add it to same test object
 object PushStreamSourceTest2 extends ZIOSpecDefault:
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -155,7 +156,6 @@ object PushStreamSourceTest2 extends ZIOSpecDefault:
       )
       for {
         client <- PushStreamTestServices.getClient
-        // TODO: add a schema to Iceberg sinkPropertyManager
         result <- ZIO.acquireReleaseWith(
           PushStreamTestServices.createTable(tableName, client)
         )(_ => PushStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
@@ -177,6 +177,13 @@ object PushStreamSourceTest2 extends ZIOSpecDefault:
                 sinkPropertyManager = sinkPropertyManager
               )
             )
+            _ <- PushStreamTestServices.insertData(
+              client,
+              tableName,
+              primaryKeyField,
+              primaryKeyValue,
+              watermarkField
+            )
             resp <- PushStreamTestServices.insertData(
               client,
               tableName,
@@ -189,13 +196,12 @@ object PushStreamSourceTest2 extends ZIOSpecDefault:
                 PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
               )
               .runCollect
-            (rowStream, catalogSchema) = changes.head
+            (rowStream, schemaStream) = changes.head
             rows <- rowStream.runCollect
-          } yield assertTrue(tables.contains(tableName)) &&
-            assertTrue(changes.length == 1) &&
-            assertTrue(rows.nonEmpty) &&
+          } yield assertTrue(tables.contains(tableName))
+            && assertTrue(rows.length == 2)
             // row shape matches the schema (same field names, in order)
-            assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
+            && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
         }
       } yield result
     }

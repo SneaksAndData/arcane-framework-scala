@@ -152,6 +152,7 @@ class PushStreamingSource(
   def getChanges(previousVersion: PushStreamWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(runDynamoQuery(buildQueryGetChanges(previousVersion)))
     .mapZIO { response =>
+      // TODO: add paginated response (and chunking)
       getSchemaInfo.map { case (avroSchema, icebergSchema) =>
         (responseStream(response, avroSchema), icebergSchema)
       }
