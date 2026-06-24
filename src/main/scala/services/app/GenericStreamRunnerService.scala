@@ -2,12 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.app
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.PluginStreamContext
-import models.settings.staging.StagingTableSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.bootstrap.base.StreamBootstrapper
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.StreamingGraphBuilder
+import utils.MetadataUtils
 
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZIOAspect, ZLayer}
@@ -39,9 +38,10 @@ class GenericStreamRunnerService(
       .attempt(tagProvider.getTags)
       .flatMap(tags =>
         (for
-          _ <- zlog("Starting the stream runner")
-          _ <- bootstrapper.cleanupStagingTables
-          _ <- bootstrapper.cleanupOutdatedBackfill
+          version <- MetadataUtils.getFrameworkVersion
+          _       <- zlog("Starting the stream runner using framework version %s", version)
+          _       <- bootstrapper.cleanupStagingTables
+          _       <- bootstrapper.cleanupOutdatedBackfill
 
           _ <- bootstrapper.createTargetTable
           _ <- bootstrapper.createBackFillTable
