@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
+import exceptions.FatalStreamFailException
 import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
@@ -50,14 +51,14 @@ class BlobListingParquetSource[PathType <: BlobPath](
               ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema.map(implicitly))
             case None =>
               ZIO.fail(
-                new RuntimeException(
+                FatalStreamFailException(
                   s"Unable to locate schema for $sourcePath - stream will terminate. Please check if bucket is not empty when stream starts, or provide `sourceSchema` value to avoid automatic inference"
                 )
               )
         yield schema
   yield runtimeSchema ++ Seq(BlobBatchCommons.indexedVersionField(runtimeSchema.mergeKey match {
     case IndexedMergeKeyField(fieldId) => fieldId + 1
-    case _ => throw new RuntimeException("Unsupported schema: parquet source supplied a non-indexed merge key")
+    case _ => throw FatalStreamFailException("Unsupported schema: parquet source supplied a non-indexed merge key")
   }))
 
   /** Gets an empty schema.
