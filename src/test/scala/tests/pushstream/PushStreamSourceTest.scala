@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package tests.dynamodb
+package tests.pushstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.{ArcaneSchema, ArcaneType, Field}
