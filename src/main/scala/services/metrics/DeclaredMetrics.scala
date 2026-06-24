@@ -13,10 +13,17 @@ class DeclaredMetrics:
     */
   private val metricsNamespace = "arcane.stream"
 
-  /** Number of rows received from the source
+  /** Number of rows staged in the current iteration
+    */
+  val rowsStaged: Counter[Long] = Metric
+    .counter(s"$metricsNamespace.rows.staged")
+    .fromConst(1)
+
+  /** Number of rows incoming from source
     */
   val rowsIncoming: Counter[Long] = Metric
     .counter(s"$metricsNamespace.rows.incoming")
+    .fromConst(1)
 
   /** Chunk size for ZStream set for the next changeset, in elements
     */

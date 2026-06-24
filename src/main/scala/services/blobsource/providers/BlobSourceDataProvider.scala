@@ -8,6 +8,7 @@ import services.blobsource.readers.BlobSourceReader
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
@@ -19,12 +20,15 @@ class BlobSourceDataProvider(
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings
+    sourceBufferingSettings: SourceBufferingSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
+      sourceReader,
       sinkPropertyManager,
       sinkSettings,
       throughputShaperBuilder,
-      sourceBufferingSettings
+      sourceBufferingSettings,
+      declaredMetrics
     ):
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
@@ -39,7 +43,8 @@ class BlobSourceDataProvider(
     sourceReader.getChanges(previousVersion)
 
 object BlobSourceDataProvider:
-  private type Environment = BlobSourceReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
+  private type Environment = BlobSourceReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &
+    DeclaredMetrics
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
@@ -47,11 +52,13 @@ object BlobSourceDataProvider:
       propertyManager   <- ZIO.service[SinkPropertyManager]
       blobSource        <- ZIO.service[BlobSourceReader]
       throughputBuilder <- ZIO.service[ThroughputShaperBuilder]
+      metrics           <- ZIO.service[DeclaredMetrics]
     yield BlobSourceDataProvider(
       blobSource,
       propertyManager,
       context.sink,
       throughputBuilder,
-      context.source.buffering
+      context.source.buffering,
+      metrics
     )
   }

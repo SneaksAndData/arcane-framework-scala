@@ -5,6 +5,7 @@ import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.versioning.SynapseWatermark
@@ -14,23 +15,26 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 class SynapseLinkDataProvider(
-    synapseReader: SynapseLinkStreamingSource,
+    streamingSource: SynapseLinkStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings
+    sourceBufferingSettings: SourceBufferingSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultSourceDataProvider[SynapseWatermark](
+      streamingSource,
       sinkPropertyManager,
       sinkSettings,
       throughputShaperBuilder,
-      sourceBufferingSettings
+      sourceBufferingSettings,
+      declaredMetrics
     ):
 
   override def hasChanges(previousVersion: SynapseWatermark): Task[Boolean] =
-    synapseReader.hasChanges(previousVersion)
+    streamingSource.hasChanges(previousVersion)
 
   override def getCurrentVersion(previousVersion: SynapseWatermark): Task[SynapseWatermark] =
-    synapseReader.getCurrentVersion(previousVersion)
+    streamingSource.getCurrentVersion(previousVersion)
 
   /** Implements data streaming logic for public `requestChanges`
     *
@@ -39,22 +43,25 @@ class SynapseLinkDataProvider(
     * @return
     */
   override protected def changeStream(previousVersion: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    synapseReader.getChanges(previousVersion)
+    streamingSource.getChanges(previousVersion)
 
 object SynapseLinkDataProvider:
-  type Environment = SynapseLinkStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
+  type Environment = SynapseLinkStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &
+    DeclaredMetrics
 
   val layer: ZLayer[Environment, Throwable, SynapseLinkDataProvider] = ZLayer {
     for
       context         <- ZIO.service[PluginStreamContext]
       propertyManager <- ZIO.service[SinkPropertyManager]
-      synapseReader   <- ZIO.service[SynapseLinkStreamingSource]
+      streamingSource <- ZIO.service[SynapseLinkStreamingSource]
       shaperBuilder   <- ZIO.service[ThroughputShaperBuilder]
+      metrics         <- ZIO.service[DeclaredMetrics]
     yield SynapseLinkDataProvider(
-      synapseReader,
+      streamingSource,
       propertyManager,
       context.sink,
       shaperBuilder,
-      context.source.buffering
+      context.source.buffering,
+      metrics
     )
   }
