@@ -74,7 +74,7 @@ object DynamoTestServices:
       primaryKeyValue: String,
       watermarkField: String
   ): Task[PutItemResponse] = for {
-    watermarkValue = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
+    watermarkValue = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
     item = (Map(
       primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
       watermarkField  -> AttributeValue.builder().s(watermarkValue.toString).build(),
@@ -125,7 +125,7 @@ object DynamodbSourceTests extends ZIOSpecDefault:
             changes <- pushStreamSource.hasRows(
               PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )
-            _ <- Console.printLine("almostThere!")
+            _ <- Console.printLine(s"changes: $changes")
           } yield assertTrue(tables.contains(tableName)) && assertTrue(changes)
         }
       } yield result

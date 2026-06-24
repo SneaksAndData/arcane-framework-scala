@@ -83,7 +83,7 @@ class PushStreamingSource(
 
     val exprVals = Map(
       ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
-      ":t"  -> AttributeValue.builder().s(latestVersion.toString).build()
+      ":t"  -> AttributeValue.builder().s(latestVersion.timestamp.toString).build()
     ).asJava
     QueryRequest
       .builder()
@@ -150,8 +150,10 @@ class PushStreamingSource(
 
   def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] = for {
     _ <- Console.printLine("hasRows")
-    res <- runDynamoQuery(buildQueryHasChanges(previousVersion))
-      .map(_.hasItems())
+    req = buildQueryHasChanges(previousVersion)
+    _ <- Console.printLine(req)
+    res <- runDynamoQuery(req)
+      .map(_.count() > 0)
   } yield res
 
   def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp)
