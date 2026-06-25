@@ -92,7 +92,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             // seed source DDB table with more than `numberRowsToTake` rows
             _                 <- insertRows(client, sourceTableName, numberRowsToTake * 2)
             sinkEntityManager <- icebergUtil.getSinkEntityManager
-            _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(targetTableName, schema, true))
+            _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(sourceTableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PushStreamingSource(
@@ -115,7 +115,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
               )
             )
             // seed the sink table watermark so the streaming provider has a starting point
-            _ <- icebergUtil.prepareWatermark(targetTableName, PushStreamWatermark.epoch, Some(schema))
+            _ <- icebergUtil.prepareWatermark(sourceTableName, PushStreamWatermark.epoch, Some(schema))
             streamingDataProvider <- ZIO.succeed(
               PushStreamStreamingDataProvider(
                 provider,

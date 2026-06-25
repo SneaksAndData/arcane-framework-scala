@@ -35,6 +35,7 @@ import scala.jdk.CollectionConverters.*
   *   the field that contains the watermark
   */
 class PushStreamingSource(
+    // TODO: table names should be iceberg compliant {warehouse}.{namespace}.{tablename}
     sourceTableName: String,
     targetTableName: String,
     primaryKeyFieldName: String,
@@ -104,7 +105,25 @@ class PushStreamingSource(
       .select(Select.COUNT)
       .build()
 
-  private def buildQueryMaxTimestamp: QueryRequest = ???
+  private def buildQueryMaxTimestamp: QueryRequest =
+    val exprNames = Map(
+      "#pk" -> primaryKeyFieldName,
+      "#wm" -> watermarkFieldName
+    ).asJava
+
+    val exprVals = Map(
+      ":pk" -> AttributeValue.builder().s(primaryKeyValue).build()
+    ).asJava
+    QueryRequest
+      .builder()
+      .tableName(sourceTableName)
+      .keyConditionExpression("#pk = :pk")
+      .expressionAttributeValues(exprVals)
+      .expressionAttributeNames(exprNames)
+      .scanIndexForward(false) // descending on range key -> first item should be highest wm
+      .limit(1)
+      .projectionExpression("#wm")
+      .build()
 
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
     ZIO.attemptBlocking(dynamodbClient.query(queryRequest))

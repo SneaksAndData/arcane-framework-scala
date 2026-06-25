@@ -15,13 +15,14 @@ import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
+import zio.test.Gen
 
 import java.net.URI
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
-// TODO: add SourceDataProvider tests
+
 object PushStreamTestServices:
   val access_kid    = "test"
   val access_secret = "test"
@@ -93,16 +94,23 @@ object PushStreamTestServices:
   } yield response
 
 object PushStreamSourceTest extends ZIOSpecDefault:
+
+  private val primaryKeyField = "producer"
+  private val primaryKeyValue = "producer1"
+  private val watermarkField  = "timestampUTC"
+  private val schema = ArcaneSchema(
+    Seq(
+      Field("userId", ArcaneType.StringType),
+      Field("level", ArcaneType.StringType)
+    )
+  )
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamTests")(
     test("DetectHasRows") {
-      val tableName       = "testTable"
-      val primaryKeyField = "producer"
-      val primaryKeyValue = "producer1"
-      val watermarkField  = "timestampUTC"
-      val icebergUtil     = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
       for {
+        tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(_.head)
+        icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
         client <- PushStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
           PushStreamTestServices.createTable(tableName, client)
@@ -113,7 +121,7 @@ object PushStreamSourceTest extends ZIOSpecDefault:
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
                 sourceTableName = tableName,
-                targetTableName = tableName,
+                targetTableName = s"testWarehouse.testNs.$tableName",
                 primaryKeyFieldName = primaryKeyField,
                 primaryKeyValue = primaryKeyValue,
                 watermarkFieldName = watermarkField,
@@ -134,27 +142,11 @@ object PushStreamSourceTest extends ZIOSpecDefault:
           } yield assertTrue(changes)
         }
       } yield result
-    }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
-
-// TODO add it to same test object
-object PushStreamSourceTest2 extends ZIOSpecDefault:
-  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamTests2")(
-    test("DetectHasRows") {
-      val tableName       = "testTable"
-      val primaryKeyField = "producer"
-      val primaryKeyValue = "producer1"
-      val watermarkField  = "timestampUTC"
-      val icebergUtil     = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
-      val schema = ArcaneSchema(
-        Seq(
-          Field("userId", ArcaneType.StringType),
-          Field("level", ArcaneType.StringType)
-        )
-      )
+    },
+    test("DetectGetChanges") {
       for {
+        tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(v => s"wh.ns.${v.head}")
+        icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
         client <- PushStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
           PushStreamTestServices.createTable(tableName, client)
@@ -163,13 +155,13 @@ object PushStreamSourceTest2 extends ZIOSpecDefault:
             tables            <- PushStreamTestServices.listTables(client)
             sinkEntityManager <- icebergUtil.getSinkEntityManager
             _ <- sinkEntityManager.createTable(
-              IcebergCreateTableRequest(s"testWarehouse.testNs.$tableName", schema, true)
+              IcebergCreateTableRequest(tableName, schema, true)
             )
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
                 sourceTableName = tableName,
-                targetTableName = s"testWarehouse.testNs.$tableName",
+                targetTableName = tableName,
                 primaryKeyFieldName = primaryKeyField,
                 primaryKeyValue = primaryKeyValue,
                 watermarkFieldName = watermarkField,
@@ -205,4 +197,4 @@ object PushStreamSourceTest2 extends ZIOSpecDefault:
         }
       } yield result
     }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.withLiveRandom
