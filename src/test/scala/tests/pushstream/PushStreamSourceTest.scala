@@ -82,8 +82,12 @@ object PushStreamTestServices:
     item = Map(
       primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
       watermarkField  -> AttributeValue.builder().s(watermarkValue.toString).build(),
-      // "payload"        -> AttributeValue.builder().s("""[{"userId":"123", "level": "user"},{"userId":"456", "level": "admin"}]""").build(),
-      "payload"  -> AttributeValue.builder().s("""{"userId":{"string":"123"},"level":{"string":"user"}}""").build(),
+      "payload" -> AttributeValue
+        .builder()
+        .s("""[{"userId":"123", "level": "user"},{"userId":"456", "level": "admin"}]""")
+        .build(),
+      // "payload"  -> AttributeValue.builder().s("""{"userId":{"string":"123"},"level":{"string":"user"}}""").build(),
+      // "payload"  -> AttributeValue.builder().s("""{"userId":"123","level":"user"}""").build(),
       "schemaId" -> AttributeValue.builder().n("1").build()
     ).asJava
     response <- ZIO.attemptBlocking(
@@ -168,13 +172,6 @@ object PushStreamSourceTest extends ZIOSpecDefault:
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
-            )
-            _ <- PushStreamTestServices.insertData(
-              client,
-              tableName,
-              primaryKeyField,
-              primaryKeyValue,
-              watermarkField
             )
             resp <- PushStreamTestServices.insertData(
               client,

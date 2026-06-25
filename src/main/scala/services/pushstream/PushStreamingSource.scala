@@ -5,14 +5,12 @@ import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
 import services.base.StreamingSource
 import services.iceberg.base.SinkPropertyManager
-import services.iceberg.{given_Conversion_AvroGenericRecord_DataRow, given_Conversion_Schema_ArcaneSchema}
+import services.iceberg.given_Conversion_Schema_ArcaneSchema
+import services.iceberg.interop.AvroJsonDecoder
 import services.pushstream.versioning.PushStreamWatermark
 import services.streaming.base.StructuredZStream
 
-import com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.avro.Schema as AvroSchema
-import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
-import org.apache.avro.io.DecoderFactory
 import org.apache.iceberg.avro.AvroSchemaUtil
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequest, QueryResponse, Select}
@@ -25,6 +23,11 @@ import java.time.format.DateTimeFormatter
 import scala.jdk.CollectionConverters.*
 
 /** This a source that poll output of an Arcane Push Stream Application
+  *
+  * Arcane push stream lives with the following assumptions: Data is wrapped into the following format:
+  *   - primaryKey: primary identifier for the datastream e.g. ProducerId
+  *   - secondaryKey: sort-key for the datasteram e.g. TimestampUTC
+  *
   * @param primaryKeyFieldName
   *   the field name of the producer
   *
@@ -128,25 +131,15 @@ class PushStreamingSource(
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
     ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
 
-  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] = for
-    _ <- Console.printLine(("getSchemaInfo"))
-    res <- this.sinkPropertyManager
+  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] =
+    this.sinkPropertyManager
       .getTableSchema(sourceTableName)
       .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name), icebergSchema))
-  yield res
 
-  // TODO: change JSON scanner so it can accept plain string input instead of a filepath
-
-  // TODO: remove this code
-  private def getAvroReader(schema: AvroSchema) = GenericDatumReader[GenericRecord](schema)
-  private val jsonMapper                        = com.fasterxml.jackson.databind.ObjectMapper()
-
-  private def decodeJson(node: ObjectNode, schema: AvroSchema, reader: GenericDatumReader[GenericRecord]): DataRow =
-    val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
-    reader.read(null, decoder)
-
+  /** Parse the dynamodb query response into DataRows
+    */
   private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] =
-    val avroReader = getAvroReader(avroSchema)
+    val decoder = AvroJsonDecoder(avroSchema)
 
     ZStream
       .fromIterable(queryResponse.items().asScala)
@@ -158,8 +151,7 @@ class PushStreamingSource(
           .head
           .s()
       )
-      .map(jsonMapper.readTree)
-      .map(node => decodeJson(node.asInstanceOf[ObjectNode], avroSchema, avroReader))
+      .flatMap(line => ZStream.fromIterable(decoder.parse(line)))
 
   /** Gets the changes in the database since the given version.
     *

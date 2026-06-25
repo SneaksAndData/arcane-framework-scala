@@ -12,6 +12,7 @@ import services.pushstream.{PushStreamSourceDataProvider, PushStreamStreamingDat
 import services.pushstream.versioning.PushStreamWatermark
 import tests.shared.*
 
+import org.apache.avro.AvroTypeException
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest, PutItemResponse}
 import zio.test.TestAspect.timeout
@@ -64,7 +65,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       // Avro JSON encoding for optional fields requires the type-tag wrapping
       "payload" -> AttributeValue
         .builder()
-        .s(s"""{"userId":{"string":"$userId"},"level":{"string":"$level"}}""")
+        .s(s"""{"userId": "$userId","level": "$level"}""")
         .build(),
       "schemaId" -> AttributeValue.builder().n("1").build()
     ).asJava
@@ -80,7 +81,20 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       }
       .unit
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamStreamingDataProviderTests") {
+  private def insertMalformedPayload(client: DynamoDbClient, tableName: String): Task[PutItemResponse] =
+    val timestamp = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
+    val item = Map(
+      primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
+      watermarkField  -> AttributeValue.builder().s(timestamp.toString).build(),
+      // not valid JSON — leading apostrophe trips Jackson before schema validation runs
+      "payload"  -> AttributeValue.builder().s("""{"not":"valid json"}""").build(),
+      "schemaId" -> AttributeValue.builder().n("1").build()
+    ).asJava
+    ZIO.attemptBlocking(
+      client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build())
+    )
+
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamStreamingDataProviderTests")(
     test("returns correct number of rows while streaming") {
       val numberRowsToTake = 5
       for
@@ -132,5 +146,52 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
           yield assertTrue(rows.size == numberRowsToTake)
         }
       yield result
+    },
+    test("fails with AvroTypeException when payload does not match the schema") {
+      for
+        client <- PushStreamTestServices.getClient
+        result <- ZIO.acquireReleaseWith(
+          PushStreamTestServices.createTable(sourceTableName, client)
+        )(_ => PushStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
+          for
+            _                 <- insertMalformedPayload(client, sourceTableName)
+            sinkEntityManager <- icebergUtil.getSinkEntityManager
+            _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(sourceTableName, schema, true))
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            source <- ZIO.succeed(
+              PushStreamingSource(
+                sourceTableName = sourceTableName,
+                targetTableName = targetTableName,
+                primaryKeyFieldName = primaryKeyField,
+                primaryKeyValue = primaryKeyValue,
+                watermarkFieldName = watermarkField,
+                dynamodbClient = client,
+                sinkPropertyManager = sinkPropertyManager
+              )
+            )
+            provider <- ZIO.succeed(
+              PushStreamSourceDataProvider(
+                source,
+                sinkPropertyManager,
+                defaultSinkSettings,
+                TestThroughputShaperBuilder.default(sinkPropertyManager, defaultSinkSettings),
+                TestSourceBufferingSettings
+              )
+            )
+            _ <- icebergUtil.prepareWatermark(sourceTableName, PushStreamWatermark.epoch, Some(schema))
+            streamingDataProvider <- ZIO.succeed(
+              PushStreamStreamingDataProvider(
+                provider,
+                defaultStreamMode.changeCapture,
+                DeclaredMetrics()
+              )
+            )
+            outcome <- streamingDataProvider.stream
+              .flatMap(_._1)
+              .runCollect
+              .either
+          yield assertTrue(outcome.left.exists(_.isInstanceOf[AvroTypeException]))
+        }
+      yield result
     }
-  } @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
