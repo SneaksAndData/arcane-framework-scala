@@ -143,7 +143,7 @@ class PushStreamingSource(
   /** Parse the dynamodb query response into DataRows
     */
   private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] =
-    val decoder = AvroJsonDecoder(avroSchema)
+    val decoder = AvroJsonDecoder(avroSchema, tolerateMissingFields = false)
 
     ZStream
       .fromIterable(queryResponse.items().asScala)
@@ -155,7 +155,8 @@ class PushStreamingSource(
           .head
           .s()
       )
-      .flatMap(line => ZStream.fromIterable(decoder.parse(line)))
+      .mapZIO(line => ZIO.attempt(decoder.parse(line)))
+      .flatMap(rows => ZStream.fromIterable(rows))
 
   /** Gets the changes in the database since the given version.
     *

@@ -12,6 +12,8 @@ import org.apache.avro.io.DecoderFactory
 
 import scala.jdk.CollectionConverters.*
 
+
+final class MissingFieldException(msg: String) extends RuntimeException(msg)
 /** Parses JSON strings/nodes into [[DataRow]]s using an Avro schema.
   *
   * Handles the Avro JSON-encoding quirk of optional fields (union `["null", T]`) by wrapping non-null values with their
@@ -29,11 +31,16 @@ import scala.jdk.CollectionConverters.*
   * @param jsonArrayPointers
   *   Optional map of `jsonPointer -> fieldRenameMap` for exploding nested arrays into individual records (see
   *   [[JsonScanner]] for usage).
+  *
+  * @param tolerateMissingFields
+  *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields
+  *   with Null values.
   */
 class AvroJsonDecoder(
     schema: org.apache.avro.Schema,
     jsonPointerExpr: Option[String] = None,
-    jsonArrayPointers: Map[String, Map[String, String]] = Map()
+    jsonArrayPointers: Map[String, Map[String, String]] = Map(),
+    tolerateMissingFields: Boolean = true
 ):
   private val reader      = GenericDatumReader[GenericRecord](schema)
   private val jsonMapper  = com.fasterxml.jackson.databind.ObjectMapper()
@@ -98,9 +105,17 @@ class AvroJsonDecoder(
       val wrapperNode = nodeFactory.objectNode()
 
       // check if a node is missing
-      if !compliantNode.has(avroField.name()) then
+      val isFieldPresent = compliantNode.has(avroField.name())
+      if !isFieldPresent && tolerateMissingFields then {
         // AVRO can fill nulls, but can't fill in missing fields - helping here
         compliantNode.set(avroField.name(), nodeFactory.nullNode())
+      }
+      // if node is missing and strict validation is used, throw
+      if !isFieldPresent && !tolerateMissingFields then {
+        throw MissingFieldException(
+          s"Required field '${avroField.name()}' not present in payload"
+        )
+      }
 
       // only run this for non-null nodes
       if !jsonNodeValue.forall(_.isNull) then {
@@ -144,6 +159,8 @@ class AvroJsonDecoder(
   /** Parses string serialized JSON — either an array root or an object root — into a sequence of [[DataRow]]s.
     */
   def parse(input: String): Seq[DataRow] =
+    //TODO: instead of throw, return Either[Seq[ValidationError], Seq[DataRow]]
+    // so validation errors are collected before returning e.g. multiple missing fields
     val rawJson = applyJsonPointer(jsonMapper.readTree(input))
 
     if rawJson.isArray then
@@ -164,6 +181,8 @@ class AvroJsonDecoder(
 object AvroJsonDecoder:
   def apply(schema: org.apache.avro.Schema): AvroJsonDecoder = new AvroJsonDecoder(schema)
 
+  def apply(schema: org.apache.avro.Schema, tolerateMissingFields: Boolean): AvroJsonDecoder = new AvroJsonDecoder(schema = schema, tolerateMissingFields = tolerateMissingFields)
+
   def apply(schema: org.apache.avro.Schema, jsonPointerExpr: Option[String]): AvroJsonDecoder =
     new AvroJsonDecoder(schema, jsonPointerExpr)
 
@@ -172,3 +191,10 @@ object AvroJsonDecoder:
       jsonPointerExpr: Option[String],
       jsonArrayPointers: Map[String, Map[String, String]]
   ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers)
+
+  def apply(
+     schema: org.apache.avro.Schema,
+     jsonPointerExpr: Option[String],
+     jsonArrayPointers: Map[String, Map[String, String]],
+     tolerateMissingFields: Boolean,
+   ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields)

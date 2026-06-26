@@ -13,12 +13,13 @@ import services.pushstream.{PushStreamSourceDataProvider, PushStreamStreamingDat
 import services.pushstream.versioning.PushStreamWatermark
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.services.iceberg.interop.MissingFieldException
 import org.apache.avro.AvroTypeException
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest, PutItemResponse}
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Scope, Task, ZIO}
+import zio.{Random, Scope, Task, ZIO}
 
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.*
@@ -37,23 +38,27 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       override val changeCaptureJitterVariance: Double = 0.0001
       override val changeCaptureJitterSeed: Long       = 0
 
-  private val sourceTableName     = "pushstream_streaming_test"
-  private val targetTableName     = s"demo.test.$sourceTableName"
-  private val primaryKeyField     = "producer"
-  private val primaryKeyValue     = "producer1"
-  private val watermarkField      = "timestampUTC"
-  private val defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
-  private val icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
+  private val primaryKeyField    = "producer"
+  private val primaryKeyValue    = "producer1"
+  private val watermarkField     = "timestampUTC"
 
-  private val pushStreamSettings: PushStreamSourceSettings = new PushStreamSourceSettings:
-    override val sourceTableName: String     = PushStreamStreamingDataProviderTests.sourceTableName
-    override val targetTableName: String     = PushStreamStreamingDataProviderTests.targetTableName
-    override val primaryKeyFieldName: String = primaryKeyField
-    override val primaryKeyValue: String     = PushStreamStreamingDataProviderTests.primaryKeyValue
-    override val watermarkFieldName: String  = watermarkField
-    override val region: String              = "us-east-1"
-    override val tableName: String           = PushStreamStreamingDataProviderTests.sourceTableName
-    override val endpoint: Option[String]    = None
+  /** Per-test settings bound to a freshly generated source/target table name pair. */
+  private def pushStreamSettings(srcTable: String, tgtTable: String): PushStreamSourceSettings =
+    new PushStreamSourceSettings:
+      override val sourceTableName: String     = srcTable
+      override val targetTableName: String     = tgtTable
+      override val primaryKeyFieldName: String = primaryKeyField
+      override val primaryKeyValue: String     = PushStreamStreamingDataProviderTests.primaryKeyValue
+      override val watermarkFieldName: String  = watermarkField
+      override val region: String              = "us-east-1"
+      override val tableName: String           = srcTable
+      override val endpoint: Option[String]    = None
+
+  // Random, collision-free DynamoDB table name.
+  private val genSourceTableName: Task[String] = {
+    Random.RandomLive.nextUUID.map(uuid => s"test_${uuid.toString.replace("-", "")}")
+
+  }
 
   // schema must match the JSON payload below
   private val schema = ArcaneSchema(
@@ -98,7 +103,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
       watermarkField  -> AttributeValue.builder().s(timestamp.toString).build(),
       // not valid JSON — leading apostrophe trips Jackson before schema validation runs
-      "payload"  -> AttributeValue.builder().s("""{"not":"valid json"}""").build(),
+      "payload"  -> AttributeValue.builder().s("""{"not":"valid json", "level": 1}""").build(),
       "schemaId" -> AttributeValue.builder().n("1").build()
     ).asJava
     ZIO.attemptBlocking(
@@ -109,6 +114,10 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
     test("returns correct number of rows while streaming") {
       val numberRowsToTake = 5
       for
+        sourceTableName <- genSourceTableName
+        targetTableName = s"demo.test.$sourceTableName"
+        defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
+        icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
         client <- PushStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
           PushStreamTestServices.createTable(sourceTableName, client)
@@ -121,7 +130,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PushStreamingSource(
-                settings = pushStreamSettings,
+                settings = pushStreamSettings(sourceTableName, targetTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
@@ -154,8 +163,12 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
         }
       yield result
     },
-    test("fails with AvroTypeException when payload does not match the schema") {
+    test("fails with MissingFieldException when payload does not match the schema") {
       for
+        sourceTableName <- genSourceTableName
+        targetTableName = s"demo.test.$sourceTableName"
+        defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
+        icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
         client <- PushStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
           PushStreamTestServices.createTable(sourceTableName, client)
@@ -167,7 +180,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PushStreamingSource(
-                settings = pushStreamSettings,
+                settings = pushStreamSettings(sourceTableName, targetTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
@@ -192,9 +205,15 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             outcome <- streamingDataProvider.stream
               .flatMap(_._1)
               .runCollect
+              .sandbox
               .either
-          yield assertTrue(outcome.left.exists(_.isInstanceOf[AvroTypeException]))
+          yield assertTrue(
+            outcome.left.exists(c =>
+              c.defects.exists(_.isInstanceOf[MissingFieldException]) ||
+                c.failures.exists(_.isInstanceOf[MissingFieldException])
+            )
+          )
         }
       yield result
     }
-  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.withLiveRandom
