@@ -38,8 +38,8 @@ import scala.jdk.CollectionConverters.*
   *   the field that contains the watermark
   */
 class PushStreamingSource(
-    // TODO: table names should be iceberg compliant {warehouse}.{namespace}.{tablename}
     sourceTableName: String,
+    // TODO: table names should be iceberg compliant {warehouse}.{namespace}.{tablename}
     targetTableName: String,
     primaryKeyFieldName: String,
     primaryKeyValue: String,
