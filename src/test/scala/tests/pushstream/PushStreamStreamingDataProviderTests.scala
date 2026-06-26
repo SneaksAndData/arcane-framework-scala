@@ -38,9 +38,9 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       override val changeCaptureJitterVariance: Double = 0.0001
       override val changeCaptureJitterSeed: Long       = 0
 
-  private val primaryKeyField    = "producer"
-  private val primaryKeyValue    = "producer1"
-  private val watermarkField     = "timestampUTC"
+  private val primaryKeyField = "producer"
+  private val primaryKeyValue = "producer1"
+  private val watermarkField  = "timestampUTC"
 
   /** Per-test settings bound to a freshly generated source/target table name pair. */
   private def pushStreamSettings(srcTable: String, tgtTable: String): PushStreamSourceSettings =
@@ -115,7 +115,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       val numberRowsToTake = 5
       for
         sourceTableName <- genSourceTableName
-        targetTableName = s"demo.test.$sourceTableName"
+        targetTableName     = s"demo.test.$sourceTableName"
         defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
         icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
         client <- PushStreamTestServices.getClient
@@ -166,7 +166,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
     test("fails with MissingFieldException when payload does not match the schema") {
       for
         sourceTableName <- genSourceTableName
-        targetTableName = s"demo.test.$sourceTableName"
+        targetTableName     = s"demo.test.$sourceTableName"
         defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
         icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
         client <- PushStreamTestServices.getClient

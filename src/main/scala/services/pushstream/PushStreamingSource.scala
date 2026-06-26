@@ -44,13 +44,7 @@ class PushStreamingSource(
     sinkPropertyManager: SinkPropertyManager
 ) extends StreamingSource:
 
-  import settings.{
-    primaryKeyFieldName,
-    primaryKeyValue,
-    sourceTableName,
-    targetTableName,
-    watermarkFieldName
-  }
+  import settings.{primaryKeyFieldName, primaryKeyValue, sourceTableName, targetTableName, watermarkFieldName}
 
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -215,4 +209,3 @@ object PushStreamingSource:
         propertyManager <- ZIO.service[SinkPropertyManager]
       yield PushStreamingSource(extractor(context), dynamodbClient, propertyManager)
     }
-

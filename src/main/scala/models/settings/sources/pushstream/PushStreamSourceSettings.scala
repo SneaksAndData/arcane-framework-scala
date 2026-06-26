@@ -5,7 +5,7 @@ import upickle.ReadWriter
 import upickle.implicits.key
 
 /** Microsoft SQL Server database connection settings
- */
+  */
 trait PushStreamSourceSettings:
   val sourceTableName: String
   // TODO: table names should be iceberg compliant {warehouse}.{namespace}.{tablename}
@@ -13,9 +13,9 @@ trait PushStreamSourceSettings:
   val primaryKeyFieldName: String
   val primaryKeyValue: String
   val watermarkFieldName: String
+
   /** Fetch size for ResultSets.
-   */
+    */
   val region: String
   val tableName: String
   val endpoint: Option[String]
-

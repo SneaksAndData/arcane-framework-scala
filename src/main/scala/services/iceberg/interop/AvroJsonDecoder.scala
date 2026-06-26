@@ -12,8 +12,8 @@ import org.apache.avro.io.DecoderFactory
 
 import scala.jdk.CollectionConverters.*
 
-
 final class MissingFieldException(msg: String) extends RuntimeException(msg)
+
 /** Parses JSON strings/nodes into [[DataRow]]s using an Avro schema.
   *
   * Handles the Avro JSON-encoding quirk of optional fields (union `["null", T]`) by wrapping non-null values with their
@@ -33,8 +33,8 @@ final class MissingFieldException(msg: String) extends RuntimeException(msg)
   *   [[JsonScanner]] for usage).
   *
   * @param tolerateMissingFields
-  *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields
-  *   with Null values.
+  *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields with
+  *   Null values.
   */
 class AvroJsonDecoder(
     schema: org.apache.avro.Schema,
@@ -159,7 +159,7 @@ class AvroJsonDecoder(
   /** Parses string serialized JSON — either an array root or an object root — into a sequence of [[DataRow]]s.
     */
   def parse(input: String): Seq[DataRow] =
-    //TODO: instead of throw, return Either[Seq[ValidationError], Seq[DataRow]]
+    // TODO: instead of throw, return Either[Seq[ValidationError], Seq[DataRow]]
     // so validation errors are collected before returning e.g. multiple missing fields
     val rawJson = applyJsonPointer(jsonMapper.readTree(input))
 
@@ -181,7 +181,8 @@ class AvroJsonDecoder(
 object AvroJsonDecoder:
   def apply(schema: org.apache.avro.Schema): AvroJsonDecoder = new AvroJsonDecoder(schema)
 
-  def apply(schema: org.apache.avro.Schema, tolerateMissingFields: Boolean): AvroJsonDecoder = new AvroJsonDecoder(schema = schema, tolerateMissingFields = tolerateMissingFields)
+  def apply(schema: org.apache.avro.Schema, tolerateMissingFields: Boolean): AvroJsonDecoder =
+    new AvroJsonDecoder(schema = schema, tolerateMissingFields = tolerateMissingFields)
 
   def apply(schema: org.apache.avro.Schema, jsonPointerExpr: Option[String]): AvroJsonDecoder =
     new AvroJsonDecoder(schema, jsonPointerExpr)
@@ -193,8 +194,8 @@ object AvroJsonDecoder:
   ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers)
 
   def apply(
-     schema: org.apache.avro.Schema,
-     jsonPointerExpr: Option[String],
-     jsonArrayPointers: Map[String, Map[String, String]],
-     tolerateMissingFields: Boolean,
-   ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields)
+      schema: org.apache.avro.Schema,
+      jsonPointerExpr: Option[String],
+      jsonArrayPointers: Map[String, Map[String, String]],
+      tolerateMissingFields: Boolean
+  ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields)
