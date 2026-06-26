@@ -1,9 +1,11 @@
 package com.sneaksanddata.arcane.framework
 package services.pushstream
 
+import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
-import services.base.StreamingSource
+import models.settings.sources.pushstream.PushStreamSourceSettings
+import services.base.{SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
@@ -15,8 +17,7 @@ import org.apache.iceberg.avro.AvroSchemaUtil
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequest, QueryResponse, Select}
 import zio.stream.ZStream
-import zio.{Task, ZIO}
-import zio.Console
+import zio.{Task, ZIO, ZLayer}
 
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -38,15 +39,18 @@ import scala.jdk.CollectionConverters.*
   *   the field that contains the watermark
   */
 class PushStreamingSource(
-    sourceTableName: String,
-    // TODO: table names should be iceberg compliant {warehouse}.{namespace}.{tablename}
-    targetTableName: String,
-    primaryKeyFieldName: String,
-    primaryKeyValue: String,
-    watermarkFieldName: String,
+    settings: PushStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager
 ) extends StreamingSource:
+
+  import settings.{
+    primaryKeyFieldName,
+    primaryKeyValue,
+    sourceTableName,
+    targetTableName,
+    watermarkFieldName
+  }
 
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -187,3 +191,27 @@ class PushStreamingSource(
         .map(timeString => PushStreamWatermark(OffsetDateTime.parse(timeString, formatter)))
     )
     .map(_.getOrElse(PushStreamWatermark.epoch))
+
+object PushStreamingSource:
+
+  type Environment               = PluginStreamContext & DynamoDbClient & SinkPropertyManager
+  private type SettingsExtractor = PluginStreamContext => PushStreamSourceSettings
+
+  def apply(
+      settings: PushStreamSourceSettings,
+      dynamodbClient: DynamoDbClient,
+      sinkPropertyManager: SinkPropertyManager
+  ): PushStreamingSource =
+    new PushStreamingSource(settings, dynamodbClient, sinkPropertyManager)
+
+  def getLayer(
+      extractor: SettingsExtractor
+  ): ZLayer[Environment, Nothing, PushStreamingSource & SchemaProvider[ArcaneSchema]] =
+    ZLayer {
+      for
+        context         <- ZIO.service[PluginStreamContext]
+        dynamodbClient  <- ZIO.service[DynamoDbClient]
+        propertyManager <- ZIO.service[SinkPropertyManager]
+      yield PushStreamingSource(extractor(context), dynamodbClient, propertyManager)
+    }
+

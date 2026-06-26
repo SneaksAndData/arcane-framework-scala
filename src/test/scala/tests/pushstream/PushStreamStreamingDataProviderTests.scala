@@ -5,6 +5,7 @@ import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.{ArcaneSchema, ArcaneType, Field}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
+import models.settings.sources.pushstream.PushStreamSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.iceberg.SchemaConversions.toIcebergSchema
 import services.metrics.DeclaredMetrics
@@ -43,6 +44,16 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
   private val watermarkField      = "timestampUTC"
   private val defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
   private val icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
+
+  private val pushStreamSettings: PushStreamSourceSettings = new PushStreamSourceSettings:
+    override val sourceTableName: String     = PushStreamStreamingDataProviderTests.sourceTableName
+    override val targetTableName: String     = PushStreamStreamingDataProviderTests.targetTableName
+    override val primaryKeyFieldName: String = primaryKeyField
+    override val primaryKeyValue: String     = PushStreamStreamingDataProviderTests.primaryKeyValue
+    override val watermarkFieldName: String  = watermarkField
+    override val region: String              = "us-east-1"
+    override val tableName: String           = PushStreamStreamingDataProviderTests.sourceTableName
+    override val endpoint: Option[String]    = None
 
   // schema must match the JSON payload below
   private val schema = ArcaneSchema(
@@ -110,11 +121,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PushStreamingSource(
-                sourceTableName = sourceTableName,
-                targetTableName = targetTableName,
-                primaryKeyFieldName = primaryKeyField,
-                primaryKeyValue = primaryKeyValue,
-                watermarkFieldName = watermarkField,
+                settings = pushStreamSettings,
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
@@ -160,11 +167,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PushStreamingSource(
-                sourceTableName = sourceTableName,
-                targetTableName = targetTableName,
-                primaryKeyFieldName = primaryKeyField,
-                primaryKeyValue = primaryKeyValue,
-                watermarkFieldName = watermarkField,
+                settings = pushStreamSettings,
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )

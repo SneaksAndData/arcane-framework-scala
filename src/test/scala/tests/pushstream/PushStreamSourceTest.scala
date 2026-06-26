@@ -3,6 +3,7 @@ package tests.pushstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.{ArcaneSchema, ArcaneType, Field}
+import models.settings.sources.pushstream.PushStreamSourceSettings
 import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.pushstream.PushStreamingSource
 import services.pushstream.versioning.PushStreamWatermark
@@ -102,6 +103,19 @@ object PushStreamSourceTest extends ZIOSpecDefault:
   private val primaryKeyField = "producer"
   private val primaryKeyValue = "producer1"
   private val watermarkField  = "timestampUTC"
+
+  private def testSettings(sourceTableName: String, targetTableName: String): PushStreamSourceSettings =
+    val src = sourceTableName
+    val tgt = targetTableName
+    new PushStreamSourceSettings:
+      override val sourceTableName: String     = src
+      override val targetTableName: String     = tgt
+      override val primaryKeyFieldName: String = primaryKeyField
+      override val primaryKeyValue: String     = PushStreamSourceTest.primaryKeyValue
+      override val watermarkFieldName: String  = watermarkField
+      override val region: String              = "us-east-1"
+      override val tableName: String           = src
+      override val endpoint: Option[String]    = None
   private val schema = ArcaneSchema(
     Seq(
       Field("userId", ArcaneType.StringType),
@@ -124,11 +138,10 @@ object PushStreamSourceTest extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
-                sourceTableName = tableName,
-                targetTableName = s"testWarehouse.testNs.$tableName",
-                primaryKeyFieldName = primaryKeyField,
-                primaryKeyValue = primaryKeyValue,
-                watermarkFieldName = watermarkField,
+                settings = testSettings(
+                  sourceTableName = tableName,
+                  targetTableName = s"testWarehouse.testNs.$tableName"
+                ),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
@@ -164,11 +177,10 @@ object PushStreamSourceTest extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             pushStreamSource <- ZIO.succeed(
               PushStreamingSource(
-                sourceTableName = tableName,
-                targetTableName = tableName,
-                primaryKeyFieldName = primaryKeyField,
-                primaryKeyValue = primaryKeyValue,
-                watermarkFieldName = watermarkField,
+                settings = testSettings(
+                  sourceTableName = tableName,
+                  targetTableName = tableName
+                ),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
