@@ -12,16 +12,31 @@ object PushStreamChangeTrackingMergeQuery:
       ++ OnSegment(Map.empty, "", Seq.empty)
       ++ WhenNotMatchedInsert(Seq.empty)
 
+  private def matchedUpdate(cols: Seq[String], versionField: String): WhenMatchedUpdate =
+    new WhenMatchedUpdate {
+      override val segmentCondition: Option[String] = Some(
+        s"${MergeQueryCommons.SOURCE_ALIAS}.$versionField > ${MergeQueryCommons.TARGET_ALIAS}.$versionField"
+      )
+      override val columns: Seq[String] = cols
+    }
+
+  private def notMatchedInsert(cols: Seq[String]): WhenNotMatchedInsert =
+    new WhenNotMatchedInsert {
+      override val columns: Seq[String]             = cols
+      override val segmentCondition: Option[String] = None
+    }
+
   def apply(
       targetName: String,
       sourceQuery: String,
       partitionFields: Seq[String],
       mergeKey: String,
-      columns: Seq[String]
+      columns: Seq[String],
+      versionFieldName: String
   ): MergeQuery = {
     MergeQuery(targetName, sourceQuery)
       ++ OnSegment(Map.empty, mergeKey, partitionFields.filterNot(_ == mergeKey))
-      ++ MatchedUpdate(columns.filterNot(_ == mergeKey))
+      ++ matchedUpdate(columns.filterNot(_ == mergeKey), versionFieldName)
       ++ NotMatchedInsert(columns)
   }
 
@@ -56,7 +71,8 @@ class PushStreamChangeTrackingMergeBatch(
         sourceQuery = reduceExpr,
         partitionFields = Seq.empty,
         mergeKey = mergeKey,
-        columns = schema.map(f => f.name)
+        columns = schema.map(f => f.name),
+        versionFieldName = versionFieldName
       )
 
   override val completedWatermarkValue: Option[String] = None

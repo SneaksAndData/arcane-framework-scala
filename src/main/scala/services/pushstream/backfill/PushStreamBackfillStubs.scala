@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.pushstream.backfill
 
 /** Backfilling is not supported by PullStream plugin. This module provides No-op implementations for the necessary
- * backfill layers that are required by 'GenericStreamRunnerService'.
- */
+  * backfill layers that are required by 'GenericStreamRunnerService'.
+  */
 
 import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import com.sneaksanddata.arcane.framework.services.backfill.base.{
@@ -25,8 +25,7 @@ object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
   val layer: ULayer[BackfillStreamDataProvider] = ZLayer.succeed(this)
 
 object NoopShardedBackfillStreamDataProvider extends ShardedBackfillStreamDataProvider:
-  override def backfillStream
-  : Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
+  override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     unsupported("ShardedBackfillStreamDataProvider.backfillStream")
 
   val layer: ULayer[ShardedBackfillStreamDataProvider] = ZLayer.succeed(this)
