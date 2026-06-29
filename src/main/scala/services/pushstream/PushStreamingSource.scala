@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.pushstream
 
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataRow, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
 import models.settings.sources.pushstream.PushStreamSourceSettings
 import services.base.{SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
-import services.iceberg.given_Conversion_Schema_ArcaneSchema
+import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
 import services.pushstream.versioning.PushStreamWatermark
 import services.streaming.base.StructuredZStream
@@ -65,7 +65,7 @@ class PushStreamingSource(
     *   An effect containing the schema.
     */
   override def getSchema: Task[ArcaneSchema] =
-    this.sinkPropertyManager.getTableSchema(sourceTableName).map(implicitly)
+    this.sinkPropertyManager.getTableSchema(sourceTableName).map(s => (s: MergeableArcaneSchema))
 
   private def buildQueryGetChanges(latestVersion: PushStreamWatermark, limit: Int = 100): QueryRequest =
     val exprNames = Map(
