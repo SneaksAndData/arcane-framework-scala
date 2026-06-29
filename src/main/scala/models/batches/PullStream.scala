@@ -6,7 +6,7 @@ import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 
 import models.queries.{MergeQuery, MergeQueryCommons, OnSegment, WhenMatchedUpdate, WhenNotMatchedInsert}
 
-object PushStreamChangeTrackingMergeQuery:
+object PullStreamChangeTrackingMergeQuery:
   def empty: MergeQuery =
     MergeQuery("", "")
       ++ OnSegment(Map.empty, "", Seq.empty)
@@ -40,7 +40,7 @@ object PushStreamChangeTrackingMergeQuery:
       ++ NotMatchedInsert(columns)
   }
 
-class PushStreamChangeTrackingMergeBatch(
+class PullStreamChangeTrackingMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
@@ -64,9 +64,9 @@ class PushStreamChangeTrackingMergeBatch(
        |)""".stripMargin
 
   override val batchQuery: MergeQuery =
-    if schema.isEmpty then PushStreamChangeTrackingMergeQuery.empty
+    if schema.isEmpty then PullStreamChangeTrackingMergeQuery.empty
     else
-      PushStreamChangeTrackingMergeQuery(
+      PullStreamChangeTrackingMergeQuery(
         targetName = targetName,
         sourceQuery = reduceExpr,
         partitionFields = Seq.empty,
@@ -77,15 +77,15 @@ class PushStreamChangeTrackingMergeBatch(
 
   override val completedWatermarkValue: Option[String] = None
 
-object PushStreamChangeTrackingMergeBatch:
+object PullStreamChangeTrackingMergeBatch:
   def apply(
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
       tablePropertiesSettings: TablePropertiesSettings,
       versionFieldName: String
-  ): PushStreamChangeTrackingMergeBatch =
-    new PushStreamChangeTrackingMergeBatch(
+  ): PullStreamChangeTrackingMergeBatch =
+    new PullStreamChangeTrackingMergeBatch(
       batchName,
       batchSchema,
       targetName,
@@ -94,7 +94,7 @@ object PushStreamChangeTrackingMergeBatch:
       versionFieldName
     )
 
-class PushStreamChangeTrackingWatermarkOnlyBatch(
+class PullStreamChangeTrackingWatermarkOnlyBatch(
     targetName: String,
     watermarkValue: String
 ) extends WatermarkOnlyBatch:
@@ -105,10 +105,10 @@ class PushStreamChangeTrackingWatermarkOnlyBatch(
 
   override def reduceExpr: String = ""
 
-  override val batchQuery: MergeQuery = PushStreamChangeTrackingMergeQuery.empty
+  override val batchQuery: MergeQuery = PullStreamChangeTrackingMergeQuery.empty
 
   override val completedWatermarkValue: Option[String] = Some(watermarkValue)
 
-object PushStreamChangeTrackingWatermarkOnlyBatch:
-  def apply(targetName: String, watermarkValue: String): PushStreamChangeTrackingWatermarkOnlyBatch =
-    new PushStreamChangeTrackingWatermarkOnlyBatch(targetName, watermarkValue)
+object PullStreamChangeTrackingWatermarkOnlyBatch:
+  def apply(targetName: String, watermarkValue: String): PullStreamChangeTrackingWatermarkOnlyBatch =
+    new PullStreamChangeTrackingWatermarkOnlyBatch(targetName, watermarkValue)

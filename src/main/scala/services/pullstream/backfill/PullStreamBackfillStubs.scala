@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package services.pushstream.backfill
+package services.pullstream.backfill
 
 /** Backfilling is not supported by PullStream plugin. This module provides No-op implementations for the necessary
   * backfill layers that are required by 'GenericStreamRunnerService'.

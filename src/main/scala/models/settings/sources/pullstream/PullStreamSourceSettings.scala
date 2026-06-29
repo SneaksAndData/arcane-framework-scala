@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.sources.pushstream
+package models.settings.sources.pullstream
 
 import upickle.ReadWriter
 import upickle.implicits.key
@@ -8,7 +8,7 @@ import models.settings.sources.SourceSettings
 
 /** Microsoft SQL Server database connection settings
   */
-trait PushStreamSourceSettings extends SourceSettings:
+trait PullStreamSourceSettings extends SourceSettings:
   val sourceTableName: String
   // TODO: table names should be iceberg compliant {warehouse}.{namespace}.{tablename}
   val targetTableName: String

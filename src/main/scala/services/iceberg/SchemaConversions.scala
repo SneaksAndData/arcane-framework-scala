@@ -213,7 +213,7 @@ given Conversion[Schema, ArcaneSchema] with
   *     column is re-tagged as an [[IndexedMergeKeyField]] (the plain conversion drops the tag in this case);
   *   - otherwise an [[IndexedMergeKeyField]] is appended, mirroring the plain conversion.
   *
-  * Consumers that perform merges (e.g. `PushStreamingSource`, MergeProcessor) should depend on this conversion so
+  * Consumers that perform merges (e.g. `PullStreamingSource`, MergeProcessor) should depend on this conversion so
   * that `schema.mergeKey` is safe-by-construction.
   */
 given Conversion[Schema, MergeableArcaneSchema] with

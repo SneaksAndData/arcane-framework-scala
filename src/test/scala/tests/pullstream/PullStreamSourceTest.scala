@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
-package tests.pushstream
+package tests.pullstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.{ArcaneSchema, ArcaneType, Field}
-import models.settings.sources.pushstream.PushStreamSourceSettings
+import models.settings.sources.pullstream.PullStreamSourceSettings
 import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
-import services.pushstream.PushStreamingSource
-import services.pushstream.versioning.PushStreamWatermark
+import services.pullstream.PullStreamingSource
+import services.pullstream.versioning.PullStreamWatermark
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
 
 import software.amazon.awssdk.auth.credentials.*
@@ -24,7 +24,7 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
-object PushStreamTestServices:
+object PullStreamTestServices:
   val access_kid    = "test"
   val access_secret = "test"
 
@@ -98,20 +98,20 @@ object PushStreamTestServices:
     )
   } yield response
 
-object PushStreamSourceTest extends ZIOSpecDefault:
+object PullStreamSourceTest extends ZIOSpecDefault:
 
   private val primaryKeyField = "producer"
   private val primaryKeyValue = "producer1"
   private val watermarkField  = "timestampUTC"
 
-  private def testSettings(sourceTableName: String, targetTableName: String): PushStreamSourceSettings =
+  private def testSettings(sourceTableName: String, targetTableName: String): PullStreamSourceSettings =
     val src = sourceTableName
     val tgt = targetTableName
-    new PushStreamSourceSettings:
+    new PullStreamSourceSettings:
       override val sourceTableName: String     = src
       override val targetTableName: String     = tgt
       override val primaryKeyFieldName: String = primaryKeyField
-      override val primaryKeyValue: String     = PushStreamSourceTest.primaryKeyValue
+      override val primaryKeyValue: String     = PullStreamSourceTest.primaryKeyValue
       override val watermarkFieldName: String  = watermarkField
       override val region: String              = "us-east-1"
       override val tableName: String           = src
@@ -124,20 +124,20 @@ object PushStreamSourceTest extends ZIOSpecDefault:
   )
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamTests")(
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamTests")(
     test("DetectHasRows") {
       for {
         tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(_.head)
         icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
-        client <- PushStreamTestServices.getClient
+        client <- PullStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
-          PushStreamTestServices.createTable(tableName, client)
-        )(_ => PushStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
+          PullStreamTestServices.createTable(tableName, client)
+        )(_ => PullStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
           for {
-            tables              <- PushStreamTestServices.listTables(client)
+            tables              <- PullStreamTestServices.listTables(client)
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
-            pushStreamSource <- ZIO.succeed(
-              PushStreamingSource(
+            pullStreamSource <- ZIO.succeed(
+              PullStreamingSource(
                 settings = testSettings(
                   sourceTableName = tableName,
                   targetTableName = s"testWarehouse.testNs.$tableName"
@@ -146,15 +146,15 @@ object PushStreamSourceTest extends ZIOSpecDefault:
                 sinkPropertyManager = sinkPropertyManager
               )
             )
-            resp <- PushStreamTestServices.insertData(
+            resp <- PullStreamTestServices.insertData(
               client,
               tableName,
               primaryKeyField,
               primaryKeyValue,
               watermarkField
             )
-            changes <- pushStreamSource.hasRows(
-              PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+            changes <- pullStreamSource.hasRows(
+              PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )
           } yield assertTrue(changes)
         }
@@ -164,19 +164,19 @@ object PushStreamSourceTest extends ZIOSpecDefault:
       for {
         tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(v => s"wh.ns.${v.head}")
         icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
-        client <- PushStreamTestServices.getClient
+        client <- PullStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
-          PushStreamTestServices.createTable(tableName, client)
-        )(_ => PushStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
+          PullStreamTestServices.createTable(tableName, client)
+        )(_ => PullStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
           for {
-            tables            <- PushStreamTestServices.listTables(client)
+            tables            <- PullStreamTestServices.listTables(client)
             sinkEntityManager <- icebergUtil.getSinkEntityManager
             _ <- sinkEntityManager.createTable(
               IcebergCreateTableRequest(tableName, schema, true)
             )
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
-            pushStreamSource <- ZIO.succeed(
-              PushStreamingSource(
+            pullStreamSource <- ZIO.succeed(
+              PullStreamingSource(
                 settings = testSettings(
                   sourceTableName = tableName,
                   targetTableName = tableName
@@ -185,16 +185,16 @@ object PushStreamSourceTest extends ZIOSpecDefault:
                 sinkPropertyManager = sinkPropertyManager
               )
             )
-            resp <- PushStreamTestServices.insertData(
+            resp <- PullStreamTestServices.insertData(
               client,
               tableName,
               primaryKeyField,
               primaryKeyValue,
               watermarkField
             )
-            changes <- pushStreamSource
+            changes <- pullStreamSource
               .getChanges(
-                PushStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+                PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
               )
               .runCollect
             (rowStream, schemaStream) = changes.head

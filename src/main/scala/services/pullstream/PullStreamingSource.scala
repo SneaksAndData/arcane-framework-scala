@@ -1,15 +1,15 @@
 package com.sneaksanddata.arcane.framework
-package services.pushstream
+package services.pullstream
 
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
-import models.settings.sources.pushstream.PushStreamSourceSettings
+import models.settings.sources.pullstream.PullStreamSourceSettings
 import services.base.{SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
-import services.pushstream.versioning.PushStreamWatermark
+import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 
 import org.apache.avro.Schema as AvroSchema
@@ -38,8 +38,8 @@ import scala.jdk.CollectionConverters.*
   * @param watermarkFieldName
   *   the field that contains the watermark
   */
-class PushStreamingSource(
-    settings: PushStreamSourceSettings,
+class PullStreamingSource(
+    settings: PullStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager
 ) extends StreamingSource:
@@ -55,7 +55,7 @@ class PushStreamingSource(
   override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
 
   override type ShardMetadata = String
-  override type WatermarkType = PushStreamWatermark
+  override type WatermarkType = PullStreamWatermark
 
   override def empty: SchemaType = ArcaneSchema.empty()
 
@@ -67,7 +67,7 @@ class PushStreamingSource(
   override def getSchema: Task[ArcaneSchema] =
     this.sinkPropertyManager.getTableSchema(sourceTableName).map(s => (s: MergeableArcaneSchema))
 
-  private def buildQueryGetChanges(latestVersion: PushStreamWatermark, limit: Int = 100): QueryRequest =
+  private def buildQueryGetChanges(latestVersion: PullStreamWatermark, limit: Int = 100): QueryRequest =
     val exprNames = Map(
       "#pk" -> primaryKeyFieldName,
       "#wm" -> watermarkFieldName
@@ -86,7 +86,7 @@ class PushStreamingSource(
       .limit(limit)
       .build()
 
-  private def buildQueryHasChanges(latestVersion: PushStreamWatermark): QueryRequest =
+  private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
       "#pk" -> primaryKeyFieldName,
       "#wm" -> watermarkFieldName
@@ -159,7 +159,7 @@ class PushStreamingSource(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(previousVersion: PushStreamWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
+  def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(runDynamoQuery(buildQueryGetChanges(previousVersion)))
     .mapZIO { response =>
       // TODO: add paginated response (and chunking)
@@ -175,37 +175,37 @@ class PushStreamingSource(
     * @return
     *   true if new rows are present
     */
-  def hasRows(previousVersion: PushStreamWatermark): Task[Boolean] =
+  def hasRows(previousVersion: PullStreamWatermark): Task[Boolean] =
     runDynamoQuery(buildQueryHasChanges(previousVersion))
       .map(_.count() > 0)
 
-  def getMaxTimestamp: Task[PushStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp)
+  def getMaxTimestamp: Task[PullStreamWatermark] = runDynamoQuery(buildQueryMaxTimestamp)
     .map(
       _.items().asScala.headOption
         .map(_.asScala.head._2.s())
-        .map(timeString => PushStreamWatermark(OffsetDateTime.parse(timeString, formatter)))
+        .map(timeString => PullStreamWatermark(OffsetDateTime.parse(timeString, formatter)))
     )
-    .map(_.getOrElse(PushStreamWatermark.epoch))
+    .map(_.getOrElse(PullStreamWatermark.epoch))
 
-object PushStreamingSource:
+object PullStreamingSource:
 
   type Environment               = PluginStreamContext & DynamoDbClient & SinkPropertyManager
-  private type SettingsExtractor = PluginStreamContext => PushStreamSourceSettings
+  private type SettingsExtractor = PluginStreamContext => PullStreamSourceSettings
 
   def apply(
-      settings: PushStreamSourceSettings,
+      settings: PullStreamSourceSettings,
       dynamodbClient: DynamoDbClient,
       sinkPropertyManager: SinkPropertyManager
-  ): PushStreamingSource =
-    new PushStreamingSource(settings, dynamodbClient, sinkPropertyManager)
+  ): PullStreamingSource =
+    new PullStreamingSource(settings, dynamodbClient, sinkPropertyManager)
 
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[Environment, Nothing, PushStreamingSource & SchemaProvider[ArcaneSchema]] =
+  ): ZLayer[Environment, Nothing, PullStreamingSource & SchemaProvider[ArcaneSchema]] =
     ZLayer {
       for
         context         <- ZIO.service[PluginStreamContext]
         dynamodbClient  <- ZIO.service[DynamoDbClient]
         propertyManager <- ZIO.service[SinkPropertyManager]
-      yield PushStreamingSource(extractor(context), dynamodbClient, propertyManager)
+      yield PullStreamingSource(extractor(context), dynamodbClient, propertyManager)
     }

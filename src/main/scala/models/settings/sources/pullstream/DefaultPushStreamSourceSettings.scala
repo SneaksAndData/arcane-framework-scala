@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.sources.pushstream
+package models.settings.sources.pullstream
 
 import upickle.ReadWriter
 
-case class DefaultPushStreamSourceSettings(
+case class DefaultPullStreamSourceSettings(
     override val sourceTableName: String,
     override val targetTableName: String,
     override val primaryKeyFieldName: String,
@@ -12,4 +12,4 @@ case class DefaultPushStreamSourceSettings(
     override val region: String,
     override val tableName: String,
     override val endpoint: Option[String]
-) extends PushStreamSourceSettings derives ReadWriter
+) extends PullStreamSourceSettings derives ReadWriter

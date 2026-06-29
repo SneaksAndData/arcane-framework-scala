@@ -1,16 +1,16 @@
 package com.sneaksanddata.arcane.framework
-package tests.pushstream
+package tests.pullstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.{ArcaneSchema, ArcaneType, Field}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
-import models.settings.sources.pushstream.PushStreamSourceSettings
+import models.settings.sources.pullstream.PullStreamSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.iceberg.SchemaConversions.toIcebergSchema
 import services.metrics.DeclaredMetrics
-import services.pushstream.{PushStreamSourceDataProvider, PushStreamStreamingDataProvider, PushStreamingSource}
-import services.pushstream.versioning.PushStreamWatermark
+import services.pullstream.{PullStreamSourceDataProvider, PullStreamStreamingDataProvider, PullStreamingSource}
+import services.pullstream.versioning.PullStreamWatermark
 import tests.shared.*
 
 import com.sneaksanddata.arcane.framework.services.iceberg.interop.MissingFieldException
@@ -25,7 +25,7 @@ import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
-object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
+object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val defaultStreamMode = new StreamModeSettings:
     override val backfill: BackfillSettings = new BackfillSettings:
@@ -43,12 +43,12 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
   private val watermarkField  = "timestampUTC"
 
   /** Per-test settings bound to a freshly generated source/target table name pair. */
-  private def pushStreamSettings(srcTable: String, tgtTable: String): PushStreamSourceSettings =
-    new PushStreamSourceSettings:
+  private def pullStreamSettings(srcTable: String, tgtTable: String): PullStreamSourceSettings =
+    new PullStreamSourceSettings:
       override val sourceTableName: String     = srcTable
       override val targetTableName: String     = tgtTable
       override val primaryKeyFieldName: String = primaryKeyField
-      override val primaryKeyValue: String     = PushStreamStreamingDataProviderTests.primaryKeyValue
+      override val primaryKeyValue: String     = PullStreamStreamingDataProviderTests.primaryKeyValue
       override val watermarkFieldName: String  = watermarkField
       override val region: String              = "us-east-1"
       override val tableName: String           = srcTable
@@ -110,7 +110,7 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
       client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build())
     )
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PushStreamStreamingDataProviderTests")(
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamStreamingDataProviderTests")(
     test("returns correct number of rows while streaming") {
       val numberRowsToTake = 5
       for
@@ -118,10 +118,10 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
         targetTableName     = s"demo.test.$sourceTableName"
         defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
         icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
-        client <- PushStreamTestServices.getClient
+        client <- PullStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
-          PushStreamTestServices.createTable(sourceTableName, client)
-        )(_ => PushStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
+          PullStreamTestServices.createTable(sourceTableName, client)
+        )(_ => PullStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
           for
             // seed source DDB table with more than `numberRowsToTake` rows
             _                 <- insertRows(client, sourceTableName, numberRowsToTake * 2)
@@ -129,14 +129,14 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
             _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(sourceTableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
-              PushStreamingSource(
-                settings = pushStreamSettings(sourceTableName, targetTableName),
+              PullStreamingSource(
+                settings = pullStreamSettings(sourceTableName, targetTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
             )
             provider <- ZIO.succeed(
-              PushStreamSourceDataProvider(
+              PullStreamSourceDataProvider(
                 source,
                 sinkPropertyManager,
                 defaultSinkSettings,
@@ -145,9 +145,9 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
               )
             )
             // seed the sink table watermark so the streaming provider has a starting point
-            _ <- icebergUtil.prepareWatermark(sourceTableName, PushStreamWatermark.epoch, Some(schema))
+            _ <- icebergUtil.prepareWatermark(sourceTableName, PullStreamWatermark.epoch, Some(schema))
             streamingDataProvider <- ZIO.succeed(
-              PushStreamStreamingDataProvider(
+              PullStreamStreamingDataProvider(
                 provider,
                 defaultStreamMode.changeCapture,
                 DeclaredMetrics()
@@ -169,24 +169,24 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
         targetTableName     = s"demo.test.$sourceTableName"
         defaultSinkSettings = TestDynamicSinkSettings(targetTableName)
         icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
-        client <- PushStreamTestServices.getClient
+        client <- PullStreamTestServices.getClient
         result <- ZIO.acquireReleaseWith(
-          PushStreamTestServices.createTable(sourceTableName, client)
-        )(_ => PushStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
+          PullStreamTestServices.createTable(sourceTableName, client)
+        )(_ => PullStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
           for
             _                 <- insertMalformedPayload(client, sourceTableName)
             sinkEntityManager <- icebergUtil.getSinkEntityManager
             _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(sourceTableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
-              PushStreamingSource(
-                settings = pushStreamSettings(sourceTableName, targetTableName),
+              PullStreamingSource(
+                settings = pullStreamSettings(sourceTableName, targetTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager
               )
             )
             provider <- ZIO.succeed(
-              PushStreamSourceDataProvider(
+              PullStreamSourceDataProvider(
                 source,
                 sinkPropertyManager,
                 defaultSinkSettings,
@@ -194,9 +194,9 @@ object PushStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 TestSourceBufferingSettings
               )
             )
-            _ <- icebergUtil.prepareWatermark(sourceTableName, PushStreamWatermark.epoch, Some(schema))
+            _ <- icebergUtil.prepareWatermark(sourceTableName, PullStreamWatermark.epoch, Some(schema))
             streamingDataProvider <- ZIO.succeed(
-              PushStreamStreamingDataProvider(
+              PullStreamStreamingDataProvider(
                 provider,
                 defaultStreamMode.changeCapture,
                 DeclaredMetrics()

@@ -1,41 +1,41 @@
 package com.sneaksanddata.arcane.framework
-package services.pushstream
+package services.pullstream
 
 import models.app.PluginStreamContext
 import models.settings.streaming.ChangeCaptureSettings
 import services.metrics.DeclaredMetrics
-import services.pushstream.versioning.PushStreamWatermark
+import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.{DefaultStreamDataProvider, StreamDataProvider}
 
 import zio.{ZIO, ZLayer}
 
-class PushStreamStreamingDataProvider(
-    dataProvider: PushStreamSourceDataProvider,
+class PullStreamStreamingDataProvider(
+    dataProvider: PullStreamSourceDataProvider,
     settings: ChangeCaptureSettings,
     declaredMetrics: DeclaredMetrics
-) extends DefaultStreamDataProvider[PushStreamWatermark](
+) extends DefaultStreamDataProvider[PullStreamWatermark](
       dataProvider,
       settings,
       declaredMetrics
     )
 
-object PushStreamStreamingDataProvider:
+object PullStreamStreamingDataProvider:
   private type Environment =
-    PushStreamSourceDataProvider & PluginStreamContext & DeclaredMetrics
+    PullStreamSourceDataProvider & PluginStreamContext & DeclaredMetrics
 
   def apply(
-      dataProvider: PushStreamSourceDataProvider,
+      dataProvider: PullStreamSourceDataProvider,
       settings: ChangeCaptureSettings,
       declaredMetrics: DeclaredMetrics
-  ): PushStreamStreamingDataProvider =
-    new PushStreamStreamingDataProvider(dataProvider, settings, declaredMetrics)
+  ): PullStreamStreamingDataProvider =
+    new PullStreamStreamingDataProvider(dataProvider, settings, declaredMetrics)
 
   val layer: ZLayer[Environment, Nothing, StreamDataProvider] = ZLayer {
     for
       context         <- ZIO.service[PluginStreamContext]
-      dataProvider    <- ZIO.service[PushStreamSourceDataProvider]
+      dataProvider    <- ZIO.service[PullStreamSourceDataProvider]
       declaredMetrics <- ZIO.service[DeclaredMetrics]
-    yield PushStreamStreamingDataProvider(
+    yield PullStreamStreamingDataProvider(
       dataProvider,
       context.streamMode.changeCapture,
       declaredMetrics

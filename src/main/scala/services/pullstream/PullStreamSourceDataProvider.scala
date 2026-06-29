@@ -1,31 +1,31 @@
 package com.sneaksanddata.arcane.framework
-package services.pushstream
+package services.pullstream
 
 import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
 import services.iceberg.base.SinkPropertyManager
-import services.pushstream.versioning.PushStreamWatermark
+import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import zio.{Task, ZIO, ZLayer}
 import zio.stream.ZStream
 
-class PushStreamSourceDataProvider(
-    source: PushStreamingSource,
+class PullStreamSourceDataProvider(
+    source: PullStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings
-) extends DefaultSourceDataProvider[PushStreamWatermark](
+) extends DefaultSourceDataProvider[PullStreamWatermark](
       sinkPropertyManager,
       sinkSettings,
       throughputShaperBuilder,
       sourceBufferingSettings
     ):
   override protected def changeStream(
-      previousVersion: PushStreamWatermark
+      previousVersion: PullStreamWatermark
   ): ZStream[Any, Throwable, StructuredZStream] =
     source.getChanges(previousVersion)
 
@@ -36,7 +36,7 @@ class PushStreamSourceDataProvider(
     *   Watermark from the previous change capture iteration
     * @return
     */
-  override def hasChanges(previousVersion: PushStreamWatermark): Task[Boolean] = source.hasRows(previousVersion)
+  override def hasChanges(previousVersion: PullStreamWatermark): Task[Boolean] = source.hasRows(previousVersion)
 
   /** Most recent version of a source dataset, compared. This should return previousVersion in case retrieval of a most
     * recent version failed.
@@ -45,20 +45,20 @@ class PushStreamSourceDataProvider(
     *   Watermark from the previous change capture iteration
     * @return
     */
-  override def getCurrentVersion(previousVersion: PushStreamWatermark): Task[PushStreamWatermark] =
+  override def getCurrentVersion(previousVersion: PullStreamWatermark): Task[PullStreamWatermark] =
     source.getMaxTimestamp
 
-object PushStreamSourceDataProvider:
+object PullStreamSourceDataProvider:
   private type Environment =
-    PushStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
+    PullStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
 
-  val layer: ZLayer[Environment, Nothing, PushStreamSourceDataProvider] = ZLayer {
+  val layer: ZLayer[Environment, Nothing, PullStreamSourceDataProvider] = ZLayer {
     for
       context           <- ZIO.service[PluginStreamContext]
-      source            <- ZIO.service[PushStreamingSource]
+      source            <- ZIO.service[PullStreamingSource]
       propertyManager   <- ZIO.service[SinkPropertyManager]
       throughputBuilder <- ZIO.service[ThroughputShaperBuilder]
-    yield new PushStreamSourceDataProvider(
+    yield new PullStreamSourceDataProvider(
       source,
       propertyManager,
       context.sink,
