@@ -1,9 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources.pushstream
 
-package com.sneaksanddata.arcane.framework
-package models.settings.sources.pushstream
-
 import upickle.ReadWriter
 
 case class DefaultPushStreamSourceSettings(
