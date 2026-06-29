@@ -8,8 +8,8 @@ import sbtrelease.ReleaseStateTransformations.{
 
 val scala383 = "3.8.3"
 
-ThisBuild / organization      := "com.sneaksanddata"
-ThisBuild / scalaVersion      := scala383
+ThisBuild / organization := "com.sneaksanddata"
+ThisBuild / scalaVersion := scala383
 // SemanticDB is built into the Scala 3 compiler; only `semanticdbEnabled` is needed.
 // `semanticdbVersion` applies to Scala 2 (loads the semanticdb-scalac plugin) and is a no-op here.
 ThisBuild / semanticdbEnabled := true
