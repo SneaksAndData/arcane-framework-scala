@@ -68,6 +68,12 @@ class PullStreamingSource(
     this.sinkPropertyManager.getTableSchema(sourceTableName).map(s => (s: MergeableArcaneSchema))
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark, limit: Int = 100): QueryRequest =
+    // Query already returns paged results, a page is max 1 MB and returns a LastEvaluatedKey to continue.
+    // Currently:
+    // - LastEvaluatedKey is ignored everything beyond 100 items or 1MB dropped.
+    // - the limit is applied per page, it would be correct-er if a sensible page limit is applied in the query
+    // - timestamp should be normalized to UTC Instant, so the ordering is lexicographically correct
+    // - consistentRead(true) might be needed
     val exprNames = Map(
       "#pk" -> primaryKeyFieldName,
       "#wm" -> watermarkFieldName
