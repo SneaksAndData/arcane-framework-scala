@@ -12,7 +12,8 @@ import models.schemas.{
   IndexedArcaneSchemaField,
   IndexedField,
   IndexedMergeKeyField,
-  MergeKeyField
+  MergeKeyField,
+  MergeableArcaneSchema
 }
 
 import org.apache.iceberg.Schema
@@ -205,3 +206,23 @@ given Conversion[Schema, ArcaneSchema] with
           IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
         )
       )
+
+/** Strict variant of [[Conversion[Schema, ArcaneSchema]]] that yields a [[MergeableArcaneSchema]]:
+  *
+  *   - if the iceberg schema contains a column whose name matches [[MergeKeyField.name]] (case-insensitive), that
+  *     column is re-tagged as an [[IndexedMergeKeyField]] (the plain conversion drops the tag in this case);
+  *   - otherwise an [[IndexedMergeKeyField]] is appended, mirroring the plain conversion.
+  *
+  * Consumers that perform merges (e.g. `PullStreamingSource`, MergeProcessor) should depend on this conversion so
+  * that `schema.mergeKey` is safe-by-construction.
+  */
+given Conversion[Schema, MergeableArcaneSchema] with
+  override def apply(icebergSchema: Schema): MergeableArcaneSchema =
+    val tagged = icebergSchema.columns().asScala.map { nf =>
+      if nf.name().equalsIgnoreCase(MergeKeyField.name) then IndexedMergeKeyField(fieldId = nf.fieldId())
+      else IndexedField(name = nf.name(), fieldType = nf.`type`(), fieldId = nf.fieldId())
+    }.toSeq
+    val withKey =
+      if tagged.exists(_.isInstanceOf[IndexedMergeKeyField]) then tagged
+      else tagged :+ IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
+    MergeableArcaneSchema(withKey)
