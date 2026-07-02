@@ -98,6 +98,34 @@ object PullStreamTestServices:
     )
   } yield response
 
+  /** Inserts `count` items with monotonically increasing UTC watermarks starting at `startAt`.
+    * Each item's payload contains a single row so `count` PutItems produce `count` DataRows.
+    */
+  def insertManyData(
+      client: DynamoDbClient,
+      tableName: String,
+      primaryKeyField: String,
+      primaryKeyValue: String,
+      watermarkField: String,
+      count: Int,
+      startAt: OffsetDateTime
+  ): Task[Unit] =
+    ZIO.foreachDiscard(0 until count) { i =>
+      val ts = startAt.plusSeconds(i.toLong)
+      val item = Map(
+        primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
+        watermarkField  -> AttributeValue.builder().s(ts.toString).build(),
+        "payload" -> AttributeValue
+          .builder()
+          .s(s"""[{"userId":"user-$i", "level": "user"}]""")
+          .build(),
+        "schemaId" -> AttributeValue.builder().n("1").build()
+      ).asJava
+      ZIO.attemptBlocking(
+        client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build())
+      ).unit
+    }
+
 object PullStreamSourceTest extends ZIOSpecDefault:
 
   private val primaryKeyField = "producer"
@@ -203,6 +231,64 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             && assertTrue(rows.length == 2)
             // row shape matches the schema (same field names, in order)
             && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
+        }
+      } yield result
+    },
+    test("PaginatesLargeChangeSet") {
+      // Insert more items than the configured page size and verify that getChanges follows
+      // LastEvaluatedKey across pages and emits every DataRow exactly once, in watermark order.
+      val totalItems = 25
+      val pageSize   = 7 // forces at least 4 pages: 7 + 7 + 7 + 4
+      for {
+        tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(v => s"wh.ns.${v.head}")
+        icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
+        client <- PullStreamTestServices.getClient
+        result <- ZIO.acquireReleaseWith(
+          PullStreamTestServices.createTable(tableName, client)
+        )(_ => PullStreamTestServices.deleteTable(client, tableName).orDie) { _ =>
+          for {
+            sinkEntityManager <- icebergUtil.getSinkEntityManager
+            _ <- sinkEntityManager.createTable(
+              IcebergCreateTableRequest(tableName, schema, true)
+            )
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            pullStreamSource <- ZIO.succeed(
+              PullStreamingSource(
+                settings = testSettings(
+                  sourceTableName = tableName,
+                  targetTableName = tableName
+                ),
+                dynamodbClient = client,
+                sinkPropertyManager = sinkPropertyManager,
+                pageSize = pageSize
+              )
+            )
+            // Insert items with watermarks strictly greater than the query cutoff below.
+            insertStart = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
+            _ <- PullStreamTestServices.insertManyData(
+              client,
+              tableName,
+              primaryKeyField,
+              primaryKeyValue,
+              watermarkField,
+              count = totalItems,
+              startAt = insertStart
+            )
+            changes <- pullStreamSource
+              .getChanges(
+                PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
+              )
+              .runCollect
+            (rowStream, _) = changes.head
+            rows <- rowStream.runCollect
+            userIds = rows.map(_.find(_.name == "userId").flatMap(f => Option(f.value)).map(_.toString).getOrElse(""))
+          } yield
+          // outer stream still emits a single (rows, schema) pair regardless of underlying pages
+          assertTrue(changes.length == 1)
+            // every inserted item surfaces as exactly one row (one row per payload)
+            && assertTrue(rows.length == totalItems)
+            // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
+            && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
         }
       } yield result
     }

@@ -5,6 +5,7 @@ import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
+import logging.ZIOLogAnnotations.zlog
 import services.base.{SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
@@ -19,8 +20,8 @@ import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequ
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.time.{OffsetDateTime, ZoneOffset}
 import scala.jdk.CollectionConverters.*
 
 /** This a source that poll output of an Arcane Push Stream Application
@@ -41,7 +42,8 @@ import scala.jdk.CollectionConverters.*
 class PullStreamingSource(
     settings: PullStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
-    sinkPropertyManager: SinkPropertyManager
+    sinkPropertyManager: SinkPropertyManager,
+    pageSize: Int = PullStreamingSource.defaultPageSize
 ) extends StreamingSource:
 
   import settings.{primaryKeyFieldName, primaryKeyValue, sourceTableName, targetTableName, watermarkFieldName}
@@ -67,13 +69,7 @@ class PullStreamingSource(
   override def getSchema: Task[ArcaneSchema] =
     this.sinkPropertyManager.getTableSchema(sourceTableName).map(s => (s: MergeableArcaneSchema))
 
-  private def buildQueryGetChanges(latestVersion: PullStreamWatermark, limit: Int = 100): QueryRequest =
-    // Query already returns paged results, a page is max 1 MB and returns a LastEvaluatedKey to continue.
-    // Currently:
-    // - LastEvaluatedKey is ignored everything beyond 100 items or 1MB dropped.
-    // - the limit is applied per page, it would be correct-er if a sensible page limit is applied in the query
-    // - timestamp should be normalized to UTC Instant, so the ordering is lexicographically correct
-    // - consistentRead(true) might be needed
+  private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
       "#pk" -> primaryKeyFieldName,
       "#wm" -> watermarkFieldName
@@ -81,7 +77,7 @@ class PullStreamingSource(
 
     val exprVals = Map(
       ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
-      ":t"  -> AttributeValue.builder().s(latestVersion.timestamp.toString).build()
+      ":t"  -> AttributeValue.builder().s(PullStreamingSource.normalizeWatermark(latestVersion.timestamp)).build()
     ).asJava
     QueryRequest
       .builder()
@@ -89,7 +85,7 @@ class PullStreamingSource(
       .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
-      .limit(limit)
+      .limit(pageSize)
       .build()
 
   private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
@@ -100,7 +96,7 @@ class PullStreamingSource(
 
     val exprVals = Map(
       ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
-      ":t"  -> AttributeValue.builder().s(latestVersion.timestamp.toString).build()
+      ":t"  -> AttributeValue.builder().s(PullStreamingSource.normalizeWatermark(latestVersion.timestamp)).build()
     ).asJava
     QueryRequest
       .builder()
@@ -133,7 +129,61 @@ class PullStreamingSource(
       .build()
 
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
-    ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
+    for
+      response <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
+      hasMore = Option(response.lastEvaluatedKey()).exists(k => k != null && !k.isEmpty)
+      itemCount = Option(response.items()).map(_.size()).getOrElse(0)
+      _ <-
+        if hasMore then
+          zlog(
+            "DynamoDB query on table '%s' returned a truncated response (%s items in this page, additional pages available but not fetched by this call)",
+            sourceTableName,
+            itemCount.toString
+          )
+        else
+          zlog(
+            "DynamoDB query on table '%s' returned a complete response (%s items, no further pages)",
+            sourceTableName,
+            itemCount.toString
+          )
+    yield response
+
+  /** Executes the given query and transparently follows `LastEvaluatedKey`, returning one
+    * `QueryResponse` per page. The stream terminates when DynamoDB returns no continuation key.
+    * Emits an info log for each page indicating the page index, item count and whether more
+    * pages will follow.
+    */
+  private def paginatedQuery(request: QueryRequest): ZStream[Any, Throwable, QueryResponse] =
+    // State: (pageIndex, itemsSoFar, Option[startKey]). pageIndex starts at 1 for the first response.
+    ZStream.paginateZIO((1, 0L, Option.empty[java.util.Map[String, AttributeValue]])) {
+      case (pageIndex, itemsSoFar, startKey) =>
+        val pagedRequest = startKey.fold(request)(k => request.toBuilder.exclusiveStartKey(k).build())
+        for
+          response <- ZIO.attemptBlocking(dynamodbClient.query(pagedRequest))
+          pageItemCount = Option(response.items()).map(_.size()).getOrElse(0)
+          totalItems    = itemsSoFar + pageItemCount
+          nextKey = Option(response.lastEvaluatedKey())
+            .filter(k => k != null && !k.isEmpty)
+          hasMore = nextKey.isDefined
+          _ <-
+            if pageIndex == 1 && !hasMore then
+              zlog(
+                "DynamoDB paginated query on table '%s' completed in a single page (%s items, no pagination needed)",
+                sourceTableName,
+                pageItemCount.toString
+              )
+            else
+              zlog(
+                "DynamoDB paginated query on table '%s' page %s returned %s items (total so far: %s, more pages: %s)",
+                sourceTableName,
+                pageIndex.toString,
+                pageItemCount.toString,
+                totalItems.toString,
+                hasMore.toString
+              )
+          next = nextKey.map(k => (pageIndex + 1, totalItems, Some(k)))
+        yield response -> next
+    }
 
   private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] =
     this.sinkPropertyManager
@@ -165,13 +215,12 @@ class PullStreamingSource(
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
-    .fromZIO(runDynamoQuery(buildQueryGetChanges(previousVersion)))
-    .mapZIO { response =>
-      // TODO: add paginated response (and chunking)
-      getSchemaInfo.map { case (avroSchema, icebergSchema) =>
-        (responseStream(response, avroSchema), icebergSchema)
-      }
+  def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] =
+    ZStream.fromZIO(getSchemaInfo).map { case (avroSchema, icebergSchema) =>
+      val rowStream: ZStream[Any, Throwable, DataRow] =
+        paginatedQuery(buildQueryGetChanges(previousVersion))
+          .flatMap(response => responseStream(response, avroSchema))
+      (rowStream, icebergSchema)
     }
 
   /** Returns true if the queue has new rows.
@@ -195,6 +244,20 @@ class PullStreamingSource(
 
 object PullStreamingSource:
 
+  /** Default page size passed as `Limit` to each DynamoDB `Query` request. DynamoDB caps the
+    * response payload at 1 MB per page anyway, so this is a soft upper bound on items evaluated
+    * per network call, not a total-result cap.
+    */
+  val defaultPageSize: Int = 1000
+
+  /** Normalizes a watermark timestamp to a lexicographically comparable ISO-8601 string in UTC.
+    * The DynamoDB sort key is a string, so mixed offsets (`+02:00` vs `+00:00`) would order
+    * incorrectly under `wm > :t`. Producers are expected to write UTC (`Z`) values; this ensures
+    * the *reader* side does the same when constructing the key condition.
+    */
+  def normalizeWatermark(timestamp: OffsetDateTime): String =
+    timestamp.withOffsetSameInstant(ZoneOffset.UTC).toString
+
   type Environment               = PluginStreamContext & DynamoDbClient & SinkPropertyManager
   private type SettingsExtractor = PluginStreamContext => PullStreamSourceSettings
 
@@ -204,6 +267,14 @@ object PullStreamingSource:
       sinkPropertyManager: SinkPropertyManager
   ): PullStreamingSource =
     new PullStreamingSource(settings, dynamodbClient, sinkPropertyManager)
+
+  def apply(
+      settings: PullStreamSourceSettings,
+      dynamodbClient: DynamoDbClient,
+      sinkPropertyManager: SinkPropertyManager,
+      pageSize: Int
+  ): PullStreamingSource =
+    new PullStreamingSource(settings, dynamodbClient, sinkPropertyManager, pageSize)
 
   def getLayer(
       extractor: SettingsExtractor
