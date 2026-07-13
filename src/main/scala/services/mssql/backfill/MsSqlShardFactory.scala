@@ -6,6 +6,7 @@ import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, 
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
+import com.sneaksanddata.arcane.framework.models.batches.SqlServerChangeTrackingMergeQuery
 import zio.{Task, ZIO, ZLayer}
 
 /** Backfill shard factory for Sql Server source
@@ -14,12 +15,20 @@ class MsSqlShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
   /** Staged shard provisioner. Commit query targets combine table.
     */
   override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] =
-    for shardTableName <- nameGenerator.getShardTableName(shard)
+    for 
+      shardTableName <- nameGenerator.getShardTableName(shard)
     yield DefaultStagedShard(
       shardSourceEntityName = shard.shardSourceEntityName,
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = MsSqlShardStageQuery(shardTableName, shard.combinedTableName),
+      resetQuery = SqlServerChangeTrackingMergeQuery(
+        targetName = shard.combinedTableName,
+        sourceQuery = s"SELECT * FROM $shardTableName",
+        partitionFields = Seq(),
+        mergeKey = shard.shardStream._2.mergeKey.name,
+        columns = shard.shardStream._2.map(f => f.name)
+      ),
       backfillId = shard.backfillId
     )
 

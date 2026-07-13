@@ -12,7 +12,10 @@ case class CompletionShard(
     override val combinedTableName: String,
     override val commitQuery: StreamingBatchQuery,
     override val backfillId: String
-) extends StagedShard
+) extends StagedShard:
+  override val resetQuery: StreamingBatchQuery = new StreamingBatchQuery {
+    override def query: String = ""
+  }
 
 object CompletionShard:
   extension (shard: CompletionShard)

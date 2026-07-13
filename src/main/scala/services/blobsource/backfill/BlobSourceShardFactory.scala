@@ -6,6 +6,7 @@ import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, 
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
+import com.sneaksanddata.arcane.framework.models.batches.UpsertBlobMergeQuery
 import zio.{Task, ZIO, ZLayer}
 
 class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
@@ -18,6 +19,13 @@ class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = BlobShardStageQuery(shardTableName, shard.combinedTableName),
+      resetQuery = UpsertBlobMergeQuery(
+        targetName = shard.combinedTableName,
+        sourceQuery = s"SELECT * FROM $shardTableName",
+        partitionFields = Seq(),
+        mergeKey = shard.shardStream._2.mergeKey.name,
+        columns = shard.shardStream._2.map(f => f.name)
+      ),
       backfillId = shard.backfillId
     )
 

@@ -6,6 +6,7 @@ import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, 
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
+import com.sneaksanddata.arcane.framework.models.batches.SynapseLinkMergeQuery
 import zio.{Task, ULayer, ZIO, ZLayer}
 
 /** Backfill shard factory for SynapseLink
@@ -18,6 +19,13 @@ final class SynapseShardFactory(nameGenerator: NameGenerator) extends ShardFacto
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = SynapseLinkShardStageQuery(shardTableName, shard.combinedTableName),
+      resetQuery = SynapseLinkMergeQuery(
+        targetName = shard.combinedTableName,
+        sourceQuery = s"SELECT * FROM $shardTableName",
+        partitionFields = Seq(),
+        mergeKey = shard.shardStream._2.mergeKey.name,
+        columns = shard.shardStream._2.map(f => f.name)
+      ),
       backfillId = shard.backfillId
     )
 

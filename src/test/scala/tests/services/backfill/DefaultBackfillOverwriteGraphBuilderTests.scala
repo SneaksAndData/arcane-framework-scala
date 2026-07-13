@@ -1,16 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
-import models.queries.StreamingBatchQuery
+import models.queries.{MergeQueryCommons, StreamingBatchQuery}
 import models.schemas.ArcaneType.{IntType, StringType}
-import models.schemas.{
-  ArcaneSchema,
-  DataCell,
-  IndexedField,
-  IndexedMergeKeyField,
-  MergeKeyField,
-  given_CanAdd_ArcaneSchema
-}
+import models.schemas.{ArcaneSchema, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
@@ -19,11 +12,7 @@ import models.sharding.*
 import services.backfill.base.{BackfillSourceDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
-import services.backfill.{
-  DefaultBackfillSourceDataProvider,
-  DefaultBackfillStateManager,
-  DefaultShardedBackfillStreamDataProvider
-}
+import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager, DefaultShardedBackfillStreamDataProvider}
 import services.base.StreamingSource
 import services.filters.FieldsFilteringService
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
@@ -107,6 +96,16 @@ final class TestShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
         shard.targetTableName,
         new StreamingBatchQuery {
           override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM $shardTableName"
+        },
+        new StreamingBatchQuery {
+          override def query: String =
+            s"""MERGE INTO ${shard.combinedTableName} ${MergeQueryCommons.TARGET_ALIAS}
+               |USING (SELECT * FROM $shardTableName) ${MergeQueryCommons.SOURCE_ALIAS}
+               |ON ${MergeQueryCommons.TARGET_ALIAS}.${MergeKeyField.name} == ${MergeQueryCommons.SOURCE_ALIAS}.${MergeKeyField.name}
+               |WHEN MATCHED THEN UPDATE SET
+               |colA = ${MergeQueryCommons.SOURCE_ALIAS}.colA
+               |colB = ${MergeQueryCommons.SOURCE_ALIAS}.colB
+               |WHEN NOT MATCHED THEN INSERT (${MergeKeyField.name}, colA, colB) VALUES (${MergeQueryCommons.SOURCE_ALIAS}.${MergeKeyField.name}, ${MergeQueryCommons.SOURCE_ALIAS}.colA, ${MergeQueryCommons.SOURCE_ALIAS}.colB)""".stripMargin
         },
         shard.backfillId
       )
