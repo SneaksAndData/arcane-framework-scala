@@ -3,19 +3,13 @@ package services.merging
 
 import logging.ZIOLogAnnotations.*
 import models.app.PluginStreamContext
-import models.maintenance.{
-  JdbcAnalyzeRequest,
-  JdbcOptimizationRequest,
-  JdbcOrphanFilesExpirationRequest,
-  JdbcSnapshotExpirationRequest
-}
+import models.batches.StagedBatch
 import models.settings.staging.{AlwaysImpl, BackfillOnlyImpl, JdbcMergeServiceClientSettings, NeverImpl}
+import models.sharding.StagedShard
 import services.base.*
 import services.metrics.DeclaredMetrics
 import services.metrics.DeclaredMetrics.*
 
-import com.sneaksanddata.arcane.framework.models.batches.StagedBatch
-import com.sneaksanddata.arcane.framework.models.sharding.StagedShard
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.io.IOException
@@ -72,6 +66,9 @@ class JdbcMergeServiceClient(
   override def commitShard(shard: StagedShard): Task[ShardCommitResult] =
     executeBatchQuery(shard.commitQuery.query, shard.shardId, "Committing", _ => true)
       .gaugeDuration(declaredMetrics.shardCommitDuration)
+
+  override def mergeShard(shard: StagedShard): Task[ShardResetResult] =
+    executeBatchQuery(shard.mergeQuery.query, shard.shardId, "Merging", _ => true)
 
   /** @inheritdoc
     */

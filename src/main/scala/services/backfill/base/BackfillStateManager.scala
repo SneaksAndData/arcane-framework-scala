@@ -13,6 +13,8 @@ enum ShardProcessingState:
   case
     // shard data has been downloaded to the staging warehouse
     STAGED,
+    // transaction to add shard to the combined table has been opened
+    COMBINING,
     // shard data has been inserted into the combined staging table
     COMBINED
 
@@ -35,10 +37,14 @@ trait BackfillStateManager:
     */
   def readState: Task[Option[StateImpl]]
 
-  /** Prepares shard for staging by creating a table for its data
+  /** Prepares a shard for staging by creating a table for its data
     * @return
     */
   def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit]
+
+  /** Prepares a shard for combine by opening a combine "transaction"
+    */
+  def prepareShardCombine(shard: StagedShard): Task[Unit]
 
   /** Marks a staged shard table as COMBINED
     */
@@ -55,3 +61,7 @@ trait BackfillStateManager:
   /** Check if a provided staged shard has been successfully added to the combined table
     */
   def isCombined(shard: StagedShard): Task[Option[CompletionShard]]
+
+  /** Check if there is an open combined transaction for this staged shard.
+    */
+  def isCombining(shard: StagedShard): Task[Boolean]

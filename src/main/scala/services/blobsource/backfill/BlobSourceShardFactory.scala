@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.backfill
 
+import models.batches.UpsertBlobMergeQuery
 import models.queries.backfill.blob.{BlobShardCommitQuery, BlobShardStageQuery}
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
@@ -18,6 +19,13 @@ class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = BlobShardStageQuery(shardTableName, shard.combinedTableName),
+      mergeQuery = UpsertBlobMergeQuery(
+        targetName = shard.combinedTableName,
+        sourceQuery = s"SELECT * FROM $shardTableName",
+        partitionFields = Seq(),
+        mergeKey = shard.shardStream._2.mergeKey.name,
+        columns = shard.shardStream._2.map(f => f.name)
+      ),
       backfillId = shard.backfillId
     )
 

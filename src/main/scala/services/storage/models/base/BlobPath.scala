@@ -3,7 +3,7 @@ package services.storage.models.base
 
 /** A trait that represents a path to a blob.
   */
-trait BlobPath {
+trait BlobPath:
 
   /** Converts the path to a HDFS-style path.
     *
@@ -13,4 +13,3 @@ trait BlobPath {
   def toHdfsPath: String
 
   def protocol: String
-}
