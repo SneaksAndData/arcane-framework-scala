@@ -18,6 +18,7 @@ jobs:
       id-token: write      # required for dependabot PRs
       pull-requests: write # required for dependabot PRs
       contents: read       # required for dependabot PRs
+      code-quality: write
 
       checks: write       # required for cobertura-action
     steps:
@@ -48,7 +49,8 @@ jobs:
       - name: Validate formatting
         shell: bash
         run: sbt scalafmtCheckAll
-      - uses: 5monkeys/cobertura-action@v14
+      - uses: actions/upload-code-coverage@v1
         with:
-          path: ./target/scala-3.8.3/coverage-report/cobertura.xml
-          minimum_coverage: 40
+          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          language: Java
+          label: code-coverage/jacoco
