@@ -21,7 +21,7 @@ final case class S3StoragePath(bucket: String, objectKey: String) extends BlobPa
     * @return
     *   The path as a string.
     */
-  override def toHdfsPath = s"s3a://$bucket/$objectKey"
+  override def toHdfsPath = s"${S3StoragePath.protocolName}://$bucket/$objectKey"
 
   /** Joins the given key name to the current path.
     *
@@ -34,12 +34,13 @@ final case class S3StoragePath(bucket: String, objectKey: String) extends BlobPa
   def +(keyName: String): S3StoragePath =
     copy(objectKey = if (objectKey.isEmpty) keyName else s"$objectKey/$keyName")
 
-  override def protocol: String = "s3a"
+  override def protocol: String = S3StoragePath.protocolName
 
 /** Companion object for [[S3StoragePath]].
   */
-object S3StoragePath {
-  private val matchRegex: String = "s3a://([^/]+)/?(.*)"
+object S3StoragePath:
+  private val protocolName = "s3a"
+  private val matchRegex: String = s"$protocolName://([^/]+)/?(.*)"
 
   /** Creates an [[S3StoragePath]] from the given HDFS path.
     *
@@ -55,4 +56,4 @@ object S3StoragePath {
         IllegalArgumentException(s"An AmazonS3StoragePath must be in the format s3a://bucket/path, but was: $hdfsPath")
       )
   }
-}
+  def applySafe(hdfsPath: String): Try[S3StoragePath] = if hdfsPath.startsWith(protocolName) then apply(hdfsPath) else apply(s"$protocolName://$hdfsPath")
