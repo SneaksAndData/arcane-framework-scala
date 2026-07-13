@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.backfill
 
+import models.batches.UpsertBlobMergeQuery
 import models.queries.backfill.blob.{BlobShardCommitQuery, BlobShardStageQuery}
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.models.batches.UpsertBlobMergeQuery
 import zio.{Task, ZIO, ZLayer}
 
 class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:

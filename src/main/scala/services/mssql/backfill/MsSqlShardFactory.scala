@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.backfill
 
+import models.batches.SqlServerChangeTrackingMergeQuery
 import models.queries.backfill.mssql.{MsSqlShardCommitQuery, MsSqlShardStageQuery}
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.models.batches.SqlServerChangeTrackingMergeQuery
 import zio.{Task, ZIO, ZLayer}
 
 /** Backfill shard factory for Sql Server source

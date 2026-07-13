@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.synapse.backfill
 
+import models.batches.SynapseLinkMergeQuery
 import models.queries.backfill.synapse.{SynapseLinkShardCommitQuery, SynapseLinkShardStageQuery}
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
 import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.models.batches.SynapseLinkMergeQuery
-import zio.{Task, ULayer, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 /** Backfill shard factory for SynapseLink
   */

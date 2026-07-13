@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.base
 
 import models.batches.StagedBatch
+import models.sharding.StagedShard
 
-import com.sneaksanddata.arcane.framework.models.sharding.StagedShard
 import zio.Task
 
 /** The result of applying a batch.

@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
+import logging.ZIOLogAnnotations.zlog
 import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
@@ -11,7 +12,6 @@ import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.metrics.DeclaredMetrics
 import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultBackfillStateManager(
