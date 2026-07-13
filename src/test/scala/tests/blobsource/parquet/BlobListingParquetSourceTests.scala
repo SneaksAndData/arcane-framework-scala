@@ -19,9 +19,11 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobListingParquetSource")(
     test("getSchema returns correct schema with or without name mapping") {
       for
-        path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        sourceMapped <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), true, None))
+        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        sourceMapped <- ZIO.succeed(
+          BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), true, None)
+        )
         schema       <- source.getSchema
         mappedSchema <- sourceMapped.getSchema
       yield assertTrue(schema.size == 11 + 2) && assertTrue(

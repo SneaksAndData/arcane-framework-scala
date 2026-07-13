@@ -55,9 +55,9 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("stream changes correctly") {
       for
-        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source          <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(

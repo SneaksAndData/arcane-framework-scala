@@ -15,11 +15,11 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 class BlobSourceDataProvider(
-                              sourceReader: BlobStreamingSource,
-                              sinkPropertyManager: SinkPropertyManager,
-                              sinkSettings: SinkSettings,
-                              throughputShaperBuilder: ThroughputShaperBuilder,
-                              sourceBufferingSettings: SourceBufferingSettings
+    sourceReader: BlobStreamingSource,
+    sinkPropertyManager: SinkPropertyManager,
+    sinkSettings: SinkSettings,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
       sinkPropertyManager,
       sinkSettings,

@@ -17,13 +17,13 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 class BlobBackfillSourceDataProvider(
-                                      dataProvider: BlobStreamingSource,
-                                      backfillSettings: BackfillSettings,
-                                      stateManager: DefaultBackfillStateManager,
-                                      throughputShaperBuilder: ThroughputShaperBuilder,
-                                      sourceBufferingSettings: SourceBufferingSettings,
-                                      nameGenerator: NameGenerator,
-                                      backfillId: String
+    dataProvider: BlobStreamingSource,
+    backfillSettings: BackfillSettings,
+    stateManager: DefaultBackfillStateManager,
+    throughputShaperBuilder: ThroughputShaperBuilder,
+    sourceBufferingSettings: SourceBufferingSettings,
+    nameGenerator: NameGenerator,
+    backfillId: String
 ) extends DefaultBackfillSourceDataProvider[BlobSourceWatermark](
       dataProvider,
       backfillSettings,
@@ -41,7 +41,7 @@ class BlobBackfillSourceDataProvider(
         startTime.getOrElse(OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)).toInstant.toEpochMilli / 1000
       )
     )
-    
+
   /** Implements data streaming logic for public `requestBackfill`
     *
     * @return
@@ -55,19 +55,20 @@ class BlobBackfillSourceDataProvider(
       case Some(sources) => ZStream.fromIterable(sources).mapZIO(dataProvider.unpackShard)
       case None          => dataProvider.getShards(backfillStart, backfillEnd)
     )
-      .mapZIO { sourceFiles => for
-        blobs <- ZStream.fromIterable(sourceFiles).mapZIO(dataProvider.fileToBlob).runCollect
-        shardStream <- dataProvider.filesToStream(blobs)
-        backfillTableName <- nameGenerator.getBackfillTableName
-        targetName        <- nameGenerator.getTargetTableFullName
-        shardSourceName <- dataProvider.packShard(sourceFiles)
-       yield DefaultBootstrappedShard(
-                      shardStream = shardStream,
-                      shardSourceEntityName = shardSourceName,
-                      combinedTableName = backfillTableName,
-                      targetTableName = targetName,
-                      backfillId = backfillId
-                    )
+      .mapZIO { sourceFiles =>
+        for
+          blobs             <- ZStream.fromIterable(sourceFiles).mapZIO(dataProvider.fileToBlob).runCollect
+          shardStream       <- dataProvider.filesToStream(blobs)
+          backfillTableName <- nameGenerator.getBackfillTableName
+          targetName        <- nameGenerator.getTargetTableFullName
+          shardSourceName   <- dataProvider.packShard(sourceFiles)
+        yield DefaultBootstrappedShard(
+          shardStream = shardStream,
+          shardSourceEntityName = shardSourceName,
+          combinedTableName = backfillTableName,
+          targetTableName = targetName,
+          backfillId = backfillId
+        )
       }
 
   /** Most recent version of the dataset at a time when a backfill was initiated.
