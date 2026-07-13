@@ -81,8 +81,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                   .flatMap { isCombining =>
                     if isCombining then
                       ZStream
-                        .succeed(staged)
-                        .mapZIO { staged =>
+                        .fromZIO{ 
                           for
                             _ <- zlog(
                               "Shard %s data has been partially added to the combined backfill table, will merge the rest",
@@ -97,8 +96,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                         }
                     else
                       ZStream
-                        .succeed(staged)
-                        .mapZIO { staged =>
+                        .fromZIO {
                           for
                             _ <- stateManager.prepareShardCombine(staged)
                             _ <- mergeServiceClient.commitShard(staged)
