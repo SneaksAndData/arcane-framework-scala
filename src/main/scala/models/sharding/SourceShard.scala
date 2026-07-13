@@ -26,6 +26,6 @@ case class CompletedShard(
   override val commitQuery: StreamingBatchQuery = new StreamingBatchQuery {
     override def query: String = ""
   }
-  override val resetQuery: StreamingBatchQuery = new StreamingBatchQuery {
+  override val mergeQuery: StreamingBatchQuery = new StreamingBatchQuery {
     override def query: String = ""
   }

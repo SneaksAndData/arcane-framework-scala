@@ -13,7 +13,7 @@ case class CompletionShard(
     override val commitQuery: StreamingBatchQuery,
     override val backfillId: String
 ) extends StagedShard:
-  override val resetQuery: StreamingBatchQuery = new StreamingBatchQuery {
+  override val mergeQuery: StreamingBatchQuery = new StreamingBatchQuery {
     override def query: String = ""
   }
 

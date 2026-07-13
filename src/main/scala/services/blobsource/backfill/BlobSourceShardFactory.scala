@@ -19,7 +19,7 @@ class BlobSourceShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = BlobShardStageQuery(shardTableName, shard.combinedTableName),
-      resetQuery = UpsertBlobMergeQuery(
+      mergeQuery = UpsertBlobMergeQuery(
         targetName = shard.combinedTableName,
         sourceQuery = s"SELECT * FROM $shardTableName",
         partitionFields = Seq(),

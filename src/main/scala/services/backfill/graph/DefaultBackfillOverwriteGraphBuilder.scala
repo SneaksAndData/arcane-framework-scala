@@ -79,31 +79,34 @@ class DefaultBackfillOverwriteGraphBuilder(
                 .flatMap { isCombining =>
                   if isCombining then
                     ZStream.succeed(staged)
-                      .mapZIO { staged => 
+                      .mapZIO { staged =>
                         for
-                          _ <- mergeServiceClient.resetShard(staged)
-                        yield staged  
+                          _ <- zlog(
+                            "Shard %s data has been partially added to the combined backfill table, will merge the rest",
+                            staged.shardId
+                          )
+                          _ <- mergeServiceClient.mergeShard(staged)
+                          _ <- zlog(
+                            "Shard %s data has been successfully merged with previously added data in the combined backfill table",
+                            staged.shardId
+                          )
+                        yield staged
                       }
                   else
                     ZStream
                     .succeed(staged)
-                      .mapZIO { staged => 
+                      .mapZIO { staged =>
                         for
                           _ <- stateManager.prepareShardCombine(staged)
-                        yield staged  
+                          _ <- mergeServiceClient.commitShard(staged)
+                          _ <- zlog(
+                            "Shard %s data has been successfully added to the combined backfill table",
+                            staged.shardId
+                          )
+                        yield staged
                       }
                 }
-                .mapZIO { staged =>
-                  for
-                    _ <- stateManager.prepareShardCombine(staged)
-                    _ <- mergeServiceClient.commitShard(staged)
-                    _ <- zlog(
-                      "Shard %s data has been successfully committed to the combined backfill table",
-                      staged.shardId
-                    )
-                    completionShard <- shardFactory.createCompletionShard(staged, watermark.toJson)
-                  yield completionShard
-                }
+                .mapZIO {staged => shardFactory.createCompletionShard(staged, watermark.toJson)}
                 .tap(stateManager.commitCombinedShard)
             }
         )

@@ -19,7 +19,7 @@ final class SynapseShardFactory(nameGenerator: NameGenerator) extends ShardFacto
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = SynapseLinkShardStageQuery(shardTableName, shard.combinedTableName),
-      resetQuery = SynapseLinkMergeQuery(
+      mergeQuery = SynapseLinkMergeQuery(
         targetName = shard.combinedTableName,
         sourceQuery = s"SELECT * FROM $shardTableName",
         partitionFields = Seq(),

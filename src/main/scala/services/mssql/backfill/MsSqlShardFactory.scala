@@ -22,7 +22,7 @@ class MsSqlShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = MsSqlShardStageQuery(shardTableName, shard.combinedTableName),
-      resetQuery = SqlServerChangeTrackingMergeQuery(
+      mergeQuery = SqlServerChangeTrackingMergeQuery(
         targetName = shard.combinedTableName,
         sourceQuery = s"SELECT * FROM $shardTableName",
         partitionFields = Seq(),

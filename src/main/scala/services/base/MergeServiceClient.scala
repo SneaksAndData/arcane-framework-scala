@@ -36,4 +36,4 @@ trait MergeServiceClient:
     */
   def commitShard(shard: StagedShard): Task[ShardCommitResult]
   
-  def resetShard(shard: StagedShard): Task[ShardResetResult]
+  def mergeShard(shard: StagedShard): Task[ShardResetResult]
