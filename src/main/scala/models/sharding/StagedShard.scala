@@ -10,10 +10,10 @@ trait StagedShard extends SourceShard:
   val mergeQuery: StreamingBatchQuery
 
 case class DefaultStagedShard(
-                               override val shardSourceEntityName: String,
-                               override val combinedTableName: String,
-                               override val targetTableName: String,
-                               override val commitQuery: StreamingBatchQuery,
-                               override val mergeQuery: StreamingBatchQuery,
-                               override val backfillId: String
+    override val shardSourceEntityName: String,
+    override val combinedTableName: String,
+    override val targetTableName: String,
+    override val commitQuery: StreamingBatchQuery,
+    override val mergeQuery: StreamingBatchQuery,
+    override val backfillId: String
 ) extends StagedShard

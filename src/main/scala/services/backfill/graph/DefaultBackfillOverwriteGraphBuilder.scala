@@ -75,39 +75,42 @@ class DefaultBackfillOverwriteGraphBuilder(
                   "Shard %s has been added to the combined backfill table already, skipping",
                   completion.shardId
                 ) *> ZStream.succeed(completion)
-              case None => ZStream.fromZIO(stateManager.isCombining(staged))
-                .flatMap { isCombining =>
-                  if isCombining then
-                    ZStream.succeed(staged)
-                      .mapZIO { staged =>
-                        for
-                          _ <- zlog(
-                            "Shard %s data has been partially added to the combined backfill table, will merge the rest",
-                            staged.shardId
-                          )
-                          _ <- mergeServiceClient.mergeShard(staged)
-                          _ <- zlog(
-                            "Shard %s data has been successfully merged with previously added data in the combined backfill table",
-                            staged.shardId
-                          )
-                        yield staged
-                      }
-                  else
-                    ZStream
-                    .succeed(staged)
-                      .mapZIO { staged =>
-                        for
-                          _ <- stateManager.prepareShardCombine(staged)
-                          _ <- mergeServiceClient.commitShard(staged)
-                          _ <- zlog(
-                            "Shard %s data has been successfully added to the combined backfill table",
-                            staged.shardId
-                          )
-                        yield staged
-                      }
-                }
-                .mapZIO {staged => shardFactory.createCompletionShard(staged, watermark.toJson)}
-                .tap(stateManager.commitCombinedShard)
+              case None =>
+                ZStream
+                  .fromZIO(stateManager.isCombining(staged))
+                  .flatMap { isCombining =>
+                    if isCombining then
+                      ZStream
+                        .succeed(staged)
+                        .mapZIO { staged =>
+                          for
+                            _ <- zlog(
+                              "Shard %s data has been partially added to the combined backfill table, will merge the rest",
+                              staged.shardId
+                            )
+                            _ <- mergeServiceClient.mergeShard(staged)
+                            _ <- zlog(
+                              "Shard %s data has been successfully merged with previously added data in the combined backfill table",
+                              staged.shardId
+                            )
+                          yield staged
+                        }
+                    else
+                      ZStream
+                        .succeed(staged)
+                        .mapZIO { staged =>
+                          for
+                            _ <- stateManager.prepareShardCombine(staged)
+                            _ <- mergeServiceClient.commitShard(staged)
+                            _ <- zlog(
+                              "Shard %s data has been successfully added to the combined backfill table",
+                              staged.shardId
+                            )
+                          yield staged
+                        }
+                  }
+                  .mapZIO { staged => shardFactory.createCompletionShard(staged, watermark.toJson) }
+                  .tap(stateManager.commitCombinedShard)
             }
         )
         .via(aggregateCombinedShards)

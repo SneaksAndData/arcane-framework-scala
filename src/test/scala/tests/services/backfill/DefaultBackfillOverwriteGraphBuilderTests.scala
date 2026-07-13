@@ -3,7 +3,14 @@ package tests.services.backfill
 
 import models.queries.{MergeQueryCommons, StreamingBatchQuery}
 import models.schemas.ArcaneType.{IntType, StringType}
-import models.schemas.{ArcaneSchema, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField, given_CanAdd_ArcaneSchema}
+import models.schemas.{
+  ArcaneSchema,
+  DataCell,
+  IndexedField,
+  IndexedMergeKeyField,
+  MergeKeyField,
+  given_CanAdd_ArcaneSchema
+}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
@@ -12,7 +19,11 @@ import models.sharding.*
 import services.backfill.base.{BackfillSourceDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
-import services.backfill.{DefaultBackfillSourceDataProvider, DefaultBackfillStateManager, DefaultShardedBackfillStreamDataProvider}
+import services.backfill.{
+  DefaultBackfillSourceDataProvider,
+  DefaultBackfillStateManager,
+  DefaultShardedBackfillStreamDataProvider
+}
 import services.base.StreamingSource
 import services.filters.FieldsFilteringService
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}

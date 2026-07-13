@@ -15,8 +15,7 @@ class MsSqlShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
   /** Staged shard provisioner. Commit query targets combine table.
     */
   override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] =
-    for 
-      shardTableName <- nameGenerator.getShardTableName(shard)
+    for shardTableName <- nameGenerator.getShardTableName(shard)
     yield DefaultStagedShard(
       shardSourceEntityName = shard.shardSourceEntityName,
       combinedTableName = shard.combinedTableName,

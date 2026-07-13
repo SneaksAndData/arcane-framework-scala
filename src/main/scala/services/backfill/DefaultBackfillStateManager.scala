@@ -41,13 +41,13 @@ class DefaultBackfillStateManager(
 
   override def prepareShardCombine(shard: StagedShard): Task[Unit] = for
     shardTableName <- nameGenerator.getShardTableName(shard)
-    _ <- zlog("Opening COMBINE transaction for shard %s", shard.shardId)
+    _              <- zlog("Opening COMBINE transaction for shard %s", shard.shardId)
     _ <- stagingPropertyManager.setProperty(
       shardTableName,
       processingStatePropertyName,
       ShardProcessingState.COMBINING.toString
     )
-  yield ()  
+  yield ()
 
   override def commitCombinedShard(completionShard: CompletionShard): Task[Unit] = for
     shardTableName <- nameGenerator.getShardTableName(completionShard)

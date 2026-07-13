@@ -15,7 +15,7 @@ type BatchApplicationResult = Boolean
 type ShardCommitResult = Boolean
 
 /** Result of the shard reset (removing staged shard from the combined table)
- */
+  */
 type ShardResetResult = Boolean
 
 /** A service client that merges data batches.
@@ -35,5 +35,5 @@ trait MergeServiceClient:
     * @return
     */
   def commitShard(shard: StagedShard): Task[ShardCommitResult]
-  
+
   def mergeShard(shard: StagedShard): Task[ShardResetResult]

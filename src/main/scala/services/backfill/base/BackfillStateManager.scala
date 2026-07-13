@@ -42,9 +42,8 @@ trait BackfillStateManager:
     */
   def prepareShardStage(shard: BootstrappedShard, schema: ArcaneSchema): Task[Unit]
 
-  /**
-   * Prepares a shard for combine by opening a combine "transaction"
-   */
+  /** Prepares a shard for combine by opening a combine "transaction"
+    */
   def prepareShardCombine(shard: StagedShard): Task[Unit]
 
   /** Marks a staged shard table as COMBINED
@@ -63,7 +62,6 @@ trait BackfillStateManager:
     */
   def isCombined(shard: StagedShard): Task[Option[CompletionShard]]
 
-  /**
-   * Check if there is an open combined transaction for this staged shard.
-   */
+  /** Check if there is an open combined transaction for this staged shard.
+    */
   def isCombining(shard: StagedShard): Task[Boolean]

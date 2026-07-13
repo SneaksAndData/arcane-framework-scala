@@ -68,7 +68,7 @@ class JdbcMergeServiceClient(
       .gaugeDuration(declaredMetrics.shardCommitDuration)
 
   override def mergeShard(shard: StagedShard): Task[ShardResetResult] =
-    executeBatchQuery(shard.mergeQuery.query, shard.shardId, "Merging", _ => true)  
+    executeBatchQuery(shard.mergeQuery.query, shard.shardId, "Merging", _ => true)
 
   /** @inheritdoc
     */
