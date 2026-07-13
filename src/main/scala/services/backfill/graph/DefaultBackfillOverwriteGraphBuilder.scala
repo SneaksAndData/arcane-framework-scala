@@ -81,7 +81,7 @@ class DefaultBackfillOverwriteGraphBuilder(
                   .flatMap { isCombining =>
                     if isCombining then
                       ZStream
-                        .fromZIO{ 
+                        .fromZIO {
                           for
                             _ <- zlog(
                               "Shard %s data has been partially added to the combined backfill table, will merge the rest",

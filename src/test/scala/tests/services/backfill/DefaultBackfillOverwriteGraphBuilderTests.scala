@@ -422,7 +422,11 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
         expectedWatermark      <- backfillStateManager.readState.map(_.map(_.watermarkValue))
         // leave shard1, shard3 as COMBINED and set shard2 as COMBINING
-        _ <- stagingPropertyManager.setProperty(shardTableNames(1), "processing-state", ShardProcessingState.COMBINING.toString)
+        _ <- stagingPropertyManager.setProperty(
+          shardTableNames(1),
+          "processing-state",
+          ShardProcessingState.COMBINING.toString
+        )
         // re-run and expect identical result to a full backfill
         (result, shards, _, _, _) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
