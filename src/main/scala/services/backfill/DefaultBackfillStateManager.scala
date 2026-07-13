@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.backfill
 
+import logging.ZIOLogAnnotations.zlog
 import models.backfill.DefaultSourceBackfill
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneSchema
@@ -38,6 +39,16 @@ class DefaultBackfillStateManager(
     _ <- stagingEntityManager.createTable(CreateTableRequest(shardTableName, schema, true))
   yield ()
 
+  override def prepareShardCombine(shard: StagedShard): Task[Unit] = for
+    shardTableName <- nameGenerator.getShardTableName(shard)
+    _              <- zlog("Opening COMBINE transaction for shard %s", shard.shardId)
+    _ <- stagingPropertyManager.setProperty(
+      shardTableName,
+      processingStatePropertyName,
+      ShardProcessingState.COMBINING.toString
+    )
+  yield ()
+
   override def commitCombinedShard(completionShard: CompletionShard): Task[Unit] = for
     shardTableName <- nameGenerator.getShardTableName(completionShard)
     _ <- stagingPropertyManager.setProperty(
@@ -46,6 +57,7 @@ class DefaultBackfillStateManager(
       ShardProcessingState.COMBINED.toString
     )
     _ <- stagingPropertyManager.setProperty(shardTableName, watermarkPropertyName, completionShard.watermark)
+    _ <- zlog("Committed COMBINE transaction for shard %s", completionShard.shardId)
     _ <- ZIO.succeed(1) @@ declaredMetrics.backfillCombinedShards
   yield ()
 
@@ -67,8 +79,20 @@ class DefaultBackfillStateManager(
         .getProperty(shardTableName, processingStatePropertyName)
         .map(
           _.exists(state =>
-            state == ShardProcessingState.STAGED.toString || state == ShardProcessingState.COMBINED.toString
+            state == ShardProcessingState.STAGED.toString || state == ShardProcessingState.COMBINING.toString || state == ShardProcessingState.COMBINED.toString
           )
+        )
+    )
+  yield result.getOrElse(false)
+
+  override def isCombining(shard: StagedShard): Task[Boolean] = for
+    shardTableName <- nameGenerator.getShardTableName(shard)
+    tableExists    <- stagingEntityManager.tableExists(shardTableName)
+    result <- ZIO.when(tableExists)(
+      stagingPropertyManager
+        .getProperty(shardTableName, processingStatePropertyName)
+        .map(
+          _.exists(_ == ShardProcessingState.COMBINING.toString)
         )
     )
   yield result.getOrElse(false)
