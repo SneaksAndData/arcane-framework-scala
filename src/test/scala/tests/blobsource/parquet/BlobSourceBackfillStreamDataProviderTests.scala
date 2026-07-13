@@ -13,7 +13,7 @@ import services.blobsource.backfill.{
   BlobShardedBackfillStreamDataProvider,
   BlobSourceShardFactory
 }
-import services.blobsource.readers.listing.BlobListingParquetSource
+import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
@@ -117,7 +117,7 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
       TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
     )
     reader <- ZIO.succeed(
-      BlobListingParquetSource(
+      BlobListingParquetStreamingSource(
         sourcePath = path,
         s3Reader = storageReader,
         tempPath = "/tmp",

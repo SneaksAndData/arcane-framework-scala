@@ -8,7 +8,7 @@ import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 
 final case class AdlsStoragePath(accountName: String, container: String, blobPrefix: String) extends BlobPath:
-  def toHdfsPath: String = s"abfss://$container@$accountName.dfs.core.windows.net/$blobPrefix"
+  override def toHdfsPath: String = s"abfss://$container@$accountName.dfs.core.windows.net/$blobPrefix"
 
   /** Joins the given key name to the current path.
     *
@@ -18,7 +18,7 @@ final case class AdlsStoragePath(accountName: String, container: String, blobPre
     *   The new path.
     */
   @targetName("plus")
-  def +(part: String): AdlsStoragePath = copy(blobPrefix =
+  override def +(part: String): AdlsStoragePath = copy(blobPrefix =
     if part == "/" then s"${blobPrefix.stripSuffix("/")}$part"
     else if (blobPrefix.isEmpty) part
     else s"${blobPrefix.stripSuffix("/")}/$part"

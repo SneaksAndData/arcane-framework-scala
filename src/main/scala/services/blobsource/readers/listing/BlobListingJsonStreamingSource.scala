@@ -3,7 +3,7 @@ package services.blobsource.readers.listing
 
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
-import models.schemas.ArcaneSchema
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.sources.blob.JsonBlobSourceSettings
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
@@ -18,7 +18,7 @@ import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
-class BlobListingJsonSource[PathType <: BlobPath](
+class BlobListingJsonStreamingSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
@@ -26,7 +26,7 @@ class BlobListingJsonSource[PathType <: BlobPath](
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]]
-) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys):
+) extends BlobListingStreamingSource[PathType](sourcePath, reader, primaryKeys):
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
@@ -65,7 +65,21 @@ class BlobListingJsonSource[PathType <: BlobPath](
         }
       }
 
-object BlobListingJsonSource:
+  override def filesToStream(sourceFiles: Seq[StoredBlob]): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = getSchema.map { schema =>
+    val stream = ZStream.fromIterable(sourceFiles)
+      .flatMap { sourceFile => ZStream.fromZIO {
+        for
+          filePath <- reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+          avroSchema <- sourceSchema
+          scanner <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
+        yield scanner
+      }.flatMap(_.getRows.map(
+        BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
+      ))}
+    (stream, schema)
+  }  
+
+object BlobListingJsonStreamingSource:
   def apply(
       sourcePath: S3StoragePath,
       s3Reader: S3BlobStorageReader,
@@ -74,8 +88,8 @@ object BlobListingJsonSource:
       avroSchemaString: String,
       jsonPointerExpr: Option[String],
       jsonArrayPointers: Map[String, Map[String, String]]
-  ): BlobListingJsonSource[S3StoragePath] =
-    new BlobListingJsonSource[S3StoragePath](
+  ): BlobListingJsonStreamingSource[S3StoragePath] =
+    new BlobListingJsonStreamingSource[S3StoragePath](
       sourcePath,
       s3Reader,
       tempPath,
@@ -91,7 +105,7 @@ object BlobListingJsonSource:
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingJsonSource[S3StoragePath]] = ZLayer {
+  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingJsonStreamingSource[S3StoragePath]] = ZLayer {
     for
       context        <- ZIO.service[PluginStreamContext]
       blobReader     <- ZIO.service[S3BlobStorageReader]
@@ -99,7 +113,7 @@ object BlobListingJsonSource:
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
         S3StoragePath(sourceSettings.sourcePath).toOption
       )
-    yield BlobListingJsonSource(
+    yield BlobListingJsonStreamingSource(
       sourcePath,
       blobReader,
       sourceSettings.tempStoragePath,

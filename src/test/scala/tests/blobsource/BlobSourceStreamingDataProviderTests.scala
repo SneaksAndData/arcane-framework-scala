@@ -10,7 +10,7 @@ import models.settings.sources.StreamSourceSettings
 import models.settings.staging.StagingSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings}
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
-import services.blobsource.readers.listing.BlobListingParquetSource
+import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.storage.models.s3.S3StoragePath
@@ -56,7 +56,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes correctly") {
       for
         path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        source          <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
@@ -85,7 +85,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes respecting watermark") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         _ <- icebergUtil.prepareWatermark(
           "test",
           BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)

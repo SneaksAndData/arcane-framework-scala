@@ -2,21 +2,22 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import models.schemas.given_CanAdd_ArcaneSchema
-import services.blobsource.readers.BlobSourceReader
+import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.{BlobPath, StoredBlob}
 
-import zio.stream.{ZSink, ZStream}
-import zio.{Task, ZIO}
+import zio.stream.{ZPipeline, ZSink, ZStream}
+import zio.{Chunk, Task, ZIO}
 
 import java.security.MessageDigest
+import java.util.{Base64, UUID}
 
-abstract class BlobListingSource[PathType <: BlobPath](
+abstract class BlobListingStreamingSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     primaryKeys: Seq[String]
-) extends BlobSourceReader:
+) extends BlobStreamingSource:
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = reader.blobMetadata(sourceFile)
 
@@ -39,7 +40,7 @@ abstract class BlobListingSource[PathType <: BlobPath](
   final override def getShards(
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
-  ): ZStream[Any, Throwable, StoredBlob] = reader
+  ): ZStream[Any, Throwable, Seq[String]] = reader
     .streamPrefixes(sourcePath)
     .collect {
       case blob
@@ -49,3 +50,6 @@ abstract class BlobListingSource[PathType <: BlobPath](
               .getOrElse(BlobSourceWatermark.epoch) <= rangeEnd =>
         blob
     }
+    .rechunk(1000)
+    .mapChunks(files => Chunk(files.map(_.name)))
+    .rechunk(1)

@@ -3,7 +3,7 @@ package tests.blobsource.parquet
 
 import models.batches.BlobBatchCommons
 import models.schemas.MergeKeyField
-import services.blobsource.readers.listing.BlobListingParquetSource
+import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
@@ -20,8 +20,8 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
     test("getSchema returns correct schema with or without name mapping") {
       for
         path         <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source       <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
-        sourceMapped <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), true, None))
+        source       <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        sourceMapped <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), true, None))
         schema       <- source.getSchema
         mappedSchema <- sourceMapped.getSchema
       yield assertTrue(schema.size == 11 + 2) && assertTrue(
@@ -34,7 +34,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
     test("getChanges return correct rows") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
         rows   <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 13)) && assertTrue(
         rows

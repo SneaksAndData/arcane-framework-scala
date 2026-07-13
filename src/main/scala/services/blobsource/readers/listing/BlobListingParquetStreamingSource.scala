@@ -20,14 +20,14 @@ import zio.{Task, ZIO, ZLayer}
 
 import java.util.Base64
 
-class BlobListingParquetSource[PathType <: BlobPath](
+class BlobListingParquetStreamingSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     tempStoragePath: String,
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
     sourceSchema: Option[String]
-) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys):
+) extends BlobListingStreamingSource[PathType](sourcePath, reader, primaryKeys):
 
   override def getSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
@@ -83,12 +83,25 @@ class BlobListingParquetSource[PathType <: BlobPath](
           )
       }
 
+  override def filesToStream(sourceFiles: Seq[StoredBlob]): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = getSchema.map { schema =>
+    val stream = ZStream.fromIterable(sourceFiles)
+      .flatMap { sourceFile => ZStream.fromZIO {
+        for
+          filePath <- reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+          scanner <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
+        yield scanner
+      }.flatMap(_.getRows.map(
+        BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
+      ))}
+    (stream, schema)
+  }
+
   override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .streamPrefixes(sourcePath)
     .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
     .mapZIO(fileToStream)
 
-object BlobListingParquetSource:
+object BlobListingParquetStreamingSource:
   def apply(
       sourcePath: S3StoragePath,
       s3Reader: S3BlobStorageReader,
@@ -96,8 +109,8 @@ object BlobListingParquetSource:
       primaryKeys: Seq[String],
       useNameMapping: Boolean,
       sourceSchema: Option[String]
-  ): BlobListingParquetSource[S3StoragePath] =
-    new BlobListingParquetSource[S3StoragePath](
+  ): BlobListingParquetStreamingSource[S3StoragePath] =
+    new BlobListingParquetStreamingSource[S3StoragePath](
       sourcePath,
       s3Reader,
       tempPath,
@@ -112,7 +125,7 @@ object BlobListingParquetSource:
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingParquetSource[S3StoragePath]] = ZLayer {
+  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[S3StoragePath]] = ZLayer {
     for
       context        <- ZIO.service[PluginStreamContext]
       blobReader     <- ZIO.service[S3BlobStorageReader]
@@ -120,7 +133,7 @@ object BlobListingParquetSource:
       sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
         S3StoragePath(sourceSettings.sourcePath).toOption
       )
-    yield BlobListingParquetSource(
+    yield BlobListingParquetStreamingSource(
       sourcePath,
       blobReader,
       sourceSettings.tempStoragePath,

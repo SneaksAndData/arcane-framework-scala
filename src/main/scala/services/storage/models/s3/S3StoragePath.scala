@@ -31,7 +31,7 @@ final case class S3StoragePath(bucket: String, objectKey: String) extends BlobPa
     *   The new path.
     */
   @targetName("plus")
-  def +(keyName: String): S3StoragePath =
+  override def +(keyName: String): S3StoragePath =
     copy(objectKey = if (objectKey.isEmpty) keyName else s"$objectKey/$keyName")
 
   override def protocol: String = S3StoragePath.protocolName

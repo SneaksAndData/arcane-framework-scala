@@ -10,12 +10,12 @@ import services.streaming.base.StructuredZStream
 import zio.Task
 import zio.stream.ZStream
 
-class BlobListingCsvSource[PathType <: BlobPath](
+class BlobListingCsvStreamingSource[PathType <: BlobPath](
     sourcePath: PathType,
     reader: BlobStorageReader[PathType],
     schema: ArcaneSchema,
     primaryKeys: Seq[String]
-) extends BlobListingSource[PathType](sourcePath, reader, primaryKeys):
+) extends BlobListingStreamingSource[PathType](sourcePath, reader, primaryKeys):
 
   override def getSchema: Task[SchemaType] = ???
 
@@ -35,3 +35,5 @@ class BlobListingCsvSource[PathType <: BlobPath](
   /** Creates a structured stream for a provided file address
     */
   override def fileToStream(sourceFile: StoredBlob): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???
+
+  override def filesToStream(sourceFiles: Seq[StoredBlob]): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???
