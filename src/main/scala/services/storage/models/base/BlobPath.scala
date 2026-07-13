@@ -13,4 +13,3 @@ trait BlobPath:
   def toHdfsPath: String
 
   def protocol: String
-
