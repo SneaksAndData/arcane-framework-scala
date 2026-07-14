@@ -29,7 +29,14 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]]
-) extends BlobListingStreamingSource[PathType](sourcePath, shardStoragePath, storageClient, nameGenerator, primaryKeys):
+) extends BlobListingStreamingSource[PathType](
+      sourcePath,
+      shardStoragePath,
+      storageClient,
+      nameGenerator,
+      primaryKeys,
+      tempStoragePath
+    ):
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
@@ -48,25 +55,16 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = storageClient
-    .streamPrefixes(sourcePath)
-    .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-    .mapZIO(fileToStream)
-
-  def fileToStream(sourceFile: StoredBlob): Task[StructuredZStream] =
-    storageClient
-      .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
-      .flatMap(v => sourceSchema.map(schema => (schema, v)))
-      .flatMap { case (avroSchema, filePath) =>
-        getSchema.map { schema =>
-          (
-            JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers).getRows.map(
-              BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-            ),
-            schema
-          )
-        }
-      }
+  def fileToStream(sourceFile: StoredBlob, schema: ArcaneSchema): Task[StructuredZStream] = for
+    downloadedFilePath <- downloadSourceFile(sourceFile)
+    avroSchema         <- sourceSchema
+    scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
+  yield (
+    scanner.getRows.map(
+      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
+    ),
+    schema
+  )
 
   override def filesToStream(
       sourceFiles: Seq[StoredBlob],

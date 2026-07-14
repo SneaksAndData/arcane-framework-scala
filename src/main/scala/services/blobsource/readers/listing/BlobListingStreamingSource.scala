@@ -2,12 +2,13 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.zlog
-import models.schemas.given_CanAdd_ArcaneSchema
+import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
+import services.streaming.base.StructuredZStream
 
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
@@ -20,7 +21,8 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     shardStoragePath: PathType,
     storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
     nameGenerator: NameGenerator,
-    primaryKeys: Seq[String]
+    primaryKeys: Seq[String],
+    tempStoragePath: String
 ) extends BlobStreamingSource:
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
@@ -39,6 +41,9 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
   /** SHA-256 hasher.
     */
   protected def mergeKeyHasher(): MessageDigest = MessageDigest.getInstance("SHA-256")
+
+  protected def downloadSourceFile(sourceFile: StoredBlob): Task[String] =
+    storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
 
   override def getLatestVersion: Task[BlobSourceWatermark] = storageClient
     .streamPrefixes(sourcePath)
@@ -78,3 +83,12 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
       shardName <- nameGenerator.getShardSourceTableName(shardSourceEntityName)
       result    <- storageClient.readBlobContent(shardStoragePath + shardName)
     yield result
+
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
+    .fromZIO(getSchema)
+    .flatMap { changeSetSchema =>
+      storageClient
+        .streamPrefixes(sourcePath)
+        .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
+        .mapZIO(file => fileToStream(file, changeSetSchema))
+    }

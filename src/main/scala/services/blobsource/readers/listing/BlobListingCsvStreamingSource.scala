@@ -17,8 +17,16 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
     nameGenerator: NameGenerator,
     schema: ArcaneSchema,
-    primaryKeys: Seq[String]
-) extends BlobListingStreamingSource[PathType](sourcePath, shardStoragePath, storageClient, nameGenerator, primaryKeys):
+    primaryKeys: Seq[String],
+    tempStoragePath: String
+) extends BlobListingStreamingSource[PathType](
+      sourcePath,
+      shardStoragePath,
+      storageClient,
+      nameGenerator,
+      primaryKeys,
+      tempStoragePath
+    ):
 
   override def getSchema: Task[SchemaType] = ???
 
@@ -37,7 +45,10 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
 
   /** Creates a structured stream for a provided file address
     */
-  override def fileToStream(sourceFile: StoredBlob): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???
+  override def fileToStream(
+      sourceFile: StoredBlob,
+      schema: ArcaneSchema
+  ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???
 
   override def filesToStream(
       sourceFiles: Seq[StoredBlob],
