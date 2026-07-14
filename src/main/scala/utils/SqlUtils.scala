@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package utils
 
+import exceptions.FatalStreamFailException
 import models.*
 import models.schemas.*
 
@@ -168,7 +169,7 @@ object SqlUtils:
       case decimal if decimal.startsWith("decimal") => parseDecimalType(decimal)
       // rows are currently just objects, until https://github.com/trinodb/trino/issues/16479
       case row if row.startsWith("row") => parseRowType(row)
-      case _ => throw new RuntimeException(s"Unmapped array type for schema migration: $arrayTypeString")
+      case _ => throw FatalStreamFailException(s"Unmapped array type for schema migration: $arrayTypeString")
     }
   }
 
@@ -202,7 +203,7 @@ object SqlUtils:
           val (typeName, typeVal) = typeString.split(" ", 2).toList match
             case tpn :: tpv :: _ => (tpn, tpv)
             case _ =>
-              throw new RuntimeException(
+              throw FatalStreamFailException(
                 s"Cannot resolve types for schema migration: invalid type string for ROW type received from JDBC client: $typeString"
               )
 

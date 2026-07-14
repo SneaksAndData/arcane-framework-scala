@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.serialization
 
+import exceptions.FatalStreamFailException
 import models.settings.FlowRate
 
 import upickle.ReadWriter
@@ -18,5 +19,5 @@ object FlowRateRW:
             elements = elementsStr.toInt,
             interval = zio.Duration.fromNanos(scala.concurrent.duration.Duration(periodStr).toNanos)
           )
-        case _ => throw new RuntimeException("Invalid format for FlowRate, must be `{elements} per {period}`")
+        case _ => throw FatalStreamFailException("Invalid format for FlowRate, must be `{elements} per {period}`")
   )

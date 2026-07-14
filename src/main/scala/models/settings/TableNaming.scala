@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
+import exceptions.FatalStreamFailException
+
 type TableName          = String
 type BackfillIdentifier = String
 type StreamIdentifier   = String
@@ -11,7 +13,7 @@ object TableNaming:
       tableName.split('.').toList match
         case warehouse :: namespace :: name :: _ => (warehouse = warehouse, namespace = namespace, name = name)
         case _ =>
-          throw new RuntimeException(
+          throw FatalStreamFailException(
             s"Invalid table name format for $tableName. Must be {warehouse}.{namespace}.{name}"
           )
 
