@@ -61,14 +61,12 @@ trait BlobStreamingSource extends StreamingSource:
     encoded    <- ZIO.succeed(Base64.getUrlEncoder.withoutPadding.encodeToString(compressed.toArray))
   yield encoded
 
-  /**
-   * Saves the provided shard content
-   */
+  /** Saves the provided shard content
+    */
   def persistShard(shardContent: String): Task[String]
 
-  /**
-   * Reads the shard content that was persisted before
-   */
+  /** Reads the shard content that was persisted before
+    */
   def readShard(shardSourceEntityName: String): Task[String]
 
   /** Creates a StoredBlob model from a provided file address

@@ -11,8 +11,7 @@ import software.amazon.awssdk.services.s3.S3Client
 type ConfiguredS3Client = (client: S3Client, settings: S3ClientSettings)
 
 object S3Util:
-  def getS3Client(credentialsProvider: AwsCredentialsProvider,
-                  settings: Option[S3ClientSettings]): ConfiguredS3Client =
+  def getS3Client(credentialsProvider: AwsCredentialsProvider, settings: Option[S3ClientSettings]): ConfiguredS3Client =
     val serviceClientSettings = settings.getOrElse(S3ClientSettings())
     val retryStrategy =
       AwsRetryStrategy

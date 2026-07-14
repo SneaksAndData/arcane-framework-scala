@@ -52,21 +52,22 @@ class BlobBackfillSourceDataProvider(
       shardSources: Option[Seq[String]]
   ): ZStream[Any, Throwable, BootstrappedShard] =
     (shardSources match
-      case Some(sources) => ZStream.fromIterable(sources).mapZIO { source =>
-        for
-          content <- dataProvider.readShard(source)
-          unpacked <- dataProvider.unpackShard(content)
-        yield unpacked 
-      }
-      case None          => dataProvider.getShards(backfillStart, backfillEnd)
+      case Some(sources) =>
+        ZStream.fromIterable(sources).mapZIO { source =>
+          for
+            content  <- dataProvider.readShard(source)
+            unpacked <- dataProvider.unpackShard(content)
+          yield unpacked
+        }
+      case None => dataProvider.getShards(backfillStart, backfillEnd)
     )
       .mapZIO { sourceFiles =>
         for
-          blobs             <- ZStream.fromIterable(sourceFiles).mapZIO(dataProvider.fileToBlob).runCollect
-          shardStream       <- dataProvider.filesToStream(blobs)
-          backfillTableName <- nameGenerator.getBackfillTableName
-          targetName        <- nameGenerator.getTargetTableFullName
-          shardSourceContent   <- dataProvider.packShard(sourceFiles)
+          blobs                 <- ZStream.fromIterable(sourceFiles).mapZIO(dataProvider.fileToBlob).runCollect
+          shardStream           <- dataProvider.filesToStream(blobs)
+          backfillTableName     <- nameGenerator.getBackfillTableName
+          targetName            <- nameGenerator.getTargetTableFullName
+          shardSourceContent    <- dataProvider.packShard(sourceFiles)
           shardSourceEntityName <- dataProvider.persistShard(shardSourceContent)
         yield DefaultBootstrappedShard(
           shardStream = shardStream,

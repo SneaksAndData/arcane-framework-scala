@@ -20,9 +20,10 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
 final class S3BlobStorageService(
-                                  credentialsProvider: AwsCredentialsProvider,
-                                  settings: Option[S3ClientSettings]
-) extends BlobStorageReader[S3StoragePath] with BlobStorageWriter[S3StoragePath]:
+    credentialsProvider: AwsCredentialsProvider,
+    settings: Option[S3ClientSettings]
+) extends BlobStorageReader[S3StoragePath]
+    with BlobStorageWriter[S3StoragePath]:
   private val (s3Client, serviceClientSettings) = S3Util.getS3Client(credentialsProvider, settings)
 
   override def blobExists(blobPath: S3StoragePath): Task[Boolean] = ZIO
@@ -132,17 +133,33 @@ final class S3BlobStorageService(
   )
 
   /** Saves the given text as a blob.
-   */
+    */
   override def saveTextAsBlob(blobPath: S3StoragePath, data: String): Task[Unit] = for
-    putObjectRequest <- ZIO.attempt(PutObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).contentType("text/plain").build())
+    putObjectRequest <- ZIO.attempt(
+      PutObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).contentType("text/plain").build()
+    )
     response <- ZIO.attemptBlocking(s3Client.putObject(putObjectRequest, RequestBody.fromString(data)))
-    _ <- ZIO.when(!response.sdkHttpResponse().isSuccessful)(zlog("Failed to save a text file %s to S3, response: '%s'", blobPath.toHdfsPath, response.sdkHttpResponse().statusText().orElse("empty response")))
+    _ <- ZIO.when(!response.sdkHttpResponse().isSuccessful)(
+      zlog(
+        "Failed to save a text file %s to S3, response: '%s'",
+        blobPath.toHdfsPath,
+        response.sdkHttpResponse().statusText().orElse("empty response")
+      )
+    )
   yield ()
 
   /** Removes the blob at the given path.
-   */
+    */
   override def removeBlob(blobPath: S3StoragePath): Task[Unit] = for
-    deleteObjectRequest <- ZIO.attempt(DeleteObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build())
+    deleteObjectRequest <- ZIO.attempt(
+      DeleteObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build()
+    )
     response <- ZIO.attemptBlocking(s3Client.deleteObject(deleteObjectRequest))
-    _ <- ZIO.when(!response.sdkHttpResponse().isSuccessful)(zlog("Failed to delete a file %s from S3, response: '%s'", blobPath.toHdfsPath, response.sdkHttpResponse().statusText().orElse("empty response")))
+    _ <- ZIO.when(!response.sdkHttpResponse().isSuccessful)(
+      zlog(
+        "Failed to delete a file %s from S3, response: '%s'",
+        blobPath.toHdfsPath,
+        response.sdkHttpResponse().statusText().orElse("empty response")
+      )
+    )
   yield ()

@@ -8,26 +8,28 @@ import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 
-import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3StoragePath
-import zio.stream.{ZPipeline, ZSink, ZStream}
+import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
 import java.security.MessageDigest
-import java.util.{Base64, UUID}
+import java.util.UUID
 
 abstract class BlobListingStreamingSource[PathType <: BlobPath](
-                                                                 sourcePath: PathType,
-                                                                 shardStoragePath: PathType,
-                                                                 storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
-                                                                 nameGenerator: NameGenerator,
-                                                                 primaryKeys: Seq[String]
+    sourcePath: PathType,
+    shardStoragePath: PathType,
+    storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+    nameGenerator: NameGenerator,
+    primaryKeys: Seq[String]
 ) extends BlobStreamingSource:
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 
-  final override def deleteShards(prefix: String): Task[Unit] = storageClient.streamPrefixes(
-    shardStoragePath + prefix
-  ).mapZIO(file => storageClient.removeBlob(shardStoragePath + file.name)).runDrain
+  final override def deleteShards(prefix: String): Task[Unit] = storageClient
+    .streamPrefixes(
+      shardStoragePath + prefix
+    )
+    .mapZIO(file => storageClient.removeBlob(shardStoragePath + file.name))
+    .runDrain
 
   /** SHA-256 hasher.
     */
@@ -62,9 +64,9 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 
   override def persistShard(shardContent: String): Task[String] = for
     shardName <- nameGenerator.getShardSourceTableName(UUID.randomUUID().toString)
-    _ <- storageClient.saveTextAsBlob(shardStoragePath + shardName, shardContent)
+    _         <- storageClient.saveTextAsBlob(shardStoragePath + shardName, shardContent)
   yield shardName
 
-  override def readShard(shardSourceEntityName: String): Task[String] = for
-    result <- storageClient.readBlobContent(shardStoragePath + shardSourceEntityName)
-  yield result 
+  override def readShard(shardSourceEntityName: String): Task[String] =
+    for result <- storageClient.readBlobContent(shardStoragePath + shardSourceEntityName)
+    yield result

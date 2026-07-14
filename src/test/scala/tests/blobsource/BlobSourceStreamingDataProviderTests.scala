@@ -32,7 +32,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       backfillId = "",
       streamId = "blobsource_sdp_tests"
     )
-    
+
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings
@@ -63,10 +63,21 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("stream changes correctly") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
-        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), false, None))
-        _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
+        source <- ZIO.succeed(
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            false,
+            None
+          )
+        )
+        _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
           BlobSourceDataProvider(
@@ -93,9 +104,20 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream changes respecting watermark") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
-        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), false, None))
+        source <- ZIO.succeed(
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            false,
+            None
+          )
+        )
         _ <- icebergUtil.prepareWatermark(
           "test",
           BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)

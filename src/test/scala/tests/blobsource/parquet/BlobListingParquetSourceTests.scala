@@ -24,15 +24,35 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
       backfillId = "",
       streamId = "blobsource_parquet_tests"
     )
-    
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobListingParquetSource")(
     test("getSchema returns correct schema with or without name mapping") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
-        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), false, None))
+        source <- ZIO.succeed(
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            false,
+            None
+          )
+        )
         sourceMapped <- ZIO.succeed(
-          BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), true, None)
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            true,
+            None
+          )
         )
         schema       <- source.getSchema
         mappedSchema <- sourceMapped.getSchema
@@ -45,10 +65,21 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
     },
     test("getChanges return correct rows") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
         shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
-        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), false, None))
-        rows   <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+        source <- ZIO.succeed(
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            false,
+            None
+          )
+        )
+        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 13)) && assertTrue(
         rows
           .forall(row =>

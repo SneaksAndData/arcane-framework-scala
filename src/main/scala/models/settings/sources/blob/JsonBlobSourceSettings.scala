@@ -37,7 +37,7 @@ case class DefaultJsonBlobSourceSettings(
     override val primaryKeys: List[String],
     override val sourcePath: String,
     override val shardStoragePath: String,
-    override val shardSize: Int,                                        
+    override val shardSize: Int,
     override val tempStoragePath: String,
     override val jsonPointerExpression: Option[String] = None,
     @key("s3") override val s3ClientSettings: S3ClientSettings

@@ -2,8 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.settings.sources.blob
 
 import models.settings.sources.SourceSettings
-
-import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3ClientSettings
+import services.storage.models.s3.S3ClientSettings
 
 /** Blob-source specific source settings
   */
@@ -13,14 +12,12 @@ trait BlobSourceSettings extends SourceSettings:
     */
   val sourcePath: String
 
-  /**
-   * Path to store shard metadata for OVERWRITE backfills
-   */
+  /** Path to store shard metadata for OVERWRITE backfills
+    */
   val shardStoragePath: String
 
-  /**
-   * Number of files to pack per shard when doing an OVERWRITE backfill
-   */
+  /** Number of files to pack per shard when doing an OVERWRITE backfill
+    */
   val shardSize: Int
 
   /** Location to store temporary files

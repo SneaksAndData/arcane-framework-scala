@@ -119,12 +119,14 @@ object BlobListingParquetStreamingSource:
     */
   def getS3Layer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageService & NameGenerator & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[S3StoragePath]] =
+  ): ZLayer[S3BlobStorageService & NameGenerator & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[
+    S3StoragePath
+  ]] =
     ZLayer {
       for
         context        <- ZIO.service[PluginStreamContext]
-        storageService     <- ZIO.service[S3BlobStorageService]
-        nameGenerator <- ZIO.service[NameGenerator]
+        storageService <- ZIO.service[S3BlobStorageService]
+        nameGenerator  <- ZIO.service[NameGenerator]
         sourceSettings <- ZIO.attempt(extractor(context))
         sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 source path provided"))(
           S3StoragePath(sourceSettings.sourcePath).toOption

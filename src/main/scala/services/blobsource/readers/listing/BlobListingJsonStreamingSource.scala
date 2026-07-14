@@ -8,13 +8,13 @@ import models.settings.sources.blob.JsonBlobSourceSettings
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
+import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
 
-import com.sneaksanddata.arcane.framework.services.naming.NameGenerator
 import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -76,7 +76,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
           ZStream
             .fromZIO {
               for
-                filePath   <- storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+                filePath <- storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
                 avroSchema <- sourceSchema
                 scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
               yield scanner
@@ -97,13 +97,15 @@ object BlobListingJsonStreamingSource:
     */
   def getS3Layer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageService & NameGenerator & PluginStreamContext, Throwable, BlobListingJsonStreamingSource[S3StoragePath]] =
+  ): ZLayer[S3BlobStorageService & NameGenerator & PluginStreamContext, Throwable, BlobListingJsonStreamingSource[
+    S3StoragePath
+  ]] =
     ZLayer {
       for
         context        <- ZIO.service[PluginStreamContext]
-        storageService     <- ZIO.service[S3BlobStorageService]
+        storageService <- ZIO.service[S3BlobStorageService]
         sourceSettings <- ZIO.attempt(extractor(context))
-        nameGenerator <- ZIO.service[NameGenerator]
+        nameGenerator  <- ZIO.service[NameGenerator]
         sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 source path provided"))(
           S3StoragePath(sourceSettings.sourcePath).toOption
         )
