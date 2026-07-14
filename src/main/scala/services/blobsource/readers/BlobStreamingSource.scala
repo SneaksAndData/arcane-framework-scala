@@ -37,7 +37,7 @@ trait BlobStreamingSource extends StreamingSource:
 
   /** Creates a structured stream for a provided file address
     */
-  def fileToStream(sourceFile: StoredBlob): Task[StructuredZStream]
+  def fileToStream(sourceFile: StoredBlob, schema: ArcaneSchema): Task[StructuredZStream]
 
   /** Creates a structured stream for a list of provided files addresses
     */

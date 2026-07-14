@@ -70,21 +70,18 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  def fileToStream(sourceFile: StoredBlob): Task[StructuredZStream] =
-    storageClient
-      .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
-      .map(filePath => ParquetScanner(filePath, useNameMapping))
-      .flatMap { scanner =>
-        getSchema
-          .map(schema =>
-            (
-              scanner.getRows.map(
-                BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-              ),
-              schema
-            )
-          )
-      }
+  private def downloadSourceFile(sourceFile: StoredBlob): Task[String] =
+    storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+
+  def fileToStream(sourceFile: StoredBlob, schema: ArcaneSchema): Task[StructuredZStream] = for
+    downloadedFilePath <- downloadSourceFile(sourceFile)
+    scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
+  yield (
+    scanner.getRows.map(
+      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
+    ),
+    schema
+  )
 
   override def filesToStream(
       sourceFiles: Seq[StoredBlob],
@@ -97,7 +94,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
           ZStream
             .fromZIO {
               for
-                filePath <- storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+                filePath <- downloadSourceFile(sourceFile)
                 scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
               yield scanner
             }
@@ -110,10 +107,14 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       schema
     )
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = storageClient
-    .streamPrefixes(sourcePath)
-    .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-    .mapZIO(fileToStream)
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
+    .fromZIO(getSchema)
+    .flatMap { changeSetSchema =>
+      storageClient
+        .streamPrefixes(sourcePath)
+        .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
+        .mapZIO(file => fileToStream(file, changeSetSchema))
+    }
 
 object BlobListingParquetStreamingSource:
   private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings
