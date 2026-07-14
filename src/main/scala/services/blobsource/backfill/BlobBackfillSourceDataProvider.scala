@@ -64,7 +64,8 @@ class BlobBackfillSourceDataProvider(
       .mapZIO { sourceFiles =>
         for
           blobs                 <- ZStream.fromIterable(sourceFiles).mapZIO(dataProvider.fileToBlob).runCollect
-          shardStream           <- dataProvider.filesToStream(blobs)
+          backfillSchema        <- dataProvider.getSchema
+          shardStream           <- dataProvider.filesToStream(blobs, backfillSchema)
           backfillTableName     <- nameGenerator.getBackfillTableName
           targetName            <- nameGenerator.getTargetTableFullName
           shardSourceContent    <- dataProvider.packShard(sourceFiles)

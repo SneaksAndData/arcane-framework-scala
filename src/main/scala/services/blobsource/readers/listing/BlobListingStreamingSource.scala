@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
+import logging.ZIOLogAnnotations.zlog
 import models.schemas.given_CanAdd_ArcaneSchema
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
@@ -28,7 +29,11 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     .streamPrefixes(
       shardStoragePath + prefix
     )
-    .mapZIO(file => storageClient.removeBlob(shardStoragePath + file.name))
+    .mapZIO(file =>
+      zlog("Deleting outdated shard: %s", (shardStoragePath + file.name).toHdfsPath) *> storageClient.removeBlob(
+        shardStoragePath + file.name
+      )
+    )
     .runDrain
 
   /** SHA-256 hasher.
@@ -63,10 +68,13 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     .rechunk(1)
 
   override def persistShard(shardContent: String): Task[String] = for
-    shardName <- nameGenerator.getShardSourceTableName(UUID.randomUUID().toString)
+    shardId   <- ZIO.succeed(UUID.randomUUID().toString)
+    shardName <- nameGenerator.getShardSourceTableName(shardId)
     _         <- storageClient.saveTextAsBlob(shardStoragePath + shardName, shardContent)
-  yield shardName
+  yield shardId
 
   override def readShard(shardSourceEntityName: String): Task[String] =
-    for result <- storageClient.readBlobContent(shardStoragePath + shardSourceEntityName)
+    for
+      shardName <- nameGenerator.getShardSourceTableName(shardSourceEntityName)
+      result    <- storageClient.readBlobContent(shardStoragePath + shardName)
     yield result

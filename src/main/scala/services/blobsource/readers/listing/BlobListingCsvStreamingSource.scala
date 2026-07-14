@@ -39,4 +39,7 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     */
   override def fileToStream(sourceFile: StoredBlob): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???
 
-  override def filesToStream(sourceFiles: Seq[StoredBlob]): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???
+  override def filesToStream(
+      sourceFiles: Seq[StoredBlob],
+      schema: ArcaneSchema
+  ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = ???

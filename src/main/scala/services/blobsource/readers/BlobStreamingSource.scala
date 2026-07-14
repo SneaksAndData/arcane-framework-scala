@@ -1,13 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package services.blobsource.readers
 
+import models.schemas.ArcaneSchema
 import services.base.StreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.base.StoredBlob
 import services.streaming.base.StructuredZStream
 
-import zio.{Chunk, Task, ZIO}
 import zio.stream.{ZPipeline, ZStream}
+import zio.{Chunk, Task, ZIO}
 
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -40,7 +41,7 @@ trait BlobStreamingSource extends StreamingSource:
 
   /** Creates a structured stream for a list of provided files addresses
     */
-  def filesToStream(sourceFiles: Seq[StoredBlob]): Task[StructuredZStream]
+  def filesToStream(sourceFiles: Seq[StoredBlob], schema: ArcaneSchema): Task[StructuredZStream]
 
   /** Extracts file names from a shard name
     */

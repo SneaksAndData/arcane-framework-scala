@@ -68,9 +68,12 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
         }
       }
 
-  override def filesToStream(sourceFiles: Seq[StoredBlob]): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] =
-    getSchema.map { schema =>
-      val stream = ZStream
+  override def filesToStream(
+      sourceFiles: Seq[StoredBlob],
+      schema: ArcaneSchema
+  ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] =
+    ZIO.attempt(
+      ZStream
         .fromIterable(sourceFiles)
         .flatMap { sourceFile =>
           ZStream
@@ -86,10 +89,9 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
                 BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
               )
             )
-        }
-      (stream, schema)
-    }
-
+        },
+      schema
+    )
 object BlobListingJsonStreamingSource:
   private type SettingsExtractor = PluginStreamContext => JsonBlobSourceSettings
 
