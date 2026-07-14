@@ -4,9 +4,11 @@ package services.blobsource.readers.listing
 import models.schemas.given_CanAdd_ArcaneSchema
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
-import services.storage.base.BlobStorageReader
+import services.naming.NameGenerator
+import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 
+import com.sneaksanddata.arcane.framework.services.storage.models.s3.S3StoragePath
 import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
@@ -14,20 +16,24 @@ import java.security.MessageDigest
 import java.util.{Base64, UUID}
 
 abstract class BlobListingStreamingSource[PathType <: BlobPath](
-    sourcePath: PathType,
-    reader: BlobStorageReader[PathType],
-    primaryKeys: Seq[String]
+                                                                 sourcePath: PathType,
+                                                                 shardStoragePath: PathType,
+                                                                 storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+                                                                 nameGenerator: NameGenerator,
+                                                                 primaryKeys: Seq[String]
 ) extends BlobStreamingSource:
 
-  override def fileToBlob(sourceFile: String): Task[StoredBlob] = reader.blobMetadata(sourceFile)
+  override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 
-  final override def deleteShards(prefix: String): Task[Unit] = ZIO.unit
+  final override def deleteShards(prefix: String): Task[Unit] = storageClient.streamPrefixes(
+    shardStoragePath + prefix
+  ).mapZIO(file => storageClient.removeBlob(shardStoragePath + file.name)).runDrain
 
   /** SHA-256 hasher.
     */
   protected def mergeKeyHasher(): MessageDigest = MessageDigest.getInstance("SHA-256")
 
-  override def getLatestVersion: Task[BlobSourceWatermark] = reader
+  override def getLatestVersion: Task[BlobSourceWatermark] = storageClient
     .streamPrefixes(sourcePath)
     .map(_.createdOn.getOrElse(0L))
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
@@ -40,7 +46,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
   final override def getShards(
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
-  ): ZStream[Any, Throwable, Seq[String]] = reader
+  ): ZStream[Any, Throwable, Seq[String]] = storageClient
     .streamPrefixes(sourcePath)
     .collect {
       case blob
@@ -53,3 +59,12 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     .rechunk(1000)
     .mapChunks(files => Chunk(files.map(_.name)))
     .rechunk(1)
+
+  override def persistShard(shardContent: String): Task[String] = for
+    shardName <- nameGenerator.getShardSourceTableName(UUID.randomUUID().toString)
+    _ <- storageClient.saveTextAsBlob(shardStoragePath + shardName, shardContent)
+  yield shardName
+
+  override def readShard(shardSourceEntityName: String): Task[String] = for
+    result <- storageClient.readBlobContent(shardStoragePath + shardSourceEntityName)
+  yield result 

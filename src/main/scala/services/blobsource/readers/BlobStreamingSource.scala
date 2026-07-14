@@ -44,8 +44,8 @@ trait BlobStreamingSource extends StreamingSource:
 
   /** Extracts file names from a shard name
     */
-  def unpackShard(shardName: String): Task[Seq[String]] = for
-    decoded <- ZIO.succeed(Base64.getUrlDecoder.decode(shardName.getBytes(StandardCharsets.ISO_8859_1)))
+  final def unpackShard(content: String): Task[Seq[String]] = for
+    decoded <- ZIO.succeed(Base64.getUrlDecoder.decode(content.getBytes(StandardCharsets.ISO_8859_1)))
     uncompressed <- ZStream
       .fromChunk(Chunk.fromIterable(decoded))
       .via(ZPipeline.gunzip())
@@ -56,10 +56,20 @@ trait BlobStreamingSource extends StreamingSource:
 
   /** Packs file names into a single string which serves as a shard name
     */
-  def packShard(sourceFiles: Seq[String]): Task[String] = for
+  final def packShard(sourceFiles: Seq[String]): Task[String] = for
     compressed <- ZStream.fromIterable(sourceFiles.mkString("\n").getBytes("UTF-8")).via(ZPipeline.gzip()).runCollect
     encoded    <- ZIO.succeed(Base64.getUrlEncoder.withoutPadding.encodeToString(compressed.toArray))
   yield encoded
+
+  /**
+   * Saves the provided shard content
+   */
+  def persistShard(shardContent: String): Task[String]
+
+  /**
+   * Reads the shard content that was persisted before
+   */
+  def readShard(shardSourceEntityName: String): Task[String]
 
   /** Creates a StoredBlob model from a provided file address
     */

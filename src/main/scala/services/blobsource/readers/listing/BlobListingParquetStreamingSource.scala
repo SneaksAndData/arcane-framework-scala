@@ -9,7 +9,8 @@ import models.settings.sources.blob.ParquetBlobSourceSettings
 import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
-import services.storage.base.BlobStorageReader
+import services.naming.NameGenerator
+import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageService
@@ -22,12 +23,14 @@ import java.util.Base64
 
 class BlobListingParquetStreamingSource[PathType <: BlobPath](
     sourcePath: PathType,
-    reader: BlobStorageReader[PathType],
+    shardStoragePath: PathType,
+    storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+    nameGenerator: NameGenerator,
     tempStoragePath: String,
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
     sourceSchema: Option[String]
-) extends BlobListingStreamingSource[PathType](sourcePath, reader, primaryKeys):
+) extends BlobListingStreamingSource[PathType](sourcePath, shardStoragePath, storageClient, nameGenerator, primaryKeys):
 
   override def getSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
@@ -44,7 +47,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
           _ <- zlog(
             "No sourceSchema provided for the stream, will try to infer from source data. It is advised to avoid reliance on automatic schema resolution, as this can cause data corruption or stream failure if source is empty"
           )
-          maybeFilePath <- reader.downloadRandomBlob(sourcePath, tempStoragePath)
+          maybeFilePath <- storageClient.downloadRandomBlob(sourcePath, tempStoragePath)
           schema <- maybeFilePath match
             case Some(filePath) =>
               ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema.map(implicitly))
@@ -68,7 +71,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
   override def empty: SchemaType = ArcaneSchema.empty()
 
   def fileToStream(sourceFile: StoredBlob): Task[StructuredZStream] =
-    reader
+    storageClient
       .downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
       .map(filePath => ParquetScanner(filePath, useNameMapping))
       .flatMap { scanner =>
@@ -91,7 +94,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
           ZStream
             .fromZIO {
               for
-                filePath <- reader.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+                filePath <- storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
                 scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
               yield scanner
             }
@@ -104,50 +107,39 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       (stream, schema)
     }
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
+  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = storageClient
     .streamPrefixes(sourcePath)
     .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
     .mapZIO(fileToStream)
 
 object BlobListingParquetStreamingSource:
-  def apply(
-             sourcePath: S3StoragePath,
-             s3Reader: S3BlobStorageService,
-             tempPath: String,
-             primaryKeys: Seq[String],
-             useNameMapping: Boolean,
-             sourceSchema: Option[String]
-  ): BlobListingParquetStreamingSource[S3StoragePath] =
-    new BlobListingParquetStreamingSource[S3StoragePath](
-      sourcePath,
-      s3Reader,
-      tempPath,
-      primaryKeys,
-      useNameMapping,
-      sourceSchema
-    )
-
   private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings
 
   /** Default layer is S3. Provide your own layer (Azure etc.) through plugin override if needed
     */
-  def getLayer(
+  def getS3Layer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageService & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[S3StoragePath]] =
+  ): ZLayer[S3BlobStorageService & NameGenerator & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[S3StoragePath]] =
     ZLayer {
       for
         context        <- ZIO.service[PluginStreamContext]
-        blobReader     <- ZIO.service[S3BlobStorageService]
+        storageService     <- ZIO.service[S3BlobStorageService]
+        nameGenerator <- ZIO.service[NameGenerator]
         sourceSettings <- ZIO.attempt(extractor(context))
-        sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
+        sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 source path provided"))(
           S3StoragePath(sourceSettings.sourcePath).toOption
         )
-      yield BlobListingParquetStreamingSource(
-        sourcePath,
-        blobReader,
-        sourceSettings.tempStoragePath,
-        sourceSettings.primaryKeys,
-        sourceSettings.useNameMapping,
-        sourceSettings.sourceSchema
+        shardStoragePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 shard storage path provided"))(
+          S3StoragePath(sourceSettings.shardStoragePath).toOption
+        )
+      yield new BlobListingParquetStreamingSource(
+        sourcePath = sourcePath,
+        shardStoragePath = shardStoragePath,
+        storageClient = storageService,
+        nameGenerator = nameGenerator,
+        tempStoragePath = sourceSettings.tempStoragePath,
+        primaryKeys = sourceSettings.primaryKeys,
+        useNameMapping = sourceSettings.useNameMapping,
+        sourceSchema = sourceSettings.sourceSchema
       )
     }

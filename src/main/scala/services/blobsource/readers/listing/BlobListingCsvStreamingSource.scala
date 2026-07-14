@@ -3,19 +3,22 @@ package services.blobsource.readers.listing
 
 import models.schemas.{ArcaneSchema, DataRow}
 import services.blobsource.versioning.BlobSourceWatermark
-import services.storage.base.BlobStorageReader
+import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.streaming.base.StructuredZStream
 
+import com.sneaksanddata.arcane.framework.services.naming.NameGenerator
 import zio.Task
 import zio.stream.ZStream
 
 class BlobListingCsvStreamingSource[PathType <: BlobPath](
-    sourcePath: PathType,
-    reader: BlobStorageReader[PathType],
-    schema: ArcaneSchema,
-    primaryKeys: Seq[String]
-) extends BlobListingStreamingSource[PathType](sourcePath, reader, primaryKeys):
+                                                           sourcePath: PathType,
+                                                           shardStoragePath: PathType,
+                                                           storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+                                                           nameGenerator: NameGenerator,
+                                                           schema: ArcaneSchema,
+                                                           primaryKeys: Seq[String]
+) extends BlobListingStreamingSource[PathType](sourcePath, shardStoragePath, storageClient, nameGenerator, primaryKeys):
 
   override def getSchema: Task[SchemaType] = ???
 
