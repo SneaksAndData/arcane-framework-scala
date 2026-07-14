@@ -80,6 +80,7 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
 
   private def runBackfill(targetName: String) = for
     path              <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+    shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
     backfillId        <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
     tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"iceberg.test.${targetName.replace("-", "_")}"))
 
@@ -119,8 +120,10 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
     reader <- ZIO.succeed(
       BlobListingParquetStreamingSource(
         sourcePath = path,
-        s3Reader = storageReader,
-        tempPath = "/tmp",
+        shardStoragePath = shardPath,
+        storageClient = storageReader,
+        nameGenerator = nameGenerator,
+        tempStoragePath = "/tmp",
         primaryKeys = Seq("col0"),
         useNameMapping = false,
         sourceSchema = None

@@ -13,10 +13,11 @@ import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamin
 import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
+import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
+import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.*
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -25,6 +26,13 @@ import zio.{Scope, ZIO}
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
+  private val nameGenerator =
+    new DefaultNameGenerator(
+      sinkSettings = TestSinkSettings,
+      backfillId = "",
+      streamId = "blobsource_sdp_tests"
+    )
+    
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings
@@ -56,7 +64,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes correctly") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
+        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), false, None))
         _      <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
@@ -85,7 +94,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     test("stream changes respecting watermark") {
       for
         path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
+        source <- ZIO.succeed(BlobListingParquetStreamingSource(path, shardPath, storageReader, nameGenerator, "/tmp", Seq("col0"), false, None))
         _ <- icebergUtil.prepareWatermark(
           "test",
           BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
