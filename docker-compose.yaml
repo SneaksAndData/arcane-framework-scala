@@ -1,4 +1,4 @@
-version: '3.3'
+name: arcane-framework
 
 services:
   mssql:
@@ -37,7 +37,7 @@ services:
       - "--console-address"
       - ":9001"
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9001" ]
+      test: ["CMD", "curl", "-f", "http://localhost:9001"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -74,7 +74,12 @@ services:
     restart: "no"
     volumes:
       - ./populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
-    command: [ "/bin/sh", "-c", "pip install boto3 pandas pyarrow fastparquet && python /populate-s3-reader-bucket.py"  ]
+    command:
+      [
+        "/bin/sh",
+        "-c",
+        "pip install boto3 pandas pyarrow fastparquet && python /populate-s3-reader-bucket.py",
+      ]
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   lakekeeper:
     image: quay.io/lakekeeper/catalog:v0.11.4
@@ -88,9 +93,9 @@ services:
       - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@localhost:5432/postgres
       - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@localhost:5432/postgres
       - RUST_LOG=trace,axum=trace,sqlx=trace,iceberg-catalog=trace
-    command: [ "serve" ]
+    command: ["serve"]
     healthcheck:
-      test: [ "CMD", "/home/nonroot/lakekeeper", "healthcheck" ]
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
       interval: 1s
       timeout: 10s
       retries: 30
@@ -118,7 +123,12 @@ services:
       - azurite
     volumes:
       - ./populate-cdm-container.py:/populate-cdm-container.py
-    command: [ "/bin/sh", "-c", "pip install azure-storage-blob==12.24.1 requests && python /populate-cdm-container.py" ]
+    command:
+      [
+        "/bin/sh",
+        "-c",
+        "pip install azure-storage-blob==12.24.1 requests && python /populate-cdm-container.py",
+      ]
   lakekeeper_migrate:
     image: quay.io/lakekeeper/catalog:v0.11.4
     network_mode: host
@@ -128,7 +138,7 @@ services:
       - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@localhost:5432/postgres
       - RUST_LOG=info
     restart: "no"
-    command: [ "migrate" ]
+    command: ["migrate"]
     depends_on:
       lakekeeper_db:
         condition: service_healthy
@@ -144,7 +154,8 @@ services:
     restart: "no"
     volumes:
       - ./bootstrap-lk.py:/bootstrap-lk.py
-    command: [ "/bin/sh", "-c", "pip install requests && python /bootstrap-lk.py"  ]
+    command:
+      ["/bin/sh", "-c", "pip install requests && python /bootstrap-lk.py"]
   lakekeeper_db:
     image: postgres:16.3-bullseye
     network_mode: host
@@ -157,7 +168,7 @@ services:
       - PGHOST=localhost
       - PGPORT=5432
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres"]
       interval: 2s
       timeout: 30s
       retries: 8
@@ -169,3 +180,11 @@ services:
     image: "trinodb/trino:478"
     volumes:
       - ./unit-tests.properties:/etc/trino/catalog/iceberg.properties
+  dynamodb-local:
+    image: amazon/dynamodb-local
+    container_name: dynamodb-local
+    ports:
+      - "8000:8000"
+    volumes:
+      - "./data:/home/dynamodblocal/data"
+

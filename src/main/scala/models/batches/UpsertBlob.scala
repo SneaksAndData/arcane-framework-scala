@@ -116,3 +116,4 @@ object UpsertBlobWatermarkOnlyBatch:
       targetName: String,
       watermarkValue: String
   ): UpsertBlobWatermarkOnlyBatch = new UpsertBlobWatermarkOnlyBatch(targetName, watermarkValue)
+  
