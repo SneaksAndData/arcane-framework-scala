@@ -12,7 +12,7 @@ import services.iceberg.interop.ParquetScanner
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
-import services.storage.services.s3.S3BlobStorageReader
+import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
 
 import zio.stream.ZStream
@@ -111,12 +111,12 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
 
 object BlobListingParquetStreamingSource:
   def apply(
-      sourcePath: S3StoragePath,
-      s3Reader: S3BlobStorageReader,
-      tempPath: String,
-      primaryKeys: Seq[String],
-      useNameMapping: Boolean,
-      sourceSchema: Option[String]
+             sourcePath: S3StoragePath,
+             s3Reader: S3BlobStorageService,
+             tempPath: String,
+             primaryKeys: Seq[String],
+             useNameMapping: Boolean,
+             sourceSchema: Option[String]
   ): BlobListingParquetStreamingSource[S3StoragePath] =
     new BlobListingParquetStreamingSource[S3StoragePath](
       sourcePath,
@@ -133,11 +133,11 @@ object BlobListingParquetStreamingSource:
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[S3StoragePath]] =
+  ): ZLayer[S3BlobStorageService & PluginStreamContext, Throwable, BlobListingParquetStreamingSource[S3StoragePath]] =
     ZLayer {
       for
         context        <- ZIO.service[PluginStreamContext]
-        blobReader     <- ZIO.service[S3BlobStorageReader]
+        blobReader     <- ZIO.service[S3BlobStorageService]
         sourceSettings <- ZIO.attempt(extractor(context))
         sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
           S3StoragePath(sourceSettings.sourcePath).toOption

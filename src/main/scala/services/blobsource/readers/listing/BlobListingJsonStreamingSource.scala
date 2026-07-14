@@ -11,7 +11,7 @@ import services.iceberg.interop.JsonScanner
 import services.storage.base.BlobStorageReader
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
-import services.storage.services.s3.S3BlobStorageReader
+import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
 
 import org.apache.avro.Schema as AvroSchema
@@ -89,13 +89,13 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
 
 object BlobListingJsonStreamingSource:
   def apply(
-      sourcePath: S3StoragePath,
-      s3Reader: S3BlobStorageReader,
-      tempPath: String,
-      primaryKeys: Seq[String],
-      avroSchemaString: String,
-      jsonPointerExpr: Option[String],
-      jsonArrayPointers: Map[String, Map[String, String]]
+             sourcePath: S3StoragePath,
+             s3Reader: S3BlobStorageService,
+             tempPath: String,
+             primaryKeys: Seq[String],
+             avroSchemaString: String,
+             jsonPointerExpr: Option[String],
+             jsonArrayPointers: Map[String, Map[String, String]]
   ): BlobListingJsonStreamingSource[S3StoragePath] =
     new BlobListingJsonStreamingSource[S3StoragePath](
       sourcePath,
@@ -113,11 +113,11 @@ object BlobListingJsonStreamingSource:
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[S3BlobStorageReader & PluginStreamContext, Throwable, BlobListingJsonStreamingSource[S3StoragePath]] =
+  ): ZLayer[S3BlobStorageService & PluginStreamContext, Throwable, BlobListingJsonStreamingSource[S3StoragePath]] =
     ZLayer {
       for
         context        <- ZIO.service[PluginStreamContext]
-        blobReader     <- ZIO.service[S3BlobStorageReader]
+        blobReader     <- ZIO.service[S3BlobStorageService]
         sourceSettings <- ZIO.attempt(extractor(context))
         sourcePath <- ZIO.getOrFailWith(new IllegalArgumentException("Invalid S3 path provided"))(
           S3StoragePath(sourceSettings.sourcePath).toOption
