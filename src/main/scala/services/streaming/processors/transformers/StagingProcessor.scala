@@ -48,7 +48,7 @@ class StagingProcessor(
       for filtered <- ZIO.filterPar(elements)(r => ZIO.succeed(!r.isWatermark))
       yield filtered
     }
-    _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsIncoming
+    _ <- ZIO.succeed(filteredElements.getOrElse(elements).size.toLong) @@ declaredMetrics.rowsStaged
     _ <- ZIO.when((maybeWatermark.isDefined && filteredElements.exists(_.nonEmpty)) || maybeWatermark.isEmpty)(
       zlog(
         "Batch of size %s is ready for staging",

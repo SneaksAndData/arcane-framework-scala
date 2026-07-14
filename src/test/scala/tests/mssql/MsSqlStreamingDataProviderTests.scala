@@ -125,7 +125,8 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.$testTableName")
             ),
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         _ <- icebergUtil.prepareWatermark(testTableName, MsSqlWatermark.epoch)
