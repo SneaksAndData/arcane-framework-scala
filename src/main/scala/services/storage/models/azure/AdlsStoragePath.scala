@@ -18,11 +18,11 @@ final case class AdlsStoragePath(accountName: String, container: String, blobPre
     *   The new path.
     */
   @targetName("plus")
-  override def +(part: String): AdlsStoragePath = copy(blobPrefix =
+  override def +(part: String): this.type = copy(blobPrefix =
     if part == "/" then s"${blobPrefix.stripSuffix("/")}$part"
     else if (blobPrefix.isEmpty) part
     else s"${blobPrefix.stripSuffix("/")}/$part"
-  )
+  ).asInstanceOf[this.type]
 
   override def protocol: String = "abfss"
 

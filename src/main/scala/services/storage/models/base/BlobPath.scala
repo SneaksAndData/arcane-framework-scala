@@ -17,4 +17,4 @@ trait BlobPath:
   def protocol: String
 
   @targetName("plus")
-  def +[P <: BlobPath](part: String): P
+  def +(part: String): this.type 
