@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import services.storage.models.s3.S3ClientSettings
-import services.storage.services.s3.S3BlobStorageReader
+import services.storage.services.s3.S3BlobStorageService
 
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 
@@ -17,7 +17,7 @@ object S3StorageInfo:
   val secretAccessKey            = "minioadmin"
   val endpoint                   = "http://localhost:9000"
 
-  val storageReader = S3BlobStorageReader(
+  val storageReader = S3BlobStorageService(
     StaticCredentialsProvider.create(AwsBasicCredentials.create(secretAccessKey, accessKeyId)),
     Some(
       S3ClientSettings(

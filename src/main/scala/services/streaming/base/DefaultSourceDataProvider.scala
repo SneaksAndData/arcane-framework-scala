@@ -3,7 +3,7 @@ package services.streaming.base
 
 import extensions.ZExtensions.trySetBuffering
 import logging.ZIOLogAnnotations.zlog
-import models.schemas.JsonWatermarkRow
+import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
@@ -41,14 +41,15 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   final override def requestChanges(
       previousVersion: WatermarkType,
       nextVersion: WatermarkType
-  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion).map(changeSet =>
-    (
-      throughputShaper
-        .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings))
-        .concat(ZStream.succeed(JsonWatermarkRow(nextVersion))),
-      changeSet._2
+  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion)
+    .map(changeSet =>
+      (
+        throughputShaper
+          .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings)),
+        changeSet._2
+      )
     )
-  )
+    .concat(ZStream.succeed((ZStream.succeed(JsonWatermarkRow(nextVersion)), ArcaneSchema.empty())))
 
   final override def currentWatermark: Task[WatermarkType] = for
     watermarkString <- sinkPropertyManager.getRequiredProperty(sinkSettings.targetTableFullName.parts.name, "comment")

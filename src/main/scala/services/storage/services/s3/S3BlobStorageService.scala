@@ -2,21 +2,14 @@ package com.sneaksanddata.arcane.framework
 package services.storage.services.s3
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import services.storage.base.BlobStorageReader
+import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.StoredBlob
 import services.storage.models.s3.S3ModelConversions.given
 import services.storage.models.s3.{S3ClientSettings, S3StoragePath}
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
-import software.amazon.awssdk.awscore.retry.AwsRetryStrategy
-import software.amazon.awssdk.retries.api.BackoffStrategy
-import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{
-  GetObjectRequest,
-  HeadObjectRequest,
-  ListObjectsV2Request,
-  NoSuchKeyException
-}
+import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.services.s3.model.*
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
@@ -26,33 +19,12 @@ import java.util.UUID
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
-final class S3BlobStorageReader(
+final class S3BlobStorageService(
     credentialsProvider: AwsCredentialsProvider,
     settings: Option[S3ClientSettings]
-) extends BlobStorageReader[S3StoragePath]:
-  private val serviceClientSettings = settings.getOrElse(S3ClientSettings())
-  private val retryStrategy =
-    AwsRetryStrategy
-      .standardRetryStrategy()
-      .toBuilder
-      .maxAttempts(serviceClientSettings.retryMaxAttempts)
-      .backoffStrategy(
-        BackoffStrategy.exponentialDelay(serviceClientSettings.retryBaseDelay, serviceClientSettings.retryMaxDelay)
-      )
-      .circuitBreakerEnabled(true)
-      .build()
-  private val s3Client: S3Client = {
-    var builder =
-      S3Client.builder().forcePathStyle(serviceClientSettings.usePathStyle).credentialsProvider(credentialsProvider)
-
-    if (serviceClientSettings.region.isDefined)
-      builder = builder.region(serviceClientSettings.region.get)
-
-    if (serviceClientSettings.endpoint.isDefined)
-      builder = builder.endpointOverride(serviceClientSettings.endpoint.get)
-
-    builder.overrideConfiguration(o => o.retryStrategy(retryStrategy)).build()
-  }
+) extends BlobStorageReader[S3StoragePath]
+    with BlobStorageWriter[S3StoragePath]:
+  private val (s3Client, serviceClientSettings) = S3Util.getS3Client(credentialsProvider, settings)
 
   override def blobExists(blobPath: S3StoragePath): Task[Boolean] = ZIO
     .attemptBlocking(
@@ -97,7 +69,7 @@ final class S3BlobStorageReader(
     ) { response =>
       if (response.isTruncated()) {
         (
-          Chunk(response.contents().asScala),
+          Chunk(response.contents().asScala.map((rootPrefix.bucket, _)).map(implicitly)),
           Some(
             s3Client.listObjectsV2(
               preBuildListObjectsV2Request(rootPrefix)
@@ -107,12 +79,14 @@ final class S3BlobStorageReader(
           )
         )
       } else {
-        (Chunk(response.contents().asScala), None)
+        (Chunk(response.contents().asScala.map((rootPrefix.bucket, _)).map(implicitly)), None)
       }
     }
     .flatMap(ZStream.fromIterable)
-    .rechunk(1)
-    .mapChunks(v => v.map((rootPrefix.bucket, _)))
+
+  override def streamPrefixes(rootPrefix: String): ZStream[Any, Throwable, StoredBlob] = ZStream
+    .from(S3StoragePath.applySafe(rootPrefix).get)
+    .flatMap(streamPrefixes)
 
   override def streamBlob(blobPath: S3StoragePath): ZStream[Any, Throwable, Byte] =
     zlogStream("Streaming file %s/%s content (bytes) from S3", blobPath.bucket, blobPath.objectKey).flatMap(_ =>
@@ -161,3 +135,39 @@ final class S3BlobStorageReader(
     name = s"${s3Path.bucket}/${s3Path.objectKey}",
     createdOn = Some(response.lastModified().getEpochSecond)
   )
+
+  /** Saves the given text as a blob.
+    */
+  override def saveTextAsBlob(blobPath: S3StoragePath, data: String): Task[Unit] = for
+    putObjectRequest <- ZIO.attempt(
+      PutObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).contentType("text/plain").build()
+    )
+    response <- ZIO.attemptBlocking(s3Client.putObject(putObjectRequest, RequestBody.fromString(data)))
+    _ <- ZIO.when(!response.sdkHttpResponse().isSuccessful)(
+      zlog(
+        "Failed to save a text file %s to S3, response: '%s'",
+        blobPath.toHdfsPath,
+        response.sdkHttpResponse().statusText().orElse("empty response")
+      )
+    )
+  yield ()
+
+  /** Removes the blob at the given path.
+    */
+  override def removeBlob(blobPath: S3StoragePath): Task[Unit] = for
+    deleteObjectRequest <- ZIO.attempt(
+      DeleteObjectRequest.builder().bucket(blobPath.bucket).key(blobPath.objectKey).build()
+    )
+    response <- ZIO.attemptBlocking(s3Client.deleteObject(deleteObjectRequest))
+    _ <- ZIO.when(!response.sdkHttpResponse().isSuccessful)(
+      zlog(
+        "Failed to delete a file %s from S3, response: '%s'",
+        blobPath.toHdfsPath,
+        response.sdkHttpResponse().statusText().orElse("empty response")
+      )
+    )
+  yield ()
+
+  override def removeBlob(blobPath: String): Task[Unit] = ZIO
+    .fromTry(S3StoragePath.applySafe(blobPath))
+    .flatMap(removeBlob)

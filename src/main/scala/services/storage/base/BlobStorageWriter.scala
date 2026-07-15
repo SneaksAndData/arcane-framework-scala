@@ -3,6 +3,8 @@ package services.storage.base
 
 import services.storage.models.base.BlobPath
 
+import zio.Task
+
 import java.net.URL
 import scala.concurrent.Future
 
@@ -11,45 +13,15 @@ import scala.concurrent.Future
   * @tparam Path
   *   The type of the path to the blob.
   */
-trait BlobStorageWriter[Path <: BlobPath, Result]:
-  /** Saves the given bytes as a blob.
-    *
-    * @param blobPath
-    *   The path to the blob.
-    * @param data
-    *   The bytes to save.
-    * @return
-    *   The result of the upload.
-    */
-  def saveBytesAsBlob(blobPath: Path, data: Array[Byte]): Future[Result]
-
+trait BlobStorageWriter[Path <: BlobPath]:
   /** Saves the given text as a blob.
-    *
-    * @param blobPath
-    *   The path to the blob.
-    * @param data
-    *   The text to save.
-    * @return
-    *   The result of the upload.
     */
-  def saveTextAsBlob(blobPath: Path, data: String): Future[Result]
+  def saveTextAsBlob(blobPath: Path, data: String): Task[Unit]
 
   /** Removes the blob at the given path.
-    *
-    * @param blobPath
-    *   The path to the blob.
-    * @param data
-    *   The data to remove.
     */
-  def removeBlob(blobPath: Path, data: String): Future[Result]
+  def removeBlob(blobPath: Path): Task[Unit]
 
-  /** Gets the URI of the blob at the given path.
-    *
-    * @param blobPath
-    *   The path to the blob.
-    * @param data
-    *   The data to get.
-    * @return
-    *   The URI of the blob.
+  /** Removes the blob at the given path.
     */
-  def getBlobUri(blobPath: Path, data: String): Future[URL]
+  def removeBlob(blobPath: String): Task[Unit]

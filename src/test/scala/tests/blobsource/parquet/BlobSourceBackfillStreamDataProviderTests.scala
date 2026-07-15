@@ -4,6 +4,7 @@ package tests.blobsource.parquet
 import models.backfill.DefaultSourceBackfill
 import models.schemas.ArcaneType.{LongType, StringType, StructType}
 import models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField}
+import models.settings.TableNaming.parts
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
@@ -13,15 +14,14 @@ import services.blobsource.backfill.{
   BlobShardedBackfillStreamDataProvider,
   BlobSourceShardFactory
 }
-import services.blobsource.readers.listing.BlobListingParquetSource
+import services.blobsource.readers.listing.BlobListingParquetStreamingSource
+import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.{bucket, storageReader}
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestThroughputShaperBuilder}
 
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
-import com.sneaksanddata.arcane.framework.services.blobsource.versioning.BlobSourceWatermark
 import zio.internal.stacktracer.SourceLocation
 import zio.stream.ZStream
 import zio.test.TestAspect.timeout
@@ -80,6 +80,7 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
 
   private def runBackfill(targetName: String) = for
     path              <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+    shardPath         <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
     backfillId        <- ZIO.succeed(Random.alphanumeric.take(10).mkString("").toLowerCase)
     tableSinkSettings <- ZIO.succeed(TestDynamicSinkSettings(s"iceberg.test.${targetName.replace("-", "_")}"))
 
@@ -117,10 +118,12 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
       TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
     )
     reader <- ZIO.succeed(
-      BlobListingParquetSource(
+      BlobListingParquetStreamingSource(
         sourcePath = path,
-        s3Reader = storageReader,
-        tempPath = "/tmp",
+        shardStoragePath = shardPath,
+        storageClient = storageReader,
+        nameGenerator = nameGenerator,
+        tempStoragePath = "/tmp",
         primaryKeys = Seq("col0"),
         useNameMapping = false,
         sourceSchema = None
@@ -170,9 +173,9 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillState <- stagingPropertyManager
           .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
-      // 50 files gives 50 shards
+      // 50 files gives 1 shard since we chunk into 1000 files per shard
       // row count must match source 50 * 100
-      yield assertTrue(shards.size == 50 && shardRows == 5000 && backfillState.id == backfillId)
+      yield assertTrue(shards.size == 1 && shardRows == 5000 && backfillState.id == backfillId)
     },
     test("resumes an interrupted backfill") {
       for
@@ -185,8 +188,8 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillState <- stagingPropertyManager
           .getRequiredProperty(backfillTableName, "backfill")
           .map(upickle.read[DefaultSourceBackfill](_))
-      // 50 files gives 50 shards
+      // 50 files gives 1 shard since we chunk into 1000 files per shard
       // row count must match source 50 * 100
-      yield assertTrue(shards.size == 50 && shardRows == 5000 && backfillState.id == backfillId)
+      yield assertTrue(shards.size == 1 && shardRows == 5000 && backfillState.id == backfillId)
     } @@ TestAspect.repeats(1)
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
