@@ -16,10 +16,6 @@ trait BlobSourceSettings extends SourceSettings:
     */
   val shardStoragePath: String
 
-  /** Number of files to pack per shard when doing an OVERWRITE backfill
-    */
-  val shardSize: Int
-
   /** Location to store temporary files
     */
   val tempStoragePath: String

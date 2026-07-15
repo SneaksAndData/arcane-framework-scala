@@ -28,7 +28,6 @@ case class DefaultParquetBlobSourceSettings(
     override val useNameMapping: Boolean,
     override val sourcePath: String,
     override val shardStoragePath: String,
-    override val shardSize: Int,
     override val tempStoragePath: String,
     @key("s3") override val s3ClientSettings: S3ClientSettings,
     override val sourceSchema: Option[String] = None
