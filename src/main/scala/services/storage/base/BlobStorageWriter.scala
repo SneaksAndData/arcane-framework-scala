@@ -21,3 +21,7 @@ trait BlobStorageWriter[Path <: BlobPath]:
   /** Removes the blob at the given path.
     */
   def removeBlob(blobPath: Path): Task[Unit]
+
+  /** Removes the blob at the given path.
+    */
+  def removeBlob(blobPath: String): Task[Unit]

@@ -167,3 +167,7 @@ final class S3BlobStorageService(
       )
     )
   yield ()
+
+  override def removeBlob(blobPath: String): Task[Unit] = ZIO
+    .fromTry(S3StoragePath.applySafe(blobPath))
+    .flatMap(removeBlob)

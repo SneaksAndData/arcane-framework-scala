@@ -29,11 +29,11 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 
   final override def deleteShards(prefix: String): Task[Unit] = storageClient
     .streamPrefixes(
-      prefix
+      shardStoragePath + prefix
     )
     .mapZIO(file =>
-      zlog("Deleting outdated shard: %s", (shardStoragePath + file.name).toHdfsPath) *> storageClient.removeBlob(
-        shardStoragePath + file.name
+      zlog("Deleting outdated shard: %s", file.name) *> storageClient.removeBlob(
+        file.name
       )
     )
     .runDrain
