@@ -55,25 +55,30 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ZIO.succeed(true)
 
-  private def getEligibleFiles(rangeStart: BlobSourceWatermark,
-                               rangeEnd: BlobSourceWatermark): ZStream[Any, Throwable, StoredBlob] = storageClient
+  private def getEligibleFiles(
+      rangeStart: BlobSourceWatermark,
+      rangeEnd: BlobSourceWatermark
+  ): ZStream[Any, Throwable, StoredBlob] = storageClient
     .streamPrefixes(sourcePath)
     .collect {
       case blob
-        if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
-          && blob.createdOn
-          .map(BlobSourceWatermark.fromEpochSecond)
-          .getOrElse(BlobSourceWatermark.epoch) <= rangeEnd =>
+          if blob.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= rangeStart
+            && blob.createdOn
+              .map(BlobSourceWatermark.fromEpochSecond)
+              .getOrElse(BlobSourceWatermark.epoch) <= rangeEnd =>
         blob
     }
 
-  private def estimateShardSize(rangeStart: BlobSourceWatermark,
-                                rangeEnd: BlobSourceWatermark): Task[Int] = for
-    _ <- zlog("Estimating shard size using 1000 files between %s and %s", rangeStart.timestamp.toString, rangeEnd.timestamp.toString)
+  private def estimateShardSize(rangeStart: BlobSourceWatermark, rangeEnd: BlobSourceWatermark): Task[Int] = for
+    _ <- zlog(
+      "Estimating shard size using 1000 files between %s and %s",
+      rangeStart.timestamp.toString,
+      rangeEnd.timestamp.toString
+    )
     sample <- getEligibleFiles(rangeStart, rangeEnd).take(1000).runCollect
     // if file size cannot be determined, assume 100kb
     avgFileSize <- ZIO.succeed(sample.map(_.contentLength.getOrElse(1024L * 1024L * 100L)).sum / sample.size)
-    _ <- zlog("Average file size for shards: %s, max shard size is 100Mib", avgFileSize.toString)
+    _           <- zlog("Average file size for shards: %s, max shard size is 100Mib", avgFileSize.toString)
   yield (100L * 1024L * 1024L * 1024L / avgFileSize).toInt
 
   final override def getShards(
@@ -87,7 +92,6 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
         .mapChunks(files => Chunk(files.map(_.name)))
         .rechunk(1)
     }
-
 
   override def persistShard(shardContent: String): Task[String] = for
     shardId   <- ZIO.succeed(UUID.randomUUID().toString)

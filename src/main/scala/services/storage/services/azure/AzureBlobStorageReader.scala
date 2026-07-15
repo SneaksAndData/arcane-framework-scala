@@ -98,9 +98,11 @@ final class AzureBlobStorageReader(
     )
     ZStream.fromIterableZIO(publisher) retry retryPolicy
 
-  override def streamPrefixes(rootPrefix: String): ZStream[Any, Throwable, StoredBlob] = ZStream.from(
-    AdlsStoragePath(rootPrefix).get
-  ).flatMap(streamPrefixes)
+  override def streamPrefixes(rootPrefix: String): ZStream[Any, Throwable, StoredBlob] = ZStream
+    .from(
+      AdlsStoragePath(rootPrefix).get
+    )
+    .flatMap(streamPrefixes)
 
   override def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
     ZIO
