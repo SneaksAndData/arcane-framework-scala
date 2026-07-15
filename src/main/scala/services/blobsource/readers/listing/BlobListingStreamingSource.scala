@@ -114,6 +114,6 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
         .streamPrefixes(sourcePath)
         .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
         // regroup files based on core count available
-        .rechunk(parallelism)
+        .rechunk(parallelism * 10)
         .mapChunksZIO(files => filesToStream(files, changeSetSchema).map(stream => Chunk(stream)))
     }
