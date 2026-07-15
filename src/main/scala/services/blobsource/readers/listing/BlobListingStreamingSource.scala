@@ -25,6 +25,8 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     tempStoragePath: String
 ) extends BlobStreamingSource:
 
+  protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 
   final override def deleteShards(prefix: String): Task[Unit] = storageClient
@@ -111,5 +113,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
       storageClient
         .streamPrefixes(sourcePath)
         .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
-        .mapZIO(file => fileToStream(file, changeSetSchema))
+        // regroup files based on core count available
+        .rechunk(parallelism)
+        .mapChunksZIO(files => filesToStream(files, changeSetSchema).map(stream => Chunk(stream)))
     }

@@ -94,7 +94,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     ZIO.attempt(
       ZStream
         .fromIterable(sourceFiles)
-        .flatMap { sourceFile =>
+        .flatMapPar(parallelism) { sourceFile =>
           ZStream
             .fromZIO {
               for

@@ -37,8 +37,6 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     */
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = ???
-
   override def getLatestVersion: Task[BlobSourceWatermark] = ???
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ???

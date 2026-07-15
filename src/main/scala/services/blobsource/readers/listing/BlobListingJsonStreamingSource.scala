@@ -73,11 +73,11 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     ZIO.attempt(
       ZStream
         .fromIterable(sourceFiles)
-        .flatMap { sourceFile =>
+        .flatMapPar(parallelism) { sourceFile =>
           ZStream
             .fromZIO {
               for
-                filePath <- storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
+                filePath   <- downloadSourceFile(sourceFile)
                 avroSchema <- sourceSchema
                 scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
               yield scanner
