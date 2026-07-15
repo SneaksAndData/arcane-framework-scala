@@ -78,8 +78,8 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     sample <- getEligibleFiles(rangeStart, rangeEnd).take(1000).runCollect
     // if file size cannot be determined, assume 100kb
     avgFileSize <- ZIO.succeed(sample.map(_.contentLength.getOrElse(1024L * 1024L * 100L)).sum / sample.size)
-    _           <- zlog("Average file size for shards: %s bytes, max shard size is 100Mib", avgFileSize.toString)
-  yield Seq((100L * 1024L * 1024L * 1024L / avgFileSize).toInt, 10000).min
+    _           <- zlog("Average file size for shards: %s bytes, max shard size is 10Mib", avgFileSize.toString)
+  yield Seq((10L * 1024L * 1024L * 1024L / avgFileSize).toInt + 1, 10000).min
 
   final override def getShards(
       rangeStart: BlobSourceWatermark,
