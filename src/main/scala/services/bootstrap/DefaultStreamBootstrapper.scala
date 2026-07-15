@@ -11,6 +11,7 @@ import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEnt
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
 import services.naming.NameGenerator
 
+import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillBehavior.Overwrite
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
@@ -20,7 +21,7 @@ class DefaultStreamBootstrapper(
     streamingSource: StreamingSource,
     nameGenerator: NameGenerator,
     stagingSettings: StagingSettings,
-    isBackfilling: Boolean
+    isOverwriting: Boolean
 ) extends StreamBootstrapper:
   override def cleanupStagingTables: Task[Unit] = for
     prefix <- nameGenerator.getStagingTablePrefix
@@ -28,7 +29,7 @@ class DefaultStreamBootstrapper(
     _      <- stagingEntityManager.deleteTables(prefix)
   yield ()
 
-  override def cleanupOutdatedBackfill: Task[Unit] = for _ <- ZIO.unless(isBackfilling) {
+  override def cleanupOutdatedBackfill: Task[Unit] = for _ <- ZIO.unless(isOverwriting) {
       for
         _      <- zlog("Looking for outdated backfill tables")
         prefix <- nameGenerator.getBackfillTablesPrefix.map(v => s"${v}__")
@@ -39,7 +40,7 @@ class DefaultStreamBootstrapper(
   yield ()
 
   override def createBackFillTable: Task[Unit] =
-    for _ <- ZIO.when(isBackfilling) {
+    for _ <- ZIO.when(isOverwriting) {
         for
           schema    <- streamingSource.getSchema
           tableName <- nameGenerator.getBackfillTableName
@@ -87,7 +88,7 @@ object DefaultStreamBootstrapper:
       streamingSource: StreamingSource,
       nameGenerator: NameGenerator,
       stagingSettings: StagingSettings,
-      isBackfilling: Boolean
+      isOverwriting: Boolean
   ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
     stagingEntityManager = stagingEntityManager,
     sinkEntityManager = sinkEntityManager,
@@ -95,7 +96,7 @@ object DefaultStreamBootstrapper:
     streamingSource = streamingSource,
     nameGenerator = nameGenerator,
     stagingSettings = stagingSettings,
-    isBackfilling = isBackfilling
+    isOverwriting = isOverwriting
   )
 
   val layer = ZLayer {
@@ -114,6 +115,6 @@ object DefaultStreamBootstrapper:
       streamingSource = streamingSource,
       nameGenerator = nameGenerator,
       stagingSettings = context.staging,
-      isBackfilling = isBackfilling
+      isOverwriting = isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite
     )
   }
