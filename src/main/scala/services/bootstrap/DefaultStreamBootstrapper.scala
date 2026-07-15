@@ -4,6 +4,7 @@ package services.bootstrap
 import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
+import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.staging.StagingSettings
 import services.base.StreamingSource
 import services.bootstrap.base.StreamBootstrapper
@@ -11,7 +12,6 @@ import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEnt
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
 import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.models.settings.backfill.BackfillBehavior.Overwrite
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
