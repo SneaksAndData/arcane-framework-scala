@@ -125,7 +125,7 @@ object QueryProvider:
        |INNER JOIN 
        |    sys.schemas s ON t.schema_id = s.schema_id and s.name = '$schemaName'
        |WHERE 
-       |    t.name LIKE '$tablePrefix%'
+       |    t.name LIKE '$escaped%'
        |ESCAPE '\\'""".stripMargin
   }
 
