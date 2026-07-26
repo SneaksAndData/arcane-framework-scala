@@ -116,7 +116,8 @@ object QueryProvider:
       yield query
     }
 
-  def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery =
+  def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery = {
+    val escaped = tablePrefix.replace("_", "\\\\_")
     s"""SELECT 
        |  t.name
        |FROM 
@@ -124,7 +125,9 @@ object QueryProvider:
        |INNER JOIN 
        |    sys.schemas s ON t.schema_id = s.schema_id and s.name = '$schemaName'
        |WHERE 
-       |    t.name LIKE '$tablePrefix%'""".stripMargin
+       |    t.name LIKE '$tablePrefix%'
+       |ESCAPE '\\'""".stripMargin
+  }
 
   def getCreatePrimaryKeyQuery(
       shardSchemaName: String,
