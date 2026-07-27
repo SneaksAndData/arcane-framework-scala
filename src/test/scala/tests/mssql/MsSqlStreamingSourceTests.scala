@@ -623,10 +623,10 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             ZIO.attemptBlocking {
               val st = connection.createStatement()
               st.execute(
-                "use arcane; drop table if exists dbo.[backfill__s1__table1]; create table dbo.[backfill_s1__table1] (x int)"
+                "use arcane; drop table if exists dbo.[backfill__s1__table1]; create table dbo.[backfill__s1__table1] (x int)"
               )
               st.execute(
-                "use arcane; drop table if exists dbo.[backfill__s1__table2]; create table dbo.[backfill_s1__table2] (x int)"
+                "use arcane; drop table if exists dbo.[backfill__s1__table2]; create table dbo.[backfill__s1__table2] (x int)"
               )
               st.execute(
                 "use arcane; drop table if exists dbo.[backfill__s11__table1]; create table dbo.[backfill__s11__table1] (x int)"
@@ -661,11 +661,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               val st = connection.createStatement()
               new ResultSetIterator(
                 st.executeQuery(
-                  "SELECT t.name " +
-                    "FROM sys.tables t " +
-                    "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id and s.name = 'dbo' " +
-                    "WHERE t.name LIKE 'backfill%' " +
-                    "ORDER BY t.name"
+                  QueryProvider.getFindMatchingTablesQuery("backfill__s11__", "dbo")
                 )
               )
             }
