@@ -9,6 +9,7 @@ import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
 import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
+import services.mssql.query.ResultSetIterator
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
@@ -614,5 +615,64 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
       ) // NOTE: the value here is computed manually
+    },
+    test("MsSqlConnection deleteShards correctly filters matching tables minimizing LIKE wildcards impact") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) {
+          connection =>
+            ZIO.attemptBlocking {
+              val st = connection.createStatement()
+              st.executeUpdate(
+                "use arcane; drop table if exists dbo.[backfill_s1__table1]; create table dbo.[backfill_s1__table1] (x int)"
+              )
+              st.executeUpdate(
+                "use arcane; drop table if exists dbo.[backfill_s1__table2]; create table dbo.[backfill_s1__table2] (x int)"
+              )
+              st.executeUpdate(
+                "use arcane; drop table if exists dbo.[backfill__s11__table1]; create table dbo.[backfill__s11__table1] (x int)"
+              )
+              st.executeUpdate(
+                "use arcane; drop table if exists dbo.[backfill__s11__table2]; create table dbo.[backfill__s11__table2] (x int)"
+              )
+              st.close()
+            }
+        }
+        reader <- ZIO.succeed(
+          MsSqlStreamingSource(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = "backfill_s1__table1"
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            emptyFieldsFilteringService,
+            nameGenerator
+          )
+        )
+        _ <- reader.deleteShards("backfill_s1__")
+        remainingTables <- ZIO.acquireReleaseWith(getConnection)(connection =>
+          ZIO.attemptBlocking(connection.close()).orDie
+        ) { connection =>
+          ZIO
+            .attemptBlocking {
+              val st = connection.createStatement()
+              new ResultSetIterator(
+                st.executeQuery(
+                  "SELECT t.name " +
+                    "FROM sys.tables t " +
+                    "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id and s.name = 'dbo' " +
+                    "WHERE t.name LIKE 'backfill%' " +
+                    "ORDER BY t.name"
+                )
+              )
+            }
+            .flatMap(iter =>
+              ZIO.foldLeft(iter.to(Iterable))(List[String]())((agg, v) => ZIO.succeed(agg :+ v.head.value.toString))
+            )
+        }
+      yield assertTrue(remainingTables == List("backfill__s11__table1", "backfill__s11__table2"))
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
