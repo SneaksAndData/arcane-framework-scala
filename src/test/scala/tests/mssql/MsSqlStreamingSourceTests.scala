@@ -623,10 +623,10 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             ZIO.attemptBlocking {
               val st = connection.createStatement()
               st.execute(
-                "use arcane; drop table if exists dbo.[backfill_s1__table1]; create table dbo.[backfill_s1__table1] (x int)"
+                "use arcane; drop table if exists dbo.[backfill__s1__table1]; create table dbo.[backfill_s1__table1] (x int)"
               )
               st.execute(
-                "use arcane; drop table if exists dbo.[backfill_s1__table2]; create table dbo.[backfill_s1__table2] (x int)"
+                "use arcane; drop table if exists dbo.[backfill__s1__table2]; create table dbo.[backfill_s1__table2] (x int)"
               )
               st.execute(
                 "use arcane; drop table if exists dbo.[backfill__s11__table1]; create table dbo.[backfill__s11__table1] (x int)"
@@ -642,7 +642,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
-              override val tableName: String                              = "backfill_s1__table1"
+              override val tableName: String                              = "backfill__s1__table1"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
               override val shardSizeMegabytes: Option[Int]                = None
@@ -652,7 +652,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             nameGenerator
           )
         )
-        _ <- reader.deleteShards("backfill_s1__")
+        _ <- reader.deleteShards("backfill__s1__")
         remainingTables <- ZIO.acquireReleaseWith(getConnection)(connection =>
           ZIO.attemptBlocking(connection.close()).orDie
         ) { connection =>
