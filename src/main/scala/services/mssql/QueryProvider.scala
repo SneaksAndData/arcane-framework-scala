@@ -117,7 +117,7 @@ object QueryProvider:
     }
 
   def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery = {
-    val escaped = tablePrefix.replace("_", "\\\\_")
+    val escaped = tablePrefix.replace("_", "\\_")
     s"""SELECT 
        |  t.name
        |FROM 

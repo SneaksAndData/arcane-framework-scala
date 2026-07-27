@@ -661,7 +661,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               val st = connection.createStatement()
               new ResultSetIterator(
                 st.executeQuery(
-                  QueryProvider.getFindMatchingTablesQuery("backfill__s11__", "dbo")
+                  QueryProvider.getFindMatchingTablesQuery("backfill__s1", "dbo")
                 )
               )
             }
