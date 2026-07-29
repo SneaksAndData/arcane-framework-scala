@@ -35,6 +35,7 @@ import services.streaming.processors.batch_processors.maintenance.TargetMaintena
 import services.bootstrap.DefaultStreamBootstrapper
 import services.streaming.graph.DefaultStreamingGraphBuilder
 import services.naming.DefaultNameGenerator
+import services.completion.DefaultStreamFinalizer
 import tests.shared.*
 
 import org.easymock.EasyMock
@@ -124,7 +125,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       WatermarkProcessor.layer,
       IcebergTablePropertyManager.sinkLayer,
       DefaultStreamBootstrapper.layer,
-      DefaultNameGenerator.layer
+      DefaultNameGenerator.layer,
+      DefaultStreamFinalizer.layer
     )
 
     // Act
