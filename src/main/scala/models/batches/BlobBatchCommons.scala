@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models.batches
 
+import exceptions.FatalStreamFailException
 import models.schemas.ArcaneType.LongType
-import models.schemas.{DataCell, DataRow, Field, IndexedField, MergeKeyField}
+import models.schemas.*
 
 import java.security.MessageDigest
 import java.util.Base64
@@ -27,7 +28,7 @@ object BlobBatchCommons:
           row.find(cell => cell.name == key) match
             case Some(pkCell) => pkCell.value.toString
             case None =>
-              throw new RuntimeException(s"Primary key $key does not exist in the rows emitted by this source")
+              throw FatalStreamFailException(s"Primary key $key does not exist in the rows emitted by this source")
         }
         .mkString
         .toLowerCase
