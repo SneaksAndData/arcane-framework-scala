@@ -9,8 +9,8 @@ import models.settings.sources.SourceSettings
 /** Microsoft SQL Server database connection settings
   */
 trait PullStreamSourceSettings extends SourceSettings:
-  val primaryKeyFieldName: String
-  val primaryKeyValue: String
+  val pullIndexKey: String
+  val pullIndexValue: String
   val watermarkFieldName: String
   val pageSize: Option[Int]
   val region: String

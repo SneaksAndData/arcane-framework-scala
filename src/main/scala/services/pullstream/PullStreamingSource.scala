@@ -47,7 +47,7 @@ class PullStreamingSource(
     pageSize: Option[Int]
 ) extends StreamingSource:
 
-  import settings.{primaryKeyFieldName, primaryKeyValue, tableName, watermarkFieldName}
+  import settings.{pullIndexKey, pullIndexValue, tableName, watermarkFieldName}
 
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -73,12 +73,12 @@ class PullStreamingSource(
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
-      "#pk" -> primaryKeyFieldName,
+      "#pk" -> pullIndexKey,
       "#wm" -> watermarkFieldName
     ).asJava
 
     val exprVals = Map(
-      ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
+      ":pk" -> AttributeValue.builder().s(pullIndexValue).build(),
       ":t"  -> AttributeValue.builder().s(PullStreamingSource.normalizeWatermark(latestVersion.timestamp)).build()
     ).asJava
     QueryRequest
@@ -92,12 +92,12 @@ class PullStreamingSource(
 
   private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
-      "#pk" -> primaryKeyFieldName,
+      "#pk" -> pullIndexKey,
       "#wm" -> watermarkFieldName
     ).asJava
 
     val exprVals = Map(
-      ":pk" -> AttributeValue.builder().s(primaryKeyValue).build(),
+      ":pk" -> AttributeValue.builder().s(pullIndexValue).build(),
       ":t"  -> AttributeValue.builder().s(PullStreamingSource.normalizeWatermark(latestVersion.timestamp)).build()
     ).asJava
     QueryRequest
@@ -112,12 +112,12 @@ class PullStreamingSource(
 
   private def buildQueryMaxTimestamp: QueryRequest =
     val exprNames = Map(
-      "#pk" -> primaryKeyFieldName,
+      "#pk" -> pullIndexKey,
       "#wm" -> watermarkFieldName
     ).asJava
 
     val exprVals = Map(
-      ":pk" -> AttributeValue.builder().s(primaryKeyValue).build()
+      ":pk" -> AttributeValue.builder().s(pullIndexValue).build()
     ).asJava
     QueryRequest
       .builder()

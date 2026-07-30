@@ -111,8 +111,8 @@ object PullStreamTestServices:
   def pullStreamSettings(sourceTableName: String): PullStreamSourceSettings =
     new PullStreamSourceSettings:
       override val tableName: String           = sourceTableName
-      override val primaryKeyFieldName: String = primaryKeyField
-      override val primaryKeyValue: String     = PullStreamTestServices.primaryKeyValue
+      override val pullIndexKey: String = primaryKeyField
+      override val pullIndexValue: String     = PullStreamTestServices.primaryKeyValue
       override val watermarkFieldName: String  = watermarkField
       override val region: String              = "us-east-1"
       override val endpoint: Option[String]    = None
