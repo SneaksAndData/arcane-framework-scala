@@ -43,16 +43,15 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
   private val watermarkField  = "timestampUTC"
 
   /** Per-test settings bound to a freshly generated source/target table name pair. */
-  private def pullStreamSettings(srcTable: String, tgtTable: String): PullStreamSourceSettings =
+  private def pullStreamSettings(sourceTable: String): PullStreamSourceSettings =
     new PullStreamSourceSettings:
-      override val sourceTableName: String     = srcTable
-      override val targetTableName: String     = tgtTable
       override val primaryKeyFieldName: String = primaryKeyField
       override val primaryKeyValue: String     = PullStreamStreamingDataProviderTests.primaryKeyValue
       override val watermarkFieldName: String  = watermarkField
       override val region: String              = "us-east-1"
-      override val tableName: String           = srcTable
+      override val tableName: String           = sourceTable
       override val endpoint: Option[String]    = None
+      override val pageSize: Option[Int] = None
 
   // Random, collision-free DynamoDB table name.
   private val genSourceTableName: Task[String] = {
@@ -130,9 +129,11 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PullStreamingSource(
-                settings = pullStreamSettings(sourceTableName, targetTableName),
+                targetTableName = targetTableName,
+                settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
-                sinkPropertyManager = sinkPropertyManager
+                sinkPropertyManager = sinkPropertyManager,
+                pageSize = None,
               )
             )
             provider <- ZIO.succeed(
@@ -180,9 +181,11 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PullStreamingSource(
-                settings = pullStreamSettings(sourceTableName, targetTableName),
+                targetTableName = targetTableName,
+                settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
-                sinkPropertyManager = sinkPropertyManager
+                sinkPropertyManager = sinkPropertyManager,
+                pageSize = None
               )
             )
             provider <- ZIO.succeed(

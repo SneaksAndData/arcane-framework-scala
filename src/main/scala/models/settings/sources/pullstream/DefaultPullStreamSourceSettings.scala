@@ -4,11 +4,10 @@ package models.settings.sources.pullstream
 import upickle.ReadWriter
 
 case class DefaultPullStreamSourceSettings(
-    override val sourceTableName: String,
-    override val targetTableName: String,
     override val primaryKeyFieldName: String,
     override val primaryKeyValue: String,
     override val watermarkFieldName: String,
+    override val pageSize: Option[Int] = None,
     override val region: String,
     override val tableName: String,
     override val endpoint: Option[String]

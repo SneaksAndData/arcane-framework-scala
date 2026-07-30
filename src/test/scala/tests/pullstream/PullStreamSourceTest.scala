@@ -2,235 +2,46 @@ package com.sneaksanddata.arcane.framework
 package tests.pullstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
-import models.schemas.{ArcaneSchema, ArcaneType, Field}
-import models.settings.sources.pullstream.PullStreamSourceSettings
-import services.iceberg.SchemaConversions.toIcebergSchemaFromFields
 import services.pullstream.PullStreamingSource
 import services.pullstream.versioning.PullStreamWatermark
+import tests.pullstream.util.PullStreamTestServices
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
+import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_ArcaneSchema_Schema
 
-import software.amazon.awssdk.auth.credentials.*
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.*
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, Task, ZIO}
-import zio.test.Gen
+import zio.{Scope, ZIO}
 
-import java.net.URI
-import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import scala.jdk.CollectionConverters.*
-import scala.language.postfixOps
-
-object PullStreamTestServices:
-  val access_kid    = "test"
-  val access_secret = "test"
-
-  def getClient: Task[DynamoDbClient] =
-    ZIO.attempt(
-      DynamoDbClient
-        .builder()
-        .endpointOverride(URI.create("http://localhost:8000"))
-        .region(Region.US_EAST_1)
-        .credentialsProvider(
-          StaticCredentialsProvider.create(AwsBasicCredentials.create(access_kid, access_secret))
-        )
-        .build()
-    )
-
-  def createTable(tableName: String, client: DynamoDbClient): Task[CreateTableResponse] = for {
-    req = CreateTableRequest
-      .builder()
-      .tableName(tableName)
-      .keySchema(
-        KeySchemaElement.builder().attributeName("producer").keyType(KeyType.HASH).build(),
-        KeySchemaElement.builder().attributeName("timestampUTC").keyType(KeyType.RANGE).build()
-      )
-      .attributeDefinitions(
-        AttributeDefinition.builder().attributeName("producer").attributeType(ScalarAttributeType.S).build(),
-        AttributeDefinition.builder().attributeName("timestampUTC").attributeType(ScalarAttributeType.S).build()
-      )
-      .provisionedThroughput(
-        ProvisionedThroughput
-          .builder()
-          .readCapacityUnits(5L)
-          .writeCapacityUnits(5L)
-          .build()
-      )
-      .build()
-    r <- ZIO.attemptBlocking(client.createTable(req))
-  } yield r
-
-  def listTables(client: DynamoDbClient): Task[List[String]] = ZIO
-    .attemptBlocking(
-      client.listTables(ListTablesRequest.builder().build())
-    )
-    .map(_.tableNames().toArray.toList.map(_.toString))
-
-  def deleteTable(client: DynamoDbClient, tableName: String): Task[DeleteTableResponse] =
-    ZIO.attemptBlocking(client.deleteTable(DeleteTableRequest.builder().tableName(tableName).build()))
-
-  def insertData(
-      client: DynamoDbClient,
-      tableName: String,
-      primaryKeyField: String,
-      primaryKeyValue: String,
-      watermarkField: String
-  ): Task[PutItemResponse] = for {
-    watermarkValue = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
-    item = Map(
-      primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
-      watermarkField  -> AttributeValue.builder().s(watermarkValue.toString).build(),
-      "payload" -> AttributeValue
-        .builder()
-        .s("""[{"userId":"123", "level": "user"},{"userId":"456", "level": "admin"}]""")
-        .build(),
-      // "payload"  -> AttributeValue.builder().s("""{"userId":{"string":"123"},"level":{"string":"user"}}""").build(),
-      // "payload"  -> AttributeValue.builder().s("""{"userId":"123","level":"user"}""").build(),
-      "schemaId" -> AttributeValue.builder().n("1").build()
-    ).asJava
-    response <- ZIO.attemptBlocking(
-      client.putItem(
-        PutItemRequest.builder().tableName(tableName).item(item).build()
-      )
-    )
-  } yield response
-
-  /** Inserts `count` items with monotonically increasing UTC watermarks starting at `startAt`.
-    * Each item's payload contains a single row so `count` PutItems produce `count` DataRows.
-    */
-  def insertManyData(
-      client: DynamoDbClient,
-      tableName: String,
-      primaryKeyField: String,
-      primaryKeyValue: String,
-      watermarkField: String,
-      count: Int,
-      startAt: OffsetDateTime
-  ): Task[Unit] =
-    ZIO.foreachDiscard(0 until count) { i =>
-      val ts = startAt.plusSeconds(i.toLong)
-      val item = Map(
-        primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
-        watermarkField  -> AttributeValue.builder().s(ts.toString).build(),
-        "payload" -> AttributeValue
-          .builder()
-          .s(s"""[{"userId":"user-$i", "level": "user"}]""")
-          .build(),
-        "schemaId" -> AttributeValue.builder().n("1").build()
-      ).asJava
-      ZIO.attemptBlocking(
-        client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build())
-      ).unit
-    }
 
 object PullStreamSourceTest extends ZIOSpecDefault:
 
-  private val primaryKeyField = "producer"
-  private val primaryKeyValue = "producer1"
-  private val watermarkField  = "timestampUTC"
-
-  private def testSettings(sourceTableName: String, targetTableName: String): PullStreamSourceSettings =
-    val src = sourceTableName
-    val tgt = targetTableName
-    new PullStreamSourceSettings:
-      override val sourceTableName: String     = src
-      override val targetTableName: String     = tgt
-      override val primaryKeyFieldName: String = primaryKeyField
-      override val primaryKeyValue: String     = PullStreamSourceTest.primaryKeyValue
-      override val watermarkFieldName: String  = watermarkField
-      override val region: String              = "us-east-1"
-      override val tableName: String           = src
-      override val endpoint: Option[String]    = None
-  private val schema = ArcaneSchema(
-    Seq(
-      Field("userId", ArcaneType.StringType),
-      Field("level", ArcaneType.StringType)
-    )
-  )
-  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+  private val schema = PullStreamTestServices.payloadSchema
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamTests")(
     test("DetectHasRows") {
       for {
-        tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(_.head)
+        tableName <- PullStreamTestServices.genSourceTableName
         icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
         client <- PullStreamTestServices.getClient
-        result <- ZIO.acquireReleaseWith(
-          PullStreamTestServices.createTable(tableName, client)
-        )(_ => PullStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
+        result <- PullStreamTestServices.withSourceTable(tableName, client) {
           for {
-            tables              <- PullStreamTestServices.listTables(client)
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
-            pullStreamSource <- ZIO.succeed(
+            source <- ZIO.succeed(
               PullStreamingSource(
-                settings = testSettings(
-                  sourceTableName = tableName,
-                  targetTableName = s"testWarehouse.testNs.$tableName"
-                ),
+                settings = PullStreamTestServices
+                  .pullStreamSettings(tableName),
                 dynamodbClient = client,
-                sinkPropertyManager = sinkPropertyManager
+                sinkPropertyManager = sinkPropertyManager,
+                targetTableName = s"testWarehouse.testNs.$tableName",
+                pageSize = Some(1000),
               )
             )
-            resp <- PullStreamTestServices.insertData(
-              client,
-              tableName,
-              primaryKeyField,
-              primaryKeyValue,
-              watermarkField
-            )
-            changes <- pullStreamSource.hasRows(
+            _ <- PullStreamTestServices.insertMany(client, tableName, count = 1)
+            hasRows <- source.hasRows(
               PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
             )
-          } yield assertTrue(changes)
-        }
-      } yield result
-    },
-    test("DetectGetChanges") {
-      for {
-        tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(v => s"wh.ns.${v.head}")
-        icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
-        client <- PullStreamTestServices.getClient
-        result <- ZIO.acquireReleaseWith(
-          PullStreamTestServices.createTable(tableName, client)
-        )(_ => PullStreamTestServices.deleteTable(client, tableName).orDie) { resp =>
-          for {
-            tables            <- PullStreamTestServices.listTables(client)
-            sinkEntityManager <- icebergUtil.getSinkEntityManager
-            _ <- sinkEntityManager.createTable(
-              IcebergCreateTableRequest(tableName, schema, true)
-            )
-            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
-            pullStreamSource <- ZIO.succeed(
-              PullStreamingSource(
-                settings = testSettings(
-                  sourceTableName = tableName,
-                  targetTableName = tableName
-                ),
-                dynamodbClient = client,
-                sinkPropertyManager = sinkPropertyManager
-              )
-            )
-            resp <- PullStreamTestServices.insertData(
-              client,
-              tableName,
-              primaryKeyField,
-              primaryKeyValue,
-              watermarkField
-            )
-            changes <- pullStreamSource
-              .getChanges(
-                PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
-              )
-              .runCollect
-            (rowStream, schemaStream) = changes.head
-            rows <- rowStream.runCollect
-          } yield assertTrue(tables.contains(tableName))
-            && assertTrue(rows.length == 2)
-            // row shape matches the schema (same field names, in order)
-            && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
+          } yield assertTrue(hasRows)
         }
       } yield result
     },
@@ -238,55 +49,42 @@ object PullStreamSourceTest extends ZIOSpecDefault:
       // Insert more items than the configured page size and verify that getChanges follows
       // LastEvaluatedKey across pages and emits every DataRow exactly once, in watermark order.
       val totalItems = 25
-      val pageSize   = 7 // forces at least 4 pages: 7 + 7 + 7 + 4
+      val pageSize   = Some(7) // forces at least 4 pages: 7 + 7 + 7 + 4
       for {
-        tableName <- Gen.stringBounded(4, 5)(Gen.alphaChar).runCollect.map(v => s"wh.ns.${v.head}")
-        icebergUtil = IcebergUtil(TestDynamicSinkSettings(tableName).icebergCatalog)
+        tableName <- PullStreamTestServices.genSourceTableName
+        targetTableName = s"wh.ns.$tableName"
+        icebergUtil     = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
         client <- PullStreamTestServices.getClient
-        result <- ZIO.acquireReleaseWith(
-          PullStreamTestServices.createTable(tableName, client)
-        )(_ => PullStreamTestServices.deleteTable(client, tableName).orDie) { _ =>
+        result <- PullStreamTestServices.withSourceTable(tableName, client) {
           for {
-            sinkEntityManager <- icebergUtil.getSinkEntityManager
-            _ <- sinkEntityManager.createTable(
-              IcebergCreateTableRequest(tableName, schema, true)
-            )
+            sinkEntityManager   <- icebergUtil.getSinkEntityManager
+            _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
-            pullStreamSource <- ZIO.succeed(
+            source <- ZIO.succeed(
               PullStreamingSource(
-                settings = testSettings(
-                  sourceTableName = tableName,
-                  targetTableName = tableName
-                ),
+                settings = PullStreamTestServices.pullStreamSettings(tableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
+                targetTableName = s"testWarehouse.testNs.$tableName",
                 pageSize = pageSize
               )
             )
-            // Insert items with watermarks strictly greater than the query cutoff below.
-            insertStart = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
-            _ <- PullStreamTestServices.insertManyData(
-              client,
-              tableName,
-              primaryKeyField,
-              primaryKeyValue,
-              watermarkField,
-              count = totalItems,
-              startAt = insertStart
-            )
-            changes <- pullStreamSource
-              .getChanges(
-                PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
-              )
+            _ <- PullStreamTestServices.insertMany(client, tableName, count = totalItems)
+            changes <- source
+              .getChanges(PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)))
               .runCollect
             (rowStream, _) = changes.head
             rows <- rowStream.runCollect
-            userIds = rows.map(_.find(_.name == "userId").flatMap(f => Option(f.value)).map(_.toString).getOrElse(""))
+            userIds = rows.map(
+              _.find(_.name == "userId").flatMap(f => Option(f.value)).map(_.toString).getOrElse("")
+            )
           } yield
           // outer stream still emits a single (rows, schema) pair regardless of underlying pages
           assertTrue(changes.length == 1)
             // every inserted item surfaces as exactly one row (one row per payload)
             && assertTrue(rows.length == totalItems)
+            // row shape matches the schema (same field names, in order)
+            && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
             // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
             && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
         }

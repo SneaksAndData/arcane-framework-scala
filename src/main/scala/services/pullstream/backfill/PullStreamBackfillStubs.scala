@@ -1,10 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.pullstream.backfill
 
-/** Backfilling is not supported by PullStream plugin. This module provides No-op implementations for the necessary
-  * backfill layers that are required by 'GenericStreamRunnerService'.
-  */
-
 import com.sneaksanddata.arcane.framework.models.sharding.{BootstrappedShard, CompletionShard, StagedShard}
 import com.sneaksanddata.arcane.framework.services.backfill.base.{
   BackfillStreamDataProvider,
@@ -18,18 +14,25 @@ import zio.{Task, ULayer, ZIO, ZLayer}
 private def unsupported(name: String): Task[Nothing] =
   ZIO.fail(new UnsupportedOperationException(s"$name is not supported by the pull stream plugin"))
 
+/** Backfilling is not supported by PullStream plugin. This module provides No-op implementations for the necessary
+  * backfill layers that are required by 'GenericStreamRunnerService'.
+  */
 object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] =
     ZStream.fromZIO(unsupported("BackfillStreamDataProvider.stream"))
 
   val layer: ULayer[BackfillStreamDataProvider] = ZLayer.succeed(this)
 
+/** Backfilling and sharding is not supported by PullStream plugin.
+  */
 object NoopShardedBackfillStreamDataProvider extends ShardedBackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     unsupported("ShardedBackfillStreamDataProvider.backfillStream")
 
   val layer: ULayer[ShardedBackfillStreamDataProvider] = ZLayer.succeed(this)
 
+/** Sharding is not supported by pullstream.
+  */
 object NoopShardFactory extends ShardFactory:
   override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] =
     unsupported("ShardFactory.createStagedShard")

@@ -43,13 +43,15 @@ class PullStreamingSource(
     settings: PullStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager,
-    pageSize: Int = PullStreamingSource.defaultPageSize
+    targetTableName: String,
+    pageSize: Option[Int]
 ) extends StreamingSource:
 
-  import settings.{primaryKeyFieldName, primaryKeyValue, sourceTableName, targetTableName, watermarkFieldName}
+  import settings.{primaryKeyFieldName, primaryKeyValue, tableName, watermarkFieldName}
 
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  private val listPageSize                 = pageSize.getOrElse(PullStreamingSource.defaultPageSize)
 
   override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
     ZStream.empty
@@ -67,7 +69,7 @@ class PullStreamingSource(
     *   An effect containing the schema.
     */
   override def getSchema: Task[ArcaneSchema] =
-    this.sinkPropertyManager.getTableSchema(sourceTableName).map(s => (s: MergeableArcaneSchema))
+    this.sinkPropertyManager.getTableSchema(tableName).map(s => (s: MergeableArcaneSchema))
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
@@ -81,11 +83,11 @@ class PullStreamingSource(
     ).asJava
     QueryRequest
       .builder()
-      .tableName(sourceTableName)
+      .tableName(tableName)
       .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
-      .limit(pageSize)
+      .limit(listPageSize)
       .build()
 
   private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
@@ -100,7 +102,7 @@ class PullStreamingSource(
     ).asJava
     QueryRequest
       .builder()
-      .tableName(sourceTableName)
+      .tableName(tableName)
       .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
@@ -119,7 +121,7 @@ class PullStreamingSource(
     ).asJava
     QueryRequest
       .builder()
-      .tableName(sourceTableName)
+      .tableName(tableName)
       .keyConditionExpression("#pk = :pk")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
@@ -131,27 +133,26 @@ class PullStreamingSource(
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
     for
       response <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
-      hasMore = Option(response.lastEvaluatedKey()).exists(k => k != null && !k.isEmpty)
+      hasMore   = Option(response.lastEvaluatedKey()).exists(k => k != null && !k.isEmpty)
       itemCount = Option(response.items()).map(_.size()).getOrElse(0)
       _ <-
         if hasMore then
           zlog(
             "DynamoDB query on table '%s' returned a truncated response (%s items in this page, additional pages available but not fetched by this call)",
-            sourceTableName,
+            tableName,
             itemCount.toString
           )
         else
           zlog(
             "DynamoDB query on table '%s' returned a complete response (%s items, no further pages)",
-            sourceTableName,
+            tableName,
             itemCount.toString
           )
     yield response
 
-  /** Executes the given query and transparently follows `LastEvaluatedKey`, returning one
-    * `QueryResponse` per page. The stream terminates when DynamoDB returns no continuation key.
-    * Emits an info log for each page indicating the page index, item count and whether more
-    * pages will follow.
+  /** Executes the given query and transparently follows `LastEvaluatedKey`, returning one `QueryResponse` per page. The
+    * stream terminates when DynamoDB returns no continuation key. Emits an info log for each page indicating the page
+    * index, item count and whether more pages will follow.
     */
   private def paginatedQuery(request: QueryRequest): ZStream[Any, Throwable, QueryResponse] =
     // State: (pageIndex, itemsSoFar, Option[startKey]). pageIndex starts at 1 for the first response.
@@ -169,13 +170,13 @@ class PullStreamingSource(
             if pageIndex == 1 && !hasMore then
               zlog(
                 "DynamoDB paginated query on table '%s' completed in a single page (%s items, no pagination needed)",
-                sourceTableName,
+                tableName,
                 pageItemCount.toString
               )
             else
               zlog(
                 "DynamoDB paginated query on table '%s' page %s returned %s items (total so far: %s, more pages: %s)",
-                sourceTableName,
+                tableName,
                 pageIndex.toString,
                 pageItemCount.toString,
                 totalItems.toString,
@@ -187,7 +188,7 @@ class PullStreamingSource(
 
   private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] =
     this.sinkPropertyManager
-      .getTableSchema(sourceTableName)
+      .getTableSchema(tableName)
       .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name), icebergSchema))
 
   /** Parse the dynamodb query response into DataRows
@@ -244,16 +245,15 @@ class PullStreamingSource(
 
 object PullStreamingSource:
 
-  /** Default page size passed as `Limit` to each DynamoDB `Query` request. DynamoDB caps the
-    * response payload at 1 MB per page anyway, so this is a soft upper bound on items evaluated
-    * per network call, not a total-result cap.
+  /** Default page size passed as `Limit` to each DynamoDB `Query` request. DynamoDB caps the response payload at 1 MB
+    * per page anyway, so this is a soft upper bound on items evaluated per network call, not a total-result cap.
     */
   val defaultPageSize: Int = 1000
 
-  /** Normalizes a watermark timestamp to a lexicographically comparable ISO-8601 string in UTC.
-    * The DynamoDB sort key is a string, so mixed offsets (`+02:00` vs `+00:00`) would order
-    * incorrectly under `wm > :t`. Producers are expected to write UTC (`Z`) values; this ensures
-    * the *reader* side does the same when constructing the key condition.
+  /** Normalizes a watermark timestamp to a lexicographically comparable ISO-8601 string in UTC. The DynamoDB sort key
+    * is a string, so mixed offsets (`+02:00` vs `+00:00`) would order incorrectly under `wm > :t`. Producers are
+    * expected to write UTC (`Z`) values; this ensures the *reader* side does the same when constructing the key
+    * condition.
     */
   def normalizeWatermark(timestamp: OffsetDateTime): String =
     timestamp.withOffsetSameInstant(ZoneOffset.UTC).toString
@@ -261,28 +261,20 @@ object PullStreamingSource:
   type Environment               = PluginStreamContext & DynamoDbClient & SinkPropertyManager
   private type SettingsExtractor = PluginStreamContext => PullStreamSourceSettings
 
-  def apply(
-      settings: PullStreamSourceSettings,
-      dynamodbClient: DynamoDbClient,
-      sinkPropertyManager: SinkPropertyManager
-  ): PullStreamingSource =
-    new PullStreamingSource(settings, dynamodbClient, sinkPropertyManager)
-
-  def apply(
-      settings: PullStreamSourceSettings,
-      dynamodbClient: DynamoDbClient,
-      sinkPropertyManager: SinkPropertyManager,
-      pageSize: Int
-  ): PullStreamingSource =
-    new PullStreamingSource(settings, dynamodbClient, sinkPropertyManager, pageSize)
-
   def getLayer(
       extractor: SettingsExtractor
   ): ZLayer[Environment, Nothing, PullStreamingSource & SchemaProvider[ArcaneSchema]] =
     ZLayer {
       for
         context         <- ZIO.service[PluginStreamContext]
+        settings        <- ZIO.succeed(extractor(context))
         dynamodbClient  <- ZIO.service[DynamoDbClient]
         propertyManager <- ZIO.service[SinkPropertyManager]
-      yield PullStreamingSource(extractor(context), dynamodbClient, propertyManager)
+      yield PullStreamingSource(
+        settings,
+        dynamodbClient,
+        propertyManager,
+        context.sink.targetTableFullName,
+        settings.pageSize
+      )
     }
