@@ -8,7 +8,7 @@ import services.streaming.base.JsonWatermark
   */
 type DataRow = List[DataCell]
 
-/** Represents a row of data.
+/** Represents a unit of data.
   *
   * @param name
   *   The name of the row.
