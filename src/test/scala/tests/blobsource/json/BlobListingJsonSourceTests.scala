@@ -3,11 +3,13 @@ package tests.blobsource.json
 
 import models.batches.BlobBatchCommons
 import models.schemas.{DataRow, MergeKeyField}
-import services.blobsource.readers.listing.BlobListingJsonSource
+import services.blobsource.readers.listing.BlobListingJsonStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
+import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
+import tests.shared.TestSinkSettings
 
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -42,12 +44,30 @@ def assertValidChunk(rows: Chunk[DataRow], expectedSize: Int, expectedFieldCount
 }
 
 object BlobListingJsonSourceTests extends ZIOSpecDefault:
+  private val nameGenerator =
+    new DefaultNameGenerator(
+      sinkSettings = TestSinkSettings,
+      backfillId = "",
+      streamId = "blobsource_json_tests"
+    )
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobListingJsonSource")(
     test("getSchema returns correct schema") {
       for
-        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
+          BlobListingJsonStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            flatSchema,
+            Some("/body"),
+            Map()
+          )
         )
         schema <- source.getSchema
       yield assertTrue(schema.size == 10 + 2) && assertTrue(
@@ -58,29 +78,54 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
     },
     test("getChanges return correct rows") {
       for
-        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
+          BlobListingJsonStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            flatSchema,
+            Some("/body"),
+            Map()
+          )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 12)
     },
     test("getChanges return correct rows for source with variable number of fields") {
       for
-        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketVariable").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(path, storageReader, "/tmp", Seq("col0"), flatSchema, Some("/body"), Map())
+          BlobListingJsonStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            flatSchema,
+            Some("/body"),
+            Map()
+          )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 12)
     },
     test("getChanges return correct rows when using array explode") {
       for
-        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketNestedArray").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketNestedArray").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(
+          BlobListingJsonStreamingSource(
             path,
+            shardPath,
             storageReader,
+            nameGenerator,
             "/tmp",
             Seq("col0"),
             nestedArraySchema,
@@ -93,11 +138,14 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
     },
     test("getChanges return correct rows when using array explode for nested arrays") {
       for
-        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketRootNestedArray").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketRootNestedArray").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(
+          BlobListingJsonStreamingSource(
             path,
+            shardPath,
             storageReader,
+            nameGenerator,
             "/tmp",
             Seq("col0"),
             nestedArraySchema,
@@ -110,11 +158,14 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
     },
     test("getChanges return correct rows when using array explode for nested arrays, when a root is JArray") {
       for
-        path <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketRootNestedJArray").get)
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucketRootNestedJArray").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
         source <- ZIO.succeed(
-          BlobListingJsonSource(
+          BlobListingJsonStreamingSource(
             path,
+            shardPath,
             storageReader,
+            nameGenerator,
             "/tmp",
             Seq("col0"),
             nestedArraySchema,
