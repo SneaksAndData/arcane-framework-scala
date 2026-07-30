@@ -3,13 +3,8 @@ package services.streaming.graph
 
 import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.transformers.{FieldFilteringTransformer, IngestionTimeAppender, StagingProcessor, TimeAppender}
 
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
@@ -20,6 +15,7 @@ import zio.{Tag, ZIO, ZLayer}
 class DefaultStreamingGraphBuilder(
     streamDataProvider: StreamDataProvider,
     fieldFilteringProcessor: FieldFilteringTransformer,
+    timeAppender: TimeAppender,
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
     disposeBatchProcessor: DisposeBatchProcessor,
@@ -36,9 +32,12 @@ class DefaultStreamingGraphBuilder(
     */
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream.flatMap { case (subStream, schema) =>
+      val outputSchema = timeAppender.appendToSchema(schema)
+
       subStream
         .via(fieldFilteringProcessor.process)
-        .via(stagingProcessor.process(schema))
+        .via(timeAppender.process)
+        .via(stagingProcessor.process(outputSchema))
         .via(schemaMigrationProcessor.process)
         .via(mergeProcessor.process)
         .via(targetMaintenanceProcessor.process)
@@ -58,6 +57,7 @@ object DefaultStreamingGraphBuilder:
   def apply(
       streamDataProvider: StreamDataProvider,
       fieldFilteringProcessor: FieldFilteringTransformer,
+      timeAppender: TimeAppender,
       stagingProcessor: StagingProcessor,
       mergeProcessor: MergeBatchProcessor,
       disposeBatchProcessor: DisposeBatchProcessor,
@@ -68,6 +68,7 @@ object DefaultStreamingGraphBuilder:
     new DefaultStreamingGraphBuilder(
       streamDataProvider,
       fieldFilteringProcessor,
+      timeAppender,
       stagingProcessor,
       mergeProcessor,
       disposeBatchProcessor,
@@ -90,6 +91,7 @@ object DefaultStreamingGraphBuilder:
       yield DefaultStreamingGraphBuilder(
         streamDataProvider,
         fieldFilteringProcessor,
+        IngestionTimeAppender,
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,
