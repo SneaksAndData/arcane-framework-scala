@@ -4,7 +4,6 @@ package utils
 import models.*
 import models.schemas.*
 
-import java.sql.{JDBCType, ResultSet}
 import scala.util.{Failure, Success, Try}
 
 object SqlUtils:
@@ -33,33 +32,6 @@ object SqlUtils:
         fieldType = toArcaneType(fieldType).get
       )
     }.toSeq
-
-  /** Reads the schema of a table from a SQL result set.
-    *
-    * @param resultSet
-    *   The result set.
-    * @return
-    *   The schema of the table.
-    */
-  extension (resultSet: ResultSet)
-    def readArcaneSchema: Try[ArcaneSchema] =
-      val columns = resultSet.getColumns.map({ typeInfo =>
-        (
-          typeInfo.name.toUpperCase(),
-          toArcaneType(typeInfo)
-        )
-      })
-      val arcaneColumns =
-        for c <- columns
-        yield c match
-          case (MergeKeyField.name, Success(_)) => Success(MergeKeyField)
-          case (name, Success(arcaneType))      => Success(Field(name, arcaneType))
-          case (_, Failure(e))                  => Failure(e)
-
-      Try(arcaneColumns.collect {
-        case Success(field) => field
-        case Failure(e)     => throw e
-      })
 
   /** Converts a SQL type to an Arcane type.
     *
@@ -127,121 +99,3 @@ object SqlUtils:
         Failure(
           new IllegalArgumentException(s"Unsupported SQL type: ${jdbcTypeInfo.typeId} for column ${jdbcTypeInfo.name}")
         )
-
-  private def parseDecimalType(decimalTypeString: String): JdbcFieldInfo = new JdbcFieldInfo(
-    name = "",
-    typeId = java.sql.Types.DECIMAL,
-    precision = decimalTypeString.split(",").head.stripPrefix("decimal(").toInt,
-    scale = decimalTypeString.split(",").reverse.head.stripSuffix(")").toInt
-  )
-
-  private def parseArrayType(arrayTypeString: String): JdbcFieldInfo = {
-    arrayTypeString.stripPrefix("array(").stripSuffix(")") match {
-      case "varchar" =>
-        new JdbcFieldInfo(
-          name = "",
-          typeId = java.sql.Types.VARCHAR,
-          precision = 0,
-          scale = 0
-        )
-      case "integer" =>
-        new JdbcFieldInfo(
-          name = "",
-          typeId = java.sql.Types.INTEGER,
-          precision = 0,
-          scale = 0
-        )
-      case "float" =>
-        new JdbcFieldInfo(
-          name = "",
-          typeId = java.sql.Types.FLOAT,
-          precision = 0,
-          scale = 0
-        )
-      case "double" =>
-        new JdbcFieldInfo(
-          name = "",
-          typeId = java.sql.Types.DOUBLE,
-          precision = 0,
-          scale = 0
-        )
-      case decimal if decimal.startsWith("decimal") => parseDecimalType(decimal)
-      // rows are currently just objects, until https://github.com/trinodb/trino/issues/16479
-      case row if row.startsWith("row") => parseRowType(row)
-      case _ => throw new RuntimeException(s"Unmapped array type for schema migration: $arrayTypeString")
-    }
-  }
-
-  private def parseRowType(rowTypeString: String, fieldName: Option[String] = None): JdbcRowFieldInfo =
-    JdbcRowFieldInfo(
-      // GIVEN
-      // row(a varchar,b integer,c row(a varchar,c integer),d integer)
-
-      // STRIP ROW(..)
-      // a varchar,b integer,c row(a varchar,c integer),d integer
-
-      // THEN:
-      // a varchar
-      // b integer
-      // c row(a varchar,c integer)
-      // d integer
-
-      // ASSEMBLE field name -> field type
-      name = fieldName.getOrElse(""),
-      fields = rowTypeString
-        .stripPrefix("row")
-        .stripPrefix("(")
-        .stripSuffix(")")
-        .split(",")
-        .foldLeft(List.empty[String]) { case (agg, e) =>
-          if e.contains(")") && agg.nonEmpty then // in case we have a nested ROW
-            agg.init :+ agg.last.concat(s",$e")
-          else agg ++ Seq(e)
-        }
-        .map { typeString =>
-          val (typeName, typeVal) = typeString.split(" ", 2).toList match
-            case tpn :: tpv :: _ => (tpn, tpv)
-            case _ =>
-              throw new RuntimeException(
-                s"Cannot resolve types for schema migration: invalid type string for ROW type received from JDBC client: $typeString"
-              )
-
-          typeVal match
-            case row if row.startsWith("row")             => typeName -> parseRowType(row)
-            case decimal if decimal.startsWith("decimal") => typeName -> parseDecimalType(decimal)
-            case array if array.startsWith("array")       => typeName -> parseArrayType(array)
-            case _ =>
-              typeName -> JdbcFieldInfo(
-                name = "",
-                typeId = JDBCType.valueOf(typeVal.toUpperCase).getVendorTypeNumber,
-                precision = 0,
-                scale = 0
-              )
-        }
-        .toMap
-    )
-
-  /** Gets the columns of a result set.
-    */
-  extension (resultSet: ResultSet)
-    def getColumns: Seq[JdbcFieldInfo] =
-      for i <- 1 to resultSet.getMetaData.getColumnCount
-      yield
-        if resultSet.getMetaData.getColumnType(i) == java.sql.Types.ARRAY then
-          JdbcArrayFieldInfo(
-            name = resultSet.getMetaData.getColumnName(i),
-            typeId = resultSet.getMetaData.getColumnType(i),
-            parseArrayType(resultSet.getMetaData.getColumnTypeName(i))
-          )
-        else if resultSet.getMetaData.getColumnType(i) == java.sql.Types.JAVA_OBJECT then
-          parseRowType(
-            resultSet.getMetaData.getColumnTypeName(i),
-            fieldName = Some(resultSet.getMetaData.getColumnName(i))
-          )
-        else
-          new JdbcFieldInfo(
-            name = resultSet.getMetaData.getColumnName(i),
-            typeId = resultSet.getMetaData.getColumnType(i),
-            precision = resultSet.getMetaData.getPrecision(i),
-            scale = resultSet.getMetaData.getScale(i)
-          )
