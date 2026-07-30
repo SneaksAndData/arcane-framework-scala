@@ -49,7 +49,11 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     .map(changeSet =>
       (
         throughputShaper
-          .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings).tap(_ => ZIO.succeed(1L) @@ declaredMetrics.rowsIncoming)),
+          .shapeStream(
+            changeSet._1
+              .trySetBuffering(sourceBufferingSettings)
+              .tap(_ => ZIO.succeed(1L) @@ declaredMetrics.rowsIncoming)
+          ),
         changeSet._2
       )
     )

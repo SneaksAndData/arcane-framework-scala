@@ -43,7 +43,8 @@ class BlobSourceDataProvider(
     sourceReader.getChanges(previousVersion)
 
 object BlobSourceDataProvider:
-  private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder & DeclaredMetrics
+  private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &
+    DeclaredMetrics
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
