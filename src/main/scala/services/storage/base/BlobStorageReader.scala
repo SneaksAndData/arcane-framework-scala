@@ -75,6 +75,10 @@ trait BlobStorageReader[PathType <: BlobPath]:
     */
   def streamPrefixes(rootPrefix: PathType): ZStream[Any, Throwable, StoredBlob]
 
+  /** `streamPrefixes` that supports string paths
+    */
+  def streamPrefixes(rootPrefix: String): ZStream[Any, Throwable, StoredBlob]
+
   /** Checks if the blob exists at the given path.
     * @param blobPath
     *   The path to the blob.

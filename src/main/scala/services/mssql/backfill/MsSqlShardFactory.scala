@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.backfill
 
+import models.batches.SqlServerChangeTrackingMergeQuery
 import models.queries.backfill.mssql.{MsSqlShardCommitQuery, MsSqlShardStageQuery}
 import models.sharding.{BootstrappedShard, CompletionShard, DefaultStagedShard, StagedShard}
 import services.backfill.base.ShardFactory
@@ -20,6 +21,13 @@ class MsSqlShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
       combinedTableName = shard.combinedTableName,
       targetTableName = shard.targetTableName,
       commitQuery = MsSqlShardStageQuery(shardTableName, shard.combinedTableName),
+      mergeQuery = SqlServerChangeTrackingMergeQuery(
+        targetName = shard.combinedTableName,
+        sourceQuery = s"SELECT * FROM $shardTableName",
+        partitionFields = Seq(),
+        mergeKey = shard.shardStream._2.mergeKey.name,
+        columns = shard.shardStream._2.map(f => f.name)
+      ),
       backfillId = shard.backfillId
     )
 

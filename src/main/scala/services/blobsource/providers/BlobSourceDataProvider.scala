@@ -4,7 +4,7 @@ package services.blobsource.providers
 import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
-import services.blobsource.readers.BlobSourceReader
+import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
 import services.iceberg.base.SinkPropertyManager
@@ -15,7 +15,7 @@ import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
 class BlobSourceDataProvider(
-    sourceReader: BlobSourceReader,
+    sourceReader: BlobStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
@@ -39,13 +39,13 @@ class BlobSourceDataProvider(
     sourceReader.getChanges(previousVersion)
 
 object BlobSourceDataProvider:
-  private type Environment = BlobSourceReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
+  private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       context           <- ZIO.service[PluginStreamContext]
       propertyManager   <- ZIO.service[SinkPropertyManager]
-      blobSource        <- ZIO.service[BlobSourceReader]
+      blobSource        <- ZIO.service[BlobStreamingSource]
       throughputBuilder <- ZIO.service[ThroughputShaperBuilder]
     yield BlobSourceDataProvider(
       blobSource,
