@@ -12,8 +12,9 @@ import services.base.StreamingSource
 import services.streaming.base.*
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
+import com.sneaksanddata.arcane.framework.services.metrics.DeclaredMetrics
 import upickle.ReadWriter
-import zio.Task
+import zio.{Task, ZIO}
 import zio.stream.{ZPipeline, ZSink, ZStream}
 
 import java.time.OffsetDateTime
@@ -29,7 +30,8 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
     backfillSettings: BackfillSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,
-    stateManager: DefaultBackfillStateManager
+    stateManager: DefaultBackfillStateManager,
+    declaredMetrics: DeclaredMetrics,
 )(implicit rw: ReadWriter[WatermarkType])
     extends BackfillSourceDataProvider[WatermarkType]:
 
@@ -56,7 +58,7 @@ abstract class DefaultBackfillSourceDataProvider[WatermarkType <: SourceWatermar
       .flatMap { startFrom =>
         backfillStream(startFrom, snapshotVersion, shards)
           .via(collectShards)
-          .flatMap(v => zlogStream("Prepared total %s shards for the backfill", v.size.toString) *> ZStream.succeed(v))
+          .flatMap(v => ZStream.fromZIO(ZIO.succeed(v.size.toDouble) @@ declaredMetrics.backfillBootstrappedShards) *> zlogStream("Prepared total %s shards for the backfill", v.size.toString) *> ZStream.succeed(v))
           .flatMap { bootstrapped =>
             val outputStream = ZStream.fromIterable(bootstrapped.map { case unshaped: DefaultBootstrappedShard =>
               unshaped.copy(

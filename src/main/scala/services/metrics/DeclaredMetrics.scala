@@ -94,6 +94,9 @@ class DeclaredMetrics:
   val watermarkUpdateCounter: Counter[Long] = Metric
     .counter(s"$metricsNamespace.watermark.updates")
 
+  val backfillBootstrappedShards: Gauge[Double] = Metric
+    .gauge(s"$metricsNamespace.backfill.shards_total")
+
   val backfillStagedShards: Counter[Int] = Metric
     .counterInt(s"$metricsNamespace.backfill.shards_staged")
     .fromConst(1)
