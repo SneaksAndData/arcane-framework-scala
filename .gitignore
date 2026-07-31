@@ -68,7 +68,8 @@ fabric.properties
 /.idea/scala_settings.xml
 
 # Ignore metals
-project/**/*metals.sbt
+project/**/metals.sbt
 
 # LSP
 .metals/*
+.vscode/*
