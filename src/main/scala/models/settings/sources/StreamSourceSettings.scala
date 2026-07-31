@@ -11,6 +11,8 @@ trait StreamSourceSettings:
 
   val configuration: SourceSettingsType
 
+  val recordModifications: RecordModificationSettings
+
   val buffering: SourceBufferingSettings
 
   val fieldSelectionRule: FieldSelectionRuleSettings
