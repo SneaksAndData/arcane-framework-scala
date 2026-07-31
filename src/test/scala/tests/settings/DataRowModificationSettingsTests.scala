@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package tests.settings
 
 import models.settings.sources.{
-  DefaultRecordModificationSettings,
+  DefaultDataRowModificationSettings,
   FieldSelector,
   FieldSelectorImpl,
   LoadTimestamp,
   LoadTimestampImpl,
-  RecordModificationSetting,
+  DataRowModificationSetting,
   SurrogateMergeKey,
   SurrogateMergeKeyImpl,
   SurrogateVersion,
@@ -20,20 +20,20 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import upickle.default.*
 
-class RecordModificationSettingsTests extends AnyFlatSpec with Matchers:
+class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
 
   private val testCases = List(
     (
-      DefaultRecordModificationSettings(Seq.empty),
+      DefaultDataRowModificationSettings(Seq.empty),
       """{"modifications":[]}"""
     ),
     (
-      DefaultRecordModificationSettings(
+      DefaultDataRowModificationSettings(
         Seq(
-          RecordModificationSetting(surrogateMergeKey = Some(SurrogateMergeKey())),
-          RecordModificationSetting(surrogateVersion = Some(SurrogateVersion())),
-          RecordModificationSetting(loadTimestamp = Some(LoadTimestamp())),
-          RecordModificationSetting(
+          DataRowModificationSetting(surrogateMergeKey = Some(SurrogateMergeKey())),
+          DataRowModificationSetting(surrogateVersion = Some(SurrogateVersion())),
+          DataRowModificationSetting(loadTimestamp = Some(LoadTimestamp())),
+          DataRowModificationSetting(
             fieldSelector = Some(
               FieldSelector(
                 includeFields = Seq("id", "name"),
@@ -55,7 +55,7 @@ class RecordModificationSettingsTests extends AnyFlatSpec with Matchers:
 
   it should "deserialize correctly" in {
     forAll(testCases) { (settings, expected) =>
-      read[DefaultRecordModificationSettings](expected) should equal(settings)
+      read[DefaultDataRowModificationSettings](expected) should equal(settings)
     }
   }
 
@@ -79,13 +79,13 @@ class RecordModificationSettingsTests extends AnyFlatSpec with Matchers:
 
   it should "reject an empty modification entry" in {
     an[IllegalArgumentException] should be thrownBy {
-      RecordModificationSetting().resolveSetting
+      DataRowModificationSetting().resolveSetting
     }
   }
 
   it should "reject an entry containing multiple modifications" in {
     an[IllegalArgumentException] should be thrownBy {
-      RecordModificationSetting(
+      DataRowModificationSetting(
         surrogateMergeKey = Some(SurrogateMergeKey()),
         loadTimestamp = Some(LoadTimestamp())
       ).resolveSetting
