@@ -3,9 +3,10 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.{SchemaProvider, StreamingSource}
+import models.settings.sources.*
+import services.base.{DefaultStreamingSource, SchemaProvider, StreamingSource}
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
@@ -16,15 +17,18 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
+import services.mssql.SqlDataCell.normalizeName
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import java.util.Properties
+import java.util.{HexFormat, Properties}
 import scala.annotation.tailrec
 
 /** Represents a connection to a Microsoft SQL Server database.
@@ -36,8 +40,8 @@ class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator
-) extends AutoCloseable
-    with StreamingSource:
+) extends DefaultStreamingSource(Seq.empty)
+    with AutoCloseable:
 
   override type ShardMetadata = String
   override type WatermarkType = MsSqlWatermark
@@ -63,6 +67,14 @@ class MsSqlStreamingSource(
       )
       result <- executeColumnSummariesQuery(query)
     yield result
+
+  // TODO: is Task result content cached?
+  private lazy val primaryKeyNames: Task[Seq[String]] =
+    getColumnSummaries.map(
+      _.collect { case (name, true) =>
+        name.normalizeName
+      }
+    )
 
   /** Create a stream from a provided shard table.
     */
@@ -274,7 +286,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the schema for the data produced by Arcane.
     */
-  override lazy val getSchema: Task[this.SchemaType] =
+  override val getSourceSchema: Task[this.SchemaType] =
     for
       query     <- this.getSchemaQuery
       sqlSchema <- getSqlSchema(query)
@@ -447,6 +459,89 @@ class MsSqlStreamingSource(
           populateShardTable(tableName, id, profile.shardCount, profile.summaries)
         }
     }
+
+  override protected def applyDataRowModification(
+      row: DataRow,
+      modification: DataRowModification
+  ): Task[DataRow] =
+    modification match
+      case SurrogateMergeKeyImpl(_) =>
+        primaryKeyNames.flatMap(addSurrogateMergeKey(row, _))
+      case unsupported =>
+        ZIO.fail(
+          new UnsupportedOperationException(
+            s"Unsupported MSSQL data-row modification: $unsupported"
+          )
+        )
+
+  override protected def applySchemaModification(
+      schema: ArcaneSchema,
+      modification: DataRowModification
+  ): Task[ArcaneSchema] =
+    modification match {
+      case SurrogateMergeKeyImpl(_) =>
+        ZIO.succeed(
+          schema.addField(
+            MergeKeyField.name,
+            MergeKeyField.fieldType
+          )
+        )
+      case unsupported =>
+        ZIO.fail(
+          new UnsupportedOperationException(
+            s"Unsupported MSSQL data-row modification: $unsupported"
+          )
+        )
+    }
+
+  private def addSurrogateMergeKey(
+      row: DataRow,
+      primaryKeys: Seq[String]
+  ): Task[DataRow] =
+    for
+      keyValues <- ZIO.foreach(primaryKeys)(getPrimaryKeyValue(row, _))
+      mergeKey  <- ZIO.attempt(createMergeKey(keyValues))
+    yield row :+ DataCell(
+      name = MergeKeyField.name,
+      Type = MergeKeyField.fieldType,
+      value = mergeKey
+    )
+
+  private def getPrimaryKeyValue(
+      row: DataRow,
+      key: String
+  ): Task[Any] =
+    ZIO
+      .fromOption(row.find(_.name.equalsIgnoreCase(key)))
+      .orElseFail(
+        new IllegalArgumentException(
+          s"Primary-key field '$key' is missing from the MSSQL row"
+        )
+      )
+      .flatMap { cell =>
+        ZIO
+          .fromOption(Option(cell.value))
+          .orElseFail(
+            new IllegalArgumentException(
+              s"Primary-key field '$key' is null"
+            )
+          )
+      }
+
+  // TODO: is this equivalent to MS SQL Server query? is UTF-8 used by SQL SERVER?
+  // TODO: cast(value as nvarchar(128)) vs Java.toString
+  private def createMergeKey(keyValues: Seq[Any]): String =
+    val input =
+      keyValues
+        .map(_.toString)
+        .mkString("#")
+
+    val digest =
+      MessageDigest
+        .getInstance("SHA-256")
+        .digest(input.getBytes(StandardCharsets.UTF_8))
+
+    HexFormat.of().formatHex(digest)
 
 object MsSqlStreamingSource:
 
