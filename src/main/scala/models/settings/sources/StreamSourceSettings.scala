@@ -11,7 +11,7 @@ trait StreamSourceSettings:
 
   val configuration: SourceSettingsType
 
-  val recordModifications: RecordModificationSettings
+  def recordModifications: RecordModificationSettings = DefaultRecordModificationSettings(Seq.empty)
 
   val buffering: SourceBufferingSettings
 

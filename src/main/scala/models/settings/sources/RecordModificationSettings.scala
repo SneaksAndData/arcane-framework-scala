@@ -105,7 +105,7 @@ trait RecordModificationSettings:
   *   serialized modification entries to resolve and apply in order
   */
 case class DefaultRecordModificationSettings(
-    @key("modifications") modificationSettings: Seq[RecordModificationSetting] = Seq.empty
+    @key("modifications") modificationSettings: Seq[RecordModificationSetting]
 ) extends RecordModificationSettings derives ReadWriter:
   /** Resolved internal modification definitions.
     */
