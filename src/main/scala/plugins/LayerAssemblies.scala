@@ -2,12 +2,9 @@ package com.sneaksanddata.arcane.framework
 package plugins
 
 import models.app.PluginStreamContext
-import services.app.base.StreamRunnerService
 import services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamGraphResolver}
 import services.backfill.DefaultBackfillStateManager
-import services.backfill.base.{BackfillStreamDataProvider, ShardFactory, ShardedBackfillStreamDataProvider}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
-import services.base.StreamingSource
 import services.bootstrap.DefaultStreamBootstrapper
 import services.completion.DefaultStreamFinalizer
 import services.filters.FieldsFilteringService
@@ -17,8 +14,7 @@ import services.merging.JdbcMergeServiceClient
 import services.merging.cleanup.CatalogDisposeServiceClient
 import services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
 import services.naming.{DefaultNameGenerator, NameGenerator}
-import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
-import services.streaming.batching.StagedBatchFactory
+import services.streaming.base.StreamDataProvider
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
@@ -66,8 +62,9 @@ object LayerAssemblies:
       ThroughputShaperBuilder.layer
     )
 
-  lazy val frameworkServicesLayer: ZLayer[PluginRequiredServices, Throwable, FrameworkProvidedServices] =
-    ZLayer.makeSome[PluginRequiredServices, FrameworkProvidedServices](
+  lazy val frameworkServicesLayer
+      : ZLayer[PluginRequiredServices & PluginStreamContext.PluginConfiguration, Throwable, FrameworkProvidedServices] =
+    ZLayer.makeSome[PluginRequiredServices & PluginStreamContext.PluginConfiguration, FrameworkProvidedServices](
       GenericStreamRunnerService.layer,
       StreamGraphResolver.composedLayer,
       DisposeBatchProcessor.layer,

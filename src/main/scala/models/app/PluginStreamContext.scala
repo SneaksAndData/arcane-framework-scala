@@ -46,7 +46,7 @@ object PluginStreamContext:
     def apply(spec: PluginStreamContext): MetricsConfig =
       MetricsConfig(spec.metricsPublisherInterval)
 
-  type Services = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
+  type PluginConfiguration = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
 
   /** Parses and initializes StreamContext for the plugin. This should be used when defining `layer` for plugin context
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
@@ -54,7 +54,7 @@ object PluginStreamContext:
     */
   def getLayer[ContextImpl <: PluginStreamContext](implicit
       rw: ReadWriter[ContextImpl]
-  ): ZLayer[Any, Throwable, Services] =
+  ): ZLayer[Any, Throwable, PluginConfiguration] =
     val context = PluginStreamContext
       .fromEnvironment[ContextImpl]("STREAMCONTEXT__SPEC")
 
