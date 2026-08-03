@@ -45,11 +45,14 @@ import zio.metrics.connectors.statsd.DatagramSocketConfig
 object LayerAssemblies:
 
   lazy val synapseLinkSourceLayer: ZLayer[
-    FrameworkRequiredServices & SynapseLinkStreamingSource & PluginStreamContext,
+    SynapseLinkSourceRequiredServices & SynapseLinkStreamingSource & PluginStreamContext,
     Throwable,
-    SynapseLinkServices
+    SynapseLinkProvidedServices
   ] =
-    ZLayer.makeSome[FrameworkRequiredServices & SynapseLinkStreamingSource & PluginStreamContext, SynapseLinkServices](
+    ZLayer.makeSome[
+      SynapseLinkSourceRequiredServices & SynapseLinkStreamingSource & PluginStreamContext,
+      SynapseLinkProvidedServices
+    ](
       // streaming
       SynapseLinkStreamingDataProvider.layer,
       SynapseBatchFactory.layer,
@@ -63,9 +66,8 @@ object LayerAssemblies:
       ThroughputShaperBuilder.layer
     )
 
-  lazy val frameworkServicesLayer
-      : ZLayer[PluginServices & StreamingSource & PluginStreamContext, Throwable, FrameworkServices] =
-    ZLayer.makeSome[PluginServices & StreamingSource & PluginStreamContext, FrameworkServices](
+  lazy val frameworkServicesLayer: ZLayer[PluginRequiredServices, Throwable, FrameworkProvidedServices] =
+    ZLayer.makeSome[PluginRequiredServices, FrameworkProvidedServices](
       GenericStreamRunnerService.layer,
       StreamGraphResolver.composedLayer,
       DisposeBatchProcessor.layer,
@@ -94,9 +96,6 @@ object LayerAssemblies:
       GlobalMetricTagProvider.layer,
       DataDog.UdsPublisher.layer,
       DefaultStreamFinalizer.layer,
-
-      // backfill
-      DefaultBackfillStateManager.layer,
       ShardStagingProcessor.layer,
       BackfillCompletionProcessor.layer
     )
