@@ -7,15 +7,16 @@ import services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, Str
 import services.backfill.DefaultBackfillStateManager
 import services.backfill.base.{BackfillStreamDataProvider, ShardFactory, ShardedBackfillStreamDataProvider}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
-import services.base.StreamingSource
+import services.base.{MergeServiceClient, StreamingSource}
 import services.bootstrap.DefaultStreamBootstrapper
 import services.completion.DefaultStreamFinalizer
 import services.filters.FieldsFilteringService
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcMergeServiceClient
 import services.merging.cleanup.CatalogDisposeServiceClient
 import services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
-import services.naming.DefaultNameGenerator
+import services.naming.{DefaultNameGenerator, NameGenerator}
 import services.streaming.base.{StreamDataProvider, StreamingGraphBuilder}
 import services.streaming.batching.StagedBatchFactory
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
@@ -34,7 +35,9 @@ import zio.metrics.connectors.statsd.DatagramSocketConfig
 
 object LayerAssemblies:
   type FrameworkServices = StreamRunnerService & StreamingGraphBuilder & DisposeBatchProcessor & MergeBatchProcessor &
-    FieldFilteringTransformer & FieldsFilteringService & StreamLifetimeService
+    FieldFilteringTransformer & FieldsFilteringService & StreamLifetimeService & SinkPropertyManager &
+    SinkEntityManager & StagingPropertyManager & StagingEntityManager & MergeServiceClient &
+    DefaultBackfillStateManager & NameGenerator & DeclaredMetrics
   type PluginServices = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig &
     StreamingSource & StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider & StreamDataProvider &
     BackfillStreamDataProvider
