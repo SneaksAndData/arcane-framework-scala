@@ -28,6 +28,15 @@ import services.streaming.processors.batch_processors.streaming.{
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
+import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
+import com.sneaksanddata.arcane.framework.services.synapse.backfill.{
+  SynapseBackfillMergeStreamDataProvider,
+  SynapseBackfillSourceDataProvider,
+  SynapseShardFactory,
+  SynapseShardedBackfillStreamDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkStreamingSource}
+import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBatchFactory, SynapseLinkStreamingDataProvider}
 import zio.ZLayer
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -41,6 +50,27 @@ object LayerAssemblies:
   type PluginServices = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig &
     StreamingSource & StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider & StreamDataProvider &
     BackfillStreamDataProvider
+
+  type SynapseLinkServices = StreamingSource & StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
+    StreamDataProvider & BackfillStreamDataProvider
+  type FrameworkRequiredServices = SinkPropertyManager & DefaultBackfillStateManager & NameGenerator &
+    PluginStreamContext & DeclaredMetrics
+
+  lazy val synapseLinkSourceLayer
+      : ZLayer[FrameworkRequiredServices & SynapseLinkStreamingSource, Throwable, SynapseLinkServices] =
+    ZLayer.makeSome[FrameworkRequiredServices & SynapseLinkStreamingSource, SynapseLinkServices](
+      // streaming
+      SynapseLinkStreamingDataProvider.layer,
+      SynapseBatchFactory.layer,
+      SynapseShardFactory.layer,
+      SynapseLinkDataProvider.layer,
+
+      // backfill
+      SynapseBackfillSourceDataProvider.layer,
+      SynapseShardedBackfillStreamDataProvider.layer,
+      SynapseBackfillMergeStreamDataProvider.layer,
+      ThroughputShaperBuilder.layer
+    )
 
   lazy val frameworkServicesLayer: ZLayer[PluginServices, Throwable, FrameworkServices] =
     ZLayer.makeSome[PluginServices, FrameworkServices](
