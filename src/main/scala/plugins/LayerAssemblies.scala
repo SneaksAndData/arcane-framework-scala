@@ -2,16 +2,16 @@ package com.sneaksanddata.arcane.framework
 package plugins
 
 import models.app.PluginStreamContext
-import services.app.base.{StreamLifetimeService, StreamRunnerService}
+import services.app.base.StreamRunnerService
 import services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamGraphResolver}
 import services.backfill.DefaultBackfillStateManager
 import services.backfill.base.{BackfillStreamDataProvider, ShardFactory, ShardedBackfillStreamDataProvider}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
-import services.base.{MergeServiceClient, StreamingSource}
+import services.base.StreamingSource
 import services.bootstrap.DefaultStreamBootstrapper
 import services.completion.DefaultStreamFinalizer
 import services.filters.FieldsFilteringService
-import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
+import services.iceberg.base.SinkPropertyManager
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcMergeServiceClient
 import services.merging.cleanup.CatalogDisposeServiceClient
@@ -27,38 +27,29 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-
-import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
-import com.sneaksanddata.arcane.framework.services.synapse.backfill.{
+import services.streaming.throughput.base.ThroughputShaperBuilder
+import services.synapse.backfill.{
   SynapseBackfillMergeStreamDataProvider,
   SynapseBackfillSourceDataProvider,
   SynapseShardFactory,
   SynapseShardedBackfillStreamDataProvider
 }
-import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkStreamingSource}
-import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBatchFactory, SynapseLinkStreamingDataProvider}
+import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkStreamingSource}
+import services.synapse.{SynapseBatchFactory, SynapseLinkStreamingDataProvider}
+
 import zio.ZLayer
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 
 object LayerAssemblies:
-  type FrameworkServices = StreamRunnerService & StreamingGraphBuilder & DisposeBatchProcessor & MergeBatchProcessor &
-    FieldFilteringTransformer & FieldsFilteringService & StreamLifetimeService & SinkPropertyManager &
-    SinkEntityManager & StagingPropertyManager & StagingEntityManager & MergeServiceClient &
-    DefaultBackfillStateManager & NameGenerator & DeclaredMetrics
-  type PluginServices = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig &
-    StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider & StreamDataProvider &
-    BackfillStreamDataProvider
 
-  type SynapseLinkServices = StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
-    StreamDataProvider & BackfillStreamDataProvider
-  type FrameworkRequiredServices = SinkPropertyManager & DefaultBackfillStateManager & NameGenerator &
-    PluginStreamContext & DeclaredMetrics
-
-  lazy val synapseLinkSourceLayer
-      : ZLayer[FrameworkRequiredServices & SynapseLinkStreamingSource, Throwable, SynapseLinkServices] =
-    ZLayer.makeSome[FrameworkRequiredServices & SynapseLinkStreamingSource, SynapseLinkServices](
+  lazy val synapseLinkSourceLayer: ZLayer[
+    FrameworkRequiredServices & SynapseLinkStreamingSource & PluginStreamContext,
+    Throwable,
+    SynapseLinkServices
+  ] =
+    ZLayer.makeSome[FrameworkRequiredServices & SynapseLinkStreamingSource & PluginStreamContext, SynapseLinkServices](
       // streaming
       SynapseLinkStreamingDataProvider.layer,
       SynapseBatchFactory.layer,
@@ -72,8 +63,9 @@ object LayerAssemblies:
       ThroughputShaperBuilder.layer
     )
 
-  lazy val frameworkServicesLayer: ZLayer[PluginServices & StreamingSource, Throwable, FrameworkServices] =
-    ZLayer.makeSome[PluginServices & StreamingSource, FrameworkServices](
+  lazy val frameworkServicesLayer
+      : ZLayer[PluginServices & StreamingSource & PluginStreamContext, Throwable, FrameworkServices] =
+    ZLayer.makeSome[PluginServices & StreamingSource & PluginStreamContext, FrameworkServices](
       GenericStreamRunnerService.layer,
       StreamGraphResolver.composedLayer,
       DisposeBatchProcessor.layer,
