@@ -48,10 +48,10 @@ object LayerAssemblies:
     SinkEntityManager & StagingPropertyManager & StagingEntityManager & MergeServiceClient &
     DefaultBackfillStateManager & NameGenerator & DeclaredMetrics
   type PluginServices = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig &
-    StreamingSource & StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider & StreamDataProvider &
+    StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider & StreamDataProvider &
     BackfillStreamDataProvider
 
-  type SynapseLinkServices = StreamingSource & StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
+  type SynapseLinkServices = StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
     StreamDataProvider & BackfillStreamDataProvider
   type FrameworkRequiredServices = SinkPropertyManager & DefaultBackfillStateManager & NameGenerator &
     PluginStreamContext & DeclaredMetrics
@@ -72,8 +72,8 @@ object LayerAssemblies:
       ThroughputShaperBuilder.layer
     )
 
-  lazy val frameworkServicesLayer: ZLayer[PluginServices, Throwable, FrameworkServices] =
-    ZLayer.makeSome[PluginServices, FrameworkServices](
+  lazy val frameworkServicesLayer: ZLayer[PluginServices & StreamingSource, Throwable, FrameworkServices] =
+    ZLayer.makeSome[PluginServices & StreamingSource, FrameworkServices](
       GenericStreamRunnerService.layer,
       StreamGraphResolver.composedLayer,
       DisposeBatchProcessor.layer,
