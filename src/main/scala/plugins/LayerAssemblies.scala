@@ -2,13 +2,14 @@ package com.sneaksanddata.arcane.framework
 package plugins
 
 import models.app.PluginStreamContext
-import services.app.{GenericStreamRunnerService, PosixStreamLifetimeService, StreamGraphResolver}
+import services.app.PosixStreamLifetimeService
 import services.backfill.DefaultBackfillStateManager
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
+import services.base.StreamingSource
 import services.bootstrap.DefaultStreamBootstrapper
 import services.completion.DefaultStreamFinalizer
 import services.filters.FieldsFilteringService
-import services.iceberg.base.SinkPropertyManager
+import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcMergeServiceClient
 import services.merging.cleanup.CatalogDisposeServiceClient
@@ -63,15 +64,15 @@ object LayerAssemblies:
       DefaultBackfillStateManager.layer
     )
 
-  lazy val frameworkServicesLayer
-      : ZLayer[PluginRequiredServices & PluginStreamContext.PluginConfiguration, Throwable, FrameworkProvidedServices] =
-    ZLayer.makeSome[PluginRequiredServices & PluginStreamContext.PluginConfiguration, FrameworkProvidedServices](
-      GenericStreamRunnerService.layer,
-      StreamGraphResolver.composedLayer,
+  lazy val frameworkPipelineServicesLayer: ZLayer[
+    PluginStreamContext.PluginConfiguration & StreamingSource,
+    Throwable,
+    FrameworkProvidedPipelineServices
+  ] =
+    ZLayer.makeSome[PluginStreamContext.PluginConfiguration & StreamingSource, FrameworkProvidedPipelineServices](
       DisposeBatchProcessor.layer,
       FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
-      StagingProcessor.layer,
       FieldsFilteringService.layer,
       PosixStreamLifetimeService.layer,
       IcebergS3CatalogWriter.layer,
@@ -93,7 +94,13 @@ object LayerAssemblies:
       DefaultStreamBootstrapper.layer,
       GlobalMetricTagProvider.layer,
       DataDog.UdsPublisher.layer,
-      DefaultStreamFinalizer.layer,
+      DefaultStreamFinalizer.layer
+    )
+
+  lazy val frameworkStagingServicesLayer
+      : ZLayer[FrameworkRequiredStagingServices & PluginStreamContext, Nothing, FrameworkProvidedStagingServices] =
+    ZLayer.makeSome[FrameworkRequiredStagingServices & PluginStreamContext, FrameworkProvidedStagingServices](
       ShardStagingProcessor.layer,
-      BackfillCompletionProcessor.layer
+      BackfillCompletionProcessor.layer,
+      StagingProcessor.layer
     )
