@@ -59,7 +59,8 @@ object LayerAssemblies:
       SynapseBackfillSourceDataProvider.layer,
       SynapseShardedBackfillStreamDataProvider.layer,
       SynapseBackfillMergeStreamDataProvider.layer,
-      ThroughputShaperBuilder.layer
+      ThroughputShaperBuilder.layer,
+      DefaultBackfillStateManager.layer
     )
 
   lazy val frameworkServicesLayer
