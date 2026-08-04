@@ -164,30 +164,9 @@ class AvroJsonDecoder(
     val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
     reader.read(null, decoder)
 
-  /** Merges envelope-level values into a payload record. Values already present and non-null in the document win, so
-    * injection can never clobber data supplied by the producer.
-    */
-  private def withInjectedFields(node: ObjectNode, injectedFields: Map[String, String]): ObjectNode =
-    if injectedFields.isEmpty then node
-    else
-      val merged = node.deepCopy[ObjectNode]()
-      injectedFields.foreach { case (fieldName, fieldValue) =>
-        if !merged.hasNonNull(fieldName) then merged.put(fieldName, fieldValue)
-      }
-      merged
-
   /** Parses string serialized JSON — either an array root or an object root — into a sequence of [[DataRow]]s.
     */
-  def parse(input: String): Seq[DataRow] = parse(input, Map.empty)
-
-  /** Parses string serialized JSON — either an array root or an object root — into a sequence of [[DataRow]]s.
-    *
-    * @param injectedFields
-    *   Values carried by the envelope rather than the payload itself (for example a queue sort key), merged into every
-    *   root object before decoding. Keys must match the schema field names exactly. Fields already present and non-null
-    *   in the document are left untouched.
-    */
-  def parse(input: String, injectedFields: Map[String, String]): Seq[DataRow] =
+  def parse(input: String): Seq[DataRow] =
     // TODO: instead of throw, return Either[Seq[ValidationError], Seq[DataRow]]
     // so validation errors are collected before returning e.g. multiple missing fields
     val rawJson = applyJsonPointer(jsonMapper.readTree(input))
@@ -198,10 +177,10 @@ class AvroJsonDecoder(
         .asScala
         .flatMap { node =>
           if !node.isObject then throw IllegalArgumentException(s"Expected object node, got ${node.getNodeType.name()}")
-          decodeObjectNode(withInjectedFields(node.asInstanceOf[ObjectNode], injectedFields))
+          decodeObjectNode(node.asInstanceOf[ObjectNode])
         }
         .toSeq
-    else if rawJson.isObject then decodeObjectNode(withInjectedFields(rawJson.asInstanceOf[ObjectNode], injectedFields))
+    else if rawJson.isObject then decodeObjectNode(rawJson.asInstanceOf[ObjectNode])
     else
       throw IllegalArgumentException(
         s"Expected either array node or object node as root node of the source document. Got ${rawJson.getNodeType.name()}"

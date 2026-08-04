@@ -6,13 +6,10 @@ import models.schemas.ArcaneSchema
 import models.settings.EmptyTablePropertiesSettings
 import services.streaming.batching.StagedBatchFactory
 
-import zio.{Task, ZIO, ZLayer}
+import zio.{Task, ULayer, ZIO, ZLayer}
 
-/** @param versionFieldName
-  *   Column used to order concurrent versions of the same merge key. It must be a column of the sink table, and is
-  *   taken from the source's `watermarkFieldName` so that it always matches the value the source projects into rows.
-  */
-class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedBatchFactory:
+class PullStreamStagedBatchFactory extends StagedBatchFactory:
+  val versionFieldName = "TimestampUTC"
   override type OutputBatch    = PullStreamChangeTrackingMergeBatch
   override type WatermarkBatch = PullStreamChangeTrackingWatermarkOnlyBatch
 
@@ -38,8 +35,4 @@ class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedB
     ZIO.succeed(PullStreamChangeTrackingWatermarkOnlyBatch(targetTableName, watermark))
 
 object PullStreamStagedBatchFactory:
-  val layer: ZLayer[PullStreamingSource, Nothing, PullStreamStagedBatchFactory] =
-    ZLayer {
-      for source <- ZIO.service[PullStreamingSource]
-      yield new PullStreamStagedBatchFactory(source.versionFieldName)
-    }
+  val layer: ULayer[PullStreamStagedBatchFactory] = ZLayer.succeed(new PullStreamStagedBatchFactory())

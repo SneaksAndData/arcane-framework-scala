@@ -28,7 +28,7 @@ import scala.jdk.CollectionConverters.*
   *
   * Arcane push stream lives with the following assumptions: Data is wrapped into the following format:
   *   - primaryKey: primary identifier for the datastream e.g. ProducerId
-  *   - secondaryKey: sort-key for the datasteram e.g. timestampUTC
+  *   - secondaryKey: sort-key for the datasteram e.g. TimestampUTC
   *
   * @param primaryKeyFieldName
   *   the field name of the producer
@@ -52,11 +52,6 @@ class PullStreamingSource(
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
   private val listPageSize                 = pageSize.getOrElse(PullStreamingSource.defaultPageSize)
-
-  /** Name of the field used to order concurrent versions of the same merge key. This is the watermark (DynamoDB sort
-    * key) column, which the source projects into every row.
-    */
-  val versionFieldName: String = watermarkFieldName
 
   /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
     * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
@@ -201,42 +196,22 @@ class PullStreamingSource(
       .getTableSchema(targetTableName)
       .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName), icebergSchema))
 
-  /** Locates the sink column that receives the DynamoDB watermark (sort key) value.
-    *
-    * The lookup is case-insensitive and returns the schema's own spelling, so a source configured with
-    * `watermarkFieldName: timestampUTC` populates a column named `timestampUTC`, `TimestampUTC` or `timestamputc`
-    * alike. Returns `None` when the sink has no such column, in which case the watermark is not projected into the
-    * rows.
-    */
-  private def resolveWatermarkColumn(avroSchema: AvroSchema): Option[String] =
-    avroSchema.getFields.asScala.map(_.name()).find(_.equalsIgnoreCase(watermarkFieldName))
-
-  /** Parse the dynamodb query response into DataRows.
-    *
-    * Only the `payload` attribute holds producer data; the remaining item attributes are envelope metadata. The
-    * watermark attribute (the DynamoDB sort key, named by `watermarkFieldName`) is additionally injected into every
-    * decoded record whenever the sink schema declares a matching column, so the ingestion timestamp is persisted
-    * alongside the payload instead of being dropped.
+  /** Parse the dynamodb query response into DataRows
     */
   private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] =
-    val decoder         = AvroJsonDecoder(avroSchema, tolerateMissingFields = false)
-    val watermarkColumn = resolveWatermarkColumn(avroSchema)
+    val decoder = AvroJsonDecoder(avroSchema, tolerateMissingFields = false)
 
     ZStream
       .fromIterable(queryResponse.items().asScala)
-      .map { item =>
-        val attributes = item.asScala
-        val payload    = attributes(pushPayloadFieldName).s()
-        val injectedFields = (
-          for
-            column         <- watermarkColumn
-            watermarkValue <- attributes.get(watermarkFieldName).flatMap(value => Option(value.s()))
-          yield Map(column -> watermarkValue)
-        ).getOrElse(Map.empty)
-
-        (payload, injectedFields)
-      }
-      .mapZIO { case (line, injectedFields) => ZIO.attempt(decoder.parse(line, injectedFields)) }
+      .map(
+        _.asScala
+          .collect {
+            case (fieldName, fieldValue) if fieldName == pushPayloadFieldName => fieldValue
+          }
+          .head
+          .s()
+      )
+      .mapZIO(line => ZIO.attempt(decoder.parse(line)))
       .flatMap(rows => ZStream.fromIterable(rows))
 
   /** Gets the changes in the database since the given version.
