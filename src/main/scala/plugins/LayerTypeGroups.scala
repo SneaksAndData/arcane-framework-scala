@@ -30,5 +30,5 @@ type PluginRequiredServices = StagedBatchFactory & ShardFactory & ShardedBackfil
 type SynapseLinkProvidedServices = StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
   StreamDataProvider & BackfillStreamDataProvider & BackfillStateManager
 
-type SynapseLinkSourceRequiredServices = SinkPropertyManager & StagingEntityManager & StagingPropertyManager & NameGenerator &
-  DeclaredMetrics
+type SynapseLinkSourceRequiredServices = SinkPropertyManager & StagingEntityManager & StagingPropertyManager &
+  NameGenerator & DeclaredMetrics
