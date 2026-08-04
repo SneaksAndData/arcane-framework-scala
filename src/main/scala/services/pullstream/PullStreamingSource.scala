@@ -43,7 +43,7 @@ class PullStreamingSource(
     settings: PullStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager,
-    targetTableName: String,
+    targetTableFullName: String,
     pageSize: Option[Int]
 ) extends StreamingSource:
 
@@ -52,6 +52,11 @@ class PullStreamingSource(
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
   private val listPageSize                 = pageSize.getOrElse(PullStreamingSource.defaultPageSize)
+
+  /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
+    * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
+    */
+  private val targetTableName: String = targetTableFullName.parts.name
 
   override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
     ZStream.empty
@@ -63,13 +68,13 @@ class PullStreamingSource(
 
   override def empty: SchemaType = ArcaneSchema.empty()
 
-  /** Gets the Iceberg schema for the table in the database.
+  /** Gets the Iceberg schema for the target table.
     *
     * @return
     *   An effect containing the schema.
     */
   override def getSchema: Task[ArcaneSchema] =
-    this.sinkPropertyManager.getTableSchema(tableName).map(s => (s: MergeableArcaneSchema))
+    this.sinkPropertyManager.getTableSchema(targetTableName).map(s => (s: MergeableArcaneSchema))
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
@@ -188,8 +193,8 @@ class PullStreamingSource(
 
   private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] =
     this.sinkPropertyManager
-      .getTableSchema(tableName)
-      .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName.parts.name), icebergSchema))
+      .getTableSchema(targetTableName)
+      .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName), icebergSchema))
 
   /** Parse the dynamodb query response into DataRows
     */

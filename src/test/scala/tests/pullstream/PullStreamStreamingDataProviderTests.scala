@@ -11,6 +11,7 @@ import services.iceberg.SchemaConversions.toIcebergSchema
 import services.metrics.DeclaredMetrics
 import services.pullstream.{PullStreamSourceDataProvider, PullStreamStreamingDataProvider, PullStreamingSource}
 import services.pullstream.versioning.PullStreamWatermark
+import tests.pullstream.util.PullStreamTestServices
 import tests.shared.*
 
 import com.sneaksanddata.arcane.framework.services.iceberg.interop.MissingFieldException
@@ -129,7 +130,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PullStreamingSource(
-                targetTableName = targetTableName,
+                targetTableFullName = targetTableName,
                 settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
@@ -181,7 +182,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source <- ZIO.succeed(
               PullStreamingSource(
-                targetTableName = targetTableName,
+                targetTableFullName = targetTableName,
                 settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,

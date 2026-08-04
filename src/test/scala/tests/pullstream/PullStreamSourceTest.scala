@@ -33,7 +33,7 @@ object PullStreamSourceTest extends ZIOSpecDefault:
                   .pullStreamSettings(tableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
-                targetTableName = s"testWarehouse.testNs.$tableName",
+                targetTableFullName = s"testWarehouse.testNs.$tableName",
                 pageSize = Some(1000),
               )
             )
@@ -65,7 +65,7 @@ object PullStreamSourceTest extends ZIOSpecDefault:
                 settings = PullStreamTestServices.pullStreamSettings(tableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
-                targetTableName = s"testWarehouse.testNs.$tableName",
+                targetTableFullName = s"testWarehouse.testNs.$tableName",
                 pageSize = pageSize
               )
             )
