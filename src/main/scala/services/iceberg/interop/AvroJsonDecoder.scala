@@ -49,6 +49,14 @@ class AvroJsonDecoder(
   private def getOptionalTypeName(optionalType: org.apache.avro.Schema): String =
     optionalType.getTypes.get(1).getType.getName
 
+  /** Avro's JSON decoder cannot read an object/array token into a `string` field. Producers that emit a structured
+    * payload into a column declared as string expect the document to be stored verbatim, so serialize containers to
+    * their JSON text representation before handing them over to the decoder.
+    */
+  private def alignValueToTargetType(value: JsonNode, targetTypeName: String): JsonNode =
+    if targetTypeName == "string" && (value.isObject || value.isArray) then nodeFactory.textNode(value.toString)
+    else value
+
   private def applyJsonPointer(node: JsonNode): JsonNode =
     jsonPointerExpr match
       case Some(pointer) => node.at(pointer)
@@ -123,7 +131,7 @@ class AvroJsonDecoder(
         if jsonNodeValue.flatMap(v => Option(v.get(wrappedTypeName))).isEmpty then
 
           // set wrapped value
-          wrapperNode.set(wrappedTypeName, jsonNodeValue.get)
+          wrapperNode.set(wrappedTypeName, alignValueToTargetType(jsonNodeValue.get, wrappedTypeName))
 
           // create new node
           compliantNode.set(avroField.name(), wrapperNode)
