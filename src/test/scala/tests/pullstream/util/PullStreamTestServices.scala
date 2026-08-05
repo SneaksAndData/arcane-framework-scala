@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.pullstream.util
 
-import models.schemas.{ArcaneSchema, ArcaneType, Field}
+import models.schemas.{ArcaneSchema, ArcaneType, Field, IndexedField}
 import models.settings.sources.pullstream.PullStreamSourceSettings
 
 import software.amazon.awssdk.auth.credentials.*
@@ -11,7 +11,9 @@ import software.amazon.awssdk.services.dynamodb.model.*
 import zio.{Random, Task, ZIO}
 
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
+import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
 /** Shared building blocks for the pullstream test suites.
@@ -27,6 +29,13 @@ object PullStreamTestServices:
   val primaryKeyField = "producer"
   val primaryKeyValue = "producer1"
   val watermarkField  = "timestampUTC"
+  val idField         = "id"
+
+  /** Identifier stored in the item's `id` attribute, which the source turns into the merge key. Production writes a
+    * fresh UUID per pushed message; a deterministic one keeps assertions stable.
+    */
+  def defaultId(index: Int): String =
+    UUID.nameUUIDFromBytes(s"arcane-pull-test-$index".getBytes(StandardCharsets.UTF_8)).toString
 
   /** Schema of the rows produced by [[defaultPayload]]. Kept alongside the payload so callers cannot get the two out of
     * sync.
@@ -47,6 +56,27 @@ object PullStreamTestServices:
     */
   val watermarkedPayloadSchema: ArcaneSchema =
     ArcaneSchema(payloadSchema :+ Field(watermarkField, ArcaneType.StringType))
+
+  /** Verbatim copy of a `payload` attribute observed in the production DynamoDB table: an object root (not an array)
+    * whose own `id` is a business identifier distinct from the envelope's `id`, and whose `payload` member is a nested
+    * object. Neither the watermark nor the merge key appears anywhere in it.
+    */
+  def productionPayload(index: Int): String =
+    s"""{"id":"evt_${"%03d".format(index + 1)}","payload":$productionNestedPayload}"""
+
+  /** Nested object carried by [[productionPayload]] under its `payload` member. A string column receives it verbatim as
+    * JSON text, which is how the decoder handles containers aimed at string fields.
+    */
+  val productionNestedPayload: String =
+    """{"eventType":"Producer1Event","timestamp":"2026-08-04T12:34:56Z","source":"integration-test","message":"Hello from Avro map<string> payload"}"""
+
+  /** Schema of the rows produced by [[productionPayload]]. */
+  val productionPayloadSchema: ArcaneSchema = ArcaneSchema(
+    Seq(
+      Field("id", ArcaneType.StringType),
+      Field("payload", ArcaneType.StringType)
+    )
+  )
 
   def getClient: Task[DynamoDbClient] =
     ZIO.attempt(
@@ -99,11 +129,17 @@ object PullStreamTestServices:
   ): Task[Unit] =
     ZIO.foreachDiscard(0 until count) { i =>
       val ts = startAt.plusSeconds(i.toLong)
+      // mirrors every attribute written by arcane-push-stream's PersistenceService, so the source is exercised
+      // against the same envelope it sees in production rather than a reduced stand-in
       val item = Map(
-        primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
-        watermarkField  -> AttributeValue.builder().s(ts.toString).build(),
-        "payload"       -> AttributeValue.builder().s(payload(i)).build(),
-        "schemaId"      -> AttributeValue.builder().n("1").build()
+        primaryKeyField     -> AttributeValue.builder().s(primaryKeyValue).build(),
+        watermarkField      -> AttributeValue.builder().s(ts.toString).build(),
+        "createdAt"         -> AttributeValue.builder().n(ts.toInstant.toEpochMilli.toString).build(),
+        idField             -> AttributeValue.builder().s(defaultId(i)).build(),
+        "payload"           -> AttributeValue.builder().s(payload(i)).build(),
+        "schemaFingerprint" -> AttributeValue.builder().s("c1888dad68329506").build(),
+        "schemaSubject"     -> AttributeValue.builder().s("producer1-event").build(),
+        "schemaVersion"     -> AttributeValue.builder().n("1").build()
       ).asJava
       ZIO
         .attemptBlocking(client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build()))

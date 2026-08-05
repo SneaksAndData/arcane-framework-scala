@@ -3,7 +3,7 @@ package tests.pullstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.ArcaneType.StringType
-import models.schemas.{ArcaneSchema, DataRow, Field, MergeKeyField}
+import models.schemas.{ArcaneSchema, DataRow, Field, IndexedField, IndexedMergeKeyField, MergeKeyField}
 import services.filters.FieldsFilteringService
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
@@ -59,18 +59,11 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
     */
   private val watermarkColumn = "timestamputc"
 
+  /** The decoded production payload, plus the two columns the framework synthesizes from the envelope. */
   private val targetSchema: ArcaneSchema = ArcaneSchema(
-    Seq(
-      Field("userId", StringType),
-      Field("level", StringType),
-      Field(watermarkColumn, StringType),
-      MergeKeyField
-    )
+    PullStreamTestServices.productionPayloadSchema
+      ++ Seq(Field(watermarkColumn, StringType), MergeKeyField)
   )
-
-  /** Payload without any timestamp: the watermark must come from the DynamoDB item attribute. */
-  private def payloadWithoutWatermark(index: Int): String =
-    s"""[{"userId":"user-$index","level":"user","${MergeKeyField.name}":"key-$index"}]"""
 
   private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
     for
@@ -146,22 +139,44 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
               sourceTableName,
               count = totalItems,
               startAt = startAt,
-              payload = payloadWithoutWatermark
+              payload = PullStreamTestServices.productionPayload
             )
             graph      <- buildGraph(source, readFrom)
             _          <- graph.produce().runCollect
             connection <- newTrinoConnection
             rowCount   <- getRowsInTarget(connection, targetTableFullName)
+            firstItemKey = PullStreamTestServices.defaultId(0)
             watermark <- getFieldValueInTarget(
               connection,
               targetTableFullName,
               watermarkColumn,
               MergeKeyField.name,
-              "key-0"
+              firstItemKey
             )
-          yield assertTrue(rowCount == totalItems)
-          // the value never appeared in the payload, so it can only have come from the DynamoDB item attribute
-            && assertTrue(watermark == startAt.toString)
+            nestedPayload <- getFieldValueInTarget(
+              connection,
+              targetTableFullName,
+              "payload",
+              MergeKeyField.name,
+              firstItemKey
+            )
+            businessId <- getFieldValueInTarget(
+              connection,
+              targetTableFullName,
+              "id",
+              MergeKeyField.name,
+              firstItemKey
+            )
+          yield
+            // one target row per DynamoDB item: a missing or constant merge key would have collapsed them
+            assertTrue(rowCount == totalItems)
+            // the watermark is absent from the payload, so it can only have come from the item attribute
+              && assertTrue(watermark == startAt.toString)
+              // the row is addressable by the envelope's `id`, proving that supplied the merge key, while `id` inside
+              // the decoded payload keeps its own distinct business value
+              && assertTrue(businessId == "evt_001")
+              // the nested object is stored verbatim rather than being flattened or dropped
+              && assertTrue(nestedPayload == PullStreamTestServices.productionNestedPayload)
         }
       yield result
     }
