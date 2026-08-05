@@ -54,15 +54,17 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
   private val targetTableFullName = s"iceberg.test.$targetTableName"
   private val icebergUtil         = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
 
-  /** The sink stores the watermark under a lowercase name while the DynamoDB attribute is `timestampUTC`, mirroring a
-    * target table created through an engine that folds unquoted identifiers.
+  /** The sink stores both synthesized columns under lowercase names while the DynamoDB attribute is `timestampUTC` and
+    * the canonical merge key is upper-case, mirroring a target table created through an engine that folds unquoted
+    * identifiers, e.g. `ALTER TABLE ... ADD COLUMN arcane_merge_key VARCHAR` issued through Trino.
     */
   private val watermarkColumn = "timestamputc"
+  private val mergeKeyColumn  = MergeKeyField.name.toLowerCase
 
   /** The decoded production payload, plus the two columns the framework synthesizes from the envelope. */
   private val targetSchema: ArcaneSchema = ArcaneSchema(
     PullStreamTestServices.productionPayloadSchema
-      ++ Seq(Field(watermarkColumn, StringType), MergeKeyField)
+      ++ Seq(Field(watermarkColumn, StringType), Field(mergeKeyColumn, StringType))
   )
 
   private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
@@ -150,21 +152,21 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
               connection,
               targetTableFullName,
               watermarkColumn,
-              MergeKeyField.name,
+              mergeKeyColumn,
               firstItemKey
             )
             nestedPayload <- getFieldValueInTarget(
               connection,
               targetTableFullName,
               "payload",
-              MergeKeyField.name,
+              mergeKeyColumn,
               firstItemKey
             )
             businessId <- getFieldValueInTarget(
               connection,
               targetTableFullName,
               "id",
-              MergeKeyField.name,
+              mergeKeyColumn,
               firstItemKey
             )
           yield

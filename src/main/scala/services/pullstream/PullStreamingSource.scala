@@ -273,13 +273,15 @@ class PullStreamingSource(
             watermarkValue <- stringAttribute(watermarkFieldName)
           yield DataCell(column, ArcaneType.StringType, watermarkValue)
 
-        // the merge key identifies the target row: the payload carries no identity of its own, so the partition key
-        // of the DynamoDB item is used, giving one target row per pushed message id
+        // the merge key identifies the target row: the payload carries no identity of its own, so the id attribute
+        // of the DynamoDB item is used, giving one target row per pushed message.
+        // Unlike the watermark, the cell is named after MergeKeyField rather than after the sink column: the schema
+        // conversion re-tags any case-insensitive match as an IndexedMergeKeyField, which reports the canonical
+        // upper-case name, and it appends that field outright when the sink declares no column at all. The staging
+        // table therefore always carries the canonical spelling, and a cell named after the sink would not match it.
         val mergeKeyCell =
-          for
-            column        <- envelope.mergeKey
-            mergeKeyValue <- stringAttribute(pushIdFieldName)
-          yield DataCell(column, MergeKeyField.fieldType, mergeKeyValue)
+          stringAttribute(pushIdFieldName)
+            .map(mergeKeyValue => DataCell(MergeKeyField.name, MergeKeyField.fieldType, mergeKeyValue))
 
         (attributes(pushPayloadFieldName).s(), watermarkCell ++ mergeKeyCell)
       }

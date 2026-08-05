@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.pullstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
+import models.schemas.MergeKeyField
 import services.pullstream.PullStreamingSource
 import services.pullstream.versioning.PullStreamWatermark
 import tests.pullstream.util.PullStreamTestServices
@@ -84,7 +85,7 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             // every inserted item surfaces as exactly one row (one row per payload)
               && assertTrue(rows.length == totalItems)
               // row shape matches the schema (same field names, in order)
-              && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
+              && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList :+ MergeKeyField.name)
               // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
               && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
         }
@@ -131,7 +132,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             && assertTrue(watermarks.toList == expected)
             // the payload fields must survive alongside the appended watermark
             && assertTrue(
-              rows.head.map(_.name).toSet == PullStreamTestServices.watermarkedPayloadSchema.map(_.name).toSet
+              rows.head.map(_.name).toSet ==
+                PullStreamTestServices.watermarkedPayloadSchema.map(_.name).toSet + MergeKeyField.name
             )
             && assertTrue(source.versionFieldName == PullStreamTestServices.watermarkField)
         }
@@ -164,7 +166,7 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             (rowStream, _) = changes.head
             rows <- rowStream.runCollect
           } yield assertTrue(rows.length == totalItems)
-            && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
+            && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList :+ MergeKeyField.name)
         }
       } yield result
     }
