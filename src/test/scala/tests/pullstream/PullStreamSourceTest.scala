@@ -34,7 +34,7 @@ object PullStreamSourceTest extends ZIOSpecDefault:
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
                 targetTableFullName = s"testWarehouse.testNs.$tableName",
-                pageSize = Some(1000),
+                pageSize = Some(1000)
               )
             )
             _ <- PullStreamTestServices.insertMany(client, tableName, count = 1)
@@ -79,14 +79,92 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               _.find(_.name == "userId").flatMap(f => Option(f.value)).map(_.toString).getOrElse("")
             )
           } yield
-          // outer stream still emits a single (rows, schema) pair regardless of underlying pages
-          assertTrue(changes.length == 1)
+            // outer stream still emits a single (rows, schema) pair regardless of underlying pages
+            assertTrue(changes.length == 1)
             // every inserted item surfaces as exactly one row (one row per payload)
-            && assertTrue(rows.length == totalItems)
-            // row shape matches the schema (same field names, in order)
+              && assertTrue(rows.length == totalItems)
+              // row shape matches the schema (same field names, in order)
+              && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
+              // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
+              && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
+        }
+      } yield result
+    },
+    test("AppendsWatermarkAttributeToRows") {
+      // The watermark is an attribute of the DynamoDB item and is deliberately absent from `payload`.
+      // When the sink declares a column for it, its value must be taken from the item and written to the row.
+      val totalItems = 3
+      val startAt    = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
+      for {
+        tableName <- PullStreamTestServices.genSourceTableName
+        targetTableName = s"wh.ns.$tableName"
+        icebergUtil     = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
+        client <- PullStreamTestServices.getClient
+        result <- PullStreamTestServices.withSourceTable(tableName, client) {
+          for {
+            sinkEntityManager <- icebergUtil.getSinkEntityManager
+            _ <- sinkEntityManager.createTable(
+              IcebergCreateTableRequest(tableName, PullStreamTestServices.watermarkedPayloadSchema, true)
+            )
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            source = PullStreamingSource(
+              settings = PullStreamTestServices.pullStreamSettings(tableName),
+              dynamodbClient = client,
+              sinkPropertyManager = sinkPropertyManager,
+              targetTableFullName = s"testWarehouse.testNs.$tableName",
+              pageSize = None
+            )
+            _ <- PullStreamTestServices.insertMany(client, tableName, count = totalItems, startAt = startAt)
+            changes <- source
+              .getChanges(PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)))
+              .runCollect
+            (rowStream, _) = changes.head
+            rows <- rowStream.runCollect
+            watermarks = rows.map(
+              _.find(_.name == PullStreamTestServices.watermarkField)
+                .flatMap(cell => Option(cell.value))
+                .map(_.toString)
+                .getOrElse("")
+            )
+            expected = (0 until totalItems).map(i => startAt.plusSeconds(i.toLong).toString).toList
+          } yield assertTrue(rows.length == totalItems)
+            && assertTrue(watermarks.toList == expected)
+            // the payload fields must survive alongside the appended watermark
+            && assertTrue(
+              rows.head.map(_.name).toSet == PullStreamTestServices.watermarkedPayloadSchema.map(_.name).toSet
+            )
+            && assertTrue(source.versionFieldName == PullStreamTestServices.watermarkField)
+        }
+      } yield result
+    },
+    test("OmitsWatermarkWhenSinkHasNoSuchColumn") {
+      // Sinks that do not declare the column must keep working: strict decoding would otherwise reject every row.
+      val totalItems = 2
+      for {
+        tableName <- PullStreamTestServices.genSourceTableName
+        targetTableName = s"wh.ns.$tableName"
+        icebergUtil     = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
+        client <- PullStreamTestServices.getClient
+        result <- PullStreamTestServices.withSourceTable(tableName, client) {
+          for {
+            sinkEntityManager   <- icebergUtil.getSinkEntityManager
+            _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            source = PullStreamingSource(
+              settings = PullStreamTestServices.pullStreamSettings(tableName),
+              dynamodbClient = client,
+              sinkPropertyManager = sinkPropertyManager,
+              targetTableFullName = s"testWarehouse.testNs.$tableName",
+              pageSize = None
+            )
+            _ <- PullStreamTestServices.insertMany(client, tableName, count = totalItems)
+            changes <- source
+              .getChanges(PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)))
+              .runCollect
+            (rowStream, _) = changes.head
+            rows <- rowStream.runCollect
+          } yield assertTrue(rows.length == totalItems)
             && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList)
-            // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
-            && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
         }
       } yield result
     }

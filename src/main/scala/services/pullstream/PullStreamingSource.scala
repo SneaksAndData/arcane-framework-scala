@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.pullstream
 
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataRow, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
@@ -52,6 +52,11 @@ class PullStreamingSource(
   private val pushPayloadFieldName: String = "payload"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
   private val listPageSize                 = pageSize.getOrElse(PullStreamingSource.defaultPageSize)
+
+  /** Column used to order concurrent versions of the same merge key during a merge. This is the watermark column, whose
+    * value the source appends to every row.
+    */
+  val versionFieldName: String = watermarkFieldName
 
   /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
     * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
@@ -191,27 +196,67 @@ class PullStreamingSource(
         yield response -> next
     }
 
-  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema)] =
+  private def getSchemaInfo
+      : Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema, watermarkColumn: Option[String])] =
     this.sinkPropertyManager
       .getTableSchema(targetTableName)
-      .map(icebergSchema => (AvroSchemaUtil.convert(icebergSchema, targetTableName), icebergSchema))
+      .map { icebergSchema =>
+        val watermarkColumn = resolveWatermarkColumn(icebergSchema)
+        // The watermark is an attribute of the DynamoDB item, not a member of `payload`, so it is hidden from the
+        // decoder: under strict decoding a column that the payload never carries would fail the whole batch. It is
+        // appended to each row after decoding instead. The unpruned schema is still returned, since the staging
+        // table must declare the column for the value to be written.
+        val payloadColumns = icebergSchema
+          .columns()
+          .asScala
+          .filterNot(column => watermarkColumn.contains(column.name()))
+          .asJava
 
-  /** Parse the dynamodb query response into DataRows
+        (
+          AvroSchemaUtil.convert(org.apache.iceberg.Schema(payloadColumns), targetTableName),
+          icebergSchema,
+          watermarkColumn
+        )
+      }
+
+  /** Locates the sink column that receives the DynamoDB watermark (sort key) attribute.
+    *
+    * The lookup is case-insensitive but returns the column's own spelling, because rows are matched to Iceberg fields
+    * by exact name and engines that fold unquoted identifiers create the column lowercased regardless of how
+    * `watermarkFieldName` is spelled in the configuration. `None` means the sink does not store the watermark, in which
+    * case it is left out of the rows entirely.
     */
-  private def responseStream(queryResponse: QueryResponse, avroSchema: AvroSchema): ZStream[Any, Throwable, DataRow] =
+  private def resolveWatermarkColumn(icebergSchema: org.apache.iceberg.Schema): Option[String] =
+    icebergSchema.columns().asScala.map(_.name()).find(_.equalsIgnoreCase(watermarkFieldName))
+
+  /** Parse the dynamodb query response into DataRows.
+    *
+    * Only `payload` holds producer data; the remaining item attributes are envelope metadata. The watermark attribute
+    * is appended to every decoded row whenever the sink declares a column for it, so the ingestion timestamp is
+    * persisted alongside the payload instead of being discarded.
+    */
+  private def responseStream(
+      queryResponse: QueryResponse,
+      avroSchema: AvroSchema,
+      watermarkColumn: Option[String]
+  ): ZStream[Any, Throwable, DataRow] =
     val decoder = AvroJsonDecoder(avroSchema, tolerateMissingFields = false)
 
     ZStream
       .fromIterable(queryResponse.items().asScala)
-      .map(
-        _.asScala
-          .collect {
-            case (fieldName, fieldValue) if fieldName == pushPayloadFieldName => fieldValue
-          }
-          .head
-          .s()
-      )
-      .mapZIO(line => ZIO.attempt(decoder.parse(line)))
+      .map { item =>
+        val attributes = item.asScala
+        val watermarkCell =
+          for
+            column         <- watermarkColumn
+            watermarkValue <- attributes.get(watermarkFieldName).flatMap(attribute => Option(attribute.s()))
+          yield DataCell(column, ArcaneType.StringType, watermarkValue)
+
+        (attributes(pushPayloadFieldName).s(), watermarkCell)
+      }
+      .mapZIO { case (payload, watermarkCell) =>
+        ZIO.attempt(decoder.parse(payload).map(row => row ++ watermarkCell))
+      }
       .flatMap(rows => ZStream.fromIterable(rows))
 
   /** Gets the changes in the database since the given version.
@@ -222,10 +267,10 @@ class PullStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchemaInfo).map { case (avroSchema, icebergSchema) =>
+    ZStream.fromZIO(getSchemaInfo).map { case (avroSchema, icebergSchema, watermarkColumn) =>
       val rowStream: ZStream[Any, Throwable, DataRow] =
         paginatedQuery(buildQueryGetChanges(previousVersion))
-          .flatMap(response => responseStream(response, avroSchema))
+          .flatMap(response => responseStream(response, avroSchema, watermarkColumn))
       (rowStream, icebergSchema)
     }
 

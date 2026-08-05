@@ -42,6 +42,12 @@ object PullStreamTestServices:
   def defaultPayload(index: Int): String =
     s"""[{"userId":"user-$index","level":"user"}]"""
 
+  /** [[payloadSchema]] plus the watermark column, i.e. a sink that opts into storing the DynamoDB sort key. Note that
+    * the payload deliberately never carries this field: its value comes from the item attribute.
+    */
+  val watermarkedPayloadSchema: ArcaneSchema =
+    ArcaneSchema(payloadSchema :+ Field(watermarkField, ArcaneType.StringType))
+
   def getClient: Task[DynamoDbClient] =
     ZIO.attempt(
       DynamoDbClient
@@ -110,13 +116,13 @@ object PullStreamTestServices:
 
   def pullStreamSettings(sourceTableName: String): PullStreamSourceSettings =
     new PullStreamSourceSettings:
-      override val tableName: String           = sourceTableName
-      override val pullIndexKey: String = primaryKeyField
+      override val tableName: String          = sourceTableName
+      override val pullIndexKey: String       = primaryKeyField
       override val pullIndexValue: String     = PullStreamTestServices.primaryKeyValue
-      override val watermarkFieldName: String  = watermarkField
-      override val region: String              = "us-east-1"
-      override val endpoint: Option[String]    = None
-      override val pageSize: Option[Int]       = None
+      override val watermarkFieldName: String = watermarkField
+      override val region: String             = "us-east-1"
+      override val endpoint: Option[String]   = None
+      override val pageSize: Option[Int]      = None
 
   /** Creates a source DynamoDB table for the duration of `use` and drops it afterward. */
   def withSourceTable[R, A](tableName: String, client: DynamoDbClient)(
