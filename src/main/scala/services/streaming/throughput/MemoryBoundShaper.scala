@@ -228,8 +228,8 @@ class MemoryBoundShaper(
       Seq(
         getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(
           rowSizeCacheKey
-        ) + 1) / 2, // estimate for 2 chunks in memory at all times
-        1_000_000   // cap at 1 million rows
+        ) + 1) / 2,                          // estimate for 2 chunks in memory at all times
+        shaperSettings.chunkSizeCap.toDouble // cap at 1 million rows
       ).min
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
