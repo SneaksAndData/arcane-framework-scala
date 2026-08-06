@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package utils
 
+import exceptions.FatalStreamFailException
 import models.*
 import models.schemas.*
 

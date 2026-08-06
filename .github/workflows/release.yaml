@@ -1,10 +1,40 @@
 name: Publish to GitHub Maven Repository
+run-name: Publish ${{ github.ref_name }} by @${{ github.actor }}
 
 on: workflow_dispatch
 
 jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      command: ${{ steps.resolve.outputs.command }}
+    steps:
+      - uses: actions/checkout@v5
+        if: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags') && always() }}
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/checkout@v4
+        if: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags')) && always() }}
+        with:
+          fetch-depth: 0
+      - name: Resolve release version
+        id: resolve
+        shell: bash
+        run: |
+          releaseVersion=$(git describe --tags --abbrev=7)
+          rvn="${releaseVersion:1}"
+
+          echo "version=$rvn" >> "$GITHUB_OUTPUT"
+          echo "command=release release-version $rvn next-version $rvn-SNAPSHOT" >> "$GITHUB_OUTPUT"
+
+          echo "### Release version: \`$rvn\`" >> "$GITHUB_STEP_SUMMARY"
+
   release:
-    name: SBT Release
+    name: SBT Release ${{ needs.version.outputs.version }}
+    needs: version
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -24,19 +54,14 @@ jobs:
         uses: japgolly/setup-everything-scala@v4.1
         with:
           java-version: temurin:1.25.0.2
-      - name: Prepare release command
-        shell: bash
-        run:
-          releaseVersion=$(git describe --tags --abbrev=7)
-          rvn="${releaseVersion:1}"
-          
-          commandText="release release-version $rvn next-version $rvn-SNAPSHOT"
-          
-          echo "command=$commandText" >> "$GITHUB_OUTPUT"
-        id: release_command
       - name: Release new version
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.MAVEN_PUBLISH_TOKEN }}
         run: |
-          sbt '${{ steps.release_command.outputs.command }}'
+          sbt '${{ needs.version.outputs.command }}'
+      - name: Publish version to summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "### Published version: \`${{ needs.version.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"

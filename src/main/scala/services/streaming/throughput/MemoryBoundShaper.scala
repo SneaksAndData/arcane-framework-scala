@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
+import exceptions.FatalStreamFailException
 import logging.ZIOLogAnnotations.zlog
 import models.settings.FlowRate
 import models.settings.streaming.{MemoryBoundImpl, ThroughputSettings}
@@ -36,7 +37,7 @@ class MemoryBoundShaper(
   private val shaperSettings = throughputSettings.shaperImpl match
     case mb: MemoryBoundImpl => mb.memoryBound
     case _ =>
-      throw new RuntimeException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
+      throw FatalStreamFailException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
 
   private val runtime            = Runtime.getRuntime
   private val maxAvailableMemory = runtime.maxMemory()
