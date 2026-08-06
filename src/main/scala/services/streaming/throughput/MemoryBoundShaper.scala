@@ -83,7 +83,7 @@ class MemoryBoundShaper(
         .sum * 1.5 / recordCount / 2L).toLong
 
   private def estimateRowSize(schema: Schema, estimatedStringLength: Long): Long =
-    // rows in Arcane memory are List[DataRow]
+    // rows in Arcane memory are List[DataCell]
     // 4 bytes for list pointer
     // object header: 12 bytes
     // head: 4 bytes (pointing to the DataCell object)
