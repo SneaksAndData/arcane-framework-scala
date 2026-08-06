@@ -83,68 +83,113 @@ class MemoryBoundShaper(
         .sum * 1.5 / recordCount / 2L).toLong
 
   private def estimateRowSize(schema: Schema, estimatedStringLength: Long): Long =
-    schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
-      val typeSize = tp.typeId() match
+    // rows in Arcane memory are List[DataRow]
+    // 4 bytes for list pointer
+    // object header: 12 bytes
+    // head: 4 bytes (pointing to the DataCell object)
+    // tail: 4 bytes (pointing to the next List element or Nil)
+    // padding: 4 bytes
+    val dataRowOuterSize = 4L + 12L + 4L + 4L + 4L
+    // object header + `name` field for `DataCell` class
+    val dataCellSizeBase = 12L + 32L + 16L + 4L
+
+    // add outer size to each cell to be found based on schema
+    // cell has name, type def and value. Estimate type def size and value size based on schema
+    dataRowOuterSize + schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
+      val cellValueSize = tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
         // 16L for Java object header, ignore COH to be on the safe side
         // add 4L for padding for all except boolean
         case TypeID.TIME =>
-          4L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 4L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.INTEGER =>
-          4L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 4L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.BOOLEAN =>
-          1L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 11L // padding
+          (
+            valueSize = 1L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 11L,       // padding
+            typeSize = 0L
+          )
         case TypeID.LONG =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.FLOAT =>
-          4L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 4L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.DOUBLE =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.STRING =>
-          32L     // wrapper type
-            + 16L // array header
-            + 2L * estimatedStringLength
+          (
+            valueSize = 32L // wrapper type
+              + 16L         // array header
+              + 2L * estimatedStringLength,
+            typeSize = 0L
+          )
         case TypeID.DECIMAL =>
-          16L         // header
-            + 8L      // bigint pointer
-            + 4L + 4L // scale and precision
-            + 16L     // bingint wrapper header
-            + 8L      // array pointer
-            + 4L + 4L // sign and length
-            + 16L     // extra metadata
-            + 32L     // data array
+          (
+            valueSize = 16L // header
+              + 8L          // bigint pointer
+              + 4L + 4L     // scale and precision
+              + 16L         // bingint wrapper header
+              + 8L          // array pointer
+              + 4L + 4L     // sign and length
+              + 16L         // extra metadata
+              + 32L,        // data array
+            typeSize = 12L + 4L + 4L
+          )
         case TypeID.TIMESTAMP =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.TIMESTAMP_NANO =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case _ =>
-          16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+          (
+            valueSize = 16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong,
+            typeSize = 24L + 256L
+          ) // assume large size for structs, lists, geometry, variant and other less common types
 
-      agg + typeSize
+      agg + cellValueSize.typeSize + cellValueSize.valueSize + dataCellSizeBase
     }
 
   override def estimateChunkSize: Task[(Elements: Int, ElementSize: Long)] = for
@@ -180,9 +225,12 @@ class MemoryBoundShaper(
     }
 
     chunkSizeFromRowSize <- ZIO.succeed(
-      getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(
-        rowSizeCacheKey
-      ) + 1) / 2 // estimate for 2 chunks in memory at all times
+      Seq(
+        getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(
+          rowSizeCacheKey
+        ) + 1) / 2, // estimate for 2 chunks in memory at all times
+        1_000_000   // cap at 1 million rows
+      ).min
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
     appliedSize <- ZIO.succeed(
