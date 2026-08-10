@@ -39,7 +39,7 @@ type FrameworkRequiredStagingServices = StagedBatchFactory & IcebergS3CatalogWri
   NameGenerator & SinkPropertyManager & MergeServiceClient
 type FrameworkProvidedStagingServices = ShardStagingProcessor & BackfillCompletionProcessor & StagingProcessor
 
-type SynapseLinkProvidedServices = StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
+type BlobListRequiredServices = SinkPropertyManager & StagingEntityManager & StagingPropertyManager & NameGenerator &
+  DeclaredMetrics
+type BlobListProvidedServices = StagedBatchFactory & ShardFactory & ShardedBackfillStreamDataProvider &
   StreamDataProvider & BackfillStreamDataProvider & BackfillStateManager
-type SynapseLinkSourceRequiredServices = SinkPropertyManager & StagingEntityManager & StagingPropertyManager &
-  NameGenerator & DeclaredMetrics
