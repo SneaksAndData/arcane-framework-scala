@@ -69,7 +69,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             propertyManager,
             tableSinkSettings,
             shaperBuilder,
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         provider <- ZIO.succeed(
@@ -107,7 +108,8 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             propertyManager,
             tableSinkSettings,
             shaperBuilder,
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         provider <- ZIO.succeed(

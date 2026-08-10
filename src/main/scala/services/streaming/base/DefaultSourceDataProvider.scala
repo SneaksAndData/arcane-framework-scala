@@ -7,7 +7,9 @@ import models.schemas.{ArcaneSchema, JsonWatermarkRow}
 import models.settings.TableNaming.*
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
+import services.base.StreamingSource
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import upickle.ReadWriter
@@ -19,10 +21,12 @@ import zio.{Task, ZIO}
   *   Watermark implementation for the source
   */
 abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String] & JsonWatermark](
+    streamingSource: StreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings
+    sourceBufferingSettings: SourceBufferingSettings,
+    declaredMetrics: DeclaredMetrics
 )(implicit rw: ReadWriter[WatermarkType])
     extends ChangeCaptureDataProvider[WatermarkType]:
 
@@ -45,7 +49,11 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     .map(changeSet =>
       (
         throughputShaper
-          .shapeStream(changeSet._1.trySetBuffering(sourceBufferingSettings)),
+          .shapeStream(
+            changeSet._1
+              .trySetBuffering(sourceBufferingSettings)
+              .tap(_ => ZIO.succeed(1L) @@ declaredMetrics.rowsIncoming)
+          ),
         changeSet._2
       )
     )

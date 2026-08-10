@@ -88,7 +88,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             ),
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         sdp <- ZIO.succeed(
@@ -132,7 +133,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             ),
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         sdp <- ZIO.succeed(
