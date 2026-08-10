@@ -528,18 +528,20 @@ class MsSqlStreamingSource(
           )
       }
 
-  // TODO: is this equivalent to MS SQL Server query? is UTF-8 used by SQL SERVER?
-  // TODO: cast(value as nvarchar(128)) vs Java.toString
   private def createMergeKey(keyValues: Seq[Any]): String =
     val input =
       keyValues
-        .map(_.toString)
+        .map {
+          case s: String => s.take(128)
+          case null      => throw new IllegalArgumentException("PK value must not be null")
+          case other     => throw new UnsupportedOperationException(s"Unsupported PK type: ${other.getClass.getName}")
+        }
         .mkString("#")
 
     val digest =
       MessageDigest
         .getInstance("SHA-256")
-        .digest(input.getBytes(StandardCharsets.UTF_8))
+        .digest(input.getBytes(StandardCharsets.UTF_16LE))
 
     HexFormat.of().formatHex(digest)
 
