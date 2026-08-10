@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers
 
 import models.schemas.ArcaneSchema
-import services.base.StreamingSource
+import services.base.DefaultStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.base.StoredBlob
 import services.streaming.base.StructuredZStream
@@ -15,7 +15,7 @@ import java.util.Base64
 
 /** Base trait for all blob source readers
   */
-trait BlobStreamingSource extends StreamingSource:
+abstract class BlobStreamingSource extends DefaultStreamingSource(Seq.empty):
 
   final override type ShardMetadata = Seq[String]
   final override type WatermarkType = BlobSourceWatermark

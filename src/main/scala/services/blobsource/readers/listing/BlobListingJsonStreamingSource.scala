@@ -45,7 +45,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       .orDieWith(e => Throwable("Invalid Avro schema provided for source", e))
   yield schema
 
-  override def getSchema: Task[SchemaType] = for arcaneSchema <- sourceSchema.map(implicitly)
+  override protected def getSourceSchema: Task[SchemaType] = for arcaneSchema <- sourceSchema.map(implicitly)
   yield arcaneSchema ++ Seq(BlobBatchCommons.versionField)
 
   /** Gets an empty schema.

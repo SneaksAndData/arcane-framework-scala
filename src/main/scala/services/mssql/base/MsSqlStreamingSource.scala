@@ -3,7 +3,7 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
 import services.base.{DefaultStreamingSource, SchemaProvider, StreamingSource}
@@ -23,12 +23,10 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
-import java.util.{HexFormat, Properties}
+import java.util.Properties
 import scala.annotation.tailrec
 
 /** Represents a connection to a Microsoft SQL Server database.
@@ -68,8 +66,7 @@ class MsSqlStreamingSource(
       result <- executeColumnSummariesQuery(query)
     yield result
 
-  // TODO: is Task result content cached?
-  private lazy val primaryKeyNames: Task[Seq[String]] =
+  override protected val primaryKeyNames: Task[Seq[String]] =
     getColumnSummaries.map(
       _.collect { case (name, true) =>
         name.normalizeName
@@ -459,91 +456,6 @@ class MsSqlStreamingSource(
           populateShardTable(tableName, id, profile.shardCount, profile.summaries)
         }
     }
-
-  override protected def applyDataRowModification(
-      row: DataRow,
-      modification: DataRowModification
-  ): Task[DataRow] =
-    modification match
-      case SurrogateMergeKeyImpl(_) =>
-        primaryKeyNames.flatMap(addSurrogateMergeKey(row, _))
-      case unsupported =>
-        ZIO.fail(
-          new UnsupportedOperationException(
-            s"Unsupported MSSQL data-row modification: $unsupported"
-          )
-        )
-
-  override protected def applySchemaModification(
-      schema: ArcaneSchema,
-      modification: DataRowModification
-  ): Task[ArcaneSchema] =
-    modification match {
-      case SurrogateMergeKeyImpl(_) =>
-        ZIO.succeed(
-          schema.addField(
-            MergeKeyField.name,
-            MergeKeyField.fieldType
-          )
-        )
-      case unsupported =>
-        ZIO.fail(
-          new UnsupportedOperationException(
-            s"Unsupported MSSQL data-row modification: $unsupported"
-          )
-        )
-    }
-
-  private def addSurrogateMergeKey(
-      row: DataRow,
-      primaryKeys: Seq[String]
-  ): Task[DataRow] =
-    for
-      keyValues <- ZIO.foreach(primaryKeys)(getPrimaryKeyValue(row, _))
-      mergeKey  <- ZIO.attempt(createMergeKey(keyValues))
-    yield row :+ DataCell(
-      name = MergeKeyField.name,
-      Type = MergeKeyField.fieldType,
-      value = mergeKey
-    )
-
-  private def getPrimaryKeyValue(
-      row: DataRow,
-      key: String
-  ): Task[Any] =
-    ZIO
-      .fromOption(row.find(_.name.equalsIgnoreCase(key)))
-      .orElseFail(
-        new IllegalArgumentException(
-          s"Primary-key field '$key' is missing from the MSSQL row"
-        )
-      )
-      .flatMap { cell =>
-        ZIO
-          .fromOption(Option(cell.value))
-          .orElseFail(
-            new IllegalArgumentException(
-              s"Primary-key field '$key' is null"
-            )
-          )
-      }
-
-  private def createMergeKey(keyValues: Seq[Any]): String =
-    val input =
-      keyValues
-        .map {
-          case s: String => s.take(128)
-          case null      => throw new IllegalArgumentException("PK value must not be null")
-          case other     => throw new UnsupportedOperationException(s"Unsupported PK type: ${other.getClass.getName}")
-        }
-        .mkString("#")
-
-    val digest =
-      MessageDigest
-        .getInstance("SHA-256")
-        .digest(input.getBytes(StandardCharsets.UTF_16LE))
-
-    HexFormat.of().formatHex(digest)
 
 object MsSqlStreamingSource:
 

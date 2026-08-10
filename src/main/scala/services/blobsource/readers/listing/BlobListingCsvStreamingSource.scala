@@ -28,7 +28,7 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
       tempStoragePath
     ):
 
-  override def getSchema: Task[SchemaType] = ???
+  override protected def getSourceSchema: Task[SchemaType] = ???
 
   /** Gets an empty schema.
     *

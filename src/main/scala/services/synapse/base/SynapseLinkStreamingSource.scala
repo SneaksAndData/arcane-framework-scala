@@ -8,7 +8,7 @@ import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
-import services.base.{SchemaProvider, StreamingSource}
+import services.base.{DefaultStreamingSource, SchemaProvider}
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
@@ -25,14 +25,15 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 
 final class SynapseLinkStreamingSource(location: AdlsStoragePath, entityName: String, reader: AzureBlobStorageReader)
-    extends StreamingSource:
+    extends DefaultStreamingSource(Seq.empty):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
+  override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(Seq("Id"))
 
   /** Schema here comes from root-level model.json
     */
-  override def getSchema: Task[ArcaneSchema] =
+  override protected def getSourceSchema: Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
 
   /** Schema from batch-level model.json

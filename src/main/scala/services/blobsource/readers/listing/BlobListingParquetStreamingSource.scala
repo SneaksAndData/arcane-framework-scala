@@ -40,7 +40,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       tempStoragePath
     ):
 
-  override def getSchema: Task[SchemaType] = for
+  override protected def getSourceSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
       for
         schemaBytes <- ZIO.attempt(Base64.getDecoder.decode(sourceSchema.get))

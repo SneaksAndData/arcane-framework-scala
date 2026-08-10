@@ -26,6 +26,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 ) extends BlobStreamingSource:
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+  override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(primaryKeys)
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 
