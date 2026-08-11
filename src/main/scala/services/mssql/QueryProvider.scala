@@ -27,13 +27,16 @@ object QueryProvider:
     def getSchemaQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries
-        mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
+        maybeMergeExpression = Option.when(reader.usesLegacyMergeKey)(
+          QueryProvider.getMergeExpression(columnSummaries, "ct")
+        )
+        mergeKeyColumnExpression = maybeMergeExpression.fold("")(getLegacyMergeKeyColumnExpression)
+        columnExpression         = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        matchStatement           = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
           reader.connectionSettings,
           reader.catalog,
-          mergeExpression,
+          mergeKeyColumnExpression,
           columnExpression,
           matchStatement,
           Long.MaxValue
@@ -53,13 +56,16 @@ object QueryProvider:
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries
-        mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
-        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
+        maybeMergeExpression = Option.when(reader.usesLegacyMergeKey)(
+          QueryProvider.getMergeExpression(columnSummaries, "ct")
+        )
+        mergeKeyColumnExpression = maybeMergeExpression.fold("")(getLegacyMergeKeyColumnExpression)
+        columnExpression         = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
+        matchStatement           = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
           reader.connectionSettings,
           reader.catalog,
-          mergeExpression,
+          mergeKeyColumnExpression,
           columnExpression,
           matchStatement,
           fromVersion
@@ -80,14 +86,17 @@ object QueryProvider:
         columnSummaries: List[ColumnSummary]
     ): Task[MsSqlQuery] =
       for
-        mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
-        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
+        maybeMergeExpression = Option.when(reader.usesLegacyMergeKey)(
+          QueryProvider.getMergeExpression(columnSummaries, "tq")
+        )
+        mergeKeyColumnExpression = maybeMergeExpression.fold("")(getLegacyMergeKeyColumnExpression)
+        columnExpression         = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
           reader.connectionSettings,
           reader.catalog,
           shardSchemaName,
           shardTableName,
-          mergeExpression,
+          mergeKeyColumnExpression,
           columnExpression
         )
       yield query
@@ -274,7 +283,7 @@ object QueryProvider:
   private def getChangesQuery(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       databaseName: String,
-      mergeExpression: String,
+      mergeKeyColumnExpression: String,
       columnStatement: String,
       matchStatement: String,
       changeTrackingId: Long
@@ -291,8 +300,7 @@ object QueryProvider:
           .replace("{tableName}", connectionSettings.tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnStatement)
           .replace("{ChangeTrackingMatchStatement}", matchStatement)
-          .replace("{MERGE_EXPRESSION}", mergeExpression)
-          .replace("{MERGE_KEY}", MergeKeyField.name)
+          .replace("{OptionalMergeKeyColumnExpression}", mergeKeyColumnExpression)
           .replace("{lastId}", changeTrackingId.toString)
       yield query
     }
@@ -302,7 +310,7 @@ object QueryProvider:
       databaseName: String,
       schemaName: String,
       tableName: String,
-      mergeExpression: String,
+      mergeKeyColumnExpression: String,
       columnExpression: String
   ): Task[MsSqlQuery] =
     ZIO.scoped {
@@ -316,7 +324,16 @@ object QueryProvider:
           .replace("{schema}", schemaName)
           .replace("{tableName}", tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnExpression)
-          .replace("{MERGE_EXPRESSION}", mergeExpression)
-          .replace("{MERGE_KEY}", MergeKeyField.name)
+          .replace("{OptionalMergeKeyColumnExpression}", mergeKeyColumnExpression)
       yield query
     }
+
+  private def getLegacyMergeKeyColumnExpression(mergeExpression: String): String =
+    s""",
+       |lower(
+       |  convert(
+       |    nvarchar(128),
+       |    HashBytes('SHA2_256', $mergeExpression),
+       |    2
+       |  )
+       |) AS [${MergeKeyField.name}]""".stripMargin

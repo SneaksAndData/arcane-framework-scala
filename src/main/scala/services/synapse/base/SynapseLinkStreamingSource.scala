@@ -8,6 +8,7 @@ import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
+import models.settings.sources.DataRowSchemaVersion
 import services.base.{DefaultStreamingSource, SchemaProvider}
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
@@ -25,7 +26,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 
 final class SynapseLinkStreamingSource(location: AdlsStoragePath, entityName: String, reader: AzureBlobStorageReader)
-    extends DefaultStreamingSource(Seq.empty):
+    extends DefaultStreamingSource(Seq.empty, DataRowSchemaVersion.V0):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark

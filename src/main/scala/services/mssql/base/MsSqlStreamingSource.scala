@@ -38,7 +38,7 @@ class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator
-) extends DefaultStreamingSource(Seq.empty)
+) extends DefaultStreamingSource(Seq.empty, DataRowSchemaVersion.V0)
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -456,6 +456,8 @@ class MsSqlStreamingSource(
           populateShardTable(tableName, id, profile.shardCount, profile.summaries)
         }
     }
+
+  private[mssql] def usesLegacyMergeKey: Boolean = !dataRowSchemaVersion.usesCommonMergeKey
 
 object MsSqlStreamingSource:
 

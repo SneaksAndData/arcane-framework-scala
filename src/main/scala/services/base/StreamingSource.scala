@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.base
 
 import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
-import models.settings.sources.{DataRowModification, SurrogateMergeKeyImpl}
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion, SurrogateMergeKeyImpl}
 
 import zio.{Task, ZIO}
 
@@ -16,24 +16,42 @@ trait PrimaryKeyProvider:
   protected def primaryKeyNames: Task[Seq[String]]
 
 abstract class DefaultStreamingSource(
-    protected val modifications: Seq[DataRowModification]
+    protected val modifications: Seq[DataRowModification],
+    protected val dataRowSchemaVersion: DataRowSchemaVersion
 ) extends StreamingSource
     with PrimaryKeyProvider {
+  require(
+    dataRowSchemaVersion != DataRowSchemaVersion.V1 ||
+      modifications.exists {
+        case SurrogateMergeKeyImpl(_) => true
+        case _                        => false
+      },
+    "Data-row schema V1 requires the surrogateMergeKey modification"
+  )
+
   protected def getSourceSchema: Task[ArcaneSchema]
 
   protected def applyDataRowModification(
       row: DataRow,
       modification: DataRowModification
   ): Task[DataRow] = modification match
-    case SurrogateMergeKeyImpl(_) => addSurrogateMergeKey(row)
-    case _                        => ZIO.succeed(row)
+    case SurrogateMergeKeyImpl(_) if dataRowSchemaVersion.usesCommonMergeKey =>
+      addSurrogateMergeKey(row)
+    case _ => ZIO.succeed(row)
 
   protected def applySchemaModification(
       schema: ArcaneSchema,
       modification: DataRowModification
   ): Task[ArcaneSchema] = modification match
-    case SurrogateMergeKeyImpl(_) if !schema.exists(_.name.equalsIgnoreCase(MergeKeyField.name)) =>
-      ZIO.succeed(schema.addField(MergeKeyField.name, MergeKeyField.fieldType))
+    case SurrogateMergeKeyImpl(_)
+        if dataRowSchemaVersion.usesCommonMergeKey &&
+          !schema.exists(_.name.equalsIgnoreCase(MergeKeyField.name)) =>
+      ZIO.succeed(
+        schema.addField(
+          MergeKeyField.name,
+          MergeKeyField.fieldType
+        )
+      )
     case _ => ZIO.succeed(schema)
 
   final def applyDataRowModifications(row: DataRow): Task[DataRow] =
