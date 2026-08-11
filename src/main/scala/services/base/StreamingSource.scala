@@ -67,10 +67,17 @@ abstract class DefaultStreamingSource(
       )
 
   private def createMergeKey(keyValues: Seq[Any]): String =
-    val input = keyValues.map(_.toString.take(128)).mkString("#")
+    val input = keyValues
+      .map {
+        case s: String => s
+        case null      => throw new IllegalArgumentException("PK value must not be null")
+        case other     => throw new UnsupportedOperationException(s"Unsupported PK type: ${other.getClass.getName}")
+      }
+      .mkString("#")
+
     val digest = MessageDigest
       .getInstance("SHA-256")
-      .digest(input.getBytes(StandardCharsets.UTF_16LE))
+      .digest(input.getBytes(StandardCharsets.UTF_8))
 
     HexFormat.of().formatHex(digest)
 }
