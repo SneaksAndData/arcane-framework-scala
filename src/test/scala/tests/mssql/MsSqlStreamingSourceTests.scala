@@ -38,15 +38,17 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   private val nopSelector: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(new FieldSelectionRuleSettings {
+
     /** The field selection rule to use.
-     */
+      */
     override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
+
     /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list are
-     * used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane streaming
-     * plugin and should not be configurable.
-     */
+      * used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane streaming
+      * plugin and should not be configurable.
+      */
     override val essentialFields: Set[String] = Set.empty[String]
-    override val isServerSide: Boolean = true
+    override val isServerSide: Boolean        = true
   })
 
   def insertData(con: Connection, tableName: String): Task[Unit] =

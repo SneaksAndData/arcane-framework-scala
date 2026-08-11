@@ -27,17 +27,15 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
 
-
-
 /** Represents a connection to a Microsoft SQL Server database.
   *
   * @param connectionSettings
   *   The connection options for the database.
   */
 class MsSqlStreamingSource(
-                            val connectionSettings: MsSqlServerDatabaseSourceSettings,
-                            fieldSelector: ColumnSummaryFieldSelector,
-                            nameGenerator: NameGenerator
+    val connectionSettings: MsSqlServerDatabaseSourceSettings,
+    fieldSelector: ColumnSummaryFieldSelector,
+    nameGenerator: NameGenerator
 ) extends AutoCloseable
     with StreamingSource:
 
@@ -463,9 +461,13 @@ object MsSqlStreamingSource:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          context                <- ZIO.service[PluginStreamContext]
-          nameGenerator          <- ZIO.service[NameGenerator]
-        yield new MsSqlStreamingSource(extractor(context), new ColumnSummaryFieldSelector(context.source.fieldSelectionRule), nameGenerator)
+          context       <- ZIO.service[PluginStreamContext]
+          nameGenerator <- ZIO.service[NameGenerator]
+        yield new MsSqlStreamingSource(
+          extractor(context),
+          new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
+          nameGenerator
+        )
       }
     }
 
