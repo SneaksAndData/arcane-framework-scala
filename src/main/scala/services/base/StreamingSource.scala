@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.schemas.*
+import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion, SurrogateMergeKeyImpl}
 
 import zio.{Task, ZIO}
@@ -49,13 +49,9 @@ abstract class DefaultStreamingSource(
 
       val newSchema =
         if schema.isIndexed then
-          val nextFieldId = schema.collect { case field: IndexedArcaneSchemaField =>
-            field.fieldId
-          }.max + 1
           schema.addIndexedField(
             MergeKeyField.name,
-            MergeKeyField.fieldType,
-            nextFieldId
+            MergeKeyField.fieldType
           )
         else
           schema.addField(
