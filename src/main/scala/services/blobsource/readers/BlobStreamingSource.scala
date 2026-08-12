@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers
 
 import models.schemas.ArcaneSchema
-import models.settings.sources.DataRowSchemaVersion
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import services.base.DefaultStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.base.StoredBlob
@@ -16,7 +16,10 @@ import java.util.Base64
 
 /** Base trait for all blob source readers
   */
-abstract class BlobStreamingSource extends DefaultStreamingSource(Seq.empty, DataRowSchemaVersion.V0):
+abstract class BlobStreamingSource(
+    modifications: Seq[DataRowModification],
+    dataRowSchemaVersion: DataRowSchemaVersion
+) extends DefaultStreamingSource(modifications, dataRowSchemaVersion):
 
   final override type ShardMetadata = Seq[String]
   final override type WatermarkType = BlobSourceWatermark

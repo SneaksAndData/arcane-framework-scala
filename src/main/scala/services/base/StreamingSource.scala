@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
+import models.schemas.*
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion, SurrogateMergeKeyImpl}
 
 import zio.{Task, ZIO}
@@ -46,12 +46,24 @@ abstract class DefaultStreamingSource(
     case SurrogateMergeKeyImpl(_)
         if dataRowSchemaVersion.usesCommonMergeKey &&
           !schema.exists(_.name.equalsIgnoreCase(MergeKeyField.name)) =>
-      ZIO.succeed(
-        schema.addField(
-          MergeKeyField.name,
-          MergeKeyField.fieldType
-        )
-      )
+
+      val newSchema =
+        if schema.isIndexed then
+          val nextFieldId = schema.collect { case field: IndexedArcaneSchemaField =>
+            field.fieldId
+          }.max + 1
+          schema.addIndexedField(
+            MergeKeyField.name,
+            MergeKeyField.fieldType,
+            nextFieldId
+          )
+        else
+          schema.addField(
+            MergeKeyField.name,
+            MergeKeyField.fieldType
+          )
+
+      ZIO.succeed(newSchema)
     case _ => ZIO.succeed(schema)
 
   final def applyDataRowModifications(row: DataRow): Task[DataRow] =

@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -22,10 +22,12 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
     nameGenerator: NameGenerator,
     primaryKeys: Seq[String],
-    tempStoragePath: String
-) extends BlobStreamingSource:
+    tempStoragePath: String,
+    modifications: Seq[DataRowModification],
+    dataRowSchemaVersion: DataRowSchemaVersion
+) extends BlobStreamingSource(modifications, dataRowSchemaVersion):
 
-  protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+  protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()
   override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(primaryKeys)
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
