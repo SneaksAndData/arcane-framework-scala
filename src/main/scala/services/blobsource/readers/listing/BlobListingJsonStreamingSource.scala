@@ -67,15 +67,17 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchema         <- sourceSchema
     scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
   yield (
-    scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(
-        _,
-        sourceFile.createdOn.getOrElse(0),
-        primaryKeys,
-        mergeKeyHasher(),
-        !dataRowSchemaVersion.usesCommonMergeKey
+    scanner.getRows
+      .map(
+        BlobBatchCommons.enrichBatchRow(
+          _,
+          sourceFile.createdOn.getOrElse(0),
+          primaryKeys,
+          mergeKeyHasher(),
+          !dataRowSchemaVersion.usesCommonMergeKey
+        )
       )
-    ),
+      .mapZIO(applyDataRowModifications),
     schema
   )
 
@@ -96,15 +98,17 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
               yield scanner
             }
             .flatMap(
-              _.getRows.map(
-                BlobBatchCommons.enrichBatchRow(
-                  _,
-                  sourceFile.createdOn.getOrElse(0),
-                  primaryKeys,
-                  mergeKeyHasher(),
-                  !dataRowSchemaVersion.usesCommonMergeKey
+              _.getRows
+                .map(
+                  BlobBatchCommons.enrichBatchRow(
+                    _,
+                    sourceFile.createdOn.getOrElse(0),
+                    primaryKeys,
+                    mergeKeyHasher(),
+                    !dataRowSchemaVersion.usesCommonMergeKey
+                  )
                 )
-              )
+                .mapZIO(applyDataRowModifications)
             )
         },
       schema

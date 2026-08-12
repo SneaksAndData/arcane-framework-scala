@@ -99,15 +99,17 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     downloadedFilePath <- downloadSourceFile(sourceFile)
     scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
   yield (
-    scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(
-        _,
-        sourceFile.createdOn.getOrElse(0),
-        primaryKeys,
-        mergeKeyHasher(),
-        !dataRowSchemaVersion.usesCommonMergeKey
+    scanner.getRows
+      .map(
+        BlobBatchCommons.enrichBatchRow(
+          _,
+          sourceFile.createdOn.getOrElse(0),
+          primaryKeys,
+          mergeKeyHasher(),
+          !dataRowSchemaVersion.usesCommonMergeKey
+        )
       )
-    ),
+      .mapZIO(applyDataRowModifications),
     schema
   )
 
@@ -127,15 +129,17 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               yield scanner
             }
             .flatMap(
-              _.getRows.map(
-                BlobBatchCommons.enrichBatchRow(
-                  _,
-                  sourceFile.createdOn.getOrElse(0),
-                  primaryKeys,
-                  mergeKeyHasher(),
-                  !dataRowSchemaVersion.usesCommonMergeKey
+              _.getRows
+                .map(
+                  BlobBatchCommons.enrichBatchRow(
+                    _,
+                    sourceFile.createdOn.getOrElse(0),
+                    primaryKeys,
+                    mergeKeyHasher(),
+                    !dataRowSchemaVersion.usesCommonMergeKey
+                  )
                 )
-              )
+                .mapZIO(applyDataRowModifications)
             )
         },
       schema

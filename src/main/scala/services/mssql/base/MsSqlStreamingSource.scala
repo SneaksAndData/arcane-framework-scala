@@ -37,8 +37,10 @@ import scala.annotation.tailrec
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
-    nameGenerator: NameGenerator
-) extends DefaultStreamingSource(Seq.empty, DataRowSchemaVersion.V0)
+    nameGenerator: NameGenerator,
+    modifications: Seq[DataRowModification] = Seq.empty,
+    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
+) extends DefaultStreamingSource(modifications, dataRowSchemaVersion)
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -100,10 +102,11 @@ class MsSqlStreamingSource(
           stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
             if hasNext then
               for
-                columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-                row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-                hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-              yield Some((row.handleSpecialTypes, hasNextRow))
+                columns     <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                row         <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                modifiedRow <- applyDataRowModifications(row.handleSpecialTypes)
+                hasNextRow  <- ZIO.attemptBlockingInterrupt(resultSet.next())
+              yield Some((modifiedRow, hasNextRow))
             else ZIO.succeed(None)
           }
         yield stream,
@@ -184,7 +187,8 @@ class MsSqlStreamingSource(
             yield MsSqlStreamingSource.ensureHead(result)
           })
           .flatMap(batch => unfoldBatch(batch))
-          .map(_.handleSpecialTypes),
+          .map(_.handleSpecialTypes)
+          .mapZIO(applyDataRowModifications),
         schema
       )
     }
@@ -475,9 +479,11 @@ object MsSqlStreamingSource:
           context       <- ZIO.service[PluginStreamContext]
           nameGenerator <- ZIO.service[NameGenerator]
         yield new MsSqlStreamingSource(
-          extractor(context),
-          new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
-          nameGenerator
+          connectionSettings = extractor(context),
+          fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
+          nameGenerator = nameGenerator,
+          modifications = context.source.modifications.modifications,
+          dataRowSchemaVersion = context.source.dataRowSchemaVersion
         )
       }
     }
