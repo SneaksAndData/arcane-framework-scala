@@ -36,17 +36,28 @@ object BlobBatchCommons:
     )
   )
 
-  def enrichBatchRow(row: DataRow, version: Long, primaryKeys: Seq[String], hasher: MessageDigest): DataRow =
-    row ++ Seq(
-      DataCell(
-        name = MergeKeyField.name,
-        Type = MergeKeyField.fieldType,
-        value = getMergeKeyValue(row, primaryKeys, hasher)
-      ),
-      // merge query requires a versionField to ensure rows are updated correctly
-      DataCell(
-        name = BlobBatchCommons.versionField.name,
-        Type = BlobBatchCommons.versionField.fieldType,
-        value = version
-      )
+  def addVersion(row: DataRow, version: Long): DataRow =
+    row :+ DataCell(
+      name = BlobBatchCommons.versionField.name,
+      Type = BlobBatchCommons.versionField.fieldType,
+      value = version
     )
+
+  def addLegacyMergeKey(row: DataRow, primaryKeys: Seq[String], hasher: MessageDigest): DataRow =
+    row :+ DataCell(
+      name = MergeKeyField.name,
+      Type = MergeKeyField.fieldType,
+      value = getMergeKeyValue(row, primaryKeys, hasher)
+    )
+
+  def enrichBatchRow(
+      row: DataRow,
+      version: Long,
+      primaryKeys: Seq[String],
+      hasher: MessageDigest,
+      includeLegacyMergeKey: Boolean
+  ): DataRow =
+    val rowWithLegacyMergeKey =
+      if includeLegacyMergeKey then addLegacyMergeKey(row, primaryKeys, hasher)
+      else row
+    addVersion(rowWithLegacyMergeKey, version)

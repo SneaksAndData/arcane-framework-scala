@@ -7,9 +7,9 @@ import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import services.blobsource.versioning.BlobSourceWatermark
-import services.iceberg.given_Conversion_Schema_ArcaneSchema
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import services.iceberg.interop.ParquetScanner
+import services.iceberg.{given_Conversion_Schema_Seq, inferMergeKeyIndex}
 import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
@@ -17,6 +17,7 @@ import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
 
+import org.apache.iceberg.Schema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -30,25 +31,29 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     tempStoragePath: String,
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
-    sourceSchema: Option[String]
+    sourceSchema: Option[String],
+    modifications: Seq[DataRowModification] = Seq.empty,
+    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
       storageClient,
       nameGenerator,
       primaryKeys,
-      tempStoragePath
+      tempStoragePath,
+      modifications,
+      dataRowSchemaVersion
     ):
 
-  override def getSchema: Task[SchemaType] = for
+  override protected def getSourceSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
       for
         schemaBytes <- ZIO.attempt(Base64.getDecoder.decode(sourceSchema.get))
         scanner     <- ZIO.attempt(ParquetScanner(schemaBytes, useNameMapping))
-        schema      <- scanner.getIcebergSchema.map(implicitly)
+        schema      <- scanner.getIcebergSchema
       yield schema
     }
-    runtimeSchema <- preconfiguredSchema match
+    icebergSchema <- preconfiguredSchema match
       case Some(schema) => ZIO.succeed(schema)
       case None =>
         for
@@ -58,7 +63,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
           maybeFilePath <- storageClient.downloadRandomBlob(sourcePath, tempStoragePath)
           schema <- maybeFilePath match
             case Some(filePath) =>
-              ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema.map(implicitly))
+              ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema)
             case None =>
               ZIO.fail(
                 FatalStreamFailException(
@@ -66,10 +71,22 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
                 )
               )
         yield schema
-  yield runtimeSchema ++ Seq(BlobBatchCommons.indexedVersionField(runtimeSchema.mergeKey match {
-    case IndexedMergeKeyField(fieldId) => fieldId + 1
-    case _ => throw FatalStreamFailException("Unsupported schema: parquet source supplied a non-indexed merge key")
-  }))
+
+    originalFields: Seq[IndexedField] = summon[
+      Conversion[org.apache.iceberg.Schema, Seq[IndexedField]]
+    ].apply(icebergSchema)
+    originalSchema = ArcaneSchema(originalFields)
+    nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
+  yield
+    if dataRowSchemaVersion.usesCommonMergeKey then
+      originalSchema ++ Seq(
+        BlobBatchCommons.indexedVersionField(nextFieldId)
+      )
+    else
+      originalSchema ++ Seq(
+        IndexedMergeKeyField(nextFieldId),
+        BlobBatchCommons.indexedVersionField(nextFieldId + 1)
+      )
 
   /** Gets an empty schema.
     *
@@ -82,9 +99,17 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     downloadedFilePath <- downloadSourceFile(sourceFile)
     scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
   yield (
-    scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-    ),
+    scanner.getRows
+      .map(
+        BlobBatchCommons.enrichBatchRow(
+          _,
+          sourceFile.createdOn.getOrElse(0),
+          primaryKeys,
+          mergeKeyHasher(),
+          !dataRowSchemaVersion.usesCommonMergeKey
+        )
+      )
+      .mapZIO(applyDataRowModifications),
     schema
   )
 
@@ -104,9 +129,17 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               yield scanner
             }
             .flatMap(
-              _.getRows.map(
-                BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-              )
+              _.getRows
+                .map(
+                  BlobBatchCommons.enrichBatchRow(
+                    _,
+                    sourceFile.createdOn.getOrElse(0),
+                    primaryKeys,
+                    mergeKeyHasher(),
+                    !dataRowSchemaVersion.usesCommonMergeKey
+                  )
+                )
+                .mapZIO(applyDataRowModifications)
             )
         },
       schema
@@ -142,6 +175,8 @@ object BlobListingParquetStreamingSource:
         tempStoragePath = sourceSettings.tempStoragePath,
         primaryKeys = sourceSettings.primaryKeys,
         useNameMapping = sourceSettings.useNameMapping,
-        sourceSchema = sourceSettings.sourceSchema
+        sourceSchema = sourceSettings.sourceSchema,
+        modifications = context.source.modifications.modifications,
+        dataRowSchemaVersion = context.source.dataRowSchemaVersion
       )
     }

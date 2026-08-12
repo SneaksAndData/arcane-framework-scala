@@ -92,25 +92,43 @@ object CSVParser:
     regex.replaceSomeIn(csvLine, m => Some(m.matched.replace("\n", ""))).replace("\r", "")
   }
 
-given Conversion[(String, ArcaneSchema), DataRow] with
   private val arcaneMergeKeyFieldName = "Id"
 
-  override def apply(schemaBoundCsvLine: (String, ArcaneSchema)): DataRow = schemaBoundCsvLine match
-    case (csvLine, schema) =>
-      val parsed = CSVParser.parseCsvLine(line = csvLine, headerCount = schema.size - SimpleCdmModel.systemFieldCount)
+  def parseCSVLineToRow(
+      csvLine: String,
+      schema: ArcaneSchema,
+      includeLegacyMergeKey: Boolean
+  ): DataRow =
+    val sourceSchema = schema.filterNot(_.name.equalsIgnoreCase(MergeKeyField.name))
 
-      val mergeKeyIndex =
-        schema.zipWithIndex.find(v => v._1.name.toLowerCase() == arcaneMergeKeyFieldName.toLowerCase())
-      val mergeKeyValue = mergeKeyIndex
-        .map(v => parsed(v._2))
-        .getOrElse(throw Exception(s"Primary key $arcaneMergeKeyFieldName not found in schema"))
+    val parsed = CSVParser.parseCsvLine(
+      line = csvLine,
+      headerCount = sourceSchema.size
+    )
 
-      parsed.zipWithIndex
-        .map { (fieldValue, index) =>
-          val field = schema(index)
-          DataCell(name = field.name, Type = field.fieldType, value = fieldValue)
-        }
-        .concat(
-          Seq(DataCell(name = MergeKeyField.name, Type = MergeKeyField.fieldType, value = mergeKeyValue))
+    val row = parsed.zipWithIndex
+      .map { (fieldValue, index) =>
+        val field = sourceSchema(index)
+        DataCell(
+          name = field.name,
+          Type = field.fieldType,
+          value = fieldValue
         )
-        .toList
+      }
+
+    val newRow = if includeLegacyMergeKey then
+      val mergeKeyValue = row
+        .find(_.name.equalsIgnoreCase(arcaneMergeKeyFieldName))
+        .map(_.value)
+        .getOrElse(
+          throw new Exception(s"Primary key $arcaneMergeKeyFieldName not found in parsed row")
+        )
+      val mergeKeyCell = DataCell(
+        name = MergeKeyField.name,
+        Type = MergeKeyField.fieldType,
+        value = mergeKeyValue
+      )
+      row.appended(mergeKeyCell)
+    else row
+
+    newRow.toList

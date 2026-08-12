@@ -3,9 +3,9 @@ package services.blobsource.readers.listing
 
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
-import models.schemas.{ArcaneSchema, DataRow}
+import models.schemas.{ArcaneSchema, DataRow, MergeKeyField}
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import models.settings.sources.blob.JsonBlobSourceSettings
-import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
 import services.naming.NameGenerator
@@ -28,14 +28,18 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
-    jsonArrayPointers: Map[String, Map[String, String]]
+    jsonArrayPointers: Map[String, Map[String, String]],
+    modifications: Seq[DataRowModification] = Seq.empty,
+    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
       storageClient,
       nameGenerator,
       primaryKeys,
-      tempStoragePath
+      tempStoragePath,
+      modifications,
+      dataRowSchemaVersion
     ):
 
   private def sourceSchema: Task[AvroSchema] = for
@@ -45,8 +49,11 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       .orDieWith(e => Throwable("Invalid Avro schema provided for source", e))
   yield schema
 
-  override def getSchema: Task[SchemaType] = for arcaneSchema <- sourceSchema.map(implicitly)
-  yield arcaneSchema ++ Seq(BlobBatchCommons.versionField)
+  override protected def getSourceSchema: Task[SchemaType] = sourceSchema.map { avroSchema =>
+    val originalSchema: ArcaneSchema = avroSchema
+    if dataRowSchemaVersion.usesCommonMergeKey then originalSchema ++ Seq(BlobBatchCommons.versionField)
+    else originalSchema ++ Seq(MergeKeyField, BlobBatchCommons.versionField)
+  }
 
   /** Gets an empty schema.
     *
@@ -60,9 +67,17 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchema         <- sourceSchema
     scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
   yield (
-    scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-    ),
+    scanner.getRows
+      .map(
+        BlobBatchCommons.enrichBatchRow(
+          _,
+          sourceFile.createdOn.getOrElse(0),
+          primaryKeys,
+          mergeKeyHasher(),
+          !dataRowSchemaVersion.usesCommonMergeKey
+        )
+      )
+      .mapZIO(applyDataRowModifications),
     schema
   )
 
@@ -83,9 +98,17 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
               yield scanner
             }
             .flatMap(
-              _.getRows.map(
-                BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-              )
+              _.getRows
+                .map(
+                  BlobBatchCommons.enrichBatchRow(
+                    _,
+                    sourceFile.createdOn.getOrElse(0),
+                    primaryKeys,
+                    mergeKeyHasher(),
+                    !dataRowSchemaVersion.usesCommonMergeKey
+                  )
+                )
+                .mapZIO(applyDataRowModifications)
             )
         },
       schema
@@ -121,6 +144,8 @@ object BlobListingJsonStreamingSource:
         nameGenerator = nameGenerator,
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
-        jsonArrayPointers = sourceSettings.jsonArrayPointers
+        jsonArrayPointers = sourceSettings.jsonArrayPointers,
+        modifications = context.source.modifications.modifications,
+        dataRowSchemaVersion = context.source.dataRowSchemaVersion
       )
     }
