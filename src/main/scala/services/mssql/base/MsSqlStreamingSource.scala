@@ -27,15 +27,6 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
 
-/** Represents a summary of a column in a table. The first element is the name of the column, and the second element is
-  * true if the column is a primary key.
-  */
-type ColumnSummary = (String, Boolean)
-
-/** Represents a query to be executed on a Microsoft SQL Server database.
-  */
-type MsSqlQuery = String
-
 /** Represents a connection to a Microsoft SQL Server database.
   *
   * @param connectionSettings
@@ -43,7 +34,7 @@ type MsSqlQuery = String
   */
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
-    fieldsFilteringService: MsSqlServerFieldsFilteringService,
+    fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator
 ) extends AutoCloseable
     with StreamingSource:
@@ -307,7 +298,7 @@ class MsSqlStreamingSource(
       for
         statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
         resultSet <- statement.executeQuerySafe(query)
-        result    <- ZIO.fromTry(fieldsFilteringService.filter(readColumns(resultSet, List.empty)))
+        result    <- ZIO.fromTry(fieldSelector.filter(readColumns(resultSet, List.empty)))
       yield result
     }
 
@@ -459,37 +450,24 @@ class MsSqlStreamingSource(
 
 object MsSqlStreamingSource:
 
-  type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService & NameGenerator
+  type Environment               = PluginStreamContext & NameGenerator
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
-
-  /** Creates a new Microsoft SQL Server connection.
-    *
-    * @param connectionSettings
-    *   The connection options for the database.
-    * @param fieldsFilteringService
-    *   The service that filters the fields in queries.
-    * @return
-    *   A new Microsoft SQL Server connection.
-    */
-  def apply(
-      connectionSettings: MsSqlServerDatabaseSourceSettings,
-      fieldsFilteringService: MsSqlServerFieldsFilteringService,
-      nameGenerator: NameGenerator
-  ): MsSqlStreamingSource =
-    new MsSqlStreamingSource(connectionSettings, fieldsFilteringService, nameGenerator)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
+  ): ZLayer[Environment, Nothing, MsSqlStreamingSource] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          context                <- ZIO.service[PluginStreamContext]
-          fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-          nameGenerator          <- ZIO.service[NameGenerator]
-        yield MsSqlStreamingSource(extractor(context), fieldsFilteringService, nameGenerator)
+          context       <- ZIO.service[PluginStreamContext]
+          nameGenerator <- ZIO.service[NameGenerator]
+        yield new MsSqlStreamingSource(
+          extractor(context),
+          new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
+          nameGenerator
+        )
       }
     }
 

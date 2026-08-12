@@ -75,7 +75,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
 }
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
-import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
+import com.sneaksanddata.arcane.framework.services.filters.{FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -84,6 +84,7 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
+import com.sneaksanddata.arcane.framework.services.mssql.ColumnSummaryFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.sample.*
 import com.sneaksanddata.arcane.framework.services.sample.backfill.{
   SampleBackfillMergeStreamDataProvider,
@@ -113,14 +114,14 @@ object main extends ZIOAppDefault {
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   val appLayer: ZIO[StreamRunnerService, Throwable, Unit] = for
-    _            <- zlog("Application starting")
+    _ <- zlog("Application starting")
     streamRunner <- ZIO.service[StreamRunnerService]
-    _            <- streamRunner.run
+    _ <- streamRunner.run
   yield ()
 
   // Note: All 'Sample' classes below represent your source-specific implementations
   val streamingSourceLayer
-      : ZLayer[SampleStreamingSource.Environment, Nothing, SampleStreamingSource & SchemaProvider[ArcaneSchema]] =
+  : ZLayer[SampleStreamingSource.Environment, Nothing, SampleStreamingSource & SchemaProvider[ArcaneSchema]] =
     SampleStreamingSource.getLayer(context =>
       context.asInstanceOf[SamplePluginStreamContext].source.configuration
     )
@@ -135,7 +136,7 @@ object main extends ZIOAppDefault {
     FieldsFilteringService.layer,
     SamplePluginStreamContext.layer, // Source-specific stream context
     PosixStreamLifetimeService.layer,
-    SampleSourceDataProvider.layer,       // Source-specific source data provider
+    SampleSourceDataProvider.layer, // Source-specific source data provider
     IcebergS3CatalogWriter.layer,
     IcebergEntityManager.sinkLayer,
     IcebergEntityManager.stagingLayer,
@@ -144,17 +145,17 @@ object main extends ZIOAppDefault {
     JdbcMergeServiceClient.layer,
 
     // source
-    streamingSourceLayer,            // Source-specific streaming source
+    streamingSourceLayer, // Source-specific streaming source
 
     // streaming
     SampleStreamingDataProvider.layer, // Source-specific streaming data provider
-    SampleStagedBatchFactory.layer,    // Source-specific batch factory (streaming)
+    SampleStagedBatchFactory.layer, // Source-specific batch factory (streaming)
 
     // backfill
-    SampleBackfillSourceDataProvider.layer,       // Source-specific backfill source provider
-    SampleShardFactory.layer,                      // Source-specific backfill shard factory
+    SampleBackfillSourceDataProvider.layer, // Source-specific backfill source provider
+    SampleShardFactory.layer, // Source-specific backfill shard factory
     SampleShardedBackfillStreamDataProvider.layer, // Source-specific sharded backfill provider (overwrite)
-    SampleBackfillMergeStreamDataProvider.layer,   // Source-specific backfill merge provider (merge)
+    SampleBackfillMergeStreamDataProvider.layer, // Source-specific backfill merge provider (merge)
     DefaultBackfillStateManager.layer,
     ShardStagingProcessor.layer,
     BackfillCompletionProcessor.layer,

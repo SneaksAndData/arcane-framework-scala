@@ -5,10 +5,9 @@ import models.schemas.ArcaneType.*
 import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField}
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.filters.ColumnSummaryFieldsFilteringService
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
-import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService, MsSqlStreamingSource}
+import services.mssql.base.{ColumnSummary, ColumnSummaryFieldSelector, MsSqlStreamingSource}
 import services.mssql.query.ResultSetIterator
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
@@ -38,8 +37,19 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private val pkString    = "primary key(x)"
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
-  private val emptyFieldsFilteringService: MsSqlServerFieldsFilteringService = (fields: List[ColumnSummary]) =>
-    Success(fields)
+  private val nopSelector: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(new FieldSelectionRuleSettings {
+
+    /** The field selection rule to use.
+      */
+    override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
+
+    /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list are
+      * used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane streaming
+      * plugin and should not be configurable.
+      */
+    override val essentialFields: Set[String] = Set.empty[String]
+    override val isServerSide: Boolean        = true
+  })
 
   def insertData(con: Connection, tableName: String): Task[Unit] =
     for
@@ -112,7 +122,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -139,7 +149,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -171,7 +181,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -216,7 +226,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator
           )
         )
@@ -258,7 +268,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator
           )
         )
@@ -292,7 +302,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator
           )
         )
@@ -318,7 +328,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -361,7 +371,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -389,7 +399,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -423,7 +433,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator
           )
         )
@@ -457,7 +467,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -507,7 +517,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            new ColumnSummaryFieldsFilteringService(fieldSelectionRule),
+            new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator
           )
         )
@@ -556,7 +566,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -590,7 +600,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )
@@ -648,7 +658,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
+            nopSelector,
             nameGenerator
           )
         )

@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.framework
-package services.filters
+package services.mssql.base
 
 import models.app.PluginStreamContext
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import services.mssql.SqlDataCell.normalizeName
-import services.mssql.base.{ColumnSummary, MsSqlServerFieldsFilteringService}
+import services.mssql.base.ColumnSummary
 
 import zio.{ZIO, ZLayer}
 
@@ -15,8 +15,7 @@ import scala.util.{Failure, Success, Try}
   * @param fieldSelectionRule
   *   The field selection rule to use.
   */
-class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRuleSettings)
-    extends MsSqlServerFieldsFilteringService:
+final class ColumnSummaryFieldSelector(fieldSelectionRule: FieldSelectionRuleSettings):
 
   /** @inheritdoc
     */
@@ -64,26 +63,3 @@ class ColumnSummaryFieldsFilteringService(fieldSelectionRule: FieldSelectionRule
     case AllFieldsImpl(_) => Success(fields)
 
   private def toString(fields: List[String]) = "[" + fields.map(f => s"'$f'").mkString(", ") + "]"
-
-object ColumnSummaryFieldsFilteringService:
-  /** The environment for the ColumnSummaryFieldsFilteringService.
-    */
-  type Environment = PluginStreamContext
-
-  /** Creates a new ColumnSummaryFieldsFilteringService.
-    *
-    * @param fieldSelectionRule
-    *   The field selection rule to use.
-    * @return
-    *   A new ColumnSummaryFieldsFilteringService.
-    */
-  def apply(fieldSelectionRule: FieldSelectionRuleSettings): ColumnSummaryFieldsFilteringService =
-    new ColumnSummaryFieldsFilteringService(fieldSelectionRule)
-
-  /** The ZLayer that creates the IcebergConsumer.
-    */
-  val layer: ZLayer[Environment, Nothing, ColumnSummaryFieldsFilteringService] =
-    ZLayer {
-      for context <- ZIO.service[PluginStreamContext]
-      yield ColumnSummaryFieldsFilteringService(context.source.fieldSelectionRule)
-    }
