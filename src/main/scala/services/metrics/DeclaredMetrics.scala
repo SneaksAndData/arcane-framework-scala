@@ -15,8 +15,8 @@ class DeclaredMetrics:
 
   /** Number of rows staged in the current iteration
     */
-  val rowsStaged: Gauge[Double] = Metric
-    .gauge(s"$metricsNamespace.rows.staged")
+  val rowsStaged: Counter[Long] = Metric
+    .counter(s"$metricsNamespace.rows.staged")
 
   /** Number of rows incoming from source
     */
