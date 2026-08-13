@@ -17,15 +17,6 @@ abstract class DefaultStreamingSource(
     protected val dataRowSchemaVersion: DataRowSchemaVersion
 ) extends StreamingSource
     with PrimaryKeyProvider {
-  require(
-    dataRowSchemaVersion != DataRowSchemaVersion.V1 ||
-      modifications.exists {
-        case SurrogateMergeKeyImpl(_) => true
-        case _                        => false
-      },
-    "Data-row schema V1 requires the surrogateMergeKey modification"
-  )
-
   protected def getSourceSchema: Task[ArcaneSchema]
 
   protected def applyDataRowModification(
@@ -60,6 +51,22 @@ abstract class DefaultStreamingSource(
 
   final override lazy val getSchema: Task[ArcaneSchema] =
     getSourceSchema.flatMap(applySchemaModifications)
+
+  def validate: Task[Unit] =
+    ZIO
+      .fail(
+        new IllegalArgumentException(
+          "Data-row schema V1 requires the surrogateMergeKey modification"
+        )
+      )
+      .unless(
+        dataRowSchemaVersion != DataRowSchemaVersion.V1 ||
+          modifications.exists {
+            case SurrogateMergeKeyImpl(_) => true
+            case _                        => false
+          }
+      )
+      .unit
 
   private def addSurrogateMergeKey(row: DataRow): Task[DataRow] =
     for
