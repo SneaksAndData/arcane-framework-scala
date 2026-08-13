@@ -3,12 +3,9 @@ package services.base
 
 import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion, SurrogateMergeKeyImpl}
+import utils.HashUtils
 
 import zio.{Task, ZIO}
-
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
-import java.util.HexFormat
 
 trait StreamingSource extends SchemaProvider[ArcaneSchema] with ShardProvider
 
@@ -94,9 +91,5 @@ abstract class DefaultStreamingSource(
       }
       .mkString("#")
 
-    val digest = MessageDigest
-      .getInstance("SHA-256")
-      .digest(input.getBytes(StandardCharsets.UTF_8))
-
-    HexFormat.of().formatHex(digest)
+    HashUtils.murmur3(input)
 }
