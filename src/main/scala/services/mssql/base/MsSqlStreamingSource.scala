@@ -461,7 +461,7 @@ class MsSqlStreamingSource(
         }
     }
 
-  private[mssql] def usesLegacyMergeKey: Boolean = !dataRowSchemaVersion.usesCommonMergeKey
+  private[mssql] def usesLegacyMergeKey: Boolean = dataRowSchemaVersion == DataRowSchemaVersion.V0
 
 object MsSqlStreamingSource:
 
@@ -482,7 +482,7 @@ object MsSqlStreamingSource:
           connectionSettings = extractor(context),
           fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
           nameGenerator = nameGenerator,
-          modifications = context.source.modifications.modifications,
+          modifications = context.source.dataRowSchemaVersion.modifications,
           dataRowSchemaVersion = context.source.dataRowSchemaVersion
         )
       }
