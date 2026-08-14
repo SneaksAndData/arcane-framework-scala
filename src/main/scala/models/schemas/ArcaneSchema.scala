@@ -122,6 +122,8 @@ class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField
 
     maybeMergeKey.get
 
+  def nextFieldId: Int = fields.collect { case field: IndexedArcaneSchemaField => field.fieldId }.max + 1
+
   def apply(i: Int): ArcaneSchemaField = fields(i)
 
   def length: Int = fields.length
@@ -170,3 +172,6 @@ given CanAdd[ArcaneSchema] with
     def addIndexedField(fieldName: String, fieldType: ArcaneType, fieldId: Int): ArcaneSchema = fieldName match
       case MergeKeyField.name => a :+ IndexedMergeKeyField(fieldId)
       case _                  => a :+ IndexedField(fieldName, fieldType, fieldId)
+
+    def addIndexedField(fieldName: String, fieldType: ArcaneType): ArcaneSchema =
+      addIndexedField(fieldName, fieldType, a.nextFieldId)
