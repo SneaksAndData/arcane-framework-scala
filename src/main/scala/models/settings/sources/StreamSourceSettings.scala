@@ -15,6 +15,6 @@ trait StreamSourceSettings:
 
   val fieldSelectionRule: FieldSelectionRuleSettings
 
-  val modifications: DataRowModificationSettings = DefaultDataRowModificationSettings(Seq.empty)
+  val modifications: DataRowModificationSettings
 
-  val dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
+  val dataRowSchemaVersion: DataRowSchemaVersion

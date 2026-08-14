@@ -287,7 +287,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the schema for the data produced by Arcane.
     */
-  override val getSourceSchema: Task[this.SchemaType] =
+  override lazy val getSourceSchema: Task[this.SchemaType] =
     for
       query     <- this.getSchemaQuery
       sqlSchema <- getSqlSchema(query)

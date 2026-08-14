@@ -8,7 +8,14 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
-import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
+import models.settings.sources.{
+  DataRowModificationSettings,
+  DataRowSchemaVersion,
+  DefaultDataRowModificationSettings,
+  SourceBufferingSettings,
+  SourceSettings,
+  StreamSourceSettings
+}
 import models.settings.staging.StagingSettings
 import models.settings.streaming.*
 import models.settings.{FieldSelectionRuleSettings, FlowRate}
@@ -27,7 +34,6 @@ import zio.test.TestAspect.timeout
 import zio.{Chunk, Scope, ZIO, ZLayer}
 
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
-
 type TestInput = DataRow
 
 object StagingProcessorTests extends ZIOSpecDefault:
@@ -94,6 +100,8 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val configuration: SourceSettingsType              = new SourceSettings {}
       override val buffering: SourceBufferingSettings             = TestSourceBufferingSettings
       override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
+      override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
+      override val dataRowSchemaVersion: DataRowSchemaVersion     = DataRowSchemaVersion.V0
     }
     override val staging: StagingSettings             = TestStagingSettings()
     override val observability: ObservabilitySettings = TestObservabilitySettings
