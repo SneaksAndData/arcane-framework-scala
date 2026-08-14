@@ -2,12 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import models.schemas.{DataRow, MergeKeyField}
-import models.settings.TableNaming.*
-import models.settings.backfill.BackfillBehavior.Overwrite
-import models.settings.backfill.{BackfillBehavior, BackfillSettings}
-import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
+import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
 import services.metrics.DeclaredMetrics
-import services.storage.models.azure.AdlsStoragePath
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
@@ -20,10 +16,23 @@ import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
 
-import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName = "dimensionattributelevelvalue"
+  private val allFieldsSelector = new FieldSelectionRuleSettings {
+
+    /** The field selection rule to use.
+      */
+    override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
+
+    /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list are
+      * used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane streaming
+      * plugin and should not be configurable.
+      */
+    override val essentialFields: Set[String] = Set.empty[String]
+    override val isServerSide: Boolean        = false
+  }
 
   private def isDelete(row: DataRow): Boolean = row.exists(c => c.name == "IsDelete" && c.value == true)
 
@@ -62,7 +71,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(
+          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+        )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
@@ -101,7 +112,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
           TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
         )
 
-        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot))
+        synapseLinkReader <- ZIO.succeed(
+          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+        )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
             synapseLinkReader,
