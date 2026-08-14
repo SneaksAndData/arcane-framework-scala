@@ -5,7 +5,8 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.{SchemaProvider, StreamingSource}
+import models.settings.sources.*
+import services.base.DefaultStreamingSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
@@ -16,6 +17,7 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
+import services.mssql.SqlDataCell.normalizeName
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -35,9 +37,11 @@ import scala.annotation.tailrec
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
-    nameGenerator: NameGenerator
-) extends AutoCloseable
-    with StreamingSource:
+    nameGenerator: NameGenerator,
+    modifications: Seq[DataRowModification] = Seq.empty,
+    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
+) extends DefaultStreamingSource(modifications, dataRowSchemaVersion)
+    with AutoCloseable:
 
   override type ShardMetadata = String
   override type WatermarkType = MsSqlWatermark
@@ -63,6 +67,13 @@ class MsSqlStreamingSource(
       )
       result <- executeColumnSummariesQuery(query)
     yield result
+
+  override protected val primaryKeyNames: Task[Seq[String]] =
+    getColumnSummaries.map(
+      _.collect { case (name, true) =>
+        name.normalizeName
+      }
+    )
 
   /** Create a stream from a provided shard table.
     */
@@ -91,10 +102,11 @@ class MsSqlStreamingSource(
           stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
             if hasNext then
               for
-                columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-                row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-                hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-              yield Some((row.handleSpecialTypes, hasNextRow))
+                columns     <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                row         <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                modifiedRow <- applyDataRowModifications(row.handleSpecialTypes)
+                hasNextRow  <- ZIO.attemptBlockingInterrupt(resultSet.next())
+              yield Some((modifiedRow, hasNextRow))
             else ZIO.succeed(None)
           }
         yield stream,
@@ -175,7 +187,8 @@ class MsSqlStreamingSource(
             yield MsSqlStreamingSource.ensureHead(result)
           })
           .flatMap(batch => unfoldBatch(batch))
-          .map(_.handleSpecialTypes),
+          .map(_.handleSpecialTypes)
+          .mapZIO(applyDataRowModifications),
         schema
       )
     }
@@ -274,7 +287,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the schema for the data produced by Arcane.
     */
-  override lazy val getSchema: Task[this.SchemaType] =
+  override lazy val getSourceSchema: Task[this.SchemaType] =
     for
       query     <- this.getSchemaQuery
       sqlSchema <- getSqlSchema(query)
@@ -448,6 +461,8 @@ class MsSqlStreamingSource(
         }
     }
 
+  private[mssql] def usesLegacyMergeKey: Boolean = dataRowSchemaVersion == DataRowSchemaVersion.V0
+
 object MsSqlStreamingSource:
 
   type Environment               = PluginStreamContext & NameGenerator
@@ -464,9 +479,11 @@ object MsSqlStreamingSource:
           context       <- ZIO.service[PluginStreamContext]
           nameGenerator <- ZIO.service[NameGenerator]
         yield new MsSqlStreamingSource(
-          extractor(context),
-          new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
-          nameGenerator
+          connectionSettings = extractor(context),
+          fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
+          nameGenerator = nameGenerator,
+          modifications = context.source.dataRowSchemaVersion.modifications,
+          dataRowSchemaVersion = context.source.dataRowSchemaVersion
         )
       }
     }

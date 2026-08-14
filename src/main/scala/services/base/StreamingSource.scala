@@ -23,7 +23,7 @@ abstract class DefaultStreamingSource(
       row: DataRow,
       modification: DataRowModification
   ): Task[DataRow] = modification match
-    case SurrogateMergeKeyImpl(_) if dataRowSchemaVersion.usesCommonMergeKey =>
+    case SurrogateMergeKeyImpl(_) =>
       addSurrogateMergeKey(row)
     case _ => ZIO.succeed(row)
 
@@ -31,9 +31,7 @@ abstract class DefaultStreamingSource(
       schema: ArcaneSchema,
       modification: DataRowModification
   ): Task[ArcaneSchema] = modification match
-    case SurrogateMergeKeyImpl(_)
-        if dataRowSchemaVersion.usesCommonMergeKey &&
-          !schema.exists(_.name.equalsIgnoreCase(MergeKeyField.name)) =>
+    case SurrogateMergeKeyImpl(_) if !schema.exists(_.name.equalsIgnoreCase(MergeKeyField.name)) =>
 
       val newSchema = schema.addIndexedField(
         MergeKeyField.name,
@@ -51,22 +49,6 @@ abstract class DefaultStreamingSource(
 
   final override lazy val getSchema: Task[ArcaneSchema] =
     getSourceSchema.flatMap(applySchemaModifications)
-
-  def validate: Task[Unit] =
-    ZIO
-      .fail(
-        new IllegalArgumentException(
-          "Data-row schema V1 requires the surrogateMergeKey modification"
-        )
-      )
-      .unless(
-        dataRowSchemaVersion != DataRowSchemaVersion.V1 ||
-          modifications.exists {
-            case SurrogateMergeKeyImpl(_) => true
-            case _                        => false
-          }
-      )
-      .unit
 
   private def addSurrogateMergeKey(row: DataRow): Task[DataRow] =
     for
