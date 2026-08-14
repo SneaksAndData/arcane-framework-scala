@@ -14,3 +14,7 @@ trait StreamSourceSettings:
   val buffering: SourceBufferingSettings
 
   val fieldSelectionRule: FieldSelectionRuleSettings
+
+  val modifications: DataRowModificationSettings = DefaultDataRowModificationSettings(Seq.empty)
+
+  val dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
