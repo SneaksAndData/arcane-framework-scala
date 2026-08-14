@@ -21,6 +21,7 @@ where `DefaultMySourceSettings` should be defined in the framework, but you can 
 ### Stream context definition
 Most plugins can rely on framework defaults and the stream source created on the previous step:
 ```scala 3
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.*
 import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext, PluginStreamContext}
 import com.sneaksanddata.arcane.framework.models.settings.observability.DefaultObservabilitySettings
 import com.sneaksanddata.arcane.framework.models.settings.sink.DefaultSinkSettings
@@ -75,7 +76,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
 }
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
-import com.sneaksanddata.arcane.framework.services.filters.{FieldsFilteringService}
+import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -177,14 +178,6 @@ object main extends ZIOAppDefault {
   )
 
   @main
-  def run: ZIO[Any, Throwable, Unit] =
-    val app = streamRunner
-
-    app.catchAllCause { cause =>
-      for {
-        _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
-        _ <- exit(zio.ExitCode(1))
-      } yield ()
-    }
+  def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(exit)
 }
 ```
