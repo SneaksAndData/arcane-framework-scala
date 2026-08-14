@@ -37,7 +37,7 @@ class ThroughputSettingsTests extends AnyFlatSpec with Matchers:
         advisedRate = FlowRate(elements = 1, interval = Duration.ofSeconds(5)),
         advisedBurst = 1
       ),
-      """{"shaperImpl":{"memoryBound":{"fallbackStringTypeSizeEstimate":1,"objectTypeSizeEstimate":1,"chunkCostScale":1,"chunkCostMax":1,"tableRowCountWeight":1,"tableSizeWeight":1,"tableSizeScaleFactor":1,"chunkSizeCap":10}},"advisedRate":"1 per 5 seconds","advisedBurst":1,"advisedChunkSize":1}"""
+      """{"shaperImpl":{"memoryBound":{"fallbackStringTypeSizeEstimate":1,"objectTypeSizeEstimate":1,"chunkCostScale":1,"chunkCostMax":1,"tableRowCountWeight":1,"tableSizeWeight":1,"tableSizeScaleFactor":1,"chunkSizeCap":10,"maxStatisticsAge":604800}},"advisedRate":"1 per 5 seconds","advisedBurst":1,"advisedChunkSize":1}"""
     ),
     (
       DefaultThroughputSettings(
