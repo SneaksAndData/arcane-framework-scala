@@ -21,7 +21,8 @@ case class MemoryBound(
     tableRowCountWeight: Double,
     tableSizeWeight: Double,
     tableSizeScaleFactor: Int,
-    chunkSizeCap: Int
+    chunkSizeCap: Int,
+    maxStatisticsAge: Long
 ) derives ReadWriter
 
 /** ADT composed with settings class for MemoryBound

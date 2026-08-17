@@ -14,7 +14,7 @@ import org.apache.iceberg.types.Type.TypeID
 import zio.{Chunk, Task, ZIO}
 
 import java.lang.management.ManagementFactory
-import java.time.Duration
+import java.time.{Duration, OffsetDateTime}
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 import scala.math.{exp, log}
@@ -44,10 +44,10 @@ class MemoryBoundShaper(
   private val mib                = 1024 * 1024
   private val estimationCache    = TrieMap[String, Double]()
 
-  private val rowSizeCacheKey    = "rowsize"
-  private val memCacheKey        = "memcutoff"
-  private val partsCacheKey      = "partitions"
-  private val stringSizeCacheKey = "stringsize"
+  private val rowSizeCacheKey      = "rowsize"
+  private val memCacheKey          = "memcutoff"
+  private val partsCacheKey        = "partitions"
+  private val estimatePropertyName = "mbs-estimates"
 
   private def getTotalFreeMemory =
     val allocatedTotal = runtime.totalMemory()
@@ -196,30 +196,50 @@ class MemoryBoundShaper(
     _ <- zlog("Estimating chunk size for the stream")
     _ <- ZIO.when(estimationCache.isEmpty) {
       for
-        tableSizeEstimate <- tablePropertyManager
-          .getTableSize(targetTableShortName)
-        tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
-        tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
-        stringSize <- tablePropertyManager
-          .getColumnSizes(targetTableShortName)
-          .map(v => estimateStringLength(tableSchema, v, tableSizeEstimate.Records))
+        existingEstimation <- tablePropertyManager
+          .getProperty(targetTableShortName, estimatePropertyName)
+          .map(_.map(MemoryBoundShaperEstimation.fromJson))
+        maybeNewEstimation <- ZIO.when(existingEstimation.forall(_.isOutdated(shaperSettings.maxStatisticsAge))) {
+          for
+            tableSizeEstimate   <- tablePropertyManager.getTableSize(targetTableShortName)
+            tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
+            tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
+            stringSize <- tablePropertyManager
+              .getColumnSizes(targetTableShortName)
+              .map(v => estimateStringLength(tableSchema, v, tableSizeEstimate.Records))
 
-        memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(tableSizeEstimate.Records, tableSizeEstimate.Size))
-        rowsSize <- ZIO.succeed(
-          Seq(
-            estimateRowSize(tableSchema, stringSize).toDouble,
-            tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
-          ).max
-        )
-        _ <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
-        _ <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, rowsSize)))
-        _ <- ZIO.succeed(estimationCache.addOne((partsCacheKey, tablePartitionCount.toDouble)))
-        _ <- ZIO.succeed(estimationCache.addOne((stringSizeCacheKey, stringSize.toDouble)))
+            rowsSize <- ZIO.succeed(
+              Seq(
+                estimateRowSize(tableSchema, stringSize).toDouble,
+                tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
+              ).max
+            )
+            estimation <- ZIO.succeed(
+              MemoryBoundShaperEstimation(
+                recordCount = tableSizeEstimate.Records,
+                physicalSize = tableSizeEstimate.Size,
+                rowSize = rowsSize.toLong,
+                partitions = tablePartitionCount,
+                lastUpdate = OffsetDateTime.now()
+              )
+            )
+            _ <- tablePropertyManager.setProperty(targetTableShortName, estimatePropertyName, estimation.toJson)
+            _ <- zlog(
+              "Updated estimation parameters: %s, string field size %s (characters)",
+              estimation.asLogString,
+              stringSize.toString
+            )
+          yield estimation
+        }
+        resultEstimation <- ZIO.succeed(existingEstimation.getOrElse(maybeNewEstimation.get))
+        memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(resultEstimation.recordCount, resultEstimation.physicalSize))
+        _            <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
+        _            <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, resultEstimation.rowSize)))
+        _            <- ZIO.succeed(estimationCache.addOne((partsCacheKey, resultEstimation.partitions)))
         _ <- zlog(
-          "Computed baseline estimation parameters: memory cutoff %s, row size %s (bytes), string field size %s (characters)",
+          "Will use the following estimation parameters: memory cutoff %s, %s",
           memoryCutoff.toString,
-          rowsSize.toString,
-          stringSize.toString
+          resultEstimation.asLogString
         )
       yield ()
     }
@@ -234,9 +254,9 @@ class MemoryBoundShaper(
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
     appliedSize <- ZIO.succeed(
-      if estimationCache("partitions").toInt > 1 then
+      if estimationCache(partsCacheKey).toInt > 1 then
         (
-          Seq(chunkSizeFromRowSize, estimationCache("partitions") / 2).min.toInt,
+          Seq(chunkSizeFromRowSize, estimationCache(partsCacheKey) / 2).min.toInt,
           estimationCache(rowSizeCacheKey).toLong
         )
       else
