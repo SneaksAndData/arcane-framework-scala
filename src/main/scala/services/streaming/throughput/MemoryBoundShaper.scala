@@ -237,7 +237,7 @@ class MemoryBoundShaper(
         _            <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, resultEstimation.rowSize)))
         _            <- ZIO.succeed(estimationCache.addOne((partsCacheKey, resultEstimation.partitions)))
         _ <- zlog(
-          "Will the following estimation parameters: memory cutoff %s, %s",
+          "Will use the following estimation parameters: memory cutoff %s, %s",
           memoryCutoff.toString,
           resultEstimation.toJson
         )
