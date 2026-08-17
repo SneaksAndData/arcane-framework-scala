@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
+import models.MetadataKeys
 import models.batches.StagedBatch
 import services.iceberg.base.SinkPropertyManager
 import services.metrics.DeclaredMetrics
-import services.streaming.base.TimestampOnlyWatermark
 
 import zio.ZIO
 
@@ -25,8 +25,12 @@ object WatermarkProcessingExtensions:
               Seq(getAnnotation("processor", stageName)),
               watermark
             )
-            previousWatermark <- propertyManager.getRequiredProperty(targetName, "comment")
-            _                 <- propertyManager.comment(targetName, watermark)
+            previousWatermark <-
+              for
+                existingValue <- propertyManager.getProperty(targetName, MetadataKeys.watermarkKey)
+                legacyValue   <- propertyManager.getProperty(targetName, MetadataKeys.legacyWatermarkKey)
+              yield existingValue.getOrElse(legacyValue.get)
+            _ <- propertyManager.setProperty(targetName, MetadataKeys.watermarkKey, watermark)
             _ <- zlog(
               "Updated watermark from %s to %s",
               Seq(getAnnotation("processor", stageName)),
