@@ -1,13 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.MetadataKeys
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.iceberg.IcebergCatalogSettings
+import models.MetadataKeys
 import services.iceberg.*
 import services.streaming.base.JsonWatermark
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
 
 import zio.{Scope, Task, ZIO, ZLayer}
 
