@@ -239,7 +239,7 @@ class MemoryBoundShaper(
         _ <- zlog(
           "Will use the following estimation parameters: memory cutoff %s, %s",
           memoryCutoff.toString,
-          resultEstimation.toJson
+          resultEstimation.toLog
         )
       yield ()
     }
