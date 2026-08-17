@@ -68,10 +68,20 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
           MetadataKeys.watermarkKey
         )
         watermarkResolvedString <- ZIO.ifZIO(ZIO.succeed(watermarkExpectedString.isEmpty))(
-          onTrue = zlog(
-            s"Reading watermark using legacy key (${MetadataKeys.legacyWatermarkKey}) - new values will be saved under a new (${MetadataKeys.watermarkKey})"
-          ) *> sinkPropertyManager
-            .getRequiredProperty(sinkSettings.targetTableFullName.parts.name, MetadataKeys.legacyWatermarkKey),
+          onTrue = for
+            _ <- zlog(
+              s"Reading watermark using legacy key (${MetadataKeys.legacyWatermarkKey}) - new values will be saved under a new (${MetadataKeys.watermarkKey})"
+            )
+            legacyValue <- sinkPropertyManager.getRequiredProperty(
+              sinkSettings.targetTableFullName.parts.name,
+              MetadataKeys.legacyWatermarkKey
+            )
+            _ <- sinkPropertyManager.setProperty(
+              sinkSettings.targetTableFullName.parts.name,
+              MetadataKeys.watermarkKey,
+              legacyValue
+            )
+          yield legacyValue,
           onFalse = ZIO.attempt(watermarkExpectedString.get)
         )
       yield watermarkResolvedString
