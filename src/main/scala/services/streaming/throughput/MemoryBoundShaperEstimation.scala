@@ -15,7 +15,7 @@ case class MemoryBoundShaperEstimation(
 ) derives ReadWriter:
   def toJson: String                    = upickle.write(this)
   def isOutdated(maxAge: Long): Boolean = Duration.between(OffsetDateTime.now(), lastUpdate).getSeconds >= maxAge
-  def asLog: String =
+  def asLogString: String =
     s"records: $recordCount, table size (bytes): $physicalSize, row size (bytes): $rowSize, partitions: $partitions"
 
 object MemoryBoundShaperEstimation:

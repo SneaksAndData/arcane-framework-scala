@@ -226,7 +226,7 @@ class MemoryBoundShaper(
             _ <- tablePropertyManager.setProperty(targetTableShortName, estimatePropertyName, estimation.toJson)
             _ <- zlog(
               "Updated estimation parameters: %s, string field size %s (characters)",
-              estimation.asLog,
+              estimation.asLogString,
               stringSize.toString
             )
           yield estimation
@@ -239,7 +239,7 @@ class MemoryBoundShaper(
         _ <- zlog(
           "Will use the following estimation parameters: memory cutoff %s, %s",
           memoryCutoff.toString,
-          resultEstimation.toLog
+          resultEstimation.asLogString
         )
       yield ()
     }
