@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
+import models.MetadataKeys
 import models.ddl.CreateTableRequest
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, Field}
 import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.*
 import services.streaming.base.JsonWatermark
-import services.iceberg.given_Conversion_ArcaneSchema_Schema
 
 import zio.{Scope, Task, ZIO, ZLayer}
 
@@ -69,7 +69,7 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
         _ <- entityManager.createTable(
           CreateTableRequest(targetName, schema.getOrElse(ArcaneSchema(Seq(Field("test", StringType)))), true)
         )
-        _ <- propertyManager.comment(targetName, value.toJson)
+        _ <- propertyManager.setProperty(targetName, MetadataKeys.watermarkKey, value.toJson)
       yield ()
     }
     .provide(getSinkTablePropertyManagerLayer, getSinkEntityManagerLayer)

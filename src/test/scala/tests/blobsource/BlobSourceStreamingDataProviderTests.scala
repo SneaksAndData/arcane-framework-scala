@@ -144,7 +144,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        rows <- sdp.stream.timeout(zio.Duration.fromSeconds(10)).runCount
+        rows <- sdp.stream.timeout(zio.Duration.fromSeconds(5)).runCount
       yield assertTrue(rows == 0)
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.sequential
