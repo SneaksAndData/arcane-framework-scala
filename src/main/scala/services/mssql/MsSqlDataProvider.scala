@@ -15,6 +15,8 @@ import services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.time.OffsetDateTime
+
 /** A data provider that reads the changes from the Microsoft SQL Server.
   */
 class MsSqlDataProvider(
@@ -50,6 +52,9 @@ class MsSqlDataProvider(
 
   override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
     streamingSource.getChanges(previousVersion)
+
+  override def resolveWatermark(timestamp: OffsetDateTime): Task[MsSqlWatermark] =
+    streamingSource.timestampToVersion(timestamp)
 
 /** The companion object for the MsSqlDataProvider class.
   */

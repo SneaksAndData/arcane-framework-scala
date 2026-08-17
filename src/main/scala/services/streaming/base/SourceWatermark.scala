@@ -5,6 +5,7 @@ import upickle.ReadWriter
 import upickle.default.*
 
 import java.time.{Duration, OffsetDateTime}
+import scala.annotation.targetName
 
 /** Base trait that represents and objects holding source version tracking information. In its most simple form,
   * contains a single timestamp from source. This timestamp corresponds to the time data was last updated in the source.
@@ -20,6 +21,11 @@ trait Watermark:
     * @return
     */
   def age: Long = Duration.between(timestamp, OffsetDateTime.now()).toSeconds
+
+  /** Temporal difference between this and other watermark
+    */
+  @targetName("minus")
+  def -(other: Watermark): Duration = Duration.between(this.timestamp, other.timestamp)
 
 /** A token used to track source data versions when streaming changes. Watermarks are stored in the target table
   * metadata once successfully committed. This ensures a stream can continue from where it left off when restarted or

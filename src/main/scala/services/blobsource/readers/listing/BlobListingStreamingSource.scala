@@ -14,6 +14,7 @@ import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
 import java.security.MessageDigest
+import java.time.OffsetDateTime
 import java.util.UUID
 
 abstract class BlobListingStreamingSource[PathType <: BlobPath](
@@ -117,3 +118,11 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
         .rechunk(parallelism * 10)
         .mapChunksZIO(files => filesToStream(files, changeSetSchema).map(stream => Chunk(stream)))
     }
+
+  override def resolveWatermark(timestamp: OffsetDateTime): Task[BlobSourceWatermark] = storageClient
+    .streamPrefixes(sourcePath)
+    .collect {
+      case file if file.createdOn.getOrElse(0L) <= timestamp.toEpochSecond => file.createdOn.getOrElse(0L)
+    }
+    .runFold(0L)((agg, e) => if agg > e then agg else e)
+    .map(BlobSourceWatermark.fromEpochSecond)

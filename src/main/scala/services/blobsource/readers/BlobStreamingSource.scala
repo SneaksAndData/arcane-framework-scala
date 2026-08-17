@@ -11,6 +11,7 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Task, ZIO}
 
 import java.nio.charset.StandardCharsets
+import java.time.OffsetDateTime
 import java.util.Base64
 
 /** Base trait for all blob source readers
@@ -78,3 +79,7 @@ trait BlobStreamingSource extends StreamingSource:
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
   ): ZStream[Any, Throwable, Seq[String]]
+
+  /** Resolves watermark for the provided timestamp
+    */
+  def resolveWatermark(timestamp: OffsetDateTime): Task[WatermarkType]
