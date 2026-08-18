@@ -31,10 +31,8 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
     for
       (previousVersion, isSeed) <- version
       // seedFlag allows to mark initial version and use it for watermark advance for rarely updated sources, on restart
-      seedFlag       <- ZIO.succeed(if isSeed then false else isSeed)
-      currentVersion <- dataProvider.getCurrentVersion(previousVersion)
-      // each version loop we read watermark from target to report its age if source has changes
-      targetWatermark   <- dataProvider.currentWatermark
+      seedFlag          <- ZIO.succeed(if isSeed then false else isSeed)
+      currentVersion    <- dataProvider.getCurrentVersion(previousVersion)
       hasVersionUpdated <- ZIO.succeed(currentVersion > previousVersion)
       _ <- ZIO.when(hasVersionUpdated)(
         zlog(
@@ -55,9 +53,26 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
           ) *> ZIO.sleep(nextSleepDuration)
         yield ()
       }
-    yield Some((currentVersion, previousVersion, targetWatermark, seedFlag) -> ZIO.succeed((currentVersion, seedFlag)))
 
-  private def hasChanges(previousVersion: WatermarkType, currentTargetVersion: WatermarkType): Task[Boolean] =
+      resolvedVersion <- ZIO.ifZIO(
+        ZIO.succeed((currentVersion - previousVersion).toSeconds > settings.catchupSplitThreshold.toSeconds)
+      )(
+        onTrue = {
+          for
+            _ <- zlog(
+              "Target watermark is behind current more than %s seconds threshold. Will instead advance only one interval (%s) forward. If the stream is unable to catch up within 24 hours, run backfill MERGE.",
+              settings.catchupSplitThreshold.toSeconds.toString,
+              settings.changeCaptureInterval.toSeconds.toString
+            )
+            replacementVersionTimestamp <- ZIO.succeed(previousVersion.timestamp.plus(settings.changeCaptureInterval))
+            replacementVersion          <- dataProvider.resolveWatermark(replacementVersionTimestamp)
+          yield replacementVersion
+        },
+        onFalse = ZIO.succeed(currentVersion)
+      )
+    yield Some((resolvedVersion, previousVersion, seedFlag) -> ZIO.succeed((resolvedVersion, seedFlag)))
+
+  private def hasChanges(previousVersion: WatermarkType): Task[Boolean] =
     for
       _ <- zlog(
         "Checking watermark value %s for data changes",
@@ -85,15 +100,17 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
           previousVersion.version
         ) *> ZIO.unit
       }
-      _ <- ZIO.succeed(currentTargetVersion.age.toDouble) @@ declaredMetrics.watermarkAge
+      // each version loop we read watermark from target to report its age if source has changes
+      currentTargetVersion <- dataProvider.currentWatermark
+      _                    <- ZIO.succeed(currentTargetVersion.age.toDouble) @@ declaredMetrics.watermarkAge
     yield isChanged
 
   override def stream: ZStream[Any, Throwable, StructuredZStream] = ZStream
     .unfoldZIO(dataProvider.currentWatermark.map(v => (v, true)))(nextVersion)
     .flatMap {
-      case (current, previous, currentTarget, seedFlag) if current > previous =>
+      case (current, previous, seedFlag) if current > previous =>
         ZStream
-          .fromZIO(hasChanges(previous, currentTarget))
+          .fromZIO(hasChanges(previous))
           .flatMap { sourceUpdated =>
             (sourceUpdated, seedFlag) match
               // if source entity has been updated, stream changes. Data provider attaches watermark to the end of the changeset

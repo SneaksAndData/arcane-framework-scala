@@ -6,6 +6,8 @@ import models.schemas.DataRow
 import zio.Task
 import zio.stream.ZStream
 
+import java.time.OffsetDateTime
+
 /** Provides a way to get the changes marked with version from a data source.
   *
   * @tparam DataVersionType
@@ -41,3 +43,7 @@ trait ChangeCaptureDataProvider[DataVersionType <: SourceWatermark[String]]:
   /** The first version of the data.
     */
   def currentWatermark: Task[DataVersionType]
+
+  /** Resolves watermark value from a provided timestamp
+    */
+  def resolveWatermark(timestamp: OffsetDateTime): Task[DataVersionType]
