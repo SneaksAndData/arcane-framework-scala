@@ -9,18 +9,14 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
 import services.backfill.DefaultBackfillStateManager
-import services.blobsource.backfill.{
-  BlobBackfillSourceDataProvider,
-  BlobShardedBackfillStreamDataProvider,
-  BlobSourceShardFactory
-}
+import services.blobsource.backfill.{BlobBackfillSourceDataProvider, BlobShardedBackfillStreamDataProvider, BlobSourceShardFactory}
 import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.{bucket, storageReader}
-import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestThroughputShaperBuilder}
+import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestFieldSelectionRuleSettings, TestThroughputShaperBuilder}
 
 import zio.internal.stacktracer.SourceLocation
 import zio.stream.ZStream
@@ -126,7 +122,8 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
         tempStoragePath = "/tmp",
         primaryKeys = Seq("col0"),
         useNameMapping = false,
-        sourceSchema = None
+        sourceSchema = None,
+        fieldSelector = TestFieldSelectionRuleSettings
       )
     )
     backfillSettings <- ZIO.succeed(

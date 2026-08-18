@@ -32,7 +32,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       backfillId = "",
       streamId = "blobsource_sdp_tests"
     )
-
+  
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings
@@ -75,7 +75,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             "/tmp",
             Seq("col0"),
             false,
-            None
+            None,
+            TestFieldSelectionRuleSettings
           )
         )
         _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
@@ -117,7 +118,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             "/tmp",
             Seq("col0"),
             false,
-            None
+            None,
+            TestFieldSelectionRuleSettings
           )
         )
         _ <- icebergUtil.prepareWatermark(
