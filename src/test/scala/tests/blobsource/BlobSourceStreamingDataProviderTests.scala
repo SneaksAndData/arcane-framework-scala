@@ -32,7 +32,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       backfillId = "",
       streamId = "blobsource_sdp_tests"
     )
-  
+
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings

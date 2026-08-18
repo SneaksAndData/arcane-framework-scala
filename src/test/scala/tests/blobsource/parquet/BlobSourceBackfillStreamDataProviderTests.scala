@@ -9,7 +9,11 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
 import services.backfill.DefaultBackfillStateManager
-import services.blobsource.backfill.{BlobBackfillSourceDataProvider, BlobShardedBackfillStreamDataProvider, BlobSourceShardFactory}
+import services.blobsource.backfill.{
+  BlobBackfillSourceDataProvider,
+  BlobShardedBackfillStreamDataProvider,
+  BlobSourceShardFactory
+}
 import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
