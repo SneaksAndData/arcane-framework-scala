@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import models.schemas.{ArcaneSchema, DataRow}
+import models.settings.FieldSelectionRuleSettings
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
-import services.streaming.base.StructuredZStream
 
 import zio.Task
 import zio.stream.ZStream
@@ -18,17 +18,19 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     nameGenerator: NameGenerator,
     schema: ArcaneSchema,
     primaryKeys: Seq[String],
-    tempStoragePath: String
+    tempStoragePath: String,
+    fieldSelector: FieldSelectionRuleSettings
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
       storageClient,
       nameGenerator,
       primaryKeys,
-      tempStoragePath
+      tempStoragePath,
+      fieldSelector
     ):
 
-  override def getSchema: Task[SchemaType] = ???
+  override def getFullSchema: Task[SchemaType] = ???
 
   /** Gets an empty schema.
     *

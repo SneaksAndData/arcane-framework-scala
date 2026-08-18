@@ -6,8 +6,8 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
+import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.naming.NameGenerator
@@ -30,17 +30,19 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     tempStoragePath: String,
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
-    sourceSchema: Option[String]
+    sourceSchema: Option[String],
+    fieldSelector: FieldSelectionRuleSettings
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
       storageClient,
       nameGenerator,
       primaryKeys,
-      tempStoragePath
+      tempStoragePath,
+      fieldSelector
     ):
 
-  override def getSchema: Task[SchemaType] = for
+  override lazy val getFullSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
       for
         schemaBytes <- ZIO.attempt(Base64.getDecoder.decode(sourceSchema.get))
@@ -82,9 +84,11 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     downloadedFilePath <- downloadSourceFile(sourceFile)
     scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
   yield (
-    scanner.getRows.map(
-      BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-    ),
+    scanner.getRows
+      .map(
+        BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
+      )
+      .map(applyFieldSelector),
     schema
   )
 
@@ -104,9 +108,11 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               yield scanner
             }
             .flatMap(
-              _.getRows.map(
-                BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-              )
+              _.getRows
+                .map(
+                  BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
+                )
+                .map(applyFieldSelector)
             )
         },
       schema
@@ -142,6 +148,7 @@ object BlobListingParquetStreamingSource:
         tempStoragePath = sourceSettings.tempStoragePath,
         primaryKeys = sourceSettings.primaryKeys,
         useNameMapping = sourceSettings.useNameMapping,
-        sourceSchema = sourceSettings.sourceSchema
+        sourceSchema = sourceSettings.sourceSchema,
+        fieldSelector = context.source.fieldSelectionRule
       )
     }

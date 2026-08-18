@@ -2,7 +2,8 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{ArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -23,7 +24,8 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
     nameGenerator: NameGenerator,
     primaryKeys: Seq[String],
-    tempStoragePath: String
+    tempStoragePath: String,
+    fieldSelector: FieldSelectionRuleSettings
 ) extends BlobStreamingSource:
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
@@ -126,3 +128,37 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     }
     .runFold(0L)((agg, e) => if agg > e then agg else e)
     .map(BlobSourceWatermark.fromEpochSecond)
+
+  // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
+  // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.
+  final protected def applyFieldSelector(schema: ArcaneSchema): ArcaneSchema =
+    fieldSelector.rule match
+      case AllFieldsImpl(_) => schema
+      case IncludeFieldsImpl(includeFields) =>
+        schema.filter(f =>
+          includeFields.fields.exists(_.equalsIgnoreCase(f.name)) || fieldSelector.essentialFields.exists(
+            _.equalsIgnoreCase(f.name)
+          )
+        )
+      case ExcludeFieldsImpl(excludeFields) =>
+        schema.filterNot(f => excludeFields.fields.exists(_.equalsIgnoreCase(f.name)))
+
+  final protected def applyFieldSelector(row: DataRow): DataRow =
+    fieldSelector.rule match
+      case AllFieldsImpl(_) => row
+      case IncludeFieldsImpl(includeFields) =>
+        row.filter(cell =>
+          includeFields.fields.exists(_.equalsIgnoreCase(cell.name)) || fieldSelector.essentialFields.exists(
+            _.equalsIgnoreCase(cell.name)
+          )
+        )
+      case ExcludeFieldsImpl(excludeFields) =>
+        row.filterNot(cell => excludeFields.fields.exists(_.equalsIgnoreCase(cell.name)))
+
+  /** Schema for source files. Source will return `getSchema` as stream schema, which may differ if a field selector is
+    * applied. This code will be removed in 2.4.
+    * @return
+    */
+  protected def getFullSchema: Task[SchemaType]
+
+  final override lazy val getSchema: Task[SchemaType] = getFullSchema.map(applyFieldSelector)
