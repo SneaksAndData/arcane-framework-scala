@@ -4,8 +4,8 @@ package services.blobsource.readers.listing
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow}
+import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.JsonBlobSourceSettings
-import services.blobsource.versioning.BlobSourceWatermark
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
 import services.naming.NameGenerator
@@ -28,14 +28,16 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
-    jsonArrayPointers: Map[String, Map[String, String]]
+    jsonArrayPointers: Map[String, Map[String, String]],
+    fieldSelector: FieldSelectionRuleSettings
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
       storageClient,
       nameGenerator,
       primaryKeys,
-      tempStoragePath
+      tempStoragePath,
+      fieldSelector
     ):
 
   private def sourceSchema: Task[AvroSchema] = for
@@ -45,8 +47,9 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       .orDieWith(e => Throwable("Invalid Avro schema provided for source", e))
   yield schema
 
-  override def getSchema: Task[SchemaType] = for arcaneSchema <- sourceSchema.map(implicitly)
-  yield arcaneSchema ++ Seq(BlobBatchCommons.versionField)
+  override lazy val getFullSchema: Task[SchemaType] =
+    for arcaneSchema <- sourceSchema.map(implicitly)
+    yield arcaneSchema ++ Seq(BlobBatchCommons.versionField)
 
   /** Gets an empty schema.
     *
@@ -121,6 +124,7 @@ object BlobListingJsonStreamingSource:
         nameGenerator = nameGenerator,
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
-        jsonArrayPointers = sourceSettings.jsonArrayPointers
+        jsonArrayPointers = sourceSettings.jsonArrayPointers,
+        fieldSelector = context.source.fieldSelectionRule
       )
     }
