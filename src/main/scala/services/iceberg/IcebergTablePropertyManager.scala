@@ -51,7 +51,7 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     table      <- loadTable(tableName)
     properties <- ZIO.attemptBlocking(table.properties())
     result <- ZIO
-      .attempt(properties.get(propertyName))
+      .attempt(Option(properties.get(propertyName)).get)
       .orDieWith(_ => new Throwable(s"Required property '$propertyName' is not set on a table '$tableName'"))
   yield result
 
