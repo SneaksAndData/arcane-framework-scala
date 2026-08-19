@@ -102,7 +102,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
                                 |  ('KEY_TRJQ_7', 'Value_MN', 499),
                                 |  ('KEY_IJPZ_8', 'Value_HU', 646),
                                 |  ('KEY_UTCP_9', 'Value_DG', 437),
-                                |  ('KEY_3H05_10', 'Value_YK', 226)""".stripMargin
+                                |  ('KEY_3H05_1', 'Value_YK', 226)""".stripMargin
         _ <- ZIO.attemptBlocking(statement.execute(insertRowsStatement))
         _ <- ZIO.attemptBlocking(statement.close())
 
