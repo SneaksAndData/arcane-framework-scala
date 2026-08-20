@@ -16,6 +16,7 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
+import exceptions.FatalStreamFailException
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -196,7 +197,7 @@ class MsSqlStreamingSource(
       resultSet.getMetaData.getColumnType(1) match
         case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
         case _ =>
-          throw new IllegalArgumentException(
+          throw FatalStreamFailException(
             s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
           )
 
@@ -216,7 +217,7 @@ class MsSqlStreamingSource(
         case java.sql.Types.TIMESTAMP =>
           Option(resultSet.getTimestamp(1)).flatMap(v => Some(Instant.ofEpochMilli(v.getTime).atOffset(ZoneOffset.UTC)))
         case _ =>
-          throw new IllegalArgumentException(
+          throw FatalStreamFailException(
             s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected TIMESTAMP"
           )
 
@@ -239,7 +240,7 @@ class MsSqlStreamingSource(
   def getCurrentVersion: ZIO[Any, Throwable, MsSqlWatermark] = for
     // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
     version <- getVersion(QueryProvider.getCurrentVersionQuery).flatMap(
-      ZIO.getOrFailWith(new Throwable("Unable to determine latest changeset version"))
+      ZIO.getOrFailWith(FatalStreamFailException("Unable to determine latest changeset version"))
     )
     commitTime <- getVersionCommitTime(version)
   yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
@@ -249,7 +250,24 @@ class MsSqlStreamingSource(
       QueryProvider.getVersionFromTimestampQuery(timestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))
     ).flatMap(
       ZIO.getOrFailWith(
-        new Throwable(s"Unable to determine the changeset version matching timestamp ${timestamp.toString}")
+        FatalStreamFailException(s"Unable to determine the changeset version matching timestamp ${timestamp.toString}")
+      )
+    )
+    commitTime <- getVersionCommitTime(version)
+  yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
+
+  def getVersionInRange(startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeLimit: Int): Task[MsSqlWatermark] = for
+    version <- getVersion(
+      QueryProvider.getVersionInRangeQuery(
+        connectionSettings.schemaName,
+        connectionSettings.tableName,
+        startFrom,
+        endAt,
+        rangeLimit
+      )
+    ).flatMap(
+      ZIO.getOrFailWith(
+        FatalStreamFailException(s"Unable to determine version in range ${startFrom.version} - ${endAt.version}")
       )
     )
     commitTime <- getVersionCommitTime(version)

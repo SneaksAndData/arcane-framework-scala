@@ -54,22 +54,12 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
         yield ()
       }
 
-      resolvedVersion <- ZIO.ifZIO(
-        ZIO.succeed((currentVersion - previousVersion).toSeconds > settings.catchupSplitThreshold.toSeconds)
-      )(
-        onTrue = {
-          for
-            _ <- zlog(
-              "Target watermark is behind current more than %s seconds threshold. Will instead advance only one interval (%s) forward. If the stream is unable to catch up within 24 hours, run backfill MERGE.",
-              settings.catchupSplitThreshold.toSeconds.toString,
-              settings.changeCaptureInterval.toSeconds.toString
-            )
-            replacementVersionTimestamp <- ZIO.succeed(previousVersion.timestamp.plus(settings.changeCaptureInterval))
-            replacementVersion          <- dataProvider.resolveWatermark(replacementVersionTimestamp)
-          yield replacementVersion
-        },
-        onFalse = ZIO.succeed(currentVersion)
+      resolvedVersion <- dataProvider.getLatestWatermarkInRange(
+        previousVersion,
+        currentVersion,
+        settings.changeCaptureRangeLimit
       )
+      _ <- zlog("Resolved watermark version for next changeset is %s", resolvedVersion.version)
     yield Some((resolvedVersion, previousVersion, seedFlag) -> ZIO.succeed((resolvedVersion, seedFlag)))
 
   private def hasChanges(previousVersion: WatermarkType): Task[Boolean] =

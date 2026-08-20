@@ -44,8 +44,15 @@ class BlobSourceDataProvider(
   ): ZStream[Any, Throwable, StructuredZStream] =
     streamingSource.getChanges(previousVersion)
 
-  override def resolveWatermark(timestamp: OffsetDateTime): Task[BlobSourceWatermark] =
-    streamingSource.resolveWatermark(timestamp)
+  override def getLatestWatermarkInRange(
+      startWatermark: BlobSourceWatermark,
+      endWatermark: BlobSourceWatermark,
+      rangeLimit: Int
+  ): Task[BlobSourceWatermark] =
+    streamingSource
+      .getVersionRange(startFrom = startWatermark, finishAt = endWatermark)
+      .take(rangeLimit)
+      .runFold(BlobSourceWatermark.epoch)((agg, e) => if e > agg then e else agg)
 
 object BlobSourceDataProvider:
   private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &

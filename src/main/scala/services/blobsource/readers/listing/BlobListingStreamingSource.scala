@@ -56,6 +56,18 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
     .map(BlobSourceWatermark.fromEpochSecond)
 
+  override def getVersionRange(
+      startFrom: BlobSourceWatermark,
+      finishAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceWatermark] = storageClient
+    .streamPrefixes(sourcePath)
+    .collect {
+      case blob
+          if BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L)) >= startFrom && BlobSourceWatermark
+            .fromEpochSecond(blob.createdOn.getOrElse(0L)) <= finishAt =>
+        BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L))
+    }
+
   // due to the fact that this is always called by StreamingDataProvider after comparing versions
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ZIO.succeed(true)
@@ -120,14 +132,6 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
         .rechunk(parallelism * 10)
         .mapChunksZIO(files => filesToStream(files, changeSetSchema).map(stream => Chunk(stream)))
     }
-
-  override def resolveWatermark(timestamp: OffsetDateTime): Task[BlobSourceWatermark] = storageClient
-    .streamPrefixes(sourcePath)
-    .collect {
-      case file if file.createdOn.getOrElse(0L) <= timestamp.toEpochSecond => file.createdOn.getOrElse(0L)
-    }
-    .runFold(0L)((agg, e) => if agg > e then agg else e)
-    .map(BlobSourceWatermark.fromEpochSecond)
 
   // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
   // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.

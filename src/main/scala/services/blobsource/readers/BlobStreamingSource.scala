@@ -32,6 +32,11 @@ trait BlobStreamingSource extends StreamingSource:
     */
   def getLatestVersion: Task[BlobSourceWatermark]
 
+  def getVersionRange(
+      startFrom: BlobSourceWatermark,
+      finishAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceWatermark]
+
   /** Return true if a blob source has files with creation date > previousVersion
     */
   def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean]
@@ -79,7 +84,3 @@ trait BlobStreamingSource extends StreamingSource:
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
   ): ZStream[Any, Throwable, Seq[String]]
-
-  /** Resolves watermark for the provided timestamp
-    */
-  def resolveWatermark(timestamp: OffsetDateTime): Task[WatermarkType]

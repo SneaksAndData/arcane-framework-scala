@@ -210,7 +210,7 @@ final class SynapseLinkStreamingSource(
       }
       .map(convertRow)
 
-  private def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
+  def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
 
   def getShardFolderStream(folder: String): Task[Option[ShardMetadata]] = for
