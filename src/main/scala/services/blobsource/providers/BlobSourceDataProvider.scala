@@ -52,7 +52,7 @@ class BlobSourceDataProvider(
     streamingSource
       .getVersionRange(startFrom = startWatermark, finishAt = endWatermark)
       .take(rangeLimit)
-      .runFold(BlobSourceWatermark.epoch)((agg, e) => if e > agg then agg else e)
+      .runFold(BlobSourceWatermark.epoch)((agg, e) => if e > agg then e else agg)
 
 object BlobSourceDataProvider:
   private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &
