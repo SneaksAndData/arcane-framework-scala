@@ -162,7 +162,9 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         query       <- ZIO.succeed(QueryProvider.getVersionFromTimestampQuery(currentTime, formatter))
         formatted   <- ZIO.succeed(formatter.format(currentTime))
       yield assertTrue(
-        query.contains("SELECT MIN(commit_ts)") && query.contains(s"WHERE commit_time >= '$formatted'")
+        query.contains("SELECT ISNULL(MIN(commit_ts), CAST(0 AS BIGINT))") && query.contains(
+          s"WHERE commit_time >= '$formatted'"
+        )
       )
     },
     test("QueryProvider generates backfill query") {
