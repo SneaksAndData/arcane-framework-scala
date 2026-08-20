@@ -202,7 +202,7 @@ object QueryProvider:
     */
   def getVersionFromTimestampQuery(startFrom: OffsetDateTime, formatter: DateTimeFormatter): MsSqlQuery =
     val formattedTime = formatter.format(startFrom)
-    s"SELECT ISNULL(MIN(commit_ts), CAST(0 AS BIGINT)) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
+    s"SELECT MIN(commit_ts) FROM sys.dm_tran_commit_table WHERE commit_time >= '$formattedTime'"
 
   /** Retrieve commit time associated with the provided version
     */
