@@ -214,9 +214,7 @@ class MsSqlStreamingSource(
     def readTime(resultSet: ResultSet): Option[OffsetDateTime] =
       resultSet.getMetaData.getColumnType(1) match
         case java.sql.Types.TIMESTAMP =>
-          Option(resultSet.getTimestamp(1)).flatMap(v =>
-            Some(OffsetDateTime.ofInstant(Instant.ofEpochMilli(v.getTime), ZoneOffset.UTC))
-          )
+          Option(resultSet.getTimestamp(1)).flatMap(v => Some(Instant.ofEpochMilli(v.getTime).atOffset(ZoneOffset.UTC)))
         case _ =>
           throw new IllegalArgumentException(
             s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected TIMESTAMP"
