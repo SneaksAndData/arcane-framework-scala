@@ -47,11 +47,11 @@ class BlobSourceDataProvider(
   override def getLatestWatermarkInRange(
       startWatermark: BlobSourceWatermark,
       endWatermark: BlobSourceWatermark,
-      maxRangeSize: Int
+      rangeLimit: Int
   ): Task[BlobSourceWatermark] =
     streamingSource
       .getVersionRange(startFrom = startWatermark, finishAt = endWatermark)
-      .take(maxRangeSize)
+      .take(rangeLimit)
       .runFold(BlobSourceWatermark.epoch)((agg, e) => if e > agg then agg else e)
 
 object BlobSourceDataProvider:

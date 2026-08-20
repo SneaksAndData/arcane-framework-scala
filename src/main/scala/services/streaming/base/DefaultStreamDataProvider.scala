@@ -57,7 +57,7 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
       resolvedVersion <- dataProvider.getLatestWatermarkInRange(
         previousVersion,
         currentVersion,
-        settings.changeCaptureMaxSize
+        settings.changeCaptureRangeLimit
       )
       _ <- zlog("Resolved watermark version for next changeset is %s", resolvedVersion.version)
     yield Some((resolvedVersion, previousVersion, seedFlag) -> ZIO.succeed((resolvedVersion, seedFlag)))

@@ -44,12 +44,12 @@ trait ChangeCaptureDataProvider[DataVersionType <: SourceWatermark[String]]:
     */
   def currentWatermark: Task[DataVersionType]
 
-  /** Find latest watermark in between provided ones, taking that no more than `maxRangeSize` watermarks can be taken
-    * into evaluation For example, if diff(startWatermark, endWatermark) contains 10 elements [wm0, wm1, wm2, ...], but
-    * maxRangeSize is set to 3, the returned watermark will be `wm2`
+  /** Find latest watermark in between provided ones, taking that no more than `rangeLimit` watermarks can be taken into
+    * evaluation For example, if diff(startWatermark, endWatermark) contains 10 elements [wm0, wm1, wm2, ...], but
+    * rangeLimit is set to 3, the returned watermark will be `wm2`
     */
   def getLatestWatermarkInRange(
       startWatermark: DataVersionType,
       endWatermark: DataVersionType,
-      maxRangeSize: Int
+      rangeLimit: Int
   ): Task[DataVersionType]

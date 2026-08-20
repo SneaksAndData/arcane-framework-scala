@@ -16,9 +16,9 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
+import exceptions.FatalStreamFailException
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.exceptions.FatalStreamFailException
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -256,14 +256,14 @@ class MsSqlStreamingSource(
     commitTime <- getVersionCommitTime(version)
   yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
 
-  def getVersionInRange(startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeSize: Int): Task[MsSqlWatermark] = for
+  def getVersionInRange(startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeLimit: Int): Task[MsSqlWatermark] = for
     version <- getVersion(
       QueryProvider.getVersionInRangeQuery(
         connectionSettings.schemaName,
         connectionSettings.tableName,
         startFrom,
         endAt,
-        rangeSize
+        rangeLimit
       )
     ).flatMap(
       ZIO.getOrFailWith(

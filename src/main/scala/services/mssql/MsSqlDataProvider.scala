@@ -56,9 +56,9 @@ class MsSqlDataProvider(
   override def getLatestWatermarkInRange(
       startWatermark: MsSqlWatermark,
       endWatermark: MsSqlWatermark,
-      maxRangeSize: Int
+      rangeLimit: Int
   ): Task[MsSqlWatermark] =
-    streamingSource.getVersionInRange(startWatermark, endWatermark, maxRangeSize)
+    streamingSource.getVersionInRange(startWatermark, endWatermark, rangeLimit)
 
 /** The companion object for the MsSqlDataProvider class.
   */

@@ -4,8 +4,8 @@ package services.mssql
 import models.schemas.MergeKeyField
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlStreamingSource}
+import services.mssql.versioning.MsSqlWatermark
 
-import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
@@ -221,14 +221,14 @@ object QueryProvider:
       tableName: String,
       startFrom: MsSqlWatermark,
       endAt: MsSqlWatermark,
-      rangeSize: Int
+      rangeLimit: Int
   ): MsSqlQuery =
     s"""
        SELECT
        |    ISNULL(MAX(SYS_CHANGE_VERSION), ${endAt.version})
        |FROM
        |(
-       |    SELECT DISTINCT TOP $rangeSize
+       |    SELECT DISTINCT TOP $rangeLimit
        |        CT.SYS_CHANGE_VERSION
        |    FROM
        |        CHANGETABLE(CHANGES [$tableSchemaName].[$tableName], ${startFrom.version}) AS CT
