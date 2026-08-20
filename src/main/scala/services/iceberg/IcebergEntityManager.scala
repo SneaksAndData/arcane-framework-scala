@@ -58,6 +58,7 @@ trait IcebergEntityManager(catalogSettings: IcebergCatalogSettings, catalogFacto
         .buildTable(catalogFactory.getSessionContext, tableId, request.schema)
         .withPartitionSpec(request.partitionSpec.getOrElse(PartitionSpec.unpartitioned()))
         .withSortOrder(request.sortOrder.getOrElse(SortOrder.unsorted()))
+        .withProperties(request.properties.asJava)
     )
     replacedRef <- ZIO.when(request.replace) {
       for

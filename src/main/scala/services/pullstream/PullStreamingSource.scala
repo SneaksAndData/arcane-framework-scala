@@ -62,7 +62,14 @@ class PullStreamingSource(
     pageSize: Option[Int]
 ) extends StreamingSource:
 
-  import settings.{pullIndexKey, pullIndexValue, tableName, watermarkFieldName}
+  import settings.{
+    jsonArrayPointers,
+    jsonPointerExpression,
+    pullIndexKey,
+    pullIndexValue,
+    tableName,
+    watermarkFieldName
+  }
 
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"
@@ -258,7 +265,12 @@ class PullStreamingSource(
       avroSchema: AvroSchema,
       envelope: EnvelopeColumns
   ): ZStream[Any, Throwable, DataRow] =
-    val decoder = AvroJsonDecoder(avroSchema, tolerateMissingFields = false)
+    val decoder = AvroJsonDecoder(
+      schema = avroSchema,
+      jsonPointerExpr = jsonPointerExpression,
+      jsonArrayPointers = jsonArrayPointers,
+      tolerateMissingFields = false
+    )
 
     ZStream
       .fromIterable(queryResponse.items().asScala)

@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg.interop
 
-import models.schemas.DataRow
+import models.schemas.{ArcaneType, DataCell, DataRow}
 import services.iceberg.given_Conversion_AvroGenericRecord_DataRow
 
 import com.fasterxml.jackson.core.JsonPointer
@@ -29,8 +29,8 @@ final class MissingFieldException(msg: String) extends RuntimeException(msg)
   *   Optional JSON pointer applied to each parsed root before decoding.
   *
   * @param jsonArrayPointers
-  *   Optional map of `jsonPointer -> fieldRenameMap` for exploding nested arrays into individual records (see
-  *   [[JsonScanner]] for usage).
+  *   Optional map of `jsonPointer -> fieldRenameMap` for hoisting nested nodes into individual records: arrays are
+  *   exploded into one record per element, objects yield a single record (see [[JsonScanner]] for usage).
   *
   * @param tolerateMissingFields
   *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields with
@@ -42,12 +42,44 @@ class AvroJsonDecoder(
     jsonArrayPointers: Map[String, Map[String, String]] = Map(),
     tolerateMissingFields: Boolean = true
 ):
-  private val reader      = GenericDatumReader[GenericRecord](schema)
+  import AvroJsonDecoder.isVariantField
+
+  /** Fields carried as an Iceberg variant instead of being decoded by Avro, in schema declaration order. */
+  private val variantFields: Seq[org.apache.avro.Schema.Field] = schema.getFields.asScala.filter(isVariantField).toSeq
+
+  private val variantFieldNames: Set[String] = variantFields.map(_.name()).toSet
+
+  /** The schema Avro actually decodes with: the declared one minus any variant field.
+    *
+    * Avro cannot read a payload into a variant field. When the schema is derived from the sink table,
+    * `AvroSchemaUtil.convert` renders a `Types.VariantType` column as a record of `{metadata: bytes, value: bytes}`
+    * tagged with the `variant` logical type, so decoding a producer document against it would demand the already
+    * encoded binary form. When the schema is hand-written, the field is a plain `record`/`map`/`array`, which maps to
+    * `ObjectType` and therefore to a variant column as well. Either way the value is rebuilt from the raw JSON by
+    * [[JsonVariantConverter]] once the remaining fields are decoded.
+    */
+  private val decodeSchema: org.apache.avro.Schema =
+    if variantFields.isEmpty then schema
+    else
+      val retained = schema.getFields.asScala
+        .filterNot(isVariantField)
+        .map(field => org.apache.avro.Schema.Field(field.name(), field.schema(), field.doc(), field.defaultVal()))
+        .asJava
+      org.apache.avro.Schema.createRecord(schema.getName, schema.getDoc, schema.getNamespace, false, retained)
+
+  private val reader      = GenericDatumReader[GenericRecord](decodeSchema)
   private val jsonMapper  = com.fasterxml.jackson.databind.ObjectMapper()
   private val nodeFactory = JsonNodeFactory.instance
 
+  /** The type tag Avro's JSON encoding expects for the non-null branch of an optional field.
+    *
+    * Named types - `record`, `enum` and `fixed` - are tagged with their full name rather than with the name of their
+    * type, so a nullable nested record needs `{"tests.body": {...}}` and not `{"record": {...}}`, which Avro rejects
+    * with `Unknown union branch record`. `getFullName` returns the plain type name for everything else, so it is the
+    * right tag for primitives, `map` and `array` too.
+    */
   private def getOptionalTypeName(optionalType: org.apache.avro.Schema): String =
-    optionalType.getTypes.get(1).getType.getName
+    optionalType.getTypes.get(1).getFullName
 
   /** Avro's JSON decoder cannot read an object/array token into a `string` field. Producers that emit a structured
     * payload into a column declared as string expect the document to be stored verbatim, so serialize containers to
@@ -62,33 +94,40 @@ class AvroJsonDecoder(
       case Some(pointer) => node.at(pointer)
       case None          => node
 
-  private def explodeJsonArray(root: JsonNode, pointerExpr: String, fieldMap: Map[String, String]): Seq[ObjectNode] =
-    val rootClone = root.deepCopy[ObjectNode]()
-    val arrayNode = rootClone.at(pointerExpr)
+  /** Hoists the fields of a nested node up to the root, dropping the nesting level.
+    *
+    * An array yields one row per element, each combined with the root's remaining fields; an object yields a single
+    * row, which is what a `map`-typed Avro payload decodes to. `fieldMap` renames source field names to schema field
+    * names and is applied to the hoisted fields as well as to the root's own, so a field that collides with a schema
+    * name can be renamed regardless of the level it came from.
+    */
+  private def hoistNestedFields(root: JsonNode, pointerExpr: String, fieldMap: Map[String, String]): Seq[ObjectNode] =
+    val rootClone  = root.deepCopy[ObjectNode]()
+    val nestedNode = rootClone.at(pointerExpr)
 
-    if !arrayNode.isArray then
+    if !nestedNode.isArray && !nestedNode.isObject then
       throw IllegalArgumentException(
-        s"Node at $pointerExpr expected to be an JsonArray, but is instead ${arrayNode.getNodeType.name()}"
+        s"Node at $pointerExpr expected to be a JsonArray or JsonObject, but is instead ${nestedNode.getNodeType.name()}"
       )
 
     val compiledPointer = JsonPointer.compile(pointerExpr)
-    // assume parent is an object
-    val parent = rootClone.at(compiledPointer.head()).asInstanceOf[ObjectNode]
     rootClone.remove(compiledPointer.getMatchingProperty)
 
-    arrayNode
-      .elements()
-      .asScala
-      .map { element =>
-        val newNode = rootClone.deepCopy[ObjectNode]()
+    val nestedRecords = if nestedNode.isArray then nestedNode.elements().asScala.toSeq else Seq(nestedNode)
 
-        element.fieldNames().asScala.foreach { elementFieldName =>
-          newNode.set(fieldMap.getOrElse(elementFieldName, elementFieldName), element.get(elementFieldName))
-        }
+    nestedRecords.map { record =>
+      val merged = rootClone.deepCopy[ObjectNode]()
+      record.fieldNames().asScala.foreach(fieldName => merged.set(fieldName, record.get(fieldName)))
 
-        getAvroCompliantNode(newNode)
-      }
-      .toSeq
+      val renamed = nodeFactory.objectNode()
+      merged
+        .fieldNames()
+        .asScala
+        .toSeq
+        .foreach(fieldName => renamed.set(fieldMap.getOrElse(fieldName, fieldName), merged.get(fieldName)))
+
+      renamed
+    }
 
   private def getAvroCompliantNode(node: JsonNode): ObjectNode =
     val compliantNode = node.deepCopy[ObjectNode]()
@@ -100,7 +139,11 @@ class AvroJsonDecoder(
     // http://avro.apache.org/docs/current/spec.html#json_encoding - // https://issues.apache.org/jira/browse/AVRO-1582
     // IMPORTANT: all schema fields MUST have default value assigned to be NULL and MUST declare NULL as a first type
     // force source json to comply with AVRO requirements for optional field encoding by wrapping non-null fields in {<field_type>: <field_value > }
-    schema.getFields.forEach { avroField =>
+    // a variant field is not decoded by Avro, so it must not be validated or wrapped here either; the raw node is
+    // dropped from the copy handed to the decoder and read again later, straight from the source document
+    variantFieldNames.foreach(compliantNode.remove)
+
+    decodeSchema.getFields.forEach { avroField =>
       if !avroField.hasDefaultValue then
         throw IllegalArgumentException("All fields in the schema must have default NULL value assigned")
 
@@ -141,27 +184,48 @@ class AvroJsonDecoder(
     compliantNode
 
   private def decodeObjectNode(node: ObjectNode): Seq[DataRow] =
-    val avroCompliant = getAvroCompliantNode(node)
-
     if node.isMissingNode then {
       throw IllegalArgumentException(
         s"Applying the provided json pointer expression: `$jsonPointerExpr` resulted in an empty node"
       )
     }
 
-    if jsonArrayPointers.isEmpty then Seq(avroCompliant).map(decodeJson)
-    else {
-      // first explodes array field if requested by the client
-      jsonArrayPointers
-        .foldLeft(Seq.empty[ObjectNode]) { case (agg, (jsonPointer, fieldMap)) =>
-          if agg.isEmpty then explodeJsonArray(avroCompliant, jsonPointer, fieldMap)
-          else agg.flatMap(explodeJsonArray(_, jsonPointer, fieldMap))
+    // hoisting has to happen before the document is made Avro compliant: until the nested fields sit at the root the
+    // document does not match the schema, and strict decoding would reject it for fields it is about to receive
+    val flattened =
+      if jsonArrayPointers.isEmpty then Seq(node)
+      else
+        jsonArrayPointers.foldLeft(Seq.empty[ObjectNode]) { case (agg, (jsonPointer, fieldMap)) =>
+          if agg.isEmpty then hoistNestedFields(node, jsonPointer, fieldMap)
+          else agg.flatMap(hoistNestedFields(_, jsonPointer, fieldMap))
         }
-        .map(decodeJson)
-    }
+
+    // the variant cells are rebuilt from the pre-compliant node, so each decoded row is paired with the document it
+    // came from rather than being derived from the Avro objects, which no longer carry the raw JSON
+    flattened.map(raw => withVariantCells(decodeJson(getAvroCompliantNode(raw)), raw))
+
+  /** Appends a cell per variant field, built from the source document rather than from the decoded Avro record.
+    *
+    * The value has to be an [[org.apache.iceberg.variants.Variant]]: such a field maps to `Types.VariantType`, whose
+    * parquet writer is a `ParquetValueWriter[Variant]` and casts the cell value outright. Reading the raw JSON also
+    * keeps information the Avro representation would have dropped, since an Avro `map` forces a single value type
+    * across all keys.
+    *
+    * A field the document does not carry yields a null variant, matching the optional columns the sink declares.
+    */
+  private def withVariantCells(row: DataRow, source: ObjectNode): DataRow =
+    if variantFields.isEmpty then row
+    else
+      row ++ variantFields.map(field =>
+        DataCell(
+          name = field.name(),
+          Type = ArcaneType.ObjectType,
+          value = JsonVariantConverter.toVariant(source.get(field.name()))
+        )
+      )
 
   private def decodeJson(node: ObjectNode): DataRow =
-    val decoder = DecoderFactory.get().jsonDecoder(schema, node.toString)
+    val decoder = DecoderFactory.get().jsonDecoder(decodeSchema, node.toString)
     reader.read(null, decoder)
 
   /** Parses string serialized JSON — either an array root or an object root — into a sequence of [[DataRow]]s.
@@ -187,6 +251,27 @@ class AvroJsonDecoder(
       )
 
 object AvroJsonDecoder:
+  /** Whether a field is carried as an Iceberg variant rather than decoded by Avro.
+    *
+    * `record` covers both shapes a variant field takes: a hand-written nested record, and the
+    * `{metadata: bytes, value: bytes}` record `AvroSchemaUtil.convert` emits for a `Types.VariantType` column. `map`
+    * and `array` map to `ObjectType`, and therefore to a variant column, for the same reason - their contents are not
+    * known until a document arrives.
+    */
+  private[interop] def isVariantField(field: org.apache.avro.Schema.Field): Boolean =
+    nonNullBranch(field.schema()).getType match
+      case org.apache.avro.Schema.Type.RECORD | org.apache.avro.Schema.Type.MAP | org.apache.avro.Schema.Type.ARRAY =>
+        true
+      case _ => false
+
+  /** The payload branch of an optional field, encoded by Avro as `["null", T]`. Non-union schemas are their own. */
+  private def nonNullBranch(schema: org.apache.avro.Schema): org.apache.avro.Schema =
+    if schema.getType == org.apache.avro.Schema.Type.UNION then
+      schema.getTypes.asScala.filter(_.getType != org.apache.avro.Schema.Type.NULL).toSeq match
+        case single :: Nil => single
+        case _             => schema
+    else schema
+
   def apply(schema: org.apache.avro.Schema): AvroJsonDecoder = new AvroJsonDecoder(schema)
 
   def apply(schema: org.apache.avro.Schema, tolerateMissingFields: Boolean): AvroJsonDecoder =

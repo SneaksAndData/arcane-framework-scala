@@ -4,8 +4,8 @@ package models.schemas
 /** A schema that is guaranteed to have an IndexedMergeKeyField or a merge-key field. Refer to ArcaneSchema.Conversion.
   *
   * Use [[MergeableArcaneSchema.apply]] to construct one explicitly, or rely on the iceberg-side conversion
-  * `given Conversion[org.apache.iceberg.Schema, MergeableArcaneSchema]` in
-  * `services.iceberg.SchemaConversions`, which re-tags the merge-key column.
+  * `given Conversion[org.apache.iceberg.Schema, MergeableArcaneSchema]` in `services.iceberg.SchemaConversions`, which
+  * re-tags the merge-key column.
   *
   * `MergeableArcaneSchema <: ArcaneSchema`, so it can be passed to any API expecting a plain `ArcaneSchema`.
   */

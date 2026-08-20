@@ -46,13 +46,13 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
   /** Per-test settings bound to a freshly generated source/target table name pair. */
   private def pullStreamSettings(sourceTable: String): PullStreamSourceSettings =
     new PullStreamSourceSettings:
-      override val pullIndexKey: String = primaryKeyField
+      override val pullIndexKey: String       = primaryKeyField
       override val pullIndexValue: String     = PullStreamStreamingDataProviderTests.primaryKeyValue
-      override val watermarkFieldName: String  = watermarkField
-      override val region: String              = "us-east-1"
-      override val tableName: String           = sourceTable
-      override val endpoint: Option[String]    = None
-      override val pageSize: Option[Int] = None
+      override val watermarkFieldName: String = watermarkField
+      override val region: String             = "us-east-1"
+      override val tableName: String          = sourceTable
+      override val endpoint: Option[String]   = None
+      override val pageSize: Option[Int]      = None
 
   // Random, collision-free DynamoDB table name.
   private val genSourceTableName: Task[String] = {
@@ -134,7 +134,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
-                pageSize = None,
+                pageSize = None
               )
             )
             provider <- ZIO.succeed(

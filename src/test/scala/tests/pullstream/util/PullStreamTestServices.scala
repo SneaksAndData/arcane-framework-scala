@@ -70,11 +70,25 @@ object PullStreamTestServices:
   val productionNestedPayload: String =
     """{"eventType":"Producer1Event","timestamp":"2026-08-04T12:34:56Z","source":"integration-test","message":"Hello from Avro map<string> payload"}"""
 
-  /** Schema of the rows produced by [[productionPayload]]. */
+  /** Column the payload's own `id` is renamed to, so that it does not collide with the envelope `id` that feeds the
+    * merge key.
+    */
+  val pushEventIdField = "push_event_id"
+
+  /** Settings that flatten [[productionPayload]]: the nested `payload` object is hoisted to the root and the payload's
+    * own `id` is renamed, so each nested member lands in its own column instead of a single JSON string.
+    */
+  val productionArrayPointers: Map[String, Map[String, String]] =
+    Map("/payload" -> Map("id" -> pushEventIdField))
+
+  /** Schema of the rows produced by [[productionPayload]] once [[productionArrayPointers]] has flattened them. */
   val productionPayloadSchema: ArcaneSchema = ArcaneSchema(
     Seq(
-      Field("id", ArcaneType.StringType),
-      Field("payload", ArcaneType.StringType)
+      Field(pushEventIdField, ArcaneType.StringType),
+      Field("eventType", ArcaneType.StringType),
+      Field("timestamp", ArcaneType.StringType),
+      Field("source", ArcaneType.StringType),
+      Field("message", ArcaneType.StringType)
     )
   )
 
@@ -150,15 +164,19 @@ object PullStreamTestServices:
   val genSourceTableName: Task[String] =
     Random.RandomLive.nextUUID.map(uuid => s"test_${uuid.toString.replace("-", "")}")
 
-  def pullStreamSettings(sourceTableName: String): PullStreamSourceSettings =
+  def pullStreamSettings(
+      sourceTableName: String,
+      arrayPointers: Map[String, Map[String, String]] = Map()
+  ): PullStreamSourceSettings =
     new PullStreamSourceSettings:
-      override val tableName: String          = sourceTableName
-      override val pullIndexKey: String       = primaryKeyField
-      override val pullIndexValue: String     = PullStreamTestServices.primaryKeyValue
-      override val watermarkFieldName: String = watermarkField
-      override val region: String             = "us-east-1"
-      override val endpoint: Option[String]   = None
-      override val pageSize: Option[Int]      = None
+      override val tableName: String                                   = sourceTableName
+      override val pullIndexKey: String                                = primaryKeyField
+      override val pullIndexValue: String                              = PullStreamTestServices.primaryKeyValue
+      override val watermarkFieldName: String                          = watermarkField
+      override val region: String                                      = "us-east-1"
+      override val endpoint: Option[String]                            = None
+      override val pageSize: Option[Int]                               = None
+      override val jsonArrayPointers: Map[String, Map[String, String]] = arrayPointers
 
   /** Creates a source DynamoDB table for the duration of `use` and drops it afterward. */
   def withSourceTable[R, A](tableName: String, client: DynamoDbClient)(

@@ -130,7 +130,10 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             _ <- sinkEntityManager.createTable(IcebergCreateTableRequest(targetTableName, targetSchema, true))
             sinkPropertyManager <- ZIO.service[SinkPropertyManager]
             source = PullStreamingSource(
-              settings = PullStreamTestServices.pullStreamSettings(sourceTableName),
+              settings = PullStreamTestServices.pullStreamSettings(
+                sourceTableName,
+                arrayPointers = PullStreamTestServices.productionArrayPointers
+              ),
               dynamodbClient = client,
               sinkPropertyManager = sinkPropertyManager,
               targetTableFullName = targetTableFullName,
@@ -155,17 +158,24 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
               mergeKeyColumn,
               firstItemKey
             )
-            nestedPayload <- getFieldValueInTarget(
+            eventType <- getFieldValueInTarget(
               connection,
               targetTableFullName,
-              "payload",
+              "eventType",
+              mergeKeyColumn,
+              firstItemKey
+            )
+            message <- getFieldValueInTarget(
+              connection,
+              targetTableFullName,
+              "message",
               mergeKeyColumn,
               firstItemKey
             )
             businessId <- getFieldValueInTarget(
               connection,
               targetTableFullName,
-              "id",
+              PullStreamTestServices.pushEventIdField,
               mergeKeyColumn,
               firstItemKey
             )
@@ -174,11 +184,12 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             assertTrue(rowCount == totalItems)
             // the watermark is absent from the payload, so it can only have come from the item attribute
               && assertTrue(watermark == startAt.toString)
-              // the row is addressable by the envelope's `id`, proving that supplied the merge key, while `id` inside
-              // the decoded payload keeps its own distinct business value
+              // the row is addressable by the envelope's `id`, proving that supplied the merge key, while the payload's
+              // own `id` keeps its distinct business value under the renamed column
               && assertTrue(businessId == "evt_001")
-              // the nested object is stored verbatim rather than being flattened or dropped
-              && assertTrue(nestedPayload == PullStreamTestServices.productionNestedPayload)
+              // members of the nested `payload` object landed in their own columns instead of one JSON string
+              && assertTrue(eventType == "Producer1Event")
+              && assertTrue(message == "Hello from Avro map<string> payload")
         }
       yield result
     }
