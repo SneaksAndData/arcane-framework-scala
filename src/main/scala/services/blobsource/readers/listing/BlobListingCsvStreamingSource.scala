@@ -38,9 +38,7 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     *   An empty schema.
     */
   override def empty: SchemaType = ArcaneSchema.empty()
-
-  override def getLatestVersion: Task[BlobSourceWatermark] = ???
-
+  
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ???
 
   /** Creates a structured stream for a provided file address

@@ -26,11 +26,11 @@ trait ChangeCaptureSettings:
 
   /** Maximum time difference allowed between latest and watermarked version to be included in a single changeset.
     */
-  val catchupSplitThreshold: Duration
+  val changeCaptureMaxSize: Int
 
 case class DefaultChangeCaptureSettings(
     override val changeCaptureJitterSeed: Long,
     override val changeCaptureJitterVariance: Double,
     override val changeCaptureInterval: Duration,
-    override val catchupSplitThreshold: Duration
+    override val changeCaptureMaxSize: Int
 ) extends ChangeCaptureSettings derives ReadWriter

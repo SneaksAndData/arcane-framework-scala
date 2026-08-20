@@ -46,7 +46,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(10)
       override val changeCaptureJitterVariance: Double = 0.1
       override val changeCaptureJitterSeed: Long       = 1
-      override val catchupSplitThreshold: Duration     = Duration.ofHours(12)
+      override val changeCaptureMaxSize: Duration     = Duration.ofHours(12)
     }
   }
   override val sink: SinkSettings = TestSinkSettings
@@ -88,6 +88,6 @@ object TestPluginBackfillMergeStreamContext extends TestPluginStreamContextImpl:
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(10)
       override val changeCaptureJitterVariance: Double = 0.1
       override val changeCaptureJitterSeed: Long       = 1
-      override val catchupSplitThreshold: Duration     = Duration.ofHours(12)
+      override val changeCaptureMaxSize: Duration     = Duration.ofHours(12)
     }
   }

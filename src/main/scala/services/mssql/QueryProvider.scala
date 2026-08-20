@@ -5,6 +5,7 @@ import models.schemas.MergeKeyField
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlStreamingSource}
 
+import com.sneaksanddata.arcane.framework.services.mssql.versioning.MsSqlWatermark
 import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
@@ -214,6 +215,22 @@ object QueryProvider:
     */
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
+
+  def getVersionInRangeQuery(tableSchemaName: String, tableName: String, startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeSize: Int): MsSqlQuery =
+    s"""
+       SELECT
+       |    ISNULL(MAX(SYS_CHANGE_VERSION), ${endAt.version})
+       |FROM
+       |(
+       |    SELECT DISTINCT TOP $rangeSize
+       |        CT.SYS_CHANGE_VERSION
+       |    FROM
+       |        CHANGETABLE(CHANGES [$tableSchemaName].[$tableName], ${startFrom.version}) AS CT
+       |    WHERE
+       |        CT.SYS_CHANGE_VERSION <= ${endAt.version}
+       |    ORDER BY
+       |        CT.SYS_CHANGE_VERSION ASC
+       |) as sorted_versions""".stripMargin
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
