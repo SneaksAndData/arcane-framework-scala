@@ -56,10 +56,16 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
     .map(BlobSourceWatermark.fromEpochSecond)
 
-  override def getVersionRange(startFrom: BlobSourceWatermark, finishAt: BlobSourceWatermark): ZStream[Any, Throwable, BlobSourceWatermark] = storageClient
+  override def getVersionRange(
+      startFrom: BlobSourceWatermark,
+      finishAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceWatermark] = storageClient
     .streamPrefixes(sourcePath)
     .collect {
-      case blob if BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L)) >= startFrom && BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L)) <= finishAt => BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L))
+      case blob
+          if BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L)) >= startFrom && BlobSourceWatermark
+            .fromEpochSecond(blob.createdOn.getOrElse(0L)) <= finishAt =>
+        BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L))
     }
 
   // due to the fact that this is always called by StreamingDataProvider after comparing versions

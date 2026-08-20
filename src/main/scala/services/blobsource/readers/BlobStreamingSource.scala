@@ -31,8 +31,11 @@ trait BlobStreamingSource extends StreamingSource:
   /** Latest file by creation data in the blob source
     */
   def getLatestVersion: Task[BlobSourceWatermark]
-  
-  def getVersionRange(startFrom: BlobSourceWatermark, finishAt: BlobSourceWatermark): ZStream[Any, Throwable, BlobSourceWatermark]
+
+  def getVersionRange(
+      startFrom: BlobSourceWatermark,
+      finishAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceWatermark]
 
   /** Return true if a blob source has files with creation date > previousVersion
     */
@@ -81,4 +84,3 @@ trait BlobStreamingSource extends StreamingSource:
       rangeStart: BlobSourceWatermark,
       rangeEnd: BlobSourceWatermark
   ): ZStream[Any, Throwable, Seq[String]]
-

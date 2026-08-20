@@ -53,7 +53,11 @@ class MsSqlDataProvider(
   override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
     streamingSource.getChanges(previousVersion)
 
-  override def getLatestWatermarkInRange(startWatermark: MsSqlWatermark, endWatermark: MsSqlWatermark, maxRangeSize: Int): Task[MsSqlWatermark] =
+  override def getLatestWatermarkInRange(
+      startWatermark: MsSqlWatermark,
+      endWatermark: MsSqlWatermark,
+      maxRangeSize: Int
+  ): Task[MsSqlWatermark] =
     streamingSource.getVersionInRange(startWatermark, endWatermark, maxRangeSize)
 
 /** The companion object for the MsSqlDataProvider class.

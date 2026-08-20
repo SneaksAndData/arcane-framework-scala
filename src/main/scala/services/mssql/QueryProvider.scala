@@ -216,7 +216,13 @@ object QueryProvider:
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
 
-  def getVersionInRangeQuery(tableSchemaName: String, tableName: String, startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeSize: Int): MsSqlQuery =
+  def getVersionInRangeQuery(
+      tableSchemaName: String,
+      tableName: String,
+      startFrom: MsSqlWatermark,
+      endAt: MsSqlWatermark,
+      rangeSize: Int
+  ): MsSqlQuery =
     s"""
        SELECT
        |    ISNULL(MAX(SYS_CHANGE_VERSION), ${endAt.version})

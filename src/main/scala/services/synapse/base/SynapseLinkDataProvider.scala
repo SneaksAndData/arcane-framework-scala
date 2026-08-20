@@ -38,8 +38,13 @@ class SynapseLinkDataProvider(
   override def getCurrentVersion(previousVersion: SynapseWatermark): Task[SynapseWatermark] =
     streamingSource.getCurrentVersion(previousVersion)
 
-  override def getLatestWatermarkInRange(startWatermark: SynapseWatermark, endWatermark: SynapseWatermark, maxRangeSize: Int): Task[SynapseWatermark] =
-    streamingSource.getWatermarks(startWatermark, endWatermark)
+  override def getLatestWatermarkInRange(
+      startWatermark: SynapseWatermark,
+      endWatermark: SynapseWatermark,
+      maxRangeSize: Int
+  ): Task[SynapseWatermark] =
+    streamingSource
+      .getWatermarks(startWatermark, endWatermark)
       .map(_.sortBy(_.version).take(maxRangeSize).maxBy(_.version))
 
   /** Implements data streaming logic for public `requestChanges`

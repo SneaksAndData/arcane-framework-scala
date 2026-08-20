@@ -255,10 +255,20 @@ class MsSqlStreamingSource(
     )
     commitTime <- getVersionCommitTime(version)
   yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
-  
+
   def getVersionInRange(startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeSize: Int): Task[MsSqlWatermark] = for
-    version <- getVersion(QueryProvider.getVersionInRangeQuery(connectionSettings.schemaName, connectionSettings.tableName, startFrom, endAt, rangeSize)).flatMap(
-      ZIO.getOrFailWith(FatalStreamFailException(s"Unable to determine version in range ${startFrom.version} - ${endAt.version}"))
+    version <- getVersion(
+      QueryProvider.getVersionInRangeQuery(
+        connectionSettings.schemaName,
+        connectionSettings.tableName,
+        startFrom,
+        endAt,
+        rangeSize
+      )
+    ).flatMap(
+      ZIO.getOrFailWith(
+        FatalStreamFailException(s"Unable to determine version in range ${startFrom.version} - ${endAt.version}")
+      )
     )
     commitTime <- getVersionCommitTime(version)
   yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)

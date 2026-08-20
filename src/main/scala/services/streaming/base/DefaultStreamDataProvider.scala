@@ -54,7 +54,11 @@ class DefaultStreamDataProvider[WatermarkType <: SourceWatermark[String] & JsonW
         yield ()
       }
 
-      resolvedVersion <- dataProvider.getLatestWatermarkInRange(previousVersion, currentVersion, settings.changeCaptureMaxSize)
+      resolvedVersion <- dataProvider.getLatestWatermarkInRange(
+        previousVersion,
+        currentVersion,
+        settings.changeCaptureMaxSize
+      )
     yield Some((resolvedVersion, previousVersion, seedFlag) -> ZIO.succeed((resolvedVersion, seedFlag)))
 
   private def hasChanges(previousVersion: WatermarkType): Task[Boolean] =
