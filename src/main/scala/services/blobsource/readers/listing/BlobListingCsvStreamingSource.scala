@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import models.schemas.{ArcaneSchema, DataRow}
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
-import services.streaming.base.StructuredZStream
 
 import zio.Task
 import zio.stream.ZStream
@@ -18,17 +18,21 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     nameGenerator: NameGenerator,
     schema: ArcaneSchema,
     primaryKeys: Seq[String],
-    tempStoragePath: String
+    tempStoragePath: String,
+    modifications: Seq[DataRowModification] = Seq.empty,
+    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
       storageClient,
       nameGenerator,
       primaryKeys,
-      tempStoragePath
+      tempStoragePath,
+      modifications,
+      dataRowSchemaVersion
     ):
 
-  override def getSchema: Task[SchemaType] = ???
+  override protected def getSourceSchema: Task[SchemaType] = ???
 
   /** Gets an empty schema.
     *
