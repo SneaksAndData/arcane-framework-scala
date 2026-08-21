@@ -92,6 +92,19 @@ object PullStreamTestServices:
     )
   )
 
+  /** Schema of the rows produced by [[productionPayload]] when a JSON pointer selects its nested `payload` member,
+    * which is how a sink provisioned from that pointer declares its columns: the envelope around the pointed node
+    * contributes nothing, so the payload's own `id` never surfaces and needs no rename.
+    */
+  val pointedPayloadSchema: ArcaneSchema = ArcaneSchema(
+    Seq(
+      Field("eventType", ArcaneType.StringType),
+      Field("timestamp", ArcaneType.StringType),
+      Field("source", ArcaneType.StringType),
+      Field("message", ArcaneType.StringType)
+    )
+  )
+
   def getClient: Task[DynamoDbClient] =
     ZIO.attempt(
       DynamoDbClient

@@ -169,5 +169,59 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             && assertTrue(rows.head.map(_.name) == schema.map(_.name).toList :+ MergeKeyField.name)
         }
       } yield result
+    },
+    test("ReadsJsonPointerFromSinkTableProperty") {
+      // The producing service derives a table's columns from a JSON pointer into the pushed document and publishes
+      // that pointer on the table, because the stream's own settings have no field to carry it. Reading it back is
+      // the only thing that lets the nested document be decoded against the columns derived from it.
+      val totalItems = 2
+      for {
+        tableName <- PullStreamTestServices.genSourceTableName
+        targetTableName = s"wh.ns.$tableName"
+        icebergUtil     = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
+        client <- PullStreamTestServices.getClient
+        result <- PullStreamTestServices.withSourceTable(tableName, client) {
+          for {
+            sinkEntityManager <- icebergUtil.getSinkEntityManager
+            _ <- sinkEntityManager.createTable(
+              IcebergCreateTableRequest(tableName, PullStreamTestServices.pointedPayloadSchema, true)
+            )
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            _ <- sinkPropertyManager.setProperty(
+              tableName,
+              PullStreamingSource.jsonPointerPropertyName,
+              "/payload"
+            )
+            source = PullStreamingSource(
+              // deliberately left out of the settings: the table is the only place the pointer comes from
+              settings = PullStreamTestServices.pullStreamSettings(tableName),
+              dynamodbClient = client,
+              sinkPropertyManager = sinkPropertyManager,
+              targetTableFullName = s"testWarehouse.testNs.$tableName",
+              pageSize = None
+            )
+            _ <- PullStreamTestServices.insertMany(
+              client,
+              tableName,
+              count = totalItems,
+              payload = PullStreamTestServices.productionPayload
+            )
+            changes <- source
+              .getChanges(PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)))
+              .runCollect
+            (rowStream, _) = changes.head
+            rows <- rowStream.runCollect
+            eventTypes = rows.flatMap(_.find(_.name == "eventType")).map(_.value.toString)
+          } yield
+            // the envelope around the pointed node contributes no columns, so decoding could only have started
+            // below the pointer
+            assertTrue(rows.length == totalItems)
+              && assertTrue(
+                rows.head.map(_.name) == PullStreamTestServices.pointedPayloadSchema.map(_.name).toList
+                  :+ MergeKeyField.name
+              )
+              && assertTrue(eventTypes.forall(_ == "Producer1Event"))
+        }
+      } yield result
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock @@ TestAspect.withLiveRandom

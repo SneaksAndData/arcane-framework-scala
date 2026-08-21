@@ -219,30 +219,50 @@ class PullStreamingSource(
         yield response -> next
     }
 
-  private def getSchemaInfo: Task[(avro: AvroSchema, iceberg: org.apache.iceberg.Schema, envelope: EnvelopeColumns)] =
-    this.sinkPropertyManager
-      .getTableSchema(targetTableName)
-      .map { icebergSchema =>
-        val envelope = EnvelopeColumns(
-          watermark = resolveColumn(icebergSchema, watermarkFieldName),
-          mergeKey = resolveColumn(icebergSchema, MergeKeyField.name)
-        )
-        // Envelope columns are carried by the DynamoDB item, not by `payload`, so they are hidden from the decoder:
-        // under strict decoding a column that the payload never carries would fail the whole batch. They are appended
-        // to each row after decoding instead. The unpruned schema is still returned, since the staging table must
-        // declare the columns for their values to be written.
-        val payloadColumns = icebergSchema
-          .columns()
-          .asScala
-          .filterNot(column => envelope.names.contains(column.name()))
-          .asJava
+  private def getSchemaInfo: Task[
+    (avro: AvroSchema, iceberg: org.apache.iceberg.Schema, envelope: EnvelopeColumns, pointer: Option[String])
+  ] =
+    for
+      icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
+      pointer       <- resolveJsonPointer
+    yield {
+      val envelope = EnvelopeColumns(
+        watermark = resolveColumn(icebergSchema, watermarkFieldName),
+        mergeKey = resolveColumn(icebergSchema, MergeKeyField.name)
+      )
+      // Envelope columns are carried by the DynamoDB item, not by `payload`, so they are hidden from the decoder:
+      // under strict decoding a column that the payload never carries would fail the whole batch. They are appended
+      // to each row after decoding instead. The unpruned schema is still returned, since the staging table must
+      // declare the columns for their values to be written.
+      val payloadColumns = icebergSchema
+        .columns()
+        .asScala
+        .filterNot(column => envelope.names.contains(column.name()))
+        .asJava
 
-        (
-          AvroSchemaUtil.convert(org.apache.iceberg.Schema(payloadColumns), targetTableName),
-          icebergSchema,
-          envelope
-        )
-      }
+      (
+        AvroSchemaUtil.convert(org.apache.iceberg.Schema(payloadColumns), targetTableName),
+        icebergSchema,
+        envelope,
+        pointer
+      )
+    }
+
+  /** Resolves the JSON pointer applied to each stored document before decoding.
+    *
+    * The producing side publishes it on the sink table, because it is the same pointer the table's columns were derived
+    * from and the stream's own configuration has no field to carry it. Reading it back from the table is what keeps a
+    * route's columns and the document they describe in step, without the two services having to agree on anything but
+    * the table itself. A pointer given in the settings still wins, so an operator can override a table that carries a
+    * stale value, and a table that carries none behaves as it always did: decoding from the root.
+    */
+  private def resolveJsonPointer: Task[Option[String]] =
+    jsonPointerExpression.filter(_.nonEmpty) match
+      case configured @ Some(_) => ZIO.succeed(configured)
+      case None =>
+        this.sinkPropertyManager
+          .getProperty(targetTableName, PullStreamingSource.jsonPointerPropertyName)
+          .map(_.filter(_.nonEmpty))
 
   /** Locates the sink column that receives an envelope attribute.
     *
@@ -263,11 +283,12 @@ class PullStreamingSource(
   private def responseStream(
       queryResponse: QueryResponse,
       avroSchema: AvroSchema,
-      envelope: EnvelopeColumns
+      envelope: EnvelopeColumns,
+      jsonPointer: Option[String]
   ): ZStream[Any, Throwable, DataRow] =
     val decoder = AvroJsonDecoder(
       schema = avroSchema,
-      jsonPointerExpr = jsonPointerExpression,
+      jsonPointerExpr = jsonPointer,
       jsonArrayPointers = jsonArrayPointers,
       tolerateMissingFields = false
     )
@@ -310,10 +331,10 @@ class PullStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchemaInfo).map { case (avroSchema, icebergSchema, envelope) =>
+    ZStream.fromZIO(getSchemaInfo).map { case (avroSchema, icebergSchema, envelope, jsonPointer) =>
       val rowStream: ZStream[Any, Throwable, DataRow] =
         paginatedQuery(buildQueryGetChanges(previousVersion))
-          .flatMap(response => responseStream(response, avroSchema, envelope))
+          .flatMap(response => responseStream(response, avroSchema, envelope, jsonPointer))
       (rowStream, icebergSchema)
     }
 
@@ -337,6 +358,13 @@ class PullStreamingSource(
     .map(_.getOrElse(PullStreamWatermark.epoch))
 
 object PullStreamingSource:
+
+  /** Sink table property carrying the JSON pointer that selects the part of each stored document holding the data.
+    *
+    * Written by the producing service when it provisions the table, from the same setting its columns were derived
+    * from. Absent on a table whose documents are decoded from their root.
+    */
+  val jsonPointerPropertyName: String = "json-pointer-expression"
 
   /** Default page size passed as `Limit` to each DynamoDB `Query` request. DynamoDB caps the response payload at 1 MB
     * per page anyway, so this is a soft upper bound on items evaluated per network call, not a total-result cap.
