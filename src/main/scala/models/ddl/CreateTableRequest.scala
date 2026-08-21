@@ -1,7 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.ddl
 
+import org.apache.iceberg.types.{Type, Types}
 import org.apache.iceberg.{PartitionSpec, Schema, SortOrder}
+
+import scala.jdk.CollectionConverters.*
 
 /** Model used by CatalogEntityManager to create tables.
   * @param name
@@ -29,9 +32,38 @@ case class CreateTableRequest(
     sortOrder: Option[SortOrder],
     parquetBloomFilterFields: Seq[String],
     properties: Map[String, String] = Map.empty
-)
+):
+
+  /** The properties the table is actually created with.
+    *
+    * A `variant` column only exists from format version 3 on, and the format version cannot be raised after creation,
+    * so a schema carrying one is pinned to v3 here rather than at each call site. Doing it centrally keeps staging,
+    * backfill and target tables consistent with each other: a variant column in the target implies one in every
+    * intermediate table the batch passes through, and missing a single site fails the whole stream at write time.
+    *
+    * An explicit `format-version` always wins, so a caller can still opt into a higher version.
+    */
+  val effectiveProperties: Map[String, String] =
+    if properties.contains(CreateTableRequest.FormatVersionProperty) then properties
+    else if CreateTableRequest.containsVariant(schema.asStruct()) then
+      properties + (CreateTableRequest.FormatVersionProperty -> CreateTableRequest.VariantFormatVersion)
+    else properties
 
 object CreateTableRequest:
+
+  /** Iceberg table property selecting the spec version. Only settable at creation. */
+  val FormatVersionProperty = "format-version"
+
+  /** Lowest format version that admits a `variant` column. */
+  val VariantFormatVersion = "3"
+
+  /** Whether the type, or anything nested inside it, is a variant. */
+  private[ddl] def containsVariant(icebergType: Type): Boolean = icebergType match
+    case _: Types.VariantType => true
+    case nested: Type.NestedType =>
+      nested.fields().asScala.exists(field => containsVariant(field.`type`()))
+    case _ => false
+
   /** Create a table using provided schema, replacing if exists, if requested
     * @return
     */
