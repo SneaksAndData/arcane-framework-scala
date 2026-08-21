@@ -107,3 +107,7 @@ fabric.properties
 /.bsp/sbt.json
 /.idea/scala_compiler.xml
 /.idea/scala_settings.xml
+
+# local stuff
+.metals/*
+project/**/metals.sbt
