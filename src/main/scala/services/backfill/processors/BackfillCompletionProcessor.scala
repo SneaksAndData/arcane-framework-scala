@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.backfill.processors
 
 import logging.ZIOLogAnnotations.{getAnnotation, zlog}
+import models.MetadataKeys
 import models.settings.TableNaming.*
 import models.sharding.{CompletedShard, CompletionShard}
 import services.backfill.base.StagedShardProcessor
@@ -28,8 +29,15 @@ class BackfillCompletionProcessor(
         _ <- zlog("All shards have been combined in %s, ready for target update", shard.combinedTableName)
         _ <- mergeServiceClient.commitShard(shard)
         _ <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
-        previousWatermark <- propertyManager.getRequiredProperty(shard.targetTableName.parts.name, "comment")
-        _                 <- propertyManager.comment(shard.targetTableName.parts.name, shard.watermark)
+        previousWatermark <-
+          for
+            existingValue <- propertyManager.getProperty(shard.targetTableName.parts.name, MetadataKeys.watermarkKey)
+            legacyValue <- propertyManager.getProperty(
+              shard.targetTableName.parts.name,
+              MetadataKeys.legacyWatermarkKey
+            )
+          yield existingValue.getOrElse(legacyValue.getOrElse("null"))
+        _ <- propertyManager.setProperty(shard.targetTableName.parts.name, MetadataKeys.watermarkKey, shard.watermark)
         _ <- zlog(
           "Updated watermark from %s to %s",
           Seq(getAnnotation("processor", "BackfillWatermarkProcessor")),

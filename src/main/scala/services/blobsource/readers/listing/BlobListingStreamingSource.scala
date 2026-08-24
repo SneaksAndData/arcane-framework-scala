@@ -14,6 +14,7 @@ import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
 import java.security.MessageDigest
+import java.time.OffsetDateTime
 import java.util.UUID
 
 abstract class BlobListingStreamingSource[PathType <: BlobPath](
@@ -55,6 +56,18 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     .map(_.createdOn.getOrElse(0L))
     .run(ZSink.foldLeft(0L)((e, agg) => if (e > agg) e else agg))
     .map(BlobSourceWatermark.fromEpochSecond)
+
+  override def getVersionRange(
+      startFrom: BlobSourceWatermark,
+      finishAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceWatermark] = storageClient
+    .streamPrefixes(sourcePath)
+    .collect {
+      case blob
+          if BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L)) >= startFrom && BlobSourceWatermark
+            .fromEpochSecond(blob.createdOn.getOrElse(0L)) <= finishAt =>
+        BlobSourceWatermark.fromEpochSecond(blob.createdOn.getOrElse(0L))
+    }
 
   // due to the fact that this is always called by StreamingDataProvider after comparing versions
   // and the fact that versions are file creation dates, we can safely assume that IF this method is called, it will return TRUE. Hence no need to double list files

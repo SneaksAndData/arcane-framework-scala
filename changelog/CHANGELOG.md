@@ -1,5 +1,6 @@
 # Changelog
 ## 2026
+- [Release 2.3.2](RELEASE_2.3.2.md)
 - [Release 2.3.1](RELEASE_2.3.1.md)
 - [Release 2.3.0](RELEASE_2.3.0.md)
 - [Release 2.2.1](RELEASE_2.2.1.md)

@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import models.schemas.{ArcaneSchema, DataRow}
+import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -32,6 +33,20 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
       dataRowSchemaVersion
     ):
 
+  /** Compatibility constructor for the 2.3 field-selection API. Field filtering is applied by the shared 2.4
+    * processing pipeline.
+    */
+  def this(
+      sourcePath: PathType,
+      shardStoragePath: PathType,
+      storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+      nameGenerator: NameGenerator,
+      schema: ArcaneSchema,
+      primaryKeys: Seq[String],
+      tempStoragePath: String,
+      fieldSelector: FieldSelectionRuleSettings
+  ) = this(sourcePath, shardStoragePath, storageClient, nameGenerator, schema, primaryKeys, tempStoragePath, Seq.empty, DataRowSchemaVersion.V0)
+
   override protected def getSourceSchema: Task[SchemaType] = ???
 
   /** Gets an empty schema.
@@ -40,8 +55,6 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     *   An empty schema.
     */
   override def empty: SchemaType = ArcaneSchema.empty()
-
-  override def getLatestVersion: Task[BlobSourceWatermark] = ???
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] = ???
 

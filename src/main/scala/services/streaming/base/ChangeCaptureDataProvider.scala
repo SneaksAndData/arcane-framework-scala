@@ -6,6 +6,8 @@ import models.schemas.DataRow
 import zio.Task
 import zio.stream.ZStream
 
+import java.time.OffsetDateTime
+
 /** Provides a way to get the changes marked with version from a data source.
   *
   * @tparam DataVersionType
@@ -38,6 +40,16 @@ trait ChangeCaptureDataProvider[DataVersionType <: SourceWatermark[String]]:
       nextVersion: DataVersionType
   ): ZStream[Any, Throwable, StructuredZStream]
 
-  /** The first version of the data.
+  /** The first version of the data
     */
   def currentWatermark: Task[DataVersionType]
+
+  /** Find latest watermark in between provided ones, taking that no more than `rangeLimit` watermarks can be taken into
+    * evaluation For example, if diff(startWatermark, endWatermark) contains 10 elements [wm0, wm1, wm2, ...], but
+    * rangeLimit is set to 3, the returned watermark will be `wm2`
+    */
+  def getLatestWatermarkInRange(
+      startWatermark: DataVersionType,
+      endWatermark: DataVersionType,
+      rangeLimit: Int
+  ): Task[DataVersionType]

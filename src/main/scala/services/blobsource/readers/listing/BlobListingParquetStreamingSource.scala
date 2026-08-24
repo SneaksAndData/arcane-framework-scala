@@ -6,6 +6,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
+import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import services.iceberg.interop.ParquetScanner
@@ -44,6 +45,21 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       modifications,
       dataRowSchemaVersion
     ):
+
+  /** Compatibility constructor for the 2.3 field-selection API. Field filtering is applied by the shared 2.4
+    * processing pipeline.
+    */
+  def this(
+      sourcePath: PathType,
+      shardStoragePath: PathType,
+      storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+      nameGenerator: NameGenerator,
+      tempStoragePath: String,
+      primaryKeys: Seq[String],
+      useNameMapping: Boolean,
+      sourceSchema: Option[String],
+      fieldSelector: FieldSelectionRuleSettings
+  ) = this(sourcePath, shardStoragePath, storageClient, nameGenerator, tempStoragePath, primaryKeys, useNameMapping, sourceSchema, Seq.empty, DataRowSchemaVersion.V0)
 
   override protected def getSourceSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {

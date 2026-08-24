@@ -14,6 +14,8 @@ import services.synapse.versioning.SynapseWatermark.*
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.time.OffsetDateTime
+
 class SynapseLinkDataProvider(
     streamingSource: SynapseLinkStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
@@ -35,6 +37,15 @@ class SynapseLinkDataProvider(
 
   override def getCurrentVersion(previousVersion: SynapseWatermark): Task[SynapseWatermark] =
     streamingSource.getCurrentVersion(previousVersion)
+
+  override def getLatestWatermarkInRange(
+      startWatermark: SynapseWatermark,
+      endWatermark: SynapseWatermark,
+      rangeLimit: Int
+  ): Task[SynapseWatermark] =
+    streamingSource
+      .getWatermarks(startWatermark, endWatermark)
+      .map(_.sortBy(_.version).take(rangeLimit).maxBy(_.version))
 
   /** Implements data streaming logic for public `requestChanges`
     *

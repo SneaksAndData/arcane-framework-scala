@@ -16,6 +16,7 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
 import models.settings.TableNaming.parts
 import models.sharding.*
+import models.MetadataKeys
 import services.backfill.base.{BackfillSourceDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
@@ -388,7 +389,10 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
-        commitedWatermark    <- stagingPropertyManager.getRequiredProperty("interrupted_backfill_stream", "comment")
+        commitedWatermark <- stagingPropertyManager.getRequiredProperty(
+          "interrupted_backfill_stream",
+          MetadataKeys.watermarkKey
+        )
       yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("picks up backfill when a shard has been combined") {
@@ -434,7 +438,10 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
-        commitedWatermark    <- stagingPropertyManager.getRequiredProperty("interrupted_1_backfill_stream", "comment")
+        commitedWatermark <- stagingPropertyManager.getRequiredProperty(
+          "interrupted_1_backfill_stream",
+          MetadataKeys.watermarkKey
+        )
       yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("prevents overcommitting data to shards on backfill restart when a shard is partially staged") {

@@ -15,15 +15,17 @@ import services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.time.OffsetDateTime
+
 class BlobSourceDataProvider(
-    sourceReader: BlobStreamingSource,
+    streamingSource: BlobStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
     sourceBufferingSettings: SourceBufferingSettings,
     declaredMetrics: DeclaredMetrics
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
-      sourceReader,
+      streamingSource,
       sinkPropertyManager,
       sinkSettings,
       throughputShaperBuilder,
@@ -32,15 +34,25 @@ class BlobSourceDataProvider(
     ):
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
-    sourceReader.hasChanges(previousVersion)
+    streamingSource.hasChanges(previousVersion)
 
   override def getCurrentVersion(previousVersion: BlobSourceWatermark): Task[BlobSourceWatermark] =
-    sourceReader.getLatestVersion
+    streamingSource.getLatestVersion
 
   override protected def changeStream(
       previousVersion: BlobSourceWatermark
   ): ZStream[Any, Throwable, StructuredZStream] =
-    sourceReader.getChanges(previousVersion)
+    streamingSource.getChanges(previousVersion)
+
+  override def getLatestWatermarkInRange(
+      startWatermark: BlobSourceWatermark,
+      endWatermark: BlobSourceWatermark,
+      rangeLimit: Int
+  ): Task[BlobSourceWatermark] =
+    streamingSource
+      .getVersionRange(startFrom = startWatermark, finishAt = endWatermark)
+      .take(rangeLimit)
+      .runFold(BlobSourceWatermark.epoch)((agg, e) => if e > agg then e else agg)
 
 object BlobSourceDataProvider:
   private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &

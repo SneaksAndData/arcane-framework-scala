@@ -5,6 +5,7 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.settings.backfill.BackfillBehavior.Overwrite
+import models.settings.sink.SinkSettings
 import models.settings.staging.StagingSettings
 import services.base.StreamingSource
 import services.bootstrap.base.StreamBootstrapper
@@ -21,6 +22,7 @@ class DefaultStreamBootstrapper(
     streamingSource: StreamingSource,
     nameGenerator: NameGenerator,
     stagingSettings: StagingSettings,
+    sinkSettings: SinkSettings,
     isOverwriting: Boolean
 ) extends StreamBootstrapper:
   override def cleanupStagingTables: Task[Unit] = for
@@ -65,7 +67,10 @@ class DefaultStreamBootstrapper(
       CreateTableRequest(
         name = targetName,
         schema = schema,
-        replace = false
+        partitionSpec = None,
+        replace = false,
+        sortOrder = sinkSettings.targetTableProperties.getSortOder(schema),
+        parquetBloomFilterFields = Seq.empty
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
     )
@@ -81,24 +86,6 @@ class DefaultStreamBootstrapper(
   yield ()
 
 object DefaultStreamBootstrapper:
-  def apply(
-      stagingEntityManager: StagingEntityManager,
-      sinkEntityManager: SinkEntityManager,
-      sinkPropertyManager: SinkPropertyManager,
-      streamingSource: StreamingSource,
-      nameGenerator: NameGenerator,
-      stagingSettings: StagingSettings,
-      isOverwriting: Boolean
-  ): DefaultStreamBootstrapper = new DefaultStreamBootstrapper(
-    stagingEntityManager = stagingEntityManager,
-    sinkEntityManager = sinkEntityManager,
-    sinkPropertyManager = sinkPropertyManager,
-    streamingSource = streamingSource,
-    nameGenerator = nameGenerator,
-    stagingSettings = stagingSettings,
-    isOverwriting = isOverwriting
-  )
-
   val layer = ZLayer {
     for
       context              <- ZIO.service[PluginStreamContext]
@@ -108,13 +95,14 @@ object DefaultStreamBootstrapper:
       streamingSource      <- ZIO.service[StreamingSource]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
       nameGenerator        <- ZIO.service[NameGenerator]
-    yield DefaultStreamBootstrapper(
+    yield new DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
       sinkPropertyManager = sinkPropertyManager,
       streamingSource = streamingSource,
       nameGenerator = nameGenerator,
       stagingSettings = context.staging,
+      sinkSettings = context.sink,
       isOverwriting = isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite
     )
   }

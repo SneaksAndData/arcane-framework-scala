@@ -9,7 +9,7 @@ import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
-import tests.shared.TestSinkSettings
+import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -66,7 +66,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             flatSchema,
             Some("/body"),
-            Map()
+            Map(),
+            TestFieldSelectionRuleSettings
           )
         )
         schema <- source.getSchema
@@ -90,7 +91,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             flatSchema,
             Some("/body"),
-            Map()
+            Map(),
+            TestFieldSelectionRuleSettings
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -110,7 +112,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             flatSchema,
             Some("/body"),
-            Map()
+            Map(),
+            TestFieldSelectionRuleSettings
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -130,7 +133,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             nestedArraySchema,
             Some("/body"),
-            Map("/nested_array/value" -> Map())
+            Map("/nested_array/value" -> Map()),
+            TestFieldSelectionRuleSettings
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -150,7 +154,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             nestedArraySchema,
             Some("/body"),
-            Map("/data" -> Map(), "/nested_array/value" -> Map())
+            Map("/data" -> Map(), "/nested_array/value" -> Map()),
+            TestFieldSelectionRuleSettings
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -170,7 +175,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             nestedArraySchema,
             Some("/body"),
-            Map("/nested_array/value" -> Map())
+            Map("/nested_array/value" -> Map()),
+            TestFieldSelectionRuleSettings
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

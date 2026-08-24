@@ -32,7 +32,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
     targetTableShortName = tableName,
     memoryBoundShaperSettings = new ThroughputSettings {
       override val shaperImpl: ThroughputShaperImpl =
-        MemoryBoundImpl(MemoryBound(stringSize, 4096, 1, 10, 0.5, 0.5, 2, 1000000000))
+        MemoryBoundImpl(MemoryBound(stringSize, 4096, 1, 10, 0.5, 0.5, 2, 1000000000, Duration.ofDays(7).toSeconds))
       override val advisedChunkSize: Int = 10
       override val advisedRate: FlowRate = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
       override val advisedBurst: Int     = 10
@@ -102,7 +102,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
                                 |  ('KEY_TRJQ_7', 'Value_MN', 499),
                                 |  ('KEY_IJPZ_8', 'Value_HU', 646),
                                 |  ('KEY_UTCP_9', 'Value_DG', 437),
-                                |  ('KEY_3H05_10', 'Value_YK', 226)""".stripMargin
+                                |  ('KEY_3H05_1', 'Value_YK', 226)""".stripMargin
         _ <- ZIO.attemptBlocking(statement.execute(insertRowsStatement))
         _ <- ZIO.attemptBlocking(statement.close())
 

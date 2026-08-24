@@ -12,6 +12,7 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Task, ZIO}
 
 import java.nio.charset.StandardCharsets
+import java.time.OffsetDateTime
 import java.util.Base64
 
 /** Base abstract class for all blob source readers
@@ -34,6 +35,11 @@ abstract class BlobStreamingSource(
   /** Latest file by creation data in the blob source
     */
   def getLatestVersion: Task[BlobSourceWatermark]
+
+  def getVersionRange(
+      startFrom: BlobSourceWatermark,
+      finishAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, BlobSourceWatermark]
 
   /** Return true if a blob source has files with creation date > previousVersion
     */

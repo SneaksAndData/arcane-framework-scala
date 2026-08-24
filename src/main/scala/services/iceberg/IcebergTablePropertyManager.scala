@@ -1,14 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
+import exceptions.{FatalStreamFailException, TransientStreamFailException}
 import models.app.PluginStreamContext
 import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.{SinkPropertyManager, StagingPropertyManager, TablePropertyManager}
 
 import org.apache.iceberg.*
 import org.apache.iceberg.catalog.TableIdentifier
-import org.apache.iceberg.parquet.ParquetUtil
-import org.apache.parquet.format.converter.ParquetMetadataConverter
 import zio.{Task, ZIO, ZLayer}
 
 import scala.jdk.CollectionConverters.*
@@ -27,7 +26,7 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     catalog <- catalogFactory.getCatalog
     table <- ZIO
       .attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
-      .orDieWith(e => Throwable(s"Unable to load target table $tableName to read its properties", e))
+      .orElseFail(TransientStreamFailException(s"Unable to load target table $tableName to read its properties"))
   yield table
 
   private def loadMetadataTable(tableName: String, tableType: MetadataTableType): Task[Table] = for
@@ -51,8 +50,8 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     table      <- loadTable(tableName)
     properties <- ZIO.attemptBlocking(table.properties())
     result <- ZIO
-      .attempt(properties.get(propertyName))
-      .orDieWith(_ => new Throwable(s"Required property '$propertyName' is not set on a table '$tableName'"))
+      .attempt(Option(properties.get(propertyName)).get)
+      .orDieWith(_ => FatalStreamFailException(s"Required property '$propertyName' is not set on a table '$tableName'"))
   yield result
 
   override def setProperty(tableName: String, propertyName: String, propertyValue: String): Task[Unit] = for

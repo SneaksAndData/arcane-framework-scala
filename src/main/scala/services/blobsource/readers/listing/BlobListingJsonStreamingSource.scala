@@ -4,6 +4,7 @@ package services.blobsource.readers.listing
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow, MergeKeyField}
+import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import models.settings.sources.blob.JsonBlobSourceSettings
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
@@ -41,6 +42,22 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       modifications,
       dataRowSchemaVersion
     ):
+
+  /** Compatibility constructor for the 2.3 field-selection API. Field filtering is applied by the shared 2.4
+    * processing pipeline.
+    */
+  def this(
+      sourcePath: PathType,
+      shardStoragePath: PathType,
+      storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
+      nameGenerator: NameGenerator,
+      tempStoragePath: String,
+      primaryKeys: Seq[String],
+      avroSchemaString: String,
+      jsonPointerExpr: Option[String],
+      jsonArrayPointers: Map[String, Map[String, String]],
+      fieldSelector: FieldSelectionRuleSettings
+  ) = this(sourcePath, shardStoragePath, storageClient, nameGenerator, tempStoragePath, primaryKeys, avroSchemaString, jsonPointerExpr, jsonArrayPointers, Seq.empty, DataRowSchemaVersion.V0)
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
