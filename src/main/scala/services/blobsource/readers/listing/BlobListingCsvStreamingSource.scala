@@ -20,6 +20,7 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     schema: ArcaneSchema,
     primaryKeys: Seq[String],
     tempStoragePath: String,
+    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification] = Seq.empty,
     dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
 ) extends BlobListingStreamingSource[PathType](
@@ -29,13 +30,11 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
       nameGenerator,
       primaryKeys,
       tempStoragePath,
+      fieldSelector,
       modifications,
       dataRowSchemaVersion
     ):
 
-  /** Compatibility constructor for the 2.3 field-selection API. Field filtering is applied by the shared 2.4
-    * processing pipeline.
-    */
   def this(
       sourcePath: PathType,
       shardStoragePath: PathType,
@@ -45,7 +44,18 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
       primaryKeys: Seq[String],
       tempStoragePath: String,
       fieldSelector: FieldSelectionRuleSettings
-  ) = this(sourcePath, shardStoragePath, storageClient, nameGenerator, schema, primaryKeys, tempStoragePath, Seq.empty, DataRowSchemaVersion.V0)
+  ) = this(
+    sourcePath,
+    shardStoragePath,
+    storageClient,
+    nameGenerator,
+    schema,
+    primaryKeys,
+    tempStoragePath,
+    fieldSelector,
+    Seq.empty,
+    DataRowSchemaVersion.V0
+  )
 
   override protected def getSourceSchema: Task[SchemaType] = ???
 
