@@ -13,10 +13,16 @@ class DeclaredMetrics:
     */
   private val metricsNamespace = "arcane.stream"
 
-  /** Number of rows received from the source
+  /** Number of rows staged in the current iteration
+    */
+  val rowsStaged: Counter[Long] = Metric
+    .counter(s"$metricsNamespace.rows.staged")
+
+  /** Number of rows incoming from source
     */
   val rowsIncoming: Counter[Long] = Metric
     .counter(s"$metricsNamespace.rows.incoming")
+    .fromConst(1)
 
   /** Chunk size for ZStream set for the next changeset, in elements
     */
@@ -94,24 +100,21 @@ class DeclaredMetrics:
   val watermarkUpdateCounter: Counter[Long] = Metric
     .counter(s"$metricsNamespace.watermark.updates")
 
-  val backfillStagedShards: Counter[Long] = Metric
-    .counter(s"$metricsNamespace.backfill.shards_staged")
+  val backfillStagedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_staged")
+    .fromConst(1)
 
-  val backfillCombinedShards: Counter[Long] = Metric
-    .counter(s"$metricsNamespace.backfill.shards_combined")
+  val backfillCombinedShards: Counter[Int] = Metric
+    .counterInt(s"$metricsNamespace.backfill.shards_combined")
+    .fromConst(1)
 
 object DeclaredMetrics:
 
-  /** Creates a new instance of the DeclaredMetrics.
-    *
-    * @return
-    *   The ArcaneDimensionsProvider instance.
-    */
-  def apply(): DeclaredMetrics = new DeclaredMetrics()
+  private val metrics = new DeclaredMetrics()
 
   /** The ZLayer that creates the DeclaredMetrics.
     */
-  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(DeclaredMetrics())
+  val layer: ZLayer[Any, Nothing, DeclaredMetrics] = ZLayer.succeed(metrics)
 
   /** Measures running time of each task
     */

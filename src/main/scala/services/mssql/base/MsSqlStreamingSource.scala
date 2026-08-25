@@ -16,6 +16,7 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
+import exceptions.FatalStreamFailException
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -27,15 +28,6 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.Properties
 import scala.annotation.tailrec
 
-/** Represents a summary of a column in a table. The first element is the name of the column, and the second element is
-  * true if the column is a primary key.
-  */
-type ColumnSummary = (String, Boolean)
-
-/** Represents a query to be executed on a Microsoft SQL Server database.
-  */
-type MsSqlQuery = String
-
 /** Represents a connection to a Microsoft SQL Server database.
   *
   * @param connectionSettings
@@ -43,7 +35,7 @@ type MsSqlQuery = String
   */
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
-    fieldsFilteringService: MsSqlServerFieldsFilteringService,
+    fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator
 ) extends AutoCloseable
     with StreamingSource:
@@ -205,7 +197,7 @@ class MsSqlStreamingSource(
       resultSet.getMetaData.getColumnType(1) match
         case java.sql.Types.BIGINT => Option(resultSet.getObject(1)).flatMap(v => Some(v.asInstanceOf[Long]))
         case _ =>
-          throw new IllegalArgumentException(
+          throw FatalStreamFailException(
             s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected BIGINT"
           )
 
@@ -223,11 +215,9 @@ class MsSqlStreamingSource(
     def readTime(resultSet: ResultSet): Option[OffsetDateTime] =
       resultSet.getMetaData.getColumnType(1) match
         case java.sql.Types.TIMESTAMP =>
-          Option(resultSet.getTimestamp(1)).flatMap(v =>
-            Some(OffsetDateTime.ofInstant(Instant.ofEpochMilli(v.getTime), ZoneOffset.UTC))
-          )
+          Option(resultSet.getTimestamp(1)).flatMap(v => Some(Instant.ofEpochMilli(v.getTime).atOffset(ZoneOffset.UTC)))
         case _ =>
-          throw new IllegalArgumentException(
+          throw FatalStreamFailException(
             s"Invalid column type for change tracking version: ${resultSet.getMetaData.getColumnType(1)}, expected TIMESTAMP"
           )
 
@@ -250,7 +240,7 @@ class MsSqlStreamingSource(
   def getCurrentVersion: ZIO[Any, Throwable, MsSqlWatermark] = for
     // get current version from CHANGE_TRACKING_CURRENT_VERSION() and the commit time associated with it
     version <- getVersion(QueryProvider.getCurrentVersionQuery).flatMap(
-      ZIO.getOrFailWith(new Throwable("Unable to determine latest changeset version"))
+      ZIO.getOrFailWith(FatalStreamFailException("Unable to determine latest changeset version"))
     )
     commitTime <- getVersionCommitTime(version)
   yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
@@ -260,7 +250,24 @@ class MsSqlStreamingSource(
       QueryProvider.getVersionFromTimestampQuery(timestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))
     ).flatMap(
       ZIO.getOrFailWith(
-        new Throwable(s"Unable to determine the changeset version matching timestamp ${timestamp.toString}")
+        FatalStreamFailException(s"Unable to determine the changeset version matching timestamp ${timestamp.toString}")
+      )
+    )
+    commitTime <- getVersionCommitTime(version)
+  yield MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)
+
+  def getVersionInRange(startFrom: MsSqlWatermark, endAt: MsSqlWatermark, rangeLimit: Int): Task[MsSqlWatermark] = for
+    version <- getVersion(
+      QueryProvider.getVersionInRangeQuery(
+        connectionSettings.schemaName,
+        connectionSettings.tableName,
+        startFrom,
+        endAt,
+        rangeLimit
+      )
+    ).flatMap(
+      ZIO.getOrFailWith(
+        FatalStreamFailException(s"Unable to determine version in range ${startFrom.version} - ${endAt.version}")
       )
     )
     commitTime <- getVersionCommitTime(version)
@@ -307,7 +314,7 @@ class MsSqlStreamingSource(
       for
         statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
         resultSet <- statement.executeQuerySafe(query)
-        result    <- ZIO.fromTry(fieldsFilteringService.filter(readColumns(resultSet, List.empty)))
+        result    <- ZIO.fromTry(fieldSelector.filter(readColumns(resultSet, List.empty)))
       yield result
     }
 
@@ -459,37 +466,24 @@ class MsSqlStreamingSource(
 
 object MsSqlStreamingSource:
 
-  type Environment               = PluginStreamContext & MsSqlServerFieldsFilteringService & NameGenerator
+  type Environment               = PluginStreamContext & NameGenerator
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
-
-  /** Creates a new Microsoft SQL Server connection.
-    *
-    * @param connectionSettings
-    *   The connection options for the database.
-    * @param fieldsFilteringService
-    *   The service that filters the fields in queries.
-    * @return
-    *   A new Microsoft SQL Server connection.
-    */
-  def apply(
-      connectionSettings: MsSqlServerDatabaseSourceSettings,
-      fieldsFilteringService: MsSqlServerFieldsFilteringService,
-      nameGenerator: NameGenerator
-  ): MsSqlStreamingSource =
-    new MsSqlStreamingSource(connectionSettings, fieldsFilteringService, nameGenerator)
 
   /** The ZLayer that creates the MsSqlDataProvider.
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[Environment, Nothing, MsSqlStreamingSource & SchemaProvider[ArcaneSchema]] =
+  ): ZLayer[Environment, Nothing, MsSqlStreamingSource] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          context                <- ZIO.service[PluginStreamContext]
-          fieldsFilteringService <- ZIO.service[MsSqlServerFieldsFilteringService]
-          nameGenerator          <- ZIO.service[NameGenerator]
-        yield MsSqlStreamingSource(extractor(context), fieldsFilteringService, nameGenerator)
+          context       <- ZIO.service[PluginStreamContext]
+          nameGenerator <- ZIO.service[NameGenerator]
+        yield new MsSqlStreamingSource(
+          extractor(context),
+          new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
+          nameGenerator
+        )
       }
     }
 

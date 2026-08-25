@@ -22,6 +22,7 @@ class JsonScanner(
 
   override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
     .fromFileName(filePath)
+    .via(ZPipeline.gunzipAuto())
     .via(ZPipeline.utf8Decode >>> ZPipeline.splitLines) // assume each line a JSON object
     .flatMap(line => ZStream.from(decoder.parse(line)))
 

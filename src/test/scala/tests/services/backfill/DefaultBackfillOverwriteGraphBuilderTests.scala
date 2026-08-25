@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.backfill
 
-import models.queries.StreamingBatchQuery
+import models.queries.{MergeQueryCommons, StreamingBatchQuery}
 import models.schemas.ArcaneType.{IntType, StringType}
 import models.schemas.{
   ArcaneSchema,
@@ -16,6 +16,7 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
 import models.settings.TableNaming.parts
 import models.sharding.*
+import models.MetadataKeys
 import services.backfill.base.{BackfillSourceDataProvider, ShardFactory, ShardProcessingState}
 import services.backfill.graph.DefaultBackfillOverwriteGraphBuilder
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
@@ -107,6 +108,16 @@ final class TestShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
         shard.targetTableName,
         new StreamingBatchQuery {
           override def query: String = s"INSERT INTO ${shard.combinedTableName} SELECT * FROM $shardTableName"
+        },
+        new StreamingBatchQuery {
+          override def query: String =
+            s"""MERGE INTO ${shard.combinedTableName} ${MergeQueryCommons.TARGET_ALIAS}
+               |USING (SELECT * FROM $shardTableName) ${MergeQueryCommons.SOURCE_ALIAS}
+               |ON ${MergeQueryCommons.TARGET_ALIAS}.${MergeKeyField.name} = ${MergeQueryCommons.SOURCE_ALIAS}.${MergeKeyField.name}
+               |WHEN MATCHED THEN UPDATE SET
+               |colA = ${MergeQueryCommons.SOURCE_ALIAS}.colA,
+               |colB = ${MergeQueryCommons.SOURCE_ALIAS}.colB
+               |WHEN NOT MATCHED THEN INSERT (${MergeKeyField.name}, colA, colB) VALUES (${MergeQueryCommons.SOURCE_ALIAS}.${MergeKeyField.name}, ${MergeQueryCommons.SOURCE_ALIAS}.colA, ${MergeQueryCommons.SOURCE_ALIAS}.colB)""".stripMargin
         },
         shard.backfillId
       )
@@ -378,7 +389,10 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
-        commitedWatermark    <- stagingPropertyManager.getRequiredProperty("interrupted_backfill_stream", "comment")
+        commitedWatermark <- stagingPropertyManager.getRequiredProperty(
+          "interrupted_backfill_stream",
+          MetadataKeys.watermarkKey
+        )
       yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("picks up backfill when a shard has been combined") {
@@ -397,40 +411,26 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             )
             .map(_.execute())
         }
-        // delete from combined: shard2 and shard3 data
+        // partially delete from combined: shard2 row
         _ <- ZIO.scoped {
           ZIO
             .fromAutoCloseable(
               ZIO.attempt(
                 trinoConnection.prepareStatement(
-                  s"delete from iceberg.test.$backfillTableName where colB > 2"
+                  s"delete from iceberg.test.$backfillTableName where colB = 4"
                 )
-              )
-            )
-            .map(_.execute())
-        }
-        // drop shard2 and shard3 tables
-        _ <- ZIO.scoped {
-          ZIO
-            .fromAutoCloseable(
-              ZIO.attempt(
-                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(1)}")
-              )
-            )
-            .map(_.execute())
-        }
-        _ <- ZIO.scoped {
-          ZIO
-            .fromAutoCloseable(
-              ZIO.attempt(
-                trinoConnection.prepareStatement(s"drop table iceberg.test.${shardTableNames(2)}")
               )
             )
             .map(_.execute())
         }
         stagingPropertyManager <- ZIO.service[StagingPropertyManager]
         expectedWatermark      <- backfillStateManager.readState.map(_.map(_.watermarkValue))
-        // leave shard1 as COMBINED
+        // leave shard1, shard3 as COMBINED and set shard2 as COMBINING
+        _ <- stagingPropertyManager.setProperty(
+          shardTableNames(1),
+          "processing-state",
+          ShardProcessingState.COMBINING.toString
+        )
         // re-run and expect identical result to a full backfill
         (result, shards, _, _, _) <- runBackfill(
           "iceberg.test.interrupted_1_backfill_stream",
@@ -438,7 +438,10 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         )
         expectedRowsInTarget <- ZStream.fromIterable(shards).flatMap(_.shardStream._1).runCount
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
-        commitedWatermark    <- stagingPropertyManager.getRequiredProperty("interrupted_1_backfill_stream", "comment")
+        commitedWatermark <- stagingPropertyManager.getRequiredProperty(
+          "interrupted_1_backfill_stream",
+          MetadataKeys.watermarkKey
+        )
       yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
     test("prevents overcommitting data to shards on backfill restart when a shard is partially staged") {

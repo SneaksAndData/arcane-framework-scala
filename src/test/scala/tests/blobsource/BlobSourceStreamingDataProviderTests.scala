@@ -10,13 +10,14 @@ import models.settings.sources.StreamSourceSettings
 import models.settings.staging.StagingSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings, ThroughputSettings}
 import services.blobsource.providers.{BlobSourceDataProvider, BlobSourceStreamingDataProvider}
-import services.blobsource.readers.listing.BlobListingParquetSource
+import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.metrics.DeclaredMetrics
+import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
+import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.S3StorageInfo.*
-import tests.shared.*
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -25,6 +26,13 @@ import zio.{Scope, ZIO}
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 
 object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
+  private val nameGenerator =
+    new DefaultNameGenerator(
+      sinkSettings = TestSinkSettings,
+      backfillId = "",
+      streamId = "blobsource_sdp_tests"
+    )
+
   private val defaultStreamMode = new StreamModeSettings {
 
     /** Backfill mode-only settings
@@ -42,6 +50,7 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
       override val changeCaptureJitterVariance: Double = 0.0001
       override val changeCaptureJitterSeed: Long       = 0
+      override val changeCaptureRangeLimit: Int        = 1000
     }
   }
 
@@ -55,8 +64,21 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("BlobSourceStreamingDataProvider")(
     test("stream changes correctly") {
       for
-        path            <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source          <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
+        source <- ZIO.succeed(
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            false,
+            None,
+            TestFieldSelectionRuleSettings
+          )
+        )
         _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
         propertyManager <- icebergUtil.getSinkTablePropertyManager
         dataProvider <- ZIO.succeed(
@@ -68,7 +90,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             ),
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         sdp <- ZIO.succeed(
@@ -84,8 +107,21 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
     },
     test("stream changes respecting watermark") {
       for
-        path   <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
-        source <- ZIO.succeed(BlobListingParquetSource(path, storageReader, "/tmp", Seq("col0"), false, None))
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$bucket").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
+        source <- ZIO.succeed(
+          BlobListingParquetStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col0"),
+            false,
+            None,
+            TestFieldSelectionRuleSettings
+          )
+        )
         _ <- icebergUtil.prepareWatermark(
           "test",
           BlobSourceWatermark.fromEpochSecond(Instant.now().minusSeconds(1).getEpochSecond)
@@ -100,7 +136,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
               propertyManager,
               new TestDynamicSinkSettings(s"demo.test.test")
             ),
-            TestSourceBufferingSettings
+            TestSourceBufferingSettings,
+            DeclaredMetrics()
           )
         )
         sdp <- ZIO.succeed(

@@ -4,54 +4,73 @@ package services.blobsource.providers
 import models.app.PluginStreamContext
 import models.settings.sink.SinkSettings
 import models.settings.sources.SourceBufferingSettings
-import services.blobsource.readers.BlobSourceReader
+import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.blobsource.versioning.BlobSourceWatermark.*
 import services.iceberg.base.SinkPropertyManager
+import services.metrics.DeclaredMetrics
 import services.streaming.base.{DefaultSourceDataProvider, StructuredZStream}
 import services.streaming.throughput.base.ThroughputShaperBuilder
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
+import java.time.OffsetDateTime
+
 class BlobSourceDataProvider(
-    sourceReader: BlobSourceReader,
+    streamingSource: BlobStreamingSource,
     sinkPropertyManager: SinkPropertyManager,
     sinkSettings: SinkSettings,
     throughputShaperBuilder: ThroughputShaperBuilder,
-    sourceBufferingSettings: SourceBufferingSettings
+    sourceBufferingSettings: SourceBufferingSettings,
+    declaredMetrics: DeclaredMetrics
 ) extends DefaultSourceDataProvider[BlobSourceWatermark](
+      streamingSource,
       sinkPropertyManager,
       sinkSettings,
       throughputShaperBuilder,
-      sourceBufferingSettings
+      sourceBufferingSettings,
+      declaredMetrics
     ):
 
   override def hasChanges(previousVersion: BlobSourceWatermark): Task[Boolean] =
-    sourceReader.hasChanges(previousVersion)
+    streamingSource.hasChanges(previousVersion)
 
   override def getCurrentVersion(previousVersion: BlobSourceWatermark): Task[BlobSourceWatermark] =
-    sourceReader.getLatestVersion
+    streamingSource.getLatestVersion
 
   override protected def changeStream(
       previousVersion: BlobSourceWatermark
   ): ZStream[Any, Throwable, StructuredZStream] =
-    sourceReader.getChanges(previousVersion)
+    streamingSource.getChanges(previousVersion)
+
+  override def getLatestWatermarkInRange(
+      startWatermark: BlobSourceWatermark,
+      endWatermark: BlobSourceWatermark,
+      rangeLimit: Int
+  ): Task[BlobSourceWatermark] =
+    streamingSource
+      .getVersionRange(startFrom = startWatermark, finishAt = endWatermark)
+      .take(rangeLimit)
+      .runFold(BlobSourceWatermark.epoch)((agg, e) => if e > agg then e else agg)
 
 object BlobSourceDataProvider:
-  private type Environment = BlobSourceReader & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder
+  private type Environment = BlobStreamingSource & SinkPropertyManager & PluginStreamContext & ThroughputShaperBuilder &
+    DeclaredMetrics
 
   val layer: ZLayer[Environment, Throwable, BlobSourceDataProvider] = ZLayer {
     for
       context           <- ZIO.service[PluginStreamContext]
       propertyManager   <- ZIO.service[SinkPropertyManager]
-      blobSource        <- ZIO.service[BlobSourceReader]
+      blobSource        <- ZIO.service[BlobStreamingSource]
       throughputBuilder <- ZIO.service[ThroughputShaperBuilder]
+      metrics           <- ZIO.service[DeclaredMetrics]
     yield BlobSourceDataProvider(
       blobSource,
       propertyManager,
       context.sink,
       throughputBuilder,
-      context.source.buffering
+      context.source.buffering,
+      metrics
     )
   }

@@ -32,7 +32,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
     targetTableShortName = tableName,
     memoryBoundShaperSettings = new ThroughputSettings {
       override val shaperImpl: ThroughputShaperImpl =
-        MemoryBoundImpl(MemoryBound(stringSize, 4096, 1, 10, 0.5, 0.5, 2))
+        MemoryBoundImpl(MemoryBound(stringSize, 4096, 1, 10, 0.5, 0.5, 2, 1000000000, Duration.ofDays(7).toSeconds))
       override val advisedChunkSize: Int = 10
       override val advisedRate: FlowRate = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
       override val advisedBurst: Int     = 10
@@ -67,7 +67,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
         chunkSize        <- shaper.estimateChunkSize
         flowRate         <- shaper.estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)
         currentMemory    <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
-        expectedRowSize  <- ZIO.succeed(stringSize * 2 + 32 + 16)
+        expectedRowSize  <- ZIO.succeed(28 + stringSize * 2 + 32 + 16 + 64)
         expectedElements <- ZIO.succeed(0.2 * currentMemory / (expectedRowSize + 1) / 2)
       // no GC - default 1 for count -> 0.999 probability / 10s interval -> 10% rate uplift
       yield assertTrue(
@@ -102,7 +102,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
                                 |  ('KEY_TRJQ_7', 'Value_MN', 499),
                                 |  ('KEY_IJPZ_8', 'Value_HU', 646),
                                 |  ('KEY_UTCP_9', 'Value_DG', 437),
-                                |  ('KEY_3H05_10', 'Value_YK', 226)""".stripMargin
+                                |  ('KEY_3H05_1', 'Value_YK', 226)""".stripMargin
         _ <- ZIO.attemptBlocking(statement.execute(insertRowsStatement))
         _ <- ZIO.attemptBlocking(statement.close())
 
@@ -111,7 +111,7 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
         chunkSize     <- shaper.estimateChunkSize
         currentMemory <- ZIO.succeed(javaRuntime.maxMemory() - javaRuntime.totalMemory() + javaRuntime.freeMemory())
         // 2 strings of length 10 with 50% buffer and one integer
-        expectedRowSize  <- ZIO.succeed(2 * ((10 * 1.5) * 2 + 32 + 16) + (4 + 8 + 16 + 4))
+        expectedRowSize  <- ZIO.succeed(28 + 2 * ((10 * 1.5) * 2 + 32 + 16 + 64) + (4 + 8 + 16 + 4 + 64))
         expectedElements <- ZIO.succeed(0.7999 * currentMemory / (expectedRowSize + 1) / 2)
         _                <- ZIO.attempt(javaRuntime.gc())
         flowRate         <- shaper.estimateShapeRate(chunkSize.Elements, chunkSize.ElementSize)

@@ -3,6 +3,7 @@ package models.settings
 
 import models.settings.TableFormat.PARQUET
 
+import org.apache.iceberg.{NullOrder, Schema, SortDirection, SortOrder, SortOrderBuilder}
 import upickle.ReadWriter
 import upickle.default.*
 
@@ -43,6 +44,18 @@ object TablePropertiesSettings:
       val supportedProperties =
         properties.serializeToMap.map { (propertyKey, propertyValue) => s"$propertyKey=$propertyValue" }.mkString(", ")
       s"WITH ($supportedProperties)"
+
+    def getSortOder(schema: Schema): Option[SortOrder] =
+      val builder = SortOrder.builderFor(schema)
+      if properties.sortedBy.isEmpty then None
+      else
+        Some(
+          properties.sortedBy
+            .foldLeft(builder) { (agg, field) =>
+              agg.sortBy(field, SortDirection.DESC, NullOrder.NULLS_LAST)
+            }
+            .build()
+        )
 
   /** Serializes the table properties to a HashMap
     */

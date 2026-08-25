@@ -82,7 +82,7 @@ services:
       ]
   # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.11.4
+    image: quay.io/lakekeeper/catalog:v0.13.3
     network_mode: host
     environment:
       #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -130,7 +130,7 @@ services:
         "pip install azure-storage-blob==12.24.1 requests && python /populate-cdm-container.py",
       ]
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:v0.11.4
+    image: quay.io/lakekeeper/catalog:v0.13.3
     network_mode: host
     environment:
       #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -177,7 +177,7 @@ services:
       lakekeeper:
         condition: service_healthy
     network_mode: host
-    image: "trinodb/trino:478"
+    image: "trinodb/trino:483"
     volumes:
       - ./unit-tests.properties:/etc/trino/catalog/iceberg.properties
   dynamodb-local:

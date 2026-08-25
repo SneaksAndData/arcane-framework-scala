@@ -25,5 +25,6 @@ object SynapseLinkTestSettings:
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(5)
       override val changeCaptureJitterVariance: Double = 0.0001
       override val changeCaptureJitterSeed: Long       = 0
+      override val changeCaptureRangeLimit: Int        = 1000
     }
   }

@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.throughput
 
+import exceptions.FatalStreamFailException
 import logging.ZIOLogAnnotations.zlog
 import models.settings.FlowRate
 import models.settings.streaming.{MemoryBoundImpl, ThroughputSettings}
@@ -13,7 +14,7 @@ import org.apache.iceberg.types.Type.TypeID
 import zio.{Chunk, Task, ZIO}
 
 import java.lang.management.ManagementFactory
-import java.time.Duration
+import java.time.{Duration, OffsetDateTime}
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 import scala.math.{exp, log}
@@ -36,17 +37,17 @@ class MemoryBoundShaper(
   private val shaperSettings = throughputSettings.shaperImpl match
     case mb: MemoryBoundImpl => mb.memoryBound
     case _ =>
-      throw new RuntimeException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
+      throw FatalStreamFailException("`shaperImpl` must be set to `memoryBound` when using MemoryBoundShaper")
 
   private val runtime            = Runtime.getRuntime
   private val maxAvailableMemory = runtime.maxMemory()
   private val mib                = 1024 * 1024
   private val estimationCache    = TrieMap[String, Double]()
 
-  private val rowSizeCacheKey    = "rowsize"
-  private val memCacheKey        = "memcutoff"
-  private val partsCacheKey      = "partitions"
-  private val stringSizeCacheKey = "stringsize"
+  private val rowSizeCacheKey      = "rowsize"
+  private val memCacheKey          = "memcutoff"
+  private val partsCacheKey        = "partitions"
+  private val estimatePropertyName = "mbs-estimates"
 
   private def getTotalFreeMemory =
     val allocatedTotal = runtime.totalMemory()
@@ -82,112 +83,180 @@ class MemoryBoundShaper(
         .sum * 1.5 / recordCount / 2L).toLong
 
   private def estimateRowSize(schema: Schema, estimatedStringLength: Long): Long =
-    schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
-      val typeSize = tp.typeId() match
+    // rows in Arcane memory are List[DataCell]
+    // 4 bytes for list pointer
+    // object header: 12 bytes
+    // head: 4 bytes (pointing to the DataCell object)
+    // tail: 4 bytes (pointing to the next List element or Nil)
+    // padding: 4 bytes
+    val dataRowOuterSize = 4L + 12L + 4L + 4L + 4L
+    // object header + `name` field for `DataCell` class
+    val dataCellSizeBase = 12L + 32L + 16L + 4L
+
+    // add outer size to each cell to be found based on schema
+    // cell has name, type def and value. Estimate type def size and value size based on schema
+    dataRowOuterSize + schema.columns().asScala.map(_.`type`()).foldLeft(0L) { case (agg, tp) =>
+      val cellValueSize = tp.typeId() match
         // 8L added to each type to hold pointer, since all types are objects
         // 16L for Java object header, ignore COH to be on the safe side
         // add 4L for padding for all except boolean
         case TypeID.TIME =>
-          4L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 4L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.INTEGER =>
-          4L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 4L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.BOOLEAN =>
-          1L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 11L // padding
+          (
+            valueSize = 1L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 11L,       // padding
+            typeSize = 0L
+          )
         case TypeID.LONG =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.FLOAT =>
-          4L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 4L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.DOUBLE =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.STRING =>
-          32L     // wrapper type
-            + 16L // array header
-            + 2L * estimatedStringLength
+          (
+            valueSize = 32L // wrapper type
+              + 16L         // array header
+              + 2L * estimatedStringLength,
+            typeSize = 0L
+          )
         case TypeID.DECIMAL =>
-          16L         // header
-            + 8L      // bigint pointer
-            + 4L + 4L // scale and precision
-            + 16L     // bingint wrapper header
-            + 8L      // array pointer
-            + 4L + 4L // sign and length
-            + 16L     // extra metadata
-            + 32L     // data array
+          (
+            valueSize = 16L // header
+              + 8L          // bigint pointer
+              + 4L + 4L     // scale and precision
+              + 16L         // bingint wrapper header
+              + 8L          // array pointer
+              + 4L + 4L     // sign and length
+              + 16L         // extra metadata
+              + 32L,        // data array
+            typeSize = 12L + 4L + 4L
+          )
         case TypeID.TIMESTAMP =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case TypeID.TIMESTAMP_NANO =>
-          8L      // data
-            + 8L  // pointer
-            + 16L // header
-            + 4L  // padding
+          (
+            valueSize = 8L // data
+              + 8L         // pointer
+              + 16L        // header
+              + 4L,        // padding
+            typeSize = 0L
+          )
         case _ =>
-          16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong // assume large size for structs, lists, geometry, variant and other less common types
+          (
+            valueSize = 16L + 4L + 8L + shaperSettings.objectTypeSizeEstimate.toLong,
+            typeSize = 24L + 256L
+          ) // assume large size for structs, lists, geometry, variant and other less common types
 
-      agg + typeSize
+      agg + cellValueSize.typeSize + cellValueSize.valueSize + dataCellSizeBase
     }
 
   override def estimateChunkSize: Task[(Elements: Int, ElementSize: Long)] = for
     _ <- zlog("Estimating chunk size for the stream")
     _ <- ZIO.when(estimationCache.isEmpty) {
       for
-        tableSizeEstimate <- tablePropertyManager
-          .getTableSize(targetTableShortName)
-        tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
-        tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
-        stringSize <- tablePropertyManager
-          .getColumnSizes(targetTableShortName)
-          .map(v => estimateStringLength(tableSchema, v, tableSizeEstimate.Records))
+        existingEstimation <- tablePropertyManager
+          .getProperty(targetTableShortName, estimatePropertyName)
+          .map(_.map(MemoryBoundShaperEstimation.fromJson))
+        maybeNewEstimation <- ZIO.when(existingEstimation.forall(_.isOutdated(shaperSettings.maxStatisticsAge))) {
+          for
+            tableSizeEstimate   <- tablePropertyManager.getTableSize(targetTableShortName)
+            tablePartitionCount <- tablePropertyManager.getPartitionCount(targetTableShortName)
+            tableSchema         <- tablePropertyManager.getTableSchema(targetTableShortName)
+            stringSize <- tablePropertyManager
+              .getColumnSizes(targetTableShortName)
+              .map(v => estimateStringLength(tableSchema, v, tableSizeEstimate.Records))
 
-        memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(tableSizeEstimate.Records, tableSizeEstimate.Size))
-        rowsSize <- ZIO.succeed(
-          Seq(
-            estimateRowSize(tableSchema, stringSize).toDouble,
-            tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
-          ).max
-        )
-        _ <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
-        _ <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, rowsSize)))
-        _ <- ZIO.succeed(estimationCache.addOne((partsCacheKey, tablePartitionCount.toDouble)))
-        _ <- ZIO.succeed(estimationCache.addOne((stringSizeCacheKey, stringSize.toDouble)))
+            rowsSize <- ZIO.succeed(
+              Seq(
+                estimateRowSize(tableSchema, stringSize).toDouble,
+                tableSizeEstimate.Records / (tableSizeEstimate.Size.toDouble + 1)
+              ).max
+            )
+            estimation <- ZIO.succeed(
+              MemoryBoundShaperEstimation(
+                recordCount = tableSizeEstimate.Records,
+                physicalSize = tableSizeEstimate.Size,
+                rowSize = rowsSize.toLong,
+                partitions = tablePartitionCount,
+                lastUpdate = OffsetDateTime.now()
+              )
+            )
+            _ <- tablePropertyManager.setProperty(targetTableShortName, estimatePropertyName, estimation.toJson)
+            _ <- zlog(
+              "Updated estimation parameters: %s, string field size %s (characters)",
+              estimation.asLogString,
+              stringSize.toString
+            )
+          yield estimation
+        }
+        resultEstimation <- ZIO.succeed(existingEstimation.getOrElse(maybeNewEstimation.get))
+        memoryCutoff <- ZIO.succeed(estimateMemoryCutoff(resultEstimation.recordCount, resultEstimation.physicalSize))
+        _            <- ZIO.succeed(estimationCache.addOne((memCacheKey, memoryCutoff)))
+        _            <- ZIO.succeed(estimationCache.addOne((rowSizeCacheKey, resultEstimation.rowSize)))
+        _            <- ZIO.succeed(estimationCache.addOne((partsCacheKey, resultEstimation.partitions)))
         _ <- zlog(
-          "Computed baseline estimation parameters: memory cutoff %s, row size %s (bytes), string field size %s (characters)",
+          "Will use the following estimation parameters: memory cutoff %s, %s",
           memoryCutoff.toString,
-          rowsSize.toString,
-          stringSize.toString
+          resultEstimation.asLogString
         )
       yield ()
     }
 
     chunkSizeFromRowSize <- ZIO.succeed(
-      getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(
-        rowSizeCacheKey
-      ) + 1) / 2 // estimate for 2 chunks in memory at all times
+      Seq(
+        getTotalFreeMemory * estimationCache(memCacheKey) / (estimationCache(
+          rowSizeCacheKey
+        ) + 1) / 2,                          // estimate for 2 chunks in memory at all times
+        shaperSettings.chunkSizeCap.toDouble // cap at chunkSizeCap rows
+      ).min
     )
     _ <- zlog("Estimated chunk size %s for the current stream", chunkSizeFromRowSize.toInt.toString)
     appliedSize <- ZIO.succeed(
-      if estimationCache("partitions").toInt > 1 then
+      if estimationCache(partsCacheKey).toInt > 1 then
         (
-          Seq(chunkSizeFromRowSize, estimationCache("partitions") / 2).min.toInt,
+          Seq(chunkSizeFromRowSize, estimationCache(partsCacheKey) / 2).min.toInt,
           estimationCache(rowSizeCacheKey).toLong
         )
       else

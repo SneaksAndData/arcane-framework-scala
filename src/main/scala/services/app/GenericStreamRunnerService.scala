@@ -2,12 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.app
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.PluginStreamContext
-import models.settings.staging.StagingTableSettings
 import services.app.base.{StreamLifetimeService, StreamRunnerService}
 import services.bootstrap.base.StreamBootstrapper
+import services.completion.base.StreamFinalizer
 import services.metrics.base.MetricTagProvider
 import services.streaming.base.StreamingGraphBuilder
+import utils.MetadataUtils
 
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Tag, ZIO, ZIOAspect, ZLayer}
@@ -25,6 +25,7 @@ class GenericStreamRunnerService(
     builder: StreamingGraphBuilder,
     lifetimeService: StreamLifetimeService,
     bootstrapper: StreamBootstrapper,
+    finalizer: StreamFinalizer,
     tagProvider: MetricTagProvider
 ) extends StreamRunnerService:
 
@@ -39,14 +40,18 @@ class GenericStreamRunnerService(
       .attempt(tagProvider.getTags)
       .flatMap(tags =>
         (for
-          _ <- zlog("Starting the stream runner")
-          _ <- bootstrapper.cleanupStagingTables
-          _ <- bootstrapper.cleanupOutdatedBackfill
+          version <- MetadataUtils.getFrameworkVersion
+          _       <- zlog("Starting the stream runner using framework version %s", version)
+          _       <- bootstrapper.cleanupStagingTables
+          _       <- bootstrapper.cleanupOutdatedBackfill
 
           _ <- bootstrapper.createTargetTable
           _ <- bootstrapper.createBackFillTable
           _ <- builder.produce().via(streamLifetimeGuard).run(logResults)
-          _ <- zlog("Stream completed")
+          _ <- zlog("Stream completed, finalizing")
+
+          _ <- finalizer.finalizeBackfill
+          _ <- finalizer.finalizeChangeCapture
         yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
       )
 
@@ -64,7 +69,8 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & StreamBootstrapper & MetricTagProvider
+  type Environment = StreamLifetimeService & StreamingGraphBuilder & StreamBootstrapper & StreamFinalizer &
+    MetricTagProvider
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
@@ -79,12 +85,14 @@ object GenericStreamRunnerService:
       builder: StreamingGraphBuilder,
       lifetimeService: StreamLifetimeService,
       bootstrapper: StreamBootstrapper,
+      finalizer: StreamFinalizer,
       tagProvider: MetricTagProvider
   ): GenericStreamRunnerService =
     new GenericStreamRunnerService(
       builder,
       lifetimeService,
       bootstrapper,
+      finalizer,
       tagProvider
     )
 
@@ -96,11 +104,13 @@ object GenericStreamRunnerService:
         lifetimeService <- ZIO.service[StreamLifetimeService]
         builder         <- ZIO.service[StreamingGraphBuilder]
         bootstrapper    <- ZIO.service[StreamBootstrapper]
+        finalizer       <- ZIO.service[StreamFinalizer]
         tagProvider     <- ZIO.service[MetricTagProvider]
       yield GenericStreamRunnerService(
         builder,
         lifetimeService,
         bootstrapper,
+        finalizer,
         tagProvider
       )
     }

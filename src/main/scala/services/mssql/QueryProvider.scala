@@ -4,6 +4,7 @@ package services.mssql
 import models.schemas.MergeKeyField
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlStreamingSource}
+import services.mssql.versioning.MsSqlWatermark
 
 import zio.{Task, ZIO}
 
@@ -116,7 +117,8 @@ object QueryProvider:
       yield query
     }
 
-  def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery =
+  def getFindMatchingTablesQuery(tablePrefix: String, schemaName: String): MsSqlQuery = {
+    val escaped = tablePrefix.replace("_", "\\_")
     s"""SELECT 
        |  t.name
        |FROM 
@@ -124,7 +126,9 @@ object QueryProvider:
        |INNER JOIN 
        |    sys.schemas s ON t.schema_id = s.schema_id and s.name = '$schemaName'
        |WHERE 
-       |    t.name LIKE '$tablePrefix%'""".stripMargin
+       |    t.name LIKE '$escaped%'
+       |ESCAPE '\\'""".stripMargin
+  }
 
   def getCreatePrimaryKeyQuery(
       shardSchemaName: String,
@@ -211,6 +215,28 @@ object QueryProvider:
     */
   def getCurrentVersionQuery: MsSqlQuery =
     s"SELECT CHANGE_TRACKING_CURRENT_VERSION()"
+
+  def getVersionInRangeQuery(
+      tableSchemaName: String,
+      tableName: String,
+      startFrom: MsSqlWatermark,
+      endAt: MsSqlWatermark,
+      rangeLimit: Int
+  ): MsSqlQuery =
+    s"""
+       SELECT
+       |    ISNULL(MAX(SYS_CHANGE_VERSION), ${endAt.version})
+       |FROM
+       |(
+       |    SELECT DISTINCT TOP $rangeLimit
+       |        CT.SYS_CHANGE_VERSION
+       |    FROM
+       |        CHANGETABLE(CHANGES [$tableSchemaName].[$tableName], ${startFrom.version}) AS CT
+       |    WHERE
+       |        CT.SYS_CHANGE_VERSION <= ${endAt.version}
+       |    ORDER BY
+       |        CT.SYS_CHANGE_VERSION ASC
+       |) as sorted_versions""".stripMargin
 
   private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
     cs.filter((name, isPrimaryKey) => isPrimaryKey)
