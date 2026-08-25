@@ -33,6 +33,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
     sourceSchema: Option[String],
+    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification] = Seq.empty,
     dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
 ) extends BlobListingStreamingSource[PathType](
@@ -42,13 +43,11 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       nameGenerator,
       primaryKeys,
       tempStoragePath,
+      fieldSelector,
       modifications,
       dataRowSchemaVersion
     ):
 
-  /** Compatibility constructor for the 2.3 field-selection API. Field filtering is applied by the shared 2.4
-    * processing pipeline.
-    */
   def this(
       sourcePath: PathType,
       shardStoragePath: PathType,
@@ -59,7 +58,19 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       useNameMapping: Boolean,
       sourceSchema: Option[String],
       fieldSelector: FieldSelectionRuleSettings
-  ) = this(sourcePath, shardStoragePath, storageClient, nameGenerator, tempStoragePath, primaryKeys, useNameMapping, sourceSchema, Seq.empty, DataRowSchemaVersion.V0)
+  ) = this(
+    sourcePath,
+    shardStoragePath,
+    storageClient,
+    nameGenerator,
+    tempStoragePath,
+    primaryKeys,
+    useNameMapping,
+    sourceSchema,
+    fieldSelector,
+    Seq.empty,
+    DataRowSchemaVersion.V0
+  )
 
   override protected def getSourceSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
@@ -91,7 +102,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     originalFields: Seq[IndexedField] = summon[
       Conversion[org.apache.iceberg.Schema, Seq[IndexedField]]
     ].apply(icebergSchema)
-    originalSchema = ArcaneSchema(originalFields)
+    originalSchema = applyFieldSelector(ArcaneSchema(originalFields))
     nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
   yield
     if dataRowSchemaVersion == DataRowSchemaVersion.V0 then
@@ -125,6 +136,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
           dataRowSchemaVersion == DataRowSchemaVersion.V0
         )
       )
+      .map(applyFieldSelector)
       .mapZIO(applyDataRowModifications),
     schema
   )
@@ -155,6 +167,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
                     dataRowSchemaVersion == DataRowSchemaVersion.V0
                   )
                 )
+                .map(applyFieldSelector)
                 .mapZIO(applyDataRowModifications)
             )
         },
@@ -192,6 +205,7 @@ object BlobListingParquetStreamingSource:
         primaryKeys = sourceSettings.primaryKeys,
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
+        fieldSelector = context.source.fieldSelectionRule,
         modifications = context.source.dataRowSchemaVersion.modifications,
         dataRowSchemaVersion = context.source.dataRowSchemaVersion
       )

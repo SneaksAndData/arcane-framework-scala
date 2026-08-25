@@ -30,6 +30,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]],
+    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification] = Seq.empty,
     dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
 ) extends BlobListingStreamingSource[PathType](
@@ -39,13 +40,11 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       nameGenerator,
       primaryKeys,
       tempStoragePath,
+      fieldSelector,
       modifications,
       dataRowSchemaVersion
     ):
 
-  /** Compatibility constructor for the 2.3 field-selection API. Field filtering is applied by the shared 2.4
-    * processing pipeline.
-    */
   def this(
       sourcePath: PathType,
       shardStoragePath: PathType,
@@ -57,7 +56,20 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       jsonPointerExpr: Option[String],
       jsonArrayPointers: Map[String, Map[String, String]],
       fieldSelector: FieldSelectionRuleSettings
-  ) = this(sourcePath, shardStoragePath, storageClient, nameGenerator, tempStoragePath, primaryKeys, avroSchemaString, jsonPointerExpr, jsonArrayPointers, Seq.empty, DataRowSchemaVersion.V0)
+  ) = this(
+    sourcePath,
+    shardStoragePath,
+    storageClient,
+    nameGenerator,
+    tempStoragePath,
+    primaryKeys,
+    avroSchemaString,
+    jsonPointerExpr,
+    jsonArrayPointers,
+    fieldSelector,
+    Seq.empty,
+    DataRowSchemaVersion.V0
+  )
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
@@ -68,13 +80,14 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
 
   override protected def getSourceSchema: Task[SchemaType] = sourceSchema.map { avroSchema =>
     val originalSchema: ArcaneSchema = avroSchema
+    val schemaAfterSelection         = applyFieldSelector(originalSchema)
     if dataRowSchemaVersion == DataRowSchemaVersion.V0 then
-      originalSchema ++ Seq(
+      schemaAfterSelection ++ Seq(
         MergeKeyField,
         BlobBatchCommons.versionField
       )
     else
-      originalSchema ++ Seq(
+      schemaAfterSelection ++ Seq(
         BlobBatchCommons.versionField
       )
   }
@@ -101,6 +114,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
           dataRowSchemaVersion == DataRowSchemaVersion.V0
         )
       )
+      .map(applyFieldSelector)
       .mapZIO(applyDataRowModifications),
     schema
   )
@@ -132,6 +146,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
                     dataRowSchemaVersion == DataRowSchemaVersion.V0
                   )
                 )
+                .map(applyFieldSelector)
                 .mapZIO(applyDataRowModifications)
             )
         },
@@ -169,6 +184,7 @@ object BlobListingJsonStreamingSource:
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
         jsonArrayPointers = sourceSettings.jsonArrayPointers,
+        fieldSelector = context.source.fieldSelectionRule,
         modifications = context.source.dataRowSchemaVersion.modifications,
         dataRowSchemaVersion = context.source.dataRowSchemaVersion
       )

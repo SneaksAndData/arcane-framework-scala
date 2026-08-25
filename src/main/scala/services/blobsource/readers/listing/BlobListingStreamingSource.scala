@@ -3,6 +3,8 @@ package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
+import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -24,6 +26,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     nameGenerator: NameGenerator,
     primaryKeys: Seq[String],
     tempStoragePath: String,
+    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification],
     dataRowSchemaVersion: DataRowSchemaVersion
 ) extends BlobStreamingSource(modifications, dataRowSchemaVersion):
@@ -133,3 +136,29 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
         .rechunk(parallelism * 10)
         .mapChunksZIO(files => filesToStream(files, changeSetSchema).map(stream => Chunk(stream)))
     }
+
+  // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
+  // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.
+  final protected def applyFieldSelector(schema: ArcaneSchema): ArcaneSchema =
+    fieldSelector.rule match
+      case AllFieldsImpl(_) => schema
+      case IncludeFieldsImpl(includeFields) =>
+        schema.filter(f =>
+          includeFields.fields.exists(_.equalsIgnoreCase(f.name)) || fieldSelector.essentialFields.exists(
+            _.equalsIgnoreCase(f.name)
+          )
+        )
+      case ExcludeFieldsImpl(excludeFields) =>
+        schema.filterNot(f => excludeFields.fields.exists(_.equalsIgnoreCase(f.name)))
+
+  final protected def applyFieldSelector(row: DataRow): DataRow =
+    fieldSelector.rule match
+      case AllFieldsImpl(_) => row
+      case IncludeFieldsImpl(includeFields) =>
+        row.filter(cell =>
+          includeFields.fields.exists(_.equalsIgnoreCase(cell.name)) || fieldSelector.essentialFields.exists(
+            _.equalsIgnoreCase(cell.name)
+          )
+        )
+      case ExcludeFieldsImpl(excludeFields) =>
+        row.filterNot(cell => excludeFields.fields.exists(_.equalsIgnoreCase(cell.name)))
