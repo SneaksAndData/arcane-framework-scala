@@ -4,12 +4,13 @@ package services.synapse.base
 import extensions.BufferedReaderExtensions.*
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
+import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import services.base.{SchemaProvider, StreamingSource}
+import models.cdm.CSVParser
+import services.base.{SchemaProvider, DefaultStreamingSource}
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
@@ -29,11 +30,14 @@ final class SynapseLinkStreamingSource(
     location: AdlsStoragePath,
     entityName: String,
     reader: AzureBlobStorageReader,
-    fieldSelector: FieldSelectionRuleSettings
-) extends StreamingSource:
+    fieldSelector: FieldSelectionRuleSettings,
+    modifications: Seq[DataRowModification] = Seq.empty
+) extends DefaultStreamingSource(modifications, DataRowSchemaVersion.V0):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
+
+  override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(Seq("Id"))
 
   // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
   // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.
@@ -61,19 +65,19 @@ final class SynapseLinkStreamingSource(
       case ExcludeFieldsImpl(excludeFields) =>
         row.filterNot(cell => excludeFields.fields.exists(_.equalsIgnoreCase(cell.name)))
 
-  private def getFullSchema: Task[ArcaneSchema] =
-    SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
-
   /** Schema here comes from root-level model.json
     */
-  override def getSchema: Task[ArcaneSchema] =
-    getFullSchema.map(applyFieldSelector)
+  override protected def getSourceSchema: Task[ArcaneSchema] =
+    SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
+      .map(applyFieldSelector)
+      .flatMap(applySchemaModifications)
 
   /** Schema from batch-level model.json
     */
   private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, (location + batchFolderName).toHdfsPath, entityName).getSchema
       .map(applyFieldSelector)
+      .flatMap(applySchemaModifications)
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
@@ -90,43 +94,44 @@ final class SynapseLinkStreamingSource(
     .streamPrefixes(location + batchFolderName + entityName + "/")
     .filter(sb => sb.name.endsWith(".csv"))
 
-  private def enrichWithSchema(prefix: String): ZStream[Any, Throwable, SchemaEnrichedBlob] = {
+  private def enrichWithSchema(
+      prefix: String,
+      batchSchema: ArcaneSchema
+  ): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     ZStream
-      .fromZIO(for
-        files <- getBatchFiles(prefix).runCollect // materialize CSV list to avoid double-querying storage
-        _ <- zlog(
-          "Found %s CSV files with changes for entity %s at batch folder %s",
-          files.size.toString,
-          entityName,
-          prefix
-        )
-        dataBlobs <- ZIO.when(files.nonEmpty) {
-          for
-            // getSchema here performs runtime check for model.json for the batch to be parseable and readable
-            // this will hard fail compared to `hasSchemaFile` just filtering invalid batches out.
-            // this allows to separate batch filtering for eligibility for processing, from batch data correctness checks
-            orderedFiles <- SynapseEntitySchemaProvider(
-              reader,
-              (location + prefix).toHdfsPath,
-              entityName
-            ).getSchema.map(schema =>
-              files
-                // we need to emit deletions, which are in files named 1.csv, last
-                // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
-                .sortBy(b => b.name.split("/").last.replace(".csv", "").toInt)(using Ordering.Int.reverse)
-                .map(csvBlob => SchemaEnrichedBlob(csvBlob, schema))
-            )
-          yield orderedFiles
-        }
-      yield dataBlobs)
-      .flatMap {
-        case Some(files) =>
-          zlogStream("Starting stream of the following: %s", files.map(_.blob.name).mkString(",")) *> ZStream
-            .fromIterable(files)
-        case None =>
-          zlogStream("Batch %s has no changes for the entity %s", prefix, entityName) *> ZStream.empty
+      .fromZIO {
+        for
+          files <- getBatchFiles(prefix).runCollect
+          _ <- zlog(
+            "Found %s CSV files with changes for entity %s at batch folder %s",
+            files.size.toString,
+            entityName,
+            prefix
+          )
+        yield files
       }
-  }
+      .flatMap { files =>
+        if files.nonEmpty then
+          val schemaEnrichedFiles =
+            files
+              // we need to emit deletions, which are in files named 1.csv, last
+              // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
+              .sortBy(
+                _.name.split("/").last.replace(".csv", "").toInt
+              )(using Ordering.Int.reverse)
+              .map(blob => SchemaEnrichedBlob(blob, batchSchema))
+
+          zlogStream(
+            "Starting stream of the following: %s",
+            schemaEnrichedFiles.map(_.blob.name).mkString(",")
+          ) *> ZStream.fromIterable(schemaEnrichedFiles)
+        else
+          zlogStream(
+            "Batch %s has no changes for the entity %s",
+            prefix,
+            entityName
+          ) *> ZStream.empty
+      }
 
   /** Select ALL CSV files that correspond to the entity changes
     *
@@ -136,8 +141,11 @@ final class SynapseLinkStreamingSource(
     * @return
     *   A stream of rows for this table
     */
-  private def getEntityChangeData(version: SynapseWatermark): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    enrichWithSchema(version.prefix)
+  private def getEntityChangeData(
+      version: SynapseWatermark,
+      batchSchema: ArcaneSchema
+  ): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    enrichWithSchema(version.prefix, batchSchema)
 
   private def getFileStream(
       seb: SchemaEnrichedBlob
@@ -157,7 +165,7 @@ final class SynapseLinkStreamingSource(
       .flatMap(javaReader => javaReader.streamMultilineCsv)
       .map(_.replace("\n", ""))
       .map(content => SchemaEnrichedContent(content, fileSchema))
-      .mapZIO(sec => ZIO.attempt(implicitly[DataRow](using sec.content, sec.schema)))
+      .mapZIO(sec => ZIO.attempt(CSVParser.parseCSVLineToRow(sec.content, sec.schema)))
       .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName with", e))
 
   private def isValidSynapseBatch(prefix: String): ZIO[Any, Throwable, Boolean] = hasSchemaFile(prefix)
@@ -189,7 +197,7 @@ final class SynapseLinkStreamingSource(
   def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
-    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm), batchSchema)))
+    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm, batchSchema), batchSchema)))
 
   /** Converts an arbitrary timestamp into a matching watermark
     * @return
@@ -202,13 +210,17 @@ final class SynapseLinkStreamingSource(
     *
     * @return
     */
-  private def getChangesForVersion(version: SynapseWatermark): ZStream[Any, Throwable, DataRow] =
-    getEntityChangeData(version)
+  private def getChangesForVersion(
+      version: SynapseWatermark,
+      batchSchema: ArcaneSchema
+  ): ZStream[Any, Throwable, DataRow] =
+    getEntityChangeData(version, batchSchema)
       .mapZIO(getFileStream)
       .flatMap { case (fileStream, fileSchema, blob) =>
         getTableChanges(fileStream, fileSchema, blob.name)
       }
       .map(convertRow)
+      .mapZIO(applyDataRowModifications)
 
   def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
@@ -217,7 +229,9 @@ final class SynapseLinkStreamingSource(
     watermark <- ZIO.succeed(StoredBlob(name = folder, createdOn = None).asWatermark)
     result <- ZIO.ifZIO(isValidSynapseBatch(watermark.prefix))(
       getBatchSchema(watermark.prefix)
-        .map(batchSchema => Some((stream = (getChangesForVersion(watermark), batchSchema), source = watermark.prefix))),
+        .map(batchSchema =>
+          Some((stream = (getChangesForVersion(watermark, batchSchema), batchSchema), source = watermark.prefix))
+        ),
       ZIO.succeed(None)
     )
   yield result
@@ -303,7 +317,7 @@ final class SynapseLinkStreamingSource(
       .filterZIO(wm => isValidSynapseBatch(wm.prefix))
       .mapZIO(wm =>
         getBatchSchema(wm.prefix)
-          .map(batchSchema => (stream = (getChangesForVersion(wm), batchSchema), source = wm.prefix))
+          .map(batchSchema => (stream = (getChangesForVersion(wm, batchSchema), batchSchema), source = wm.prefix))
       )
 
 object SynapseLinkStreamingSource:
