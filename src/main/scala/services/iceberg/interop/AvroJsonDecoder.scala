@@ -35,17 +35,26 @@ final class MissingFieldException(msg: String) extends RuntimeException(msg)
   * @param tolerateMissingFields
   *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields with
   *   Null values.
+  *
+  * @param decodeObjectsAsVariant
+  *   Whether `record`, `map` and `array` fields are rebuilt as Iceberg variants instead of being decoded by Avro. Off
+  *   by default, so that callers writing into non-variant columns keep receiving the Avro representation
+  *   (`GenericRecord`/`java.util.Map`/`GenericArray`) they have always been given. Enable it when the sink declares
+  *   such columns as `Types.VariantType`, since its parquet writer casts the cell value to
+  *   [[org.apache.iceberg.variants.Variant]] outright.
   */
 class AvroJsonDecoder(
     schema: org.apache.avro.Schema,
     jsonPointerExpr: Option[String] = None,
     jsonArrayPointers: Map[String, Map[String, String]] = Map(),
-    tolerateMissingFields: Boolean = true
+    tolerateMissingFields: Boolean = true,
+    decodeObjectsAsVariant: Boolean = false
 ):
   import AvroJsonDecoder.isVariantField
 
   /** Fields carried as an Iceberg variant instead of being decoded by Avro, in schema declaration order. */
-  private val variantFields: Seq[org.apache.avro.Schema.Field] = schema.getFields.asScala.filter(isVariantField).toSeq
+  private val variantFields: Seq[org.apache.avro.Schema.Field] =
+    if decodeObjectsAsVariant then schema.getFields.asScala.filter(isVariantField).toSeq else Seq.empty
 
   private val variantFieldNames: Set[String] = variantFields.map(_.name()).toSet
 
@@ -292,3 +301,12 @@ object AvroJsonDecoder:
       jsonArrayPointers: Map[String, Map[String, String]],
       tolerateMissingFields: Boolean
   ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields)
+
+  def apply(
+      schema: org.apache.avro.Schema,
+      jsonPointerExpr: Option[String],
+      jsonArrayPointers: Map[String, Map[String, String]],
+      tolerateMissingFields: Boolean,
+      decodeObjectsAsVariant: Boolean
+  ): AvroJsonDecoder =
+    new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields, decodeObjectsAsVariant)

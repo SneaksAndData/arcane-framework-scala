@@ -290,7 +290,9 @@ class PullStreamingSource(
       schema = avroSchema,
       jsonPointerExpr = jsonPointer,
       jsonArrayPointers = jsonArrayPointers,
-      tolerateMissingFields = false
+      tolerateMissingFields = false,
+      // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant
+      decodeObjectsAsVariant = true
     )
 
     ZStream

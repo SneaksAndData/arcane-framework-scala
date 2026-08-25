@@ -89,7 +89,8 @@ object JsonVariantConverterTests extends ZIOSpecDefault:
       test("emits a Variant value for a nested record field") {
         val decoder = new AvroJsonDecoder(
           schema = new org.apache.avro.Schema.Parser().parse(nestedRecordSchema),
-          tolerateMissingFields = false
+          tolerateMissingFields = false,
+          decodeObjectsAsVariant = true
         )
 
         val rows        = decoder.parse("""{"id":"evt_001","payload":{"eventType":"Producer1Event","sequence":3}}""")
@@ -107,7 +108,8 @@ object JsonVariantConverterTests extends ZIOSpecDefault:
       test("leaves scalar cells untouched") {
         val decoder = new AvroJsonDecoder(
           schema = new org.apache.avro.Schema.Parser().parse(nestedRecordSchema),
-          tolerateMissingFields = false
+          tolerateMissingFields = false,
+          decodeObjectsAsVariant = true
         )
 
         val rows = decoder.parse("""{"id":"evt_001","payload":{"eventType":"a","sequence":1}}""")
@@ -125,8 +127,9 @@ object JsonVariantConverterTests extends ZIOSpecDefault:
           "events"
         )
 
-        val rows = new AvroJsonDecoder(schema = sinkSchema, tolerateMissingFields = false)
-          .parse("""{"id":"evt_001","payload":{"eventType":"Producer1Event","sequence":3}}""")
+        val rows =
+          new AvroJsonDecoder(schema = sinkSchema, tolerateMissingFields = false, decodeObjectsAsVariant = true)
+            .parse("""{"id":"evt_001","payload":{"eventType":"Producer1Event","sequence":3}}""")
 
         val obj = rows.head.find(_.name == "payload").get.value.asInstanceOf[Variant].value().asObject()
 
@@ -138,7 +141,8 @@ object JsonVariantConverterTests extends ZIOSpecDefault:
       test("records a missing nested document as a null variant") {
         val decoder = new AvroJsonDecoder(
           schema = new org.apache.avro.Schema.Parser().parse(nestedRecordSchema),
-          tolerateMissingFields = true
+          tolerateMissingFields = true,
+          decodeObjectsAsVariant = true
         )
 
         val rows = decoder.parse("""{"id":"evt_001"}""")
