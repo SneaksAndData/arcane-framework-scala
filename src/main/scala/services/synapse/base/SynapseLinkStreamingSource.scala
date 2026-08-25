@@ -325,9 +325,10 @@ object SynapseLinkStreamingSource:
       reader: AzureBlobStorageReader,
       name: String,
       location: AdlsStoragePath,
-      fieldSelector: FieldSelectionRuleSettings
+      fieldSelector: FieldSelectionRuleSettings,
+      modifications: Seq[DataRowModification] = Seq.empty
   ): SynapseLinkStreamingSource =
-    new SynapseLinkStreamingSource(location, name, reader, fieldSelector)
+    new SynapseLinkStreamingSource(location, name, reader, fieldSelector, modifications)
 
   private type SettingsExtractor = PluginStreamContext => MicrosoftSynapseLinkConnectionSettings
 

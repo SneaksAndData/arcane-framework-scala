@@ -3,6 +3,7 @@ package tests.synapse
 
 import models.schemas.{DataRow, MergeKeyField}
 import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
+import models.settings.sources.{SurrogateMergeKeyImpl, SurrogateMergeKey}
 import services.metrics.DeclaredMetrics
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
@@ -72,7 +73,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          SynapseLinkStreamingSource(
+            storageReader,
+            sourceTableName,
+            sourceRoot,
+            allFieldsSelector,
+            List(SurrogateMergeKeyImpl(SurrogateMergeKey()))
+          )
         )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
@@ -113,7 +120,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          SynapseLinkStreamingSource(
+            storageReader,
+            sourceTableName,
+            sourceRoot,
+            allFieldsSelector,
+            List(SurrogateMergeKeyImpl(SurrogateMergeKey()))
+          )
         )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(

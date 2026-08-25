@@ -51,8 +51,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path, allFieldsSelector))
         schema            <- synapseLinkReader.getSchema
-      // 25 fields plus ARCANE_MERGE_KEY
-      yield assertTrue(schema.size == 26)
+      yield assertTrue(schema.size == 25)
     },
     test("fails on incorrect schema") {
       for

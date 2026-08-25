@@ -28,15 +28,4 @@ class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
       result.entities(2).attributes.size should be(16)
     )
   }
-
-  it should "generate valid ArcaneSchema" in {
-    val serialized = Using(Source.fromURL(getClass.getResource("/cdm_model.json"))) {
-      _.getLines().mkString("\n")
-    }.get
-
-    val result: Seq[ArcaneSchema] = read[SimpleCdmModel](serialized).entities.map(implicitly)
-
-    noException should be thrownBy result.map(schema => schema.mergeKey).toList
-    forAll(result.map(schema => schema.mergeKey.asInstanceOf[IndexedMergeKeyField].fieldId == schema.length))
-  }
 }
