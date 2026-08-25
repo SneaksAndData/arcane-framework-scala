@@ -38,6 +38,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
       override val changeCaptureInterval: Duration     = Duration.ofSeconds(1)
       override val changeCaptureJitterVariance: Double = 0.0001
       override val changeCaptureJitterSeed: Long       = 0
+      override val changeCaptureRangeLimit: Int        = 1000
 
   private val primaryKeyField = "producer"
   private val primaryKeyValue = "producer1"
@@ -143,7 +144,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 sinkPropertyManager,
                 defaultSinkSettings,
                 TestThroughputShaperBuilder.default(sinkPropertyManager, defaultSinkSettings),
-                TestSourceBufferingSettings
+                TestSourceBufferingSettings,
+                DeclaredMetrics()
               )
             )
             // seed the sink table watermark so the streaming provider has a starting point
@@ -195,7 +197,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 sinkPropertyManager,
                 defaultSinkSettings,
                 TestThroughputShaperBuilder.default(sinkPropertyManager, defaultSinkSettings),
-                TestSourceBufferingSettings
+                TestSourceBufferingSettings,
+                DeclaredMetrics()
               )
             )
             _ <- icebergUtil.prepareWatermark(sourceTableName, PullStreamWatermark.epoch, Some(schema))

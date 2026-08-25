@@ -114,6 +114,10 @@ final class DynamodbStorageReader(
     .rechunk(1)
     .mapChunks(v => v.map((rootPrefix.bucket, _)))
 
+  override def streamPrefixes(rootPrefix: String): ZStream[Any, Throwable, StoredBlob] = ZStream
+    .from(S3StoragePath.applySafe(rootPrefix).get)
+    .flatMap(streamPrefixes)
+
   override def streamBlob(blobPath: S3StoragePath): ZStream[Any, Throwable, Byte] =
     zlogStream("Streaming file %s/%s content (bytes) from S3", blobPath.bucket, blobPath.objectKey).flatMap(_ =>
       ZStream
