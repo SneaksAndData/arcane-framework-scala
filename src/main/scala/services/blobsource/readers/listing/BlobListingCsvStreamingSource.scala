@@ -3,7 +3,7 @@ package services.blobsource.readers.listing
 
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.FieldSelectionRuleSettings
-import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
+import models.settings.sources.{DataRowModification}
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
@@ -21,8 +21,7 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     tempStoragePath: String,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification] = Seq.empty,
-    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
+    modifications: Seq[DataRowModification] = Seq.empty
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -31,31 +30,8 @@ class BlobListingCsvStreamingSource[PathType <: BlobPath](
       primaryKeys,
       tempStoragePath,
       fieldSelector,
-      modifications,
-      dataRowSchemaVersion
+      modifications
     ):
-
-  def this(
-      sourcePath: PathType,
-      shardStoragePath: PathType,
-      storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
-      nameGenerator: NameGenerator,
-      schema: ArcaneSchema,
-      primaryKeys: Seq[String],
-      tempStoragePath: String,
-      fieldSelector: FieldSelectionRuleSettings
-  ) = this(
-    sourcePath,
-    shardStoragePath,
-    storageClient,
-    nameGenerator,
-    schema,
-    primaryKeys,
-    tempStoragePath,
-    fieldSelector,
-    Seq.empty,
-    DataRowSchemaVersion.V0
-  )
 
   override protected def getSourceSchema: Task[SchemaType] = ???
 

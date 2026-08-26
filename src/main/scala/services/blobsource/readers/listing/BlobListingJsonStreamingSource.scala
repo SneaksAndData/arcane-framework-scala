@@ -3,9 +3,9 @@ package services.blobsource.readers.listing
 
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
-import models.schemas.{ArcaneSchema, DataRow, MergeKeyField}
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.FieldSelectionRuleSettings
-import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
+import models.settings.sources.DataRowModification
 import models.settings.sources.blob.JsonBlobSourceSettings
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
@@ -31,8 +31,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification] = Seq.empty,
-    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
+    modifications: Seq[DataRowModification] = Seq.empty
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -41,35 +40,8 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       primaryKeys,
       tempStoragePath,
       fieldSelector,
-      modifications,
-      dataRowSchemaVersion
+      modifications
     ):
-
-  def this(
-      sourcePath: PathType,
-      shardStoragePath: PathType,
-      storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
-      nameGenerator: NameGenerator,
-      tempStoragePath: String,
-      primaryKeys: Seq[String],
-      avroSchemaString: String,
-      jsonPointerExpr: Option[String],
-      jsonArrayPointers: Map[String, Map[String, String]],
-      fieldSelector: FieldSelectionRuleSettings
-  ) = this(
-    sourcePath,
-    shardStoragePath,
-    storageClient,
-    nameGenerator,
-    tempStoragePath,
-    primaryKeys,
-    avroSchemaString,
-    jsonPointerExpr,
-    jsonArrayPointers,
-    fieldSelector,
-    Seq.empty,
-    DataRowSchemaVersion.V0
-  )
 
   private def sourceSchema: Task[AvroSchema] = for
     parser <- ZIO.succeed(org.apache.avro.Schema.Parser())
@@ -81,15 +53,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
   override protected def getSourceSchema: Task[SchemaType] = sourceSchema.map { avroSchema =>
     val originalSchema: ArcaneSchema = avroSchema
     val schemaAfterSelection         = applyFieldSelector(originalSchema)
-    if dataRowSchemaVersion == DataRowSchemaVersion.V0 then
-      schemaAfterSelection ++ Seq(
-        MergeKeyField,
-        BlobBatchCommons.versionField
-      )
-    else
-      schemaAfterSelection ++ Seq(
-        BlobBatchCommons.versionField
-      )
+    schemaAfterSelection ++ Seq(BlobBatchCommons.versionField)
   }
 
   /** Gets an empty schema.
@@ -105,16 +69,8 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
   yield (
     scanner.getRows
-      .map(
-        BlobBatchCommons.enrichBatchRow(
-          _,
-          sourceFile.createdOn.getOrElse(0),
-          primaryKeys,
-          mergeKeyHasher(),
-          dataRowSchemaVersion == DataRowSchemaVersion.V0
-        )
-      )
       .map(applyFieldSelector)
+      .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
       .mapZIO(applyDataRowModifications),
     schema
   )
@@ -137,16 +93,8 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
             }
             .flatMap(
               _.getRows
-                .map(
-                  BlobBatchCommons.enrichBatchRow(
-                    _,
-                    sourceFile.createdOn.getOrElse(0),
-                    primaryKeys,
-                    mergeKeyHasher(),
-                    dataRowSchemaVersion == DataRowSchemaVersion.V0
-                  )
-                )
                 .map(applyFieldSelector)
+                .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
                 .mapZIO(applyDataRowModifications)
             )
         },
@@ -185,7 +133,6 @@ object BlobListingJsonStreamingSource:
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
         jsonArrayPointers = sourceSettings.jsonArrayPointers,
         fieldSelector = context.source.fieldSelectionRule,
-        modifications = context.source.dataRowSchemaVersion.modifications,
-        dataRowSchemaVersion = context.source.dataRowSchemaVersion
+        modifications = context.source.dataRowSchemaVersion.modifications
       )
     }

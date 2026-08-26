@@ -8,7 +8,7 @@ import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
+import models.settings.sources.DataRowModification
 import services.iceberg.interop.ParquetScanner
 import services.iceberg.{given_Conversion_Schema_Seq, inferMergeKeyIndex}
 import services.naming.NameGenerator
@@ -34,8 +34,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     useNameMapping: Boolean,
     sourceSchema: Option[String],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification] = Seq.empty,
-    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
+    modifications: Seq[DataRowModification] = Seq.empty
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -44,33 +43,8 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       primaryKeys,
       tempStoragePath,
       fieldSelector,
-      modifications,
-      dataRowSchemaVersion
+      modifications
     ):
-
-  def this(
-      sourcePath: PathType,
-      shardStoragePath: PathType,
-      storageClient: BlobStorageReader[PathType] & BlobStorageWriter[PathType],
-      nameGenerator: NameGenerator,
-      tempStoragePath: String,
-      primaryKeys: Seq[String],
-      useNameMapping: Boolean,
-      sourceSchema: Option[String],
-      fieldSelector: FieldSelectionRuleSettings
-  ) = this(
-    sourcePath,
-    shardStoragePath,
-    storageClient,
-    nameGenerator,
-    tempStoragePath,
-    primaryKeys,
-    useNameMapping,
-    sourceSchema,
-    fieldSelector,
-    Seq.empty,
-    DataRowSchemaVersion.V0
-  )
 
   override protected def getSourceSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
@@ -104,16 +78,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     ].apply(icebergSchema)
     originalSchema = applyFieldSelector(ArcaneSchema(originalFields))
     nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
-  yield
-    if dataRowSchemaVersion == DataRowSchemaVersion.V0 then
-      originalSchema ++ Seq(
-        IndexedMergeKeyField(nextFieldId),
-        BlobBatchCommons.indexedVersionField(nextFieldId + 1)
-      )
-    else
-      originalSchema ++ Seq(
-        BlobBatchCommons.indexedVersionField(nextFieldId)
-      )
+  yield originalSchema ++ Seq(BlobBatchCommons.indexedVersionField(nextFieldId))
 
   /** Gets an empty schema.
     *
@@ -127,16 +92,8 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
   yield (
     scanner.getRows
-      .map(
-        BlobBatchCommons.enrichBatchRow(
-          _,
-          sourceFile.createdOn.getOrElse(0),
-          primaryKeys,
-          mergeKeyHasher(),
-          dataRowSchemaVersion == DataRowSchemaVersion.V0
-        )
-      )
       .map(applyFieldSelector)
+      .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
       .mapZIO(applyDataRowModifications),
     schema
   )
@@ -158,16 +115,8 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
             }
             .flatMap(
               _.getRows
-                .map(
-                  BlobBatchCommons.enrichBatchRow(
-                    _,
-                    sourceFile.createdOn.getOrElse(0),
-                    primaryKeys,
-                    mergeKeyHasher(),
-                    dataRowSchemaVersion == DataRowSchemaVersion.V0
-                  )
-                )
                 .map(applyFieldSelector)
+                .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
                 .mapZIO(applyDataRowModifications)
             )
         },
@@ -206,7 +155,6 @@ object BlobListingParquetStreamingSource:
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
         fieldSelector = context.source.fieldSelectionRule,
-        modifications = context.source.dataRowSchemaVersion.modifications,
-        dataRowSchemaVersion = context.source.dataRowSchemaVersion
+        modifications = context.source.dataRowSchemaVersion.modifications
       )
     }

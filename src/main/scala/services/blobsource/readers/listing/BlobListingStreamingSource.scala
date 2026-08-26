@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
+import models.settings.sources.DataRowModification
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import services.blobsource.readers.BlobStreamingSource
@@ -15,7 +15,6 @@ import services.streaming.base.StructuredZStream
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
-import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -27,9 +26,8 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     tempStoragePath: String,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification],
-    dataRowSchemaVersion: DataRowSchemaVersion
-) extends BlobStreamingSource(modifications, dataRowSchemaVersion):
+    modifications: Seq[DataRowModification]
+) extends BlobStreamingSource(modifications):
 
   protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()
   override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(primaryKeys)
@@ -46,10 +44,6 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
       )
     )
     .runDrain
-
-  /** SHA-256 hasher.
-    */
-  protected def mergeKeyHasher(): MessageDigest = MessageDigest.getInstance("SHA-256")
 
   protected def downloadSourceFile(sourceFile: StoredBlob): Task[String] =
     storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)

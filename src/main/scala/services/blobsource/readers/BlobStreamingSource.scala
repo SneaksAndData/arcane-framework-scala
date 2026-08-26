@@ -17,10 +17,8 @@ import java.util.Base64
 
 /** Base abstract class for all blob source readers
   */
-abstract class BlobStreamingSource(
-    modifications: Seq[DataRowModification],
-    dataRowSchemaVersion: DataRowSchemaVersion
-) extends DefaultStreamingSource(modifications, dataRowSchemaVersion):
+abstract class BlobStreamingSource(modifications: Seq[DataRowModification])
+    extends DefaultStreamingSource(modifications, DataRowSchemaVersion.V0):
 
   final override type ShardMetadata = Seq[String]
   final override type WatermarkType = BlobSourceWatermark
