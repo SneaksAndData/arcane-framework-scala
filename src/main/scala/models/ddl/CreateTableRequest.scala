@@ -55,7 +55,7 @@ object CreateTableRequest:
   val FormatVersionProperty = "format-version"
 
   /** Lowest format version that admits a `variant` column. */
-  val VariantFormatVersion = "3"
+  val IcebergFormatVersion = "3"
 
   /** Whether the type, or anything nested inside it, is a variant. */
   private[ddl] def containsVariant(icebergType: Type): Boolean = icebergType match
