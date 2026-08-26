@@ -17,7 +17,7 @@ import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.versioning.SynapseWatermark
-import services.synapse.{SchemaEnrichedBlob, SchemaEnrichedContent, SynapseEntitySchemaProvider}
+import services.synapse.SynapseEntitySchemaProvider
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -94,10 +94,7 @@ final class SynapseLinkStreamingSource(
     .streamPrefixes(location + batchFolderName + entityName + "/")
     .filter(sb => sb.name.endsWith(".csv"))
 
-  private def enrichWithSchema(
-      prefix: String,
-      batchSchema: ArcaneSchema
-  ): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+  private def fetchSortedFiles(prefix: String): ZStream[Any, Throwable, StoredBlob] =
     ZStream
       .fromZIO {
         for
@@ -112,19 +109,17 @@ final class SynapseLinkStreamingSource(
       }
       .flatMap { files =>
         if files.nonEmpty then
-          val schemaEnrichedFiles =
+          val sortedFiles =
             files
               // we need to emit deletions, which are in files named 1.csv, last
               // otherwise for batches where deletions come alongside insertions there is a risk of running a delete BEFORE the insert
               .sortBy(
                 _.name.split("/").last.replace(".csv", "").toInt
               )(using Ordering.Int.reverse)
-              .map(blob => SchemaEnrichedBlob(blob, batchSchema))
-
           zlogStream(
             "Starting stream of the following: %s",
-            schemaEnrichedFiles.map(_.blob.name).mkString(",")
-          ) *> ZStream.fromIterable(schemaEnrichedFiles)
+            sortedFiles.map(_.name).mkString(",")
+          ) *> ZStream.fromIterable(sortedFiles)
         else
           zlogStream(
             "Batch %s has no changes for the entity %s",
@@ -144,15 +139,13 @@ final class SynapseLinkStreamingSource(
   private def getEntityChangeData(
       version: SynapseWatermark,
       batchSchema: ArcaneSchema
-  ): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    enrichWithSchema(version.prefix, batchSchema)
+  ): ZStream[Any, Throwable, StoredBlob] =
+    fetchSortedFiles(version.prefix)
 
-  private def getFileStream(
-      seb: SchemaEnrichedBlob
-  ): ZIO[Any, IOException, (BufferedReader, ArcaneSchema, StoredBlob)] =
+  private def getFileStream(blob: StoredBlob): ZIO[Any, IOException, (BufferedReader, StoredBlob)] =
     reader
-      .streamBlobContent(location + seb.blob.name)
-      .map(javaReader => (javaReader, seb.schema, seb.blob))
+      .streamBlobContent(location + blob.name)
+      .map(javaReader => (javaReader, blob))
       .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
   private def getTableChanges(
@@ -164,8 +157,7 @@ final class SynapseLinkStreamingSource(
       .acquireReleaseWith(ZIO.attemptBlockingIO(fileStream))(stream => ZIO.succeed(stream.close()))
       .flatMap(javaReader => javaReader.streamMultilineCsv)
       .map(_.replace("\n", ""))
-      .map(content => SchemaEnrichedContent(content, fileSchema))
-      .mapZIO(sec => ZIO.attempt(CSVParser.parseCSVLineToRow(sec.content, sec.schema)))
+      .mapZIO(content => ZIO.attempt(CSVParser.parseCSVLineToRow(content, fileSchema)))
       .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName with", e))
 
   private def isValidSynapseBatch(prefix: String): ZIO[Any, Throwable, Boolean] = hasSchemaFile(prefix)
@@ -216,8 +208,8 @@ final class SynapseLinkStreamingSource(
   ): ZStream[Any, Throwable, DataRow] =
     getEntityChangeData(version, batchSchema)
       .mapZIO(getFileStream)
-      .flatMap { case (fileStream, fileSchema, blob) =>
-        getTableChanges(fileStream, fileSchema, blob.name)
+      .flatMap { case (fileStream, blob) =>
+        getTableChanges(fileStream, batchSchema, blob.name)
       }
       .map(convertRow)
       .mapZIO(applyDataRowModifications)
