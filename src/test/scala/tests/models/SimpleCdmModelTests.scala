@@ -34,8 +34,8 @@ class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
       _.getLines().mkString("\n")
     }.get
 
-    val entity                         = read[SimpleCdmModel](serialized).entities.head
-    val schema: ArcaneSchema           = entity
+    val entity                           = read[SimpleCdmModel](serialized).entities.head
+    val schema: ArcaneSchema             = entity
     val indexedFields: Seq[IndexedField] = schema.collect { case field: IndexedField => field }
 
     schema.map(_.name) should equal(entity.attributes.map(_.name))
