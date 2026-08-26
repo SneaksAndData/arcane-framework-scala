@@ -33,7 +33,9 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
     test("streams changes belonging to the configured table") {
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path, allFieldsSelector))
+        synapseLinkReader <- ZIO.succeed(
+          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
+        )
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
@@ -49,7 +51,9 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
     test("reads schema from a storage container and parses it successfully") {
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path, allFieldsSelector))
+        synapseLinkReader <- ZIO.succeed(
+          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
+        )
         schema            <- synapseLinkReader.getSchema
       yield assertTrue(schema.size == 25)
     },
@@ -58,7 +62,9 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         path <- ZIO.succeed(
           AdlsStoragePath(s"abfss://$malformedSchemaContainer@$storageAccount.dfs.core.windows.net/").get
         )
-        synapseLinkReader <- ZIO.succeed(SynapseLinkStreamingSource(storageReader, tableName, path, allFieldsSelector))
+        synapseLinkReader <- ZIO.succeed(
+          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
+        )
         startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))

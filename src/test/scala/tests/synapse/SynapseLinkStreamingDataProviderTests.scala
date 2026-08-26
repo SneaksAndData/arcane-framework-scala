@@ -73,10 +73,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(
-            storageReader,
-            sourceTableName,
+          new SynapseLinkStreamingSource(
             sourceRoot,
+            sourceTableName,
+            storageReader,
             allFieldsSelector,
             List(SurrogateMergeKeyImpl(SurrogateMergeKey()))
           )
@@ -120,10 +120,10 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(
-            storageReader,
-            sourceTableName,
+          new SynapseLinkStreamingSource(
             sourceRoot,
+            sourceTableName,
+            storageReader,
             allFieldsSelector,
             List(SurrogateMergeKeyImpl(SurrogateMergeKey()))
           )

@@ -313,15 +313,6 @@ final class SynapseLinkStreamingSource(
       )
 
 object SynapseLinkStreamingSource:
-  def apply(
-      reader: AzureBlobStorageReader,
-      name: String,
-      location: AdlsStoragePath,
-      fieldSelector: FieldSelectionRuleSettings,
-      modifications: Seq[DataRowModification] = Seq.empty
-  ): SynapseLinkStreamingSource =
-    new SynapseLinkStreamingSource(location, name, reader, fieldSelector, modifications)
-
   private type SettingsExtractor = PluginStreamContext => MicrosoftSynapseLinkConnectionSettings
 
   /** ZLayer for SynapseLinkStreamingSource, using custom context extractor.
@@ -332,10 +323,11 @@ object SynapseLinkStreamingSource:
       for
         context  <- ZIO.service[PluginStreamContext]
         settings <- ZIO.attempt(extractor(context))
-      yield SynapseLinkStreamingSource(
-        AzureBlobStorageReader(settings.storageConnection),
-        settings.entityName,
+      yield new SynapseLinkStreamingSource(
         settings.baseLocation,
-        context.source.fieldSelectionRule
+        settings.entityName,
+        AzureBlobStorageReader(settings.storageConnection),
+        context.source.fieldSelectionRule,
+        Seq.empty
       )
     }
