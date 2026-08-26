@@ -36,7 +36,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         synapseLinkReader <- ZIO.succeed(
           new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
-        startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
+        startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
           .flatMap(_._1)
@@ -54,7 +54,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         synapseLinkReader <- ZIO.succeed(
           new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
-        schema            <- synapseLinkReader.getSchema
+        schema <- synapseLinkReader.getSchema
       yield assertTrue(schema.size == 25)
     },
     test("fails on incorrect schema") {
@@ -65,7 +65,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         synapseLinkReader <- ZIO.succeed(
           new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
-        startFrom         <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
+        startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader
           .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
           .flatMap(_._1)
