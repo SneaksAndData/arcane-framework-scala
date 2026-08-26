@@ -39,9 +39,8 @@ class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator,
-    modifications: Seq[DataRowModification] = Seq.empty,
-    dataRowSchemaVersion: DataRowSchemaVersion = DataRowSchemaVersion.V0
-) extends DefaultStreamingSource(modifications, dataRowSchemaVersion)
+    modifications: Seq[DataRowModification] = Seq.empty
+) extends DefaultStreamingSource(modifications, DataRowSchemaVersion.V0)
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -477,8 +476,6 @@ class MsSqlStreamingSource(
         }
     }
 
-  private[mssql] def usesLegacyMergeKey: Boolean = dataRowSchemaVersion == DataRowSchemaVersion.V0
-
 object MsSqlStreamingSource:
 
   type Environment               = PluginStreamContext & NameGenerator
@@ -498,8 +495,7 @@ object MsSqlStreamingSource:
           connectionSettings = extractor(context),
           fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
           nameGenerator = nameGenerator,
-          modifications = context.source.dataRowSchemaVersion.modifications,
-          dataRowSchemaVersion = context.source.dataRowSchemaVersion
+          modifications = context.source.dataRowSchemaVersion.modifications
         )
       }
     }
