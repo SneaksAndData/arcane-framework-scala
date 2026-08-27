@@ -20,6 +20,7 @@ import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
+import services.iceberg.SchemaConversions.*
 
 import org.apache.avro.Schema as AvroSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
@@ -92,8 +93,8 @@ class PullStreamingSource(
     * @return
     *   An effect containing the schema.
     */
-  override def getSchema: Task[ArcaneSchema] =
-    this.sinkPropertyManager.getTableSchema(targetTableName).map(s => (s: MergeableArcaneSchema))
+  override def getSchema: Task[MergeableArcaneSchema] =
+    this.sinkPropertyManager.getTableSchema(targetTableName).map(implicitly)
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
