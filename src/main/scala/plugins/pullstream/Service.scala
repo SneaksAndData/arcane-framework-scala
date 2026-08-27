@@ -12,11 +12,7 @@ import services.backfill.base.{
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.metrics.DeclaredMetrics
 import services.naming.NameGenerator
-import services.pullstream.backfill.{
-  NoopBackfillStreamDataProvider,
-  NoopShardFactory,
-  NoopShardedBackfillStreamDataProvider
-}
+import services.pullstream.backfill.PullStreamBackfillLayers
 import services.pullstream.{
   PullStreamSourceDataProvider,
   PullStreamStagedBatchFactory,
@@ -48,9 +44,9 @@ object Services:
     PullStreamStagedBatchFactory.layer,
 
     // backfill and sharding are not supported by the pull stream plugin
-    NoopBackfillStreamDataProvider.layer,
-    NoopShardedBackfillStreamDataProvider.layer,
-    NoopShardFactory.layer,
+    PullStreamBackfillLayers.backfillStreamDataProvider,
+    PullStreamBackfillLayers.shardedBackfillStreamDataProvider,
+    PullStreamBackfillLayers.shardFactory,
     ThroughputShaperBuilder.layer,
     DefaultBackfillStateManager.layer
   )

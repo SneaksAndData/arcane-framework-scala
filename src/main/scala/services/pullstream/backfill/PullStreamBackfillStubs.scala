@@ -22,15 +22,11 @@ object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] =
     ZStream.fromZIO(unsupported("BackfillStreamDataProvider.stream", pullStreamPlugin))
 
-  val layer: ULayer[BackfillStreamDataProvider] = ZLayer.succeed(this)
-
 /** Backfilling and sharding is not supported by PullStream plugin.
   */
 object NoopShardedBackfillStreamDataProvider extends ShardedBackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
     unsupported("ShardedBackfillStreamDataProvider.backfillStream", pullStreamPlugin)
-
-  val layer: ULayer[ShardedBackfillStreamDataProvider] = ZLayer.succeed(this)
 
 /** Sharding is not supported by pullstream.
   */
@@ -41,4 +37,11 @@ object NoopShardFactory extends ShardFactory:
   override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] =
     unsupported("ShardFactory.createCompletionShard", pullStreamPlugin)
 
-  val layer: ULayer[ShardFactory] = ZLayer.succeed(this)
+object PullStreamBackfillLayers:
+  val backfillStreamDataProvider: ULayer[BackfillStreamDataProvider] =
+    ZLayer.succeed(NoopBackfillStreamDataProvider)
+
+  val shardedBackfillStreamDataProvider: ULayer[ShardedBackfillStreamDataProvider] =
+    ZLayer.succeed(NoopShardedBackfillStreamDataProvider)
+
+  val shardFactory: ULayer[ShardFactory] = ZLayer.succeed(NoopShardFactory)
