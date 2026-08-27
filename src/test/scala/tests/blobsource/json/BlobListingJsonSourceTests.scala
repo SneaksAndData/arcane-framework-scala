@@ -11,6 +11,7 @@ import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
 import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
+import utils.HashUtils
 
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -77,6 +78,40 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 11)
+    },
+    test("getChanges adds a surrogate merge key when configured") {
+      val pkColumns = Seq("col1", "col3")
+
+      for
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
+        source <- ZIO.succeed(
+          BlobListingJsonStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            pkColumns,
+            flatSchema,
+            Some("/body"),
+            Map(),
+            TestFieldSelectionRuleSettings,
+            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
+          )
+        )
+        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+      yield assertValidChunk(rows, 50 * 100, 12) && assertTrue(
+        rows.forall { row =>
+          val primaryKeyValues = pkColumns.map(name => row.find(_.name == name).map(_.value))
+          val mergeKey         = row.find(_.name == MergeKeyField.name).map(_.value)
+
+          (primaryKeyValues, mergeKey) match
+            case (Seq(Some(first: CharSequence), Some(second: CharSequence)), Some(value: String)) =>
+              value == HashUtils.murmur3(s"$first#$second")
+            case _ => false
+        }
+      )
     },
     test("getChanges return correct rows for source with variable number of fields") {
       for
