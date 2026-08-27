@@ -2,9 +2,10 @@ package com.sneaksanddata.arcane.framework
 package tests.mssql
 
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField}
+import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField}
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
+import models.settings.sources.{SurrogateMergeKey, SurrogateMergeKeyImpl}
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
 import services.mssql.base.{ColumnSummary, ColumnSummaryFieldSelector, MsSqlStreamingSource}
@@ -14,6 +15,7 @@ import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.*
 import tests.shared.TestSinkSettings
+import utils.HashUtils
 
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers.*
@@ -154,7 +156,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
         query <- QueryProvider.getSchemaQuery(reader)
-      yield assertTrue(query.contains("ct.SYS_CHANGE_VERSION") && query.contains("ARCANE_MERGE_KEY"))
+      yield assertTrue(query.contains("ct.SYS_CHANGE_VERSION"))
     },
     test("QueryProvider generates time-based query") {
       for
@@ -197,8 +199,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             |tq.[b],
             |tq.[c/d],
             |tq.[e],
-            |@currentVersion AS 'ChangeTrackingVersion',
-            |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
+            |@currentVersion AS 'ChangeTrackingVersion'
             |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
         summaries <- reader.getColumnSummaries
         query     <- reader.getBackfillQuery("dbo", "backfill_query", summaries)
@@ -209,7 +210,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
           override val rule: FieldSelectionRule = ExcludeFieldsImpl(ExcludeFields(Set("b", "a", "z", "cd")))
           override val essentialFields: Set[String] =
-            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -238,8 +239,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               |'I' as SYS_CHANGE_OPERATION,
               |tq.[y],
               |tq.[e],
-              |@currentVersion AS 'ChangeTrackingVersion',
-              |lower(convert(nvarchar(128), HashBytes('SHA2_256', cast(tq.[x] as nvarchar(128))),2)) as [ARCANE_MERGE_KEY]
+              |@currentVersion AS 'ChangeTrackingVersion'
               |FROM [arcane].[dbo].[field_selection_rule] tq""".stripMargin)
         summaries <- reader.getColumnSummaries
         query     <- reader.getBackfillQuery("dbo", "field_selection_rule", summaries)
@@ -250,7 +250,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
           override val rule: FieldSelectionRule = ExcludeFieldsImpl(ExcludeFields(Set("x")))
           override val essentialFields: Set[String] =
-            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -285,7 +285,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
           override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "b", "z")))
           override val essentialFields: Set[String] =
-            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -343,8 +343,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             IndexedField("b", TimestampType, 6),
             IndexedField("cd", IntType, 7),
             IndexedField("e", FloatType, 8),
-            IndexedField("ChangeTrackingVersion", LongType, 9),
-            IndexedMergeKeyField(10)
+            IndexedField("ChangeTrackingVersion", LongType, 9)
           )
         )
         schema <- reader.getSchema
@@ -380,6 +379,61 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_rows", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
+    test("MsSqlStreamingSource injects surrogate merge keys for composite string primary keys") {
+      val testTableName    = "surrogate_merge_key"
+      val primaryKeyValue1 = "string-key-1"
+      val primaryKeyValue2 = "string-key-2"
+
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) {
+          connection =>
+            ZIO.attemptBlocking {
+              createTable(
+                testTableName,
+                connection,
+                "(id1 varchar(128) not null, id2 varchar(128) not null, value int)",
+                "primary key(id1, id2)"
+              )
+              val statement = connection.createStatement()
+              try
+                statement.executeUpdate(
+                  s"use arcane; insert into dbo.$testTableName values('$primaryKeyValue1', '$primaryKeyValue2', 1)"
+                )
+              finally statement.close()
+            }
+        }
+        reader <- ZIO.succeed(
+          MsSqlStreamingSource(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = testTableName
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            nopSelector,
+            nameGenerator,
+            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
+          )
+        )
+        schema    <- reader.getSchema
+        summaries <- reader.getColumnSummaries
+        rows <- ZStream
+          .fromZIO(reader.createShardStream(testTableName, summaries))
+          .flatMap(_._1)
+          .runCollect
+        mergeKey         = rows.head.find(_.name == MergeKeyField.name).map(_.value)
+        expectedMergeKey = HashUtils.murmur3(s"$primaryKeyValue1#$primaryKeyValue2")
+      yield assertTrue(
+        schema.exists {
+          case _: IndexedMergeKeyField => true
+          case _                       => false
+        },
+        mergeKey.contains(expectedMergeKey)
+      )
+    },
     test("MsSqlStreamingSource returns correct number of columns on a shard stream") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -406,14 +460,14 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
 
         summaries <- reader.getColumnSummaries
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_columns", summaries)).flatMap(_._1).runCollect
-      yield assertTrue(rows.head.size == 11)
+      yield assertTrue(rows.head.size == 10)
     },
     test("MsSqlStreamingSource returns correct number of columns on a shard stream with filter") {
       for
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
           override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "b", "x")))
           override val essentialFields: Set[String] =
-            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
         })
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -438,7 +492,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
         expected <- ZIO.succeed(
-          List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion", "ARCANE_MERGE_KEY")
+          List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion")
         )
 
         summaries <- reader.getColumnSummaries
@@ -487,7 +541,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         fieldSelectionRule <- ZIO.succeed(new FieldSelectionRuleSettings {
           override val rule: FieldSelectionRule = IncludeFieldsImpl(IncludeFields(Set("a", "x")))
           override val essentialFields: Set[String] =
-            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ARCANE_MERGE_KEY", "ChangeTrackingVersion")
+            Set("SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "ChangeTrackingVersion")
           override val isServerSide: Boolean = true
         })
         expected <- ZIO.succeed(
@@ -496,8 +550,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "SYS_CHANGE_VERSION",
             "SYS_CHANGE_OPERATION",
             "a",
-            "ChangeTrackingVersion",
-            "ARCANE_MERGE_KEY"
+            "ChangeTrackingVersion"
           )
         )
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -545,8 +598,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "b",
             "cd",
             "e",
-            "ChangeTrackingVersion",
-            "ARCANE_MERGE_KEY"
+            "ChangeTrackingVersion"
           )
         )
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -619,12 +671,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           .flatMap(_._1)
           .runCollect
       yield assertTrue(
-        rowsAfterDelete.exists(row =>
-          row.contains(DataCell("SYS_CHANGE_OPERATION", StringType, "D")) && row.contains(
-            DataCell("ARCANE_MERGE_KEY", StringType, "913da1f8df6f8fd47593840d533ba0458cc9873996bf310460abb495b34c232a")
-          )
-        )
-      ) // NOTE: the value here is computed manually
+        rowsAfterDelete.exists(row => row.contains(DataCell("SYS_CHANGE_OPERATION", StringType, "D")))
+      )
     },
     test("MsSqlStreamingSource deleteShards correctly filters matching tables minimizing LIKE wildcards impact") {
       for
