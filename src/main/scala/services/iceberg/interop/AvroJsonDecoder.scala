@@ -11,8 +11,9 @@ import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.DecoderFactory
 
 import scala.jdk.CollectionConverters.*
+import com.sneaksanddata.arcane.framework.exceptions.FatalStreamFailException
 
-final class MissingFieldException(msg: String) extends RuntimeException(msg)
+final class MissingFieldException(msg: String) extends FatalStreamFailException(msg)
 
 /** Parses JSON strings/nodes into [[DataRow]]s using an Avro schema.
   *
