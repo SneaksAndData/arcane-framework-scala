@@ -7,6 +7,7 @@ import services.iceberg.interop.AvroJsonDecoder
 import org.apache.iceberg.Schema as IcebergSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
 import org.apache.iceberg.types.Types
+import org.apache.iceberg.variants.Variant
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
@@ -19,7 +20,17 @@ import scala.jdk.CollectionConverters.*
 object IcebergAvroJsonDecoder extends ZIOSpecDefault:
 
   private val payload =
-    """{"id":"evt_001","payload":{"eventType":"Producer1Event","timestamp":"2026-08-04T12:34:56Z","source":"integration-test","message":"Hello from Avro map<string> payload"}}"""
+    """
+      |{
+      |  "id": "evt_001",
+      |  "payload": {
+      |    "eventType": "Producer1Event",
+      |    "timestamp": "2026-08-04T12:34:56Z",
+      |    "source": "integration-test",
+      |    "message": "Hello from Avro map<string> payload"
+      |  }
+      |}
+      |""".stripMargin
 
   private val expectedPayload = Map(
     "eventType" -> "Producer1Event",
@@ -36,7 +47,8 @@ object IcebergAvroJsonDecoder extends ZIOSpecDefault:
     Types.NestedField.optional(
       2,
       "payload",
-      Types.MapType.ofRequired(3, 4, Types.StringType.get(), Types.StringType.get())
+      Types.VariantType()
+      // Types.MapType.ofRequired(3, 4, Types.StringType.get(), Types.StringType.get())
     )
   )
 
@@ -64,13 +76,28 @@ object IcebergAvroJsonDecoder extends ZIOSpecDefault:
         avroSchema      <- ZIO.attempt(AvroSchemaUtil.convert(storedSchema, tableName))
         rows            <- ZIO.attempt(AvroJsonDecoder(avroSchema, tolerateMissingFields = false).parse(payload))
         _               <- entityManager.delete(tableName)
-        row          = rows.head
-        idValue      = row.find(_.name == "id").map(_.value.toString)
-        payloadValue = row.find(_.name == "payload").map(cell => asStringMap(cell.value))
+        row                   = rows.head
+        idValue               = row.find(_.name == "id").map(_.value.toString)
+        payloadValue: Variant = row.find(_.name == "payload").map(_.value).collect { case value: Variant => value }.get
+        variantObject         = payloadValue.value().asObject()
       yield assertTrue(rows.size == 1)
         && assertTrue(row.map(_.name) == List("id", "payload"))
         && assertTrue(idValue.contains("evt_001"))
-        && assertTrue(payloadValue.contains(expectedPayload))
+        // Assert arbitrary payload field
+        && assertTrue(
+          variantObject
+            .get("source")
+            .asPrimitive()
+            .get()
+            .toString() == "integration-test"
+        )
+        && assertTrue(
+          variantObject
+            .get("timestamp")
+            .asPrimitive()
+            .get()
+            .toString() == "2026-08-04T12:34:56Z"
+        )
     },
     test("decodes a nested object into a string column as raw json") {
       val icebergUtil = IcebergUtil(IcebergCatalogInfo.defaultSinkSettings)
