@@ -62,13 +62,7 @@ class PullStreamingSource(
     pageSize: Option[Int]
 ) extends StreamingSource:
 
-  import settings.{
-    jsonPointerExpression,
-    pullIndexKey,
-    pullIndexValue,
-    tableName,
-    watermarkFieldName
-  }
+  import settings.{jsonPointerExpression, pullIndexKey, pullIndexValue, tableName, watermarkFieldName}
 
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"

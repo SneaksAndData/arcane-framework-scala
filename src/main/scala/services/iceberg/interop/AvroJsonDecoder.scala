@@ -51,11 +51,9 @@ class AvroJsonDecoder(
     tolerateMissingFields: Boolean = true,
     decodeObjectsAsVariant: Boolean = false
 ):
-  import AvroJsonDecoder.isVariantField
-
   /** Fields carried as an Iceberg variant instead of being decoded by Avro, in schema declaration order. */
   private val variantFields: Seq[org.apache.avro.Schema.Field] =
-    if decodeObjectsAsVariant then schema.getFields.asScala.filter(isVariantField).toSeq else Seq.empty
+    if decodeObjectsAsVariant then schema.getFields.asScala.filter(_.isVariant).toSeq else Seq.empty
 
   private val variantFieldNames: Set[String] = variantFields.map(_.name()).toSet
 
@@ -72,7 +70,7 @@ class AvroJsonDecoder(
     if variantFields.isEmpty then schema
     else
       val retained = schema.getFields.asScala
-        .filterNot(isVariantField)
+        .filterNot(_.isVariant)
         .map(field => org.apache.avro.Schema.Field(field.name(), field.schema(), field.doc(), field.defaultVal()))
         .asJava
       org.apache.avro.Schema.createRecord(schema.getName, schema.getDoc, schema.getNamespace, false, retained)
@@ -261,27 +259,6 @@ class AvroJsonDecoder(
       )
 
 object AvroJsonDecoder:
-  /** Whether a field is carried as an Iceberg variant rather than decoded by Avro.
-    *
-    * `record` covers both shapes a variant field takes: a hand-written nested record, and the
-    * `{metadata: bytes, value: bytes}` record `AvroSchemaUtil.convert` emits for a `Types.VariantType` column. `map`
-    * and `array` map to `ObjectType`, and therefore to a variant column, for the same reason - their contents are not
-    * known until a document arrives.
-    */
-  private[interop] def isVariantField(field: org.apache.avro.Schema.Field): Boolean =
-    nonNullBranch(field.schema()).getType match
-      case org.apache.avro.Schema.Type.RECORD | org.apache.avro.Schema.Type.MAP | org.apache.avro.Schema.Type.ARRAY =>
-        true
-      case _ => false
-
-  /** The payload branch of an optional field, encoded by Avro as `["null", T]`. Non-union schemas are their own. */
-  private def nonNullBranch(schema: org.apache.avro.Schema): org.apache.avro.Schema =
-    if schema.getType == org.apache.avro.Schema.Type.UNION then
-      schema.getTypes.asScala.filter(_.getType != org.apache.avro.Schema.Type.NULL).toSeq match
-        case single :: Nil => single
-        case _             => schema
-    else schema
-
   def apply(schema: org.apache.avro.Schema): AvroJsonDecoder = new AvroJsonDecoder(schema)
 
   def apply(schema: org.apache.avro.Schema, tolerateMissingFields: Boolean): AvroJsonDecoder =
@@ -311,3 +288,25 @@ object AvroJsonDecoder:
       decodeObjectsAsVariant: Boolean
   ): AvroJsonDecoder =
     new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields, decodeObjectsAsVariant)
+
+/** The payload branch of an optional field, encoded by Avro as `["null", T]`. Non-union schemas are their own. */
+private def nonNullBranch(schema: org.apache.avro.Schema): org.apache.avro.Schema =
+  if schema.getType == org.apache.avro.Schema.Type.UNION then
+    schema.getTypes.asScala.filter(_.getType != org.apache.avro.Schema.Type.NULL).toSeq match
+      case single :: Nil => single
+      case _             => schema
+  else schema
+
+extension (field: org.apache.avro.Schema.Field)
+  /** Whether a field is carried as an Iceberg variant rather than decoded by Avro.
+    *
+    * `record` covers both shapes a variant field takes: a hand-written nested record, and the
+    * `{metadata: bytes, value: bytes}` record `AvroSchemaUtil.convert` emits for a `Types.VariantType` column. `map`
+    * and `array` map to `ObjectType`, and therefore to a variant column, for the same reason - their contents are not
+    * known until a document arrives.
+    */
+  def isVariant: Boolean =
+    nonNullBranch(field.schema()).getType match
+      case org.apache.avro.Schema.Type.RECORD | org.apache.avro.Schema.Type.MAP | org.apache.avro.Schema.Type.ARRAY =>
+        true
+      case _ => false
