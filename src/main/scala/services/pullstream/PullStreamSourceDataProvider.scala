@@ -52,8 +52,13 @@ class PullStreamSourceDataProvider(
   override def getCurrentVersion(previousVersion: PullStreamWatermark): Task[PullStreamWatermark] =
     source.getMaxTimestamp
 
-  /** The pull stream has no notion of discrete versions between two watermarks: the source is queried by timestamp and
-    * every row in the interval is read, so there is nothing to cut the range at and the end watermark is always used.
+  /** Returns the end watermark unchanged, so the read range and the recorded watermark always advance together.
+    *
+    * `requestChanges` reads with `buildQueryGetChanges`, whose key condition is open-ended (`#wm > :t`) and therefore
+    * always drains to the newest row present, while the watermark persisted for the next iteration is the value
+    * returned here. Returning anything earlier than `endWatermark` would leave the watermark trailing the rows that
+    * were already read, and the next iteration would read that same tail again: the overlap grows with the backlog, so
+    * catching up costs a pass over the remaining backlog per shortened step rather than a single pass overall.
     */
   override def getLatestWatermarkInRange(
       startWatermark: PullStreamWatermark,
