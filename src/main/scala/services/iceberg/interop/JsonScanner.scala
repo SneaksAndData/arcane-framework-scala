@@ -15,10 +15,9 @@ import java.io.File
 class JsonScanner(
     schema: org.apache.avro.Schema,
     filePath: String,
-    jsonPointerExpr: Option[String],
-    jsonArrayPointers: Map[String, Map[String, String]]
+    jsonPointerExpr: Option[String]
 ) extends BlobScanner:
-  private val decoder = AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers)
+  private val decoder = AvroJsonDecoder(schema, jsonPointerExpr)
 
   override protected def getRowStream: ZStream[Any, Throwable, DataRow] = ZStream
     .fromFileName(filePath)
@@ -38,29 +37,14 @@ object JsonScanner:
   def apply(path: String, schema: org.apache.avro.Schema): JsonScanner = new JsonScanner(
     schema = schema,
     filePath = path,
-    None,
-    Map()
+    None
   )
 
   def apply(path: String, schema: org.apache.avro.Schema, jsonPointerExpr: Option[String]): JsonScanner =
     new JsonScanner(
       schema = schema,
       filePath = path,
-      jsonPointerExpr,
-      Map()
-    )
-
-  def apply(
-      path: String,
-      schema: org.apache.avro.Schema,
-      jsonPointerExpr: Option[String],
-      jsonArrayPointers: Map[String, Map[String, String]]
-  ): JsonScanner =
-    new JsonScanner(
-      schema = schema,
-      filePath = path,
-      jsonPointerExpr,
-      jsonArrayPointers
+      jsonPointerExpr
     )
 
   def parseSchema(schemaStr: String): org.apache.avro.Schema = org.apache.avro.Schema.Parser().parse(schemaStr)

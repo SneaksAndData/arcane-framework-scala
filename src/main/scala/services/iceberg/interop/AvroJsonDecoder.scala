@@ -4,7 +4,6 @@ package services.iceberg.interop
 import models.schemas.{ArcaneType, DataCell, DataRow}
 import services.iceberg.given_Conversion_AvroGenericRecord_DataRow
 
-import com.fasterxml.jackson.core.JsonPointer
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.{JsonNodeFactory, ObjectNode}
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
@@ -29,10 +28,6 @@ final class MissingFieldException(msg: String) extends FatalStreamFailException(
   * @param jsonPointerExpr
   *   Optional JSON pointer applied to each parsed root before decoding.
   *
-  * @param jsonArrayPointers
-  *   Optional map of `jsonPointer -> fieldRenameMap` for hoisting nested nodes into individual records: arrays are
-  *   exploded into one record per element, objects yield a single record (see [[JsonScanner]] for usage).
-  *
   * @param tolerateMissingFields
   *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields with
   *   Null values.
@@ -47,7 +42,6 @@ final class MissingFieldException(msg: String) extends FatalStreamFailException(
 class AvroJsonDecoder(
     schema: org.apache.avro.Schema,
     jsonPointerExpr: Option[String] = None,
-    jsonArrayPointers: Map[String, Map[String, String]] = Map(),
     tolerateMissingFields: Boolean = true,
     decodeObjectsAsVariant: Boolean = false
 ):
@@ -101,41 +95,6 @@ class AvroJsonDecoder(
     jsonPointerExpr match
       case Some(pointer) => node.at(pointer)
       case None          => node
-
-  /** Hoists the fields of a nested node up to the root, dropping the nesting level.
-    *
-    * An array yields one row per element, each combined with the root's remaining fields; an object yields a single
-    * row, which is what a `map`-typed Avro payload decodes to. `fieldMap` renames source field names to schema field
-    * names and is applied to the hoisted fields as well as to the root's own, so a field that collides with a schema
-    * name can be renamed regardless of the level it came from.
-    */
-  private def hoistNestedFields(root: JsonNode, pointerExpr: String, fieldMap: Map[String, String]): Seq[ObjectNode] =
-    val rootClone  = root.deepCopy[ObjectNode]()
-    val nestedNode = rootClone.at(pointerExpr)
-
-    if !nestedNode.isArray && !nestedNode.isObject then
-      throw IllegalArgumentException(
-        s"Node at $pointerExpr expected to be a JsonArray or JsonObject, but is instead ${nestedNode.getNodeType.name()}"
-      )
-
-    val compiledPointer = JsonPointer.compile(pointerExpr)
-    rootClone.remove(compiledPointer.getMatchingProperty)
-
-    val nestedRecords = if nestedNode.isArray then nestedNode.elements().asScala.toSeq else Seq(nestedNode)
-
-    nestedRecords.map { record =>
-      val merged = rootClone.deepCopy[ObjectNode]()
-      record.fieldNames().asScala.foreach(fieldName => merged.set(fieldName, record.get(fieldName)))
-
-      val renamed = nodeFactory.objectNode()
-      merged
-        .fieldNames()
-        .asScala
-        .toSeq
-        .foreach(fieldName => renamed.set(fieldMap.getOrElse(fieldName, fieldName), merged.get(fieldName)))
-
-      renamed
-    }
 
   private def getAvroCompliantNode(node: JsonNode): ObjectNode =
     val compliantNode = node.deepCopy[ObjectNode]()
@@ -198,19 +157,9 @@ class AvroJsonDecoder(
       )
     }
 
-    // hoisting has to happen before the document is made Avro compliant: until the nested fields sit at the root the
-    // document does not match the schema, and strict decoding would reject it for fields it is about to receive
-    val flattened =
-      if jsonArrayPointers.isEmpty then Seq(node)
-      else
-        jsonArrayPointers.foldLeft(Seq.empty[ObjectNode]) { case (agg, (jsonPointer, fieldMap)) =>
-          if agg.isEmpty then hoistNestedFields(node, jsonPointer, fieldMap)
-          else agg.flatMap(hoistNestedFields(_, jsonPointer, fieldMap))
-        }
-
     // the variant cells are rebuilt from the pre-compliant node, so each decoded row is paired with the document it
     // came from rather than being derived from the Avro objects, which no longer carry the raw JSON
-    flattened.map(raw => withVariantCells(decodeJson(getAvroCompliantNode(raw)), raw))
+    Seq(withVariantCells(decodeJson(getAvroCompliantNode(node)), node))
 
   /** Appends a cell per variant field, built from the source document rather than from the decoded Avro record.
     *
@@ -270,24 +219,16 @@ object AvroJsonDecoder:
   def apply(
       schema: org.apache.avro.Schema,
       jsonPointerExpr: Option[String],
-      jsonArrayPointers: Map[String, Map[String, String]]
-  ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers)
-
-  def apply(
-      schema: org.apache.avro.Schema,
-      jsonPointerExpr: Option[String],
-      jsonArrayPointers: Map[String, Map[String, String]],
       tolerateMissingFields: Boolean
-  ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields)
+  ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, tolerateMissingFields)
 
   def apply(
       schema: org.apache.avro.Schema,
       jsonPointerExpr: Option[String],
-      jsonArrayPointers: Map[String, Map[String, String]],
       tolerateMissingFields: Boolean,
       decodeObjectsAsVariant: Boolean
   ): AvroJsonDecoder =
-    new AvroJsonDecoder(schema, jsonPointerExpr, jsonArrayPointers, tolerateMissingFields, decodeObjectsAsVariant)
+    new AvroJsonDecoder(schema, jsonPointerExpr, tolerateMissingFields, decodeObjectsAsVariant)
 
 /** The payload branch of an optional field, encoded by Avro as `["null", T]`. Non-union schemas are their own. */
 private def nonNullBranch(schema: org.apache.avro.Schema): org.apache.avro.Schema =

@@ -28,7 +28,6 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
-    jsonArrayPointers: Map[String, Map[String, String]],
     fieldSelector: FieldSelectionRuleSettings
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
@@ -61,7 +60,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
   def fileToStream(sourceFile: StoredBlob, schema: ArcaneSchema): Task[StructuredZStream] = for
     downloadedFilePath <- downloadSourceFile(sourceFile)
     avroSchema         <- sourceSchema
-    scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
+    scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr))
   yield (
     scanner.getRows.map(
       BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
@@ -82,7 +81,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
               for
                 filePath   <- downloadSourceFile(sourceFile)
                 avroSchema <- sourceSchema
-                scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
+                scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr))
               yield scanner
             }
             .flatMap(
@@ -124,7 +123,6 @@ object BlobListingJsonStreamingSource:
         nameGenerator = nameGenerator,
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
-        jsonArrayPointers = sourceSettings.jsonArrayPointers,
         fieldSelector = context.source.fieldSelectionRule
       )
     }

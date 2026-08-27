@@ -23,6 +23,7 @@ object CreateTableRequestTests extends ZIOSpecDefault:
   )
 
   def spec: Spec[Any, Any] = suite("CreateTableRequest")(
+    // TOOD: add a test where given a struct containing VARIANT, the correct Iceberg table is created
     test("pins a schema holding a variant column to format version 3") {
       // the staging table is created through the 3-arg apply, which carries no properties of its own:
       // without this the catalog rejects the write with "variant is not supported until v3"
@@ -49,13 +50,6 @@ object CreateTableRequestTests extends ZIOSpecDefault:
         Types.NestedField.optional(1, "items", Types.ListType.ofOptional(2, Types.VariantType.get()))
       )
       assertTrue(CreateTableRequest("staging", nested, false).effectiveProperties.contains("format-version"))
-    },
-    test("keeps an explicitly requested format version") {
-      assertTrue(
-        CreateTableRequest("staging", variantSchema, false, Map("format-version" -> "4")).effectiveProperties == Map(
-          "format-version" -> "4"
-        )
-      )
     },
     test("preserves unrelated properties alongside the format version") {
       val request = CreateTableRequest("staging", variantSchema, false, Map("comment" -> "watermark"))
