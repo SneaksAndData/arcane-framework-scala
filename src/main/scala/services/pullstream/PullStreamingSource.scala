@@ -62,8 +62,6 @@ class PullStreamingSource(
     pageSize: Option[Int]
 ) extends StreamingSource:
 
-  import settings.{jsonPointerExpression, pullIndexKey, pullIndexValue, tableName, watermarkFieldName}
-
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -72,7 +70,7 @@ class PullStreamingSource(
   /** Column used to order concurrent versions of the same merge key during a merge. This is the watermark column, whose
     * value the source appends to every row.
     */
-  val versionFieldName: String = watermarkFieldName
+  val versionFieldName: String = settings.watermarkFieldName
 
   /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
     * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
@@ -99,17 +97,17 @@ class PullStreamingSource(
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
-      "#pk" -> pullIndexKey,
-      "#wm" -> watermarkFieldName
+      "#pk" -> settings.pullIndexKey,
+      "#wm" -> settings.watermarkFieldName
     ).asJava
 
     val exprVals = Map(
-      ":pk" -> AttributeValue.builder().s(pullIndexValue).build(),
+      ":pk" -> AttributeValue.builder().s(settings.pullIndexValue).build(),
       ":t"  -> AttributeValue.builder().s(PullStreamingSource.normalizeWatermark(latestVersion.timestamp)).build()
     ).asJava
     QueryRequest
       .builder()
-      .tableName(tableName)
+      .tableName(settings.tableName)
       .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
@@ -118,17 +116,17 @@ class PullStreamingSource(
 
   private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
-      "#pk" -> pullIndexKey,
-      "#wm" -> watermarkFieldName
+      "#pk" -> settings.pullIndexKey,
+      "#wm" -> settings.watermarkFieldName
     ).asJava
 
     val exprVals = Map(
-      ":pk" -> AttributeValue.builder().s(pullIndexValue).build(),
+      ":pk" -> AttributeValue.builder().s(settings.pullIndexValue).build(),
       ":t"  -> AttributeValue.builder().s(PullStreamingSource.normalizeWatermark(latestVersion.timestamp)).build()
     ).asJava
     QueryRequest
       .builder()
-      .tableName(tableName)
+      .tableName(settings.tableName)
       .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
@@ -138,16 +136,16 @@ class PullStreamingSource(
 
   private def buildQueryMaxTimestamp: QueryRequest =
     val exprNames = Map(
-      "#pk" -> pullIndexKey,
-      "#wm" -> watermarkFieldName
+      "#pk" -> settings.pullIndexKey,
+      "#wm" -> settings.watermarkFieldName
     ).asJava
 
     val exprVals = Map(
-      ":pk" -> AttributeValue.builder().s(pullIndexValue).build()
+      ":pk" -> AttributeValue.builder().s(settings.pullIndexValue).build()
     ).asJava
     QueryRequest
       .builder()
-      .tableName(tableName)
+      .tableName(settings.tableName)
       .keyConditionExpression("#pk = :pk")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
@@ -165,13 +163,13 @@ class PullStreamingSource(
         if hasMore then
           zlog(
             "DynamoDB query on table '%s' returned a truncated response (%s items in this page, additional pages available but not fetched by this call)",
-            tableName,
+            settings.tableName,
             itemCount.toString
           )
         else
           zlog(
             "DynamoDB query on table '%s' returned a complete response (%s items, no further pages)",
-            tableName,
+            settings.tableName,
             itemCount.toString
           )
     yield response
@@ -196,13 +194,13 @@ class PullStreamingSource(
             if pageIndex == 1 && !hasMore then
               zlog(
                 "DynamoDB paginated query on table '%s' completed in a single page (%s items, no pagination needed)",
-                tableName,
+                settings.tableName,
                 pageItemCount.toString
               )
             else
               zlog(
                 "DynamoDB paginated query on table '%s' page %s returned %s items (total so far: %s, more pages: %s)",
-                tableName,
+                settings.tableName,
                 pageIndex.toString,
                 pageItemCount.toString,
                 totalItems.toString,
@@ -220,7 +218,7 @@ class PullStreamingSource(
       pointer       <- resolveJsonPointer
     yield {
       val envelope = EnvelopeColumns(
-        watermark = resolveColumn(icebergSchema, watermarkFieldName),
+        watermark = resolveColumn(icebergSchema, settings.watermarkFieldName),
         mergeKey = resolveColumn(icebergSchema, MergeKeyField.name)
       )
       // Envelope columns are carried by the DynamoDB item, not by `payload`, so they are hidden from the decoder:
@@ -250,7 +248,7 @@ class PullStreamingSource(
     * stale value, and a table that carries none behaves as it always did: decoding from the root.
     */
   private def resolveJsonPointer: Task[Option[String]] =
-    jsonPointerExpression.filter(_.nonEmpty) match
+    settings.jsonPointerExpression.filter(_.nonEmpty) match
       case configured @ Some(_) => ZIO.succeed(configured)
       case None =>
         this.sinkPropertyManager
@@ -297,7 +295,7 @@ class PullStreamingSource(
         val watermarkCell =
           for
             column         <- envelope.watermark
-            watermarkValue <- stringAttribute(watermarkFieldName)
+            watermarkValue <- stringAttribute(settings.watermarkFieldName)
           yield DataCell(column, ArcaneType.StringType, watermarkValue)
 
         // the merge key identifies the target row: the payload carries no identity of its own, so the id attribute
