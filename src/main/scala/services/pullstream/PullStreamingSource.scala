@@ -295,6 +295,7 @@ class PullStreamingSource(
         def stringAttribute(name: String): Option[String] =
           attributes.get(name).flatMap(attribute => Option(attribute.s()))
 
+        // TOOD: in 2.4 version this becomes dataRowModification SurrogateVersion
         val watermarkCell =
           for
             column         <- envelope.watermark
@@ -307,6 +308,8 @@ class PullStreamingSource(
         // conversion re-tags any case-insensitive match as an IndexedMergeKeyField, which reports the canonical
         // upper-case name, and it appends that field outright when the sink declares no column at all. The staging
         // table therefore always carries the canonical spelling, and a cell named after the sink would not match it.
+
+        // TOOD: in 2.4 version this becomes dataRowModification SurrogateMergeKey
         val mergeKeyCell =
           stringAttribute(pushIdFieldName)
             .map(mergeKeyValue => DataCell(MergeKeyField.name, MergeKeyField.fieldType, mergeKeyValue))
