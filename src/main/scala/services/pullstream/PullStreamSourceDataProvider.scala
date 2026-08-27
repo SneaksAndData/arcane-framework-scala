@@ -59,6 +59,9 @@ class PullStreamSourceDataProvider(
     * returned here. Returning anything earlier than `endWatermark` would leave the watermark trailing the rows that
     * were already read, and the next iteration would read that same tail again: the overlap grows with the backlog, so
     * catching up costs a pass over the remaining backlog per shortened step rather than a single pass overall.
+    *
+    * NOTE: this might needs some patching if the pods OOM after continous restarts due to increasing distance between
+    * starts and end
     */
   override def getLatestWatermarkInRange(
       startWatermark: PullStreamWatermark,
