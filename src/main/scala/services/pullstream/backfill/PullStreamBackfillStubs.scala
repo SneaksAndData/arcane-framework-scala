@@ -8,18 +8,19 @@ import com.sneaksanddata.arcane.framework.services.backfill.base.{
   ShardedBackfillStreamDataProvider
 }
 import com.sneaksanddata.arcane.framework.services.streaming.base.{JsonWatermark, StructuredZStream}
+import com.sneaksanddata.arcane.framework.exceptions.unsupported
 import zio.stream.ZStream
-import zio.{Task, ULayer, ZIO, ZLayer}
+import zio.{Task, ULayer, ZLayer}
 
-private def unsupported(name: String): Task[Nothing] =
-  ZIO.fail(new UnsupportedOperationException(s"$name is not supported by the pull stream plugin"))
+/** Names the component in the failures raised by the stubs below. */
+private val pullStreamPlugin = "the pull stream plugin"
 
 /** Backfilling is not supported by PullStream plugin. This module provides No-op implementations for the necessary
   * backfill layers that are required by 'GenericStreamRunnerService'.
   */
 object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(unsupported("BackfillStreamDataProvider.stream"))
+    ZStream.fromZIO(unsupported("BackfillStreamDataProvider.stream", pullStreamPlugin))
 
   val layer: ULayer[BackfillStreamDataProvider] = ZLayer.succeed(this)
 
@@ -27,7 +28,7 @@ object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
   */
 object NoopShardedBackfillStreamDataProvider extends ShardedBackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
-    unsupported("ShardedBackfillStreamDataProvider.backfillStream")
+    unsupported("ShardedBackfillStreamDataProvider.backfillStream", pullStreamPlugin)
 
   val layer: ULayer[ShardedBackfillStreamDataProvider] = ZLayer.succeed(this)
 
@@ -35,9 +36,9 @@ object NoopShardedBackfillStreamDataProvider extends ShardedBackfillStreamDataPr
   */
 object NoopShardFactory extends ShardFactory:
   override def createStagedShard(shard: BootstrappedShard): Task[StagedShard] =
-    unsupported("ShardFactory.createStagedShard")
+    unsupported("ShardFactory.createStagedShard", pullStreamPlugin)
 
   override def createCompletionShard(shard: StagedShard, watermark: String): Task[CompletionShard] =
-    unsupported("ShardFactory.createCompletionShard")
+    unsupported("ShardFactory.createCompletionShard", pullStreamPlugin)
 
   val layer: ULayer[ShardFactory] = ZLayer.succeed(this)
