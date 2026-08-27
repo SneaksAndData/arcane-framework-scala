@@ -20,6 +20,8 @@ final class MissingFieldException(msg: String) extends FatalStreamFailException(
   * type tag before invoking Avro's JSON decoder. See:
   *   - https://avro.apache.org/docs/current/spec.html#json_encoding
   *   - https://issues.apache.org/jira/browse/AVRO-1582
+  * `record`, `map` and `array` fields are rebuilt as [[org.apache.iceberg.variants.Variant]] instead of being decoded
+  * by Avro. Corresponding to `Types.VariantType`.
   *
   * @param schema
   *   Avro schema used to decode each record. All fields MUST have a default NULL value assigned and MUST declare NULL
@@ -31,23 +33,15 @@ final class MissingFieldException(msg: String) extends FatalStreamFailException(
   * @param tolerateMissingFields
   *   Optional boolean to allow missing fields in the payload. For legacy support the parser fills missing fields with
   *   Null values.
-  *
-  * @param decodeObjectsAsVariant
-  *   Whether `record`, `map` and `array` fields are rebuilt as Iceberg variants instead of being decoded by Avro. Off
-  *   by default, so that callers writing into non-variant columns keep receiving the Avro representation
-  *   (`GenericRecord`/`java.util.Map`/`GenericArray`) they have always been given. Enable it when the sink declares
-  *   such columns as `Types.VariantType`, since its parquet writer casts the cell value to
-  *   [[org.apache.iceberg.variants.Variant]] outright.
   */
 class AvroJsonDecoder(
     schema: org.apache.avro.Schema,
     jsonPointerExpr: Option[String] = None,
-    tolerateMissingFields: Boolean = true,
-    decodeObjectsAsVariant: Boolean = false
+    tolerateMissingFields: Boolean = true
 ):
   /** Fields carried as an Iceberg variant instead of being decoded by Avro, in schema declaration order. */
   private val variantFields: Seq[org.apache.avro.Schema.Field] =
-    if decodeObjectsAsVariant then schema.getFields.asScala.filter(_.isVariant).toSeq else Seq.empty
+    schema.getFields.asScala.filter(_.isVariant).toSeq
 
   private val variantFieldNames: Set[String] = variantFields.map(_.name()).toSet
 
@@ -221,14 +215,6 @@ object AvroJsonDecoder:
       jsonPointerExpr: Option[String],
       tolerateMissingFields: Boolean
   ): AvroJsonDecoder = new AvroJsonDecoder(schema, jsonPointerExpr, tolerateMissingFields)
-
-  def apply(
-      schema: org.apache.avro.Schema,
-      jsonPointerExpr: Option[String],
-      tolerateMissingFields: Boolean,
-      decodeObjectsAsVariant: Boolean
-  ): AvroJsonDecoder =
-    new AvroJsonDecoder(schema, jsonPointerExpr, tolerateMissingFields, decodeObjectsAsVariant)
 
 /** The payload branch of an optional field, encoded by Avro as `["null", T]`. Non-union schemas are their own. */
 private def nonNullBranch(schema: org.apache.avro.Schema): org.apache.avro.Schema =

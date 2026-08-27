@@ -280,12 +280,11 @@ class PullStreamingSource(
       envelope: EnvelopeColumns,
       jsonPointer: Option[String]
   ): ZStream[Any, Throwable, DataRow] =
+    // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant
     val decoder = new AvroJsonDecoder(
       schema = avroSchema,
       jsonPointerExpr = jsonPointer,
-      tolerateMissingFields = false,
-      // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant
-      decodeObjectsAsVariant = true
+      tolerateMissingFields = false
     )
 
     ZStream
