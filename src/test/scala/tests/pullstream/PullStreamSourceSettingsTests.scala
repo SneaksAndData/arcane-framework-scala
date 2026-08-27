@@ -13,7 +13,7 @@ import scala.util.Try
 object PullStreamSourceSettingsTests extends ZIOSpecDefault:
 
   private val requiredFields =
-    """"pullIndexKey":"pk","pullIndexValue":"v","watermarkFieldName":"timestampUTC","region":"eu-central-1","tableName":"arcane-push-stream-tokens","endpoint":null,"pageSize":null"""
+    """"pullIndexKey":"pk","pullIndexValue":"v","versionFieldName":"timestampUTC","region":"eu-central-1","tableName":"arcane-push-stream-tokens","endpoint":null,"pageSize":null"""
 
   def spec: Spec[Any, Any] = suite("PullStreamSourceSettings")(
     test("reads the payload pointer option from the stream configuration") {

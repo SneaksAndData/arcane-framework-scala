@@ -45,7 +45,7 @@ import scala.jdk.CollectionConverters.*
   * @param primaryKeyValue
   *   The value of the producer column
   *
-  * @param watermarkFieldName
+  * @param versionFieldName
   *   the field that contains the watermark
   */
 /** Sink columns whose values are carried by the DynamoDB item envelope rather than by the `payload` attribute.
@@ -71,7 +71,7 @@ class PullStreamingSource(
   /** Column used to order concurrent versions of the same merge key during a merge. This is the watermark column, whose
     * value the source appends to every row.
     */
-  val versionFieldName: String = settings.watermarkFieldName
+  val versionFieldName: String = settings.versionFieldName
 
   /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
     * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
@@ -99,7 +99,7 @@ class PullStreamingSource(
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
       "#pk" -> settings.pullIndexKey,
-      "#wm" -> settings.watermarkFieldName
+      "#wm" -> settings.versionFieldName
     ).asJava
 
     val exprVals = Map(
@@ -118,7 +118,7 @@ class PullStreamingSource(
   private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
       "#pk" -> settings.pullIndexKey,
-      "#wm" -> settings.watermarkFieldName
+      "#wm" -> settings.versionFieldName
     ).asJava
 
     val exprVals = Map(
@@ -138,7 +138,7 @@ class PullStreamingSource(
   private def buildQueryMaxTimestamp: QueryRequest =
     val exprNames = Map(
       "#pk" -> settings.pullIndexKey,
-      "#wm" -> settings.watermarkFieldName
+      "#wm" -> settings.versionFieldName
     ).asJava
 
     val exprVals = Map(
@@ -217,7 +217,7 @@ class PullStreamingSource(
       pointer       <- resolveJsonPointer
     yield {
       val envelope = EnvelopeColumns(
-        watermark = resolveColumn(icebergSchema, settings.watermarkFieldName),
+        watermark = resolveColumn(icebergSchema, settings.versionFieldName),
         mergeKey = resolveColumn(icebergSchema, MergeKeyField.name)
       )
       // Envelope columns are carried by the DynamoDB item, not by `payload`, so they are hidden from the decoder:
@@ -298,7 +298,7 @@ class PullStreamingSource(
         val watermarkCell =
           for
             column         <- envelope.watermark
-            watermarkValue <- stringAttribute(settings.watermarkFieldName)
+            watermarkValue <- stringAttribute(settings.versionFieldName)
           yield DataCell(column, ArcaneType.StringType, watermarkValue)
 
         // the merge key identifies the target row: the payload carries no identity of its own, so the id attribute

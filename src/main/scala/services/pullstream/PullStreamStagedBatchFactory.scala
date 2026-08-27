@@ -16,7 +16,7 @@ final class MissingVersionFieldException(message: String) extends FatalStreamFai
 
 /** @param versionFieldName
   *   Column used to order concurrent versions of the same merge key. It must exist in the sink table, and is taken from
-  *   the source's `watermarkFieldName` so that it always names the column the source populates.
+  *   the source's `versionFieldName` so that it always names the column the source populates.
   */
 class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedBatchFactory:
   override type OutputBatch    = PullStreamChangeTrackingMergeBatch
@@ -35,7 +35,7 @@ class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedB
         MissingVersionFieldException(
           s"Column '$versionFieldName' is not present in the sink table. The pull stream orders concurrent versions " +
             s"of a merge key by this column, so it must exist in the target table. Either add it to the target " +
-            s"table, or point 'watermarkFieldName' at an existing column. Available columns: " +
+            s"table, or point 'versionFieldName' at an existing column. Available columns: " +
             batchSchema.map(_.name).mkString(", ")
         )
       )
