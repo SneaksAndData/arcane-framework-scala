@@ -69,18 +69,12 @@ given Conversion[IndexedSimpleCdmAttribute, IndexedField] with
 
 given Conversion[SimpleCdmEntity, ArcaneSchema] with
   override def apply(entity: SimpleCdmEntity): ArcaneSchema =
-    val baseSchema = entity.attributes
+    entity.attributes
       .foldLeft((ArcaneSchema.empty(), 0)) { case ((agg, fieldIndex), attribute) =>
         val indexedAttr: IndexedField = (attribute, fieldIndex)
         (agg.addIndexedField(indexedAttr.name, indexedAttr.fieldType, indexedAttr.fieldId), fieldIndex + 1)
       }
       ._1
 
-    baseSchema.addIndexedField(MergeKeyField.name, MergeKeyField.fieldType, baseSchema.length)
-
 object SimpleCdmModel:
-  // number of fields in the schema of each entity which do not originate from CDM
-  // currently MergeKeyField only
-  val systemFieldCount: Int = 1
-
   def apply(json: String): SimpleCdmModel = read[SimpleCdmModel](json)
