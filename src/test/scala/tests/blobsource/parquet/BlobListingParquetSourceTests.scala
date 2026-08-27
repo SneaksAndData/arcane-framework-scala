@@ -3,6 +3,7 @@ package tests.blobsource.parquet
 
 import models.batches.BlobBatchCommons
 import models.schemas.MergeKeyField
+import models.settings.sources.{SurrogateMergeKey, SurrogateMergeKeyImpl}
 import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.DefaultNameGenerator
@@ -13,9 +14,6 @@ import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
-
-import java.security.MessageDigest
-import java.util.Base64
 
 object BlobListingParquetSourceTests extends ZIOSpecDefault:
   private val nameGenerator =
@@ -40,7 +38,8 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
           )
         )
         sourceMapped <- ZIO.succeed(
@@ -53,7 +52,8 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             true,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
           )
         )
         schema       <- source.getSchema
@@ -83,25 +83,6 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 13)) && assertTrue(
-        rows
-          .forall(row =>
-            val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
-              .takeRight(2)
-              .head
-              .value
-              .asInstanceOf[String] == Base64.getEncoder.encodeToString(
-              MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
-            ))
-
-            if !pred then {
-              println(
-                s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
-              )
-            }
-
-            pred
-          )
-      )
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 12))
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

@@ -3,6 +3,7 @@ package tests.blobsource.json
 
 import models.batches.BlobBatchCommons
 import models.schemas.{DataRow, MergeKeyField}
+import models.settings.sources.{SurrogateMergeKeyImpl, SurrogateMergeKey}
 import services.blobsource.readers.listing.BlobListingJsonStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.DefaultNameGenerator
@@ -10,36 +11,15 @@ import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
 import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
+import utils.HashUtils
 
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, Scope, ZIO}
 
-import java.security.MessageDigest
-import java.util.Base64
-
 def assertValidChunk(rows: Chunk[DataRow], expectedSize: Int, expectedFieldCount: Int) = {
   assertTrue(rows.size == expectedSize) && assertTrue(
     rows.forall(v => v.size == expectedFieldCount)
-  ) && assertTrue(
-    rows
-      .forall(row =>
-        val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
-          .takeRight(2)
-          .head
-          .value
-          .asInstanceOf[String] == Base64.getEncoder.encodeToString(
-          MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
-        ))
-
-        if !pred then {
-          println(
-            s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
-          )
-        }
-
-        pred
-      )
   )
 }
 
@@ -67,7 +47,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             flatSchema,
             Some("/body"),
             Map(),
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
           )
         )
         schema <- source.getSchema
@@ -96,7 +77,41 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 50 * 100, 12)
+      yield assertValidChunk(rows, 50 * 100, 11)
+    },
+    test("getChanges adds a surrogate merge key when configured") {
+      val pkColumns = Seq("col1", "col3")
+
+      for
+        path      <- ZIO.succeed(S3StoragePath(s"s3a://$jsonBucket").get)
+        shardPath <- ZIO.succeed(S3StoragePath("s3a://tmp").get)
+        source <- ZIO.succeed(
+          BlobListingJsonStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            pkColumns,
+            flatSchema,
+            Some("/body"),
+            Map(),
+            TestFieldSelectionRuleSettings,
+            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
+          )
+        )
+        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+      yield assertValidChunk(rows, 50 * 100, 12) && assertTrue(
+        rows.forall { row =>
+          val primaryKeyValues = pkColumns.map(name => row.find(_.name == name).map(_.value))
+          val mergeKey         = row.find(_.name == MergeKeyField.name).map(_.value)
+
+          (primaryKeyValues, mergeKey) match
+            case (Seq(Some(first: CharSequence), Some(second: CharSequence)), Some(value: String)) =>
+              value == HashUtils.murmur3(s"$first#$second")
+            case _ => false
+        }
+      )
     },
     test("getChanges return correct rows for source with variable number of fields") {
       for
@@ -117,7 +132,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 50 * 100, 12)
+      yield assertValidChunk(rows, 50 * 100, 11)
     },
     test("getChanges return correct rows when using array explode") {
       for
@@ -138,7 +153,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 50 * 100, 14)
+      yield assertValidChunk(rows, 50 * 100, 13)
     },
     test("getChanges return correct rows when using array explode for nested arrays") {
       for
@@ -159,7 +174,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 20 * 10 * 50, 14)
+      yield assertValidChunk(rows, 20 * 10 * 50, 13)
     },
     test("getChanges return correct rows when using array explode for nested arrays, when a root is JArray") {
       for
@@ -180,6 +195,6 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 20 * 10 * 50, 14)
+      yield assertValidChunk(rows, 20 * 10 * 50, 13)
     }
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

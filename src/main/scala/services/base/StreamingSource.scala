@@ -33,10 +33,18 @@ abstract class DefaultStreamingSource(
   ): Task[ArcaneSchema] = modification match
     case SurrogateMergeKeyImpl(_) if !schema.exists(_.name.equalsIgnoreCase(MergeKeyField.name)) =>
 
-      val newSchema = schema.addIndexedField(
-        MergeKeyField.name,
-        MergeKeyField.fieldType
-      )
+      // Currently for JSON source need to use non-indexed fieldsok,
+      val newSchema =
+        if schema.isIndexed then
+          schema.addIndexedField(
+            MergeKeyField.name,
+            MergeKeyField.fieldType
+          )
+        else
+          schema.addField(
+            MergeKeyField.name,
+            MergeKeyField.fieldType
+          )
 
       ZIO.succeed(newSchema)
     case _ => ZIO.succeed(schema)
@@ -74,9 +82,10 @@ abstract class DefaultStreamingSource(
   private def createMergeKey(keyValues: Seq[Any]): String =
     val input = keyValues
       .map {
-        case s: String => s
-        case null      => throw new IllegalArgumentException("PK value must not be null")
-        case other     => throw new UnsupportedOperationException(s"Unsupported PK type: ${other.getClass.getName}")
+        // Covers String and org.apache.avro.util.Utf8
+        case value: CharSequence => value.toString
+        case null                => throw new IllegalArgumentException("PK value must not be null")
+        case other => throw new UnsupportedOperationException(s"Unsupported PK type: ${other.getClass.getName}")
       }
       .mkString("#")
 
