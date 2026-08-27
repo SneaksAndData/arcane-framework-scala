@@ -7,10 +7,10 @@ case class DefaultPullStreamSourceSettings(
     override val pullIndexKey: String,
     override val pullIndexValue: String,
     override val watermarkFieldName: String,
-    override val pageSize: Option[Int] = None,
+    override val pageSize: Option[Int],
     override val region: String,
     override val tableName: String,
     override val endpoint: Option[String],
-    override val jsonPointerExpression: Option[String] = None,
-    override val jsonArrayPointers: Map[String, Map[String, String]] = Map()
+    override val jsonPointerExpression: Option[String],
+    override val jsonArrayPointers: Map[String, Map[String, String]]
 ) extends PullStreamSourceSettings derives ReadWriter
