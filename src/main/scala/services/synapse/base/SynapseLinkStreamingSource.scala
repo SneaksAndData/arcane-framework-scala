@@ -7,7 +7,7 @@ import models.app.PluginStreamContext
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
-import models.settings.sources.{DataRowModification, DataRowSchemaVersion}
+import models.settings.sources.DataRowModification
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import models.cdm.CSVParser
 import services.base.{SchemaProvider, DefaultStreamingSource}
@@ -31,8 +31,8 @@ final class SynapseLinkStreamingSource(
     entityName: String,
     reader: AzureBlobStorageReader,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification] = Seq.empty
-) extends DefaultStreamingSource(modifications, DataRowSchemaVersion.V0):
+    modifications: Seq[DataRowModification]
+) extends DefaultStreamingSource(modifications):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
@@ -328,6 +328,6 @@ object SynapseLinkStreamingSource:
         settings.entityName,
         AzureBlobStorageReader(settings.storageConnection),
         context.source.fieldSelectionRule,
-        Seq.empty
+        context.source.modifications.modifications
       )
     }

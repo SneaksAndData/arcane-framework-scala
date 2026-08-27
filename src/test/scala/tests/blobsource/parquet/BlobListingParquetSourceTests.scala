@@ -79,7 +79,8 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

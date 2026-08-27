@@ -125,7 +125,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         query <- QueryProvider.getColumnSummariesQuery(
@@ -152,7 +153,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         query <- QueryProvider.getSchemaQuery(reader)
@@ -184,7 +186,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
@@ -228,7 +231,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
@@ -269,7 +273,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
 
@@ -303,7 +308,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
 
@@ -329,7 +335,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         expected <- ZIO.succeed(
@@ -371,7 +378,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
 
@@ -454,7 +462,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
 
@@ -488,7 +497,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         expected <- ZIO.succeed(
@@ -522,7 +532,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         rows <- reader
@@ -571,7 +582,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         rows <- reader
@@ -619,7 +631,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         rows <- reader
@@ -653,7 +666,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         nextTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
@@ -707,7 +721,8 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nopSelector,
-            nameGenerator
+            nameGenerator,
+            Seq.empty
           )
         )
         _ <- reader.deleteShards("backfill__s1__")
