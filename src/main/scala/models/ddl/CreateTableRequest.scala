@@ -45,8 +45,8 @@ case class CreateTableRequest(
     */
   val effectiveProperties: Map[String, String] =
     if properties.contains(CreateTableRequest.FormatVersionProperty) then properties
-    else if CreateTableRequest.containsVariant(schema.asStruct()) then
-      properties + (CreateTableRequest.FormatVersionProperty -> CreateTableRequest.VariantFormatVersion)
+    else if schema.containsVariant then
+      properties + (CreateTableRequest.FormatVersionProperty -> CreateTableRequest.IcebergFormatVersion)
     else properties
 
 object CreateTableRequest:
@@ -102,10 +102,11 @@ object CreateTableRequest:
     parquetBloomFilterFields
   )
 
-extension (r: CreateTableRequest)
+extension (schema: Schema)
   /** Whether the type, or anything nested inside it, is a variant. */
-  def containsVariant(icebergType: Type): Boolean = icebergType match
-    case _: Types.VariantType => true
-    case nested: Type.NestedType =>
-      nested.fields().asScala.exists(field => containsVariant(field.`type`()))
-    case _ => false
+  def containsVariant: Boolean =
+    def loop(icebergType: Type): Boolean = icebergType match
+      case _: Types.VariantType    => true
+      case nested: Type.NestedType => nested.fields().asScala.exists(f => loop(f.`type`()))
+      case _                       => false
+    loop(schema.asStruct())
