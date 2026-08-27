@@ -11,7 +11,7 @@ import models.settings.sources.SourceSettings
 trait PullStreamSourceSettings extends SourceSettings:
   val pullIndexKey: String
   val pullIndexValue: String
-  val watermarkFieldName: String
+  val versionFieldName: String
   val pageSize: Option[Int]
   val region: String
   val tableName: String

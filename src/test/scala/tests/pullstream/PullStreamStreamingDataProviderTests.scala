@@ -49,7 +49,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
     new PullStreamSourceSettings:
       override val pullIndexKey: String       = primaryKeyField
       override val pullIndexValue: String     = PullStreamStreamingDataProviderTests.primaryKeyValue
-      override val watermarkFieldName: String = watermarkField
+      override val versionFieldName: String = watermarkField
       override val region: String             = "us-east-1"
       override val tableName: String          = sourceTable
       override val endpoint: Option[String]   = None
