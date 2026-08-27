@@ -16,5 +16,3 @@ trait StreamSourceSettings:
   val fieldSelectionRule: FieldSelectionRuleSettings
 
   val modifications: DataRowModificationSettings
-
-  val dataRowSchemaVersion: DataRowSchemaVersion

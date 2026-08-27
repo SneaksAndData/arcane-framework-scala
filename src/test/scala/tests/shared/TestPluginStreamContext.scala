@@ -10,7 +10,6 @@ import models.settings.sink.SinkSettings
 import models.settings.sources.{
   BufferingStrategy,
   DataRowModificationSettings,
-  DataRowSchemaVersion,
   DefaultDataRowModificationSettings,
   SourceBufferingSettings,
   SourceSettings,
@@ -72,7 +71,6 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
     }
     override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
     override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
-    override val dataRowSchemaVersion: DataRowSchemaVersion     = DataRowSchemaVersion.V0
   }
 
 object TestPluginStreamContext extends TestPluginStreamContextImpl:

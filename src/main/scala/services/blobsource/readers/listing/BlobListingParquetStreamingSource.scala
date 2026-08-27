@@ -34,7 +34,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     useNameMapping: Boolean,
     sourceSchema: Option[String],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification] = Seq.empty
+    modifications: Seq[DataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -155,6 +155,6 @@ object BlobListingParquetStreamingSource:
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
         fieldSelector = context.source.fieldSelectionRule,
-        modifications = context.source.dataRowSchemaVersion.modifications
+        modifications = context.source.modifications.modifications
       )
     }

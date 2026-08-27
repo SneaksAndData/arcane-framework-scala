@@ -73,7 +73,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             flatSchema,
             Some("/body"),
             Map(),
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -128,7 +129,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             flatSchema,
             Some("/body"),
             Map(),
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -149,7 +151,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             nestedArraySchema,
             Some("/body"),
             Map("/nested_array/value" -> Map()),
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -170,7 +173,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             nestedArraySchema,
             Some("/body"),
             Map("/data" -> Map(), "/nested_array/value" -> Map()),
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -191,7 +195,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             nestedArraySchema,
             Some("/body"),
             Map("/nested_array/value" -> Map()),
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

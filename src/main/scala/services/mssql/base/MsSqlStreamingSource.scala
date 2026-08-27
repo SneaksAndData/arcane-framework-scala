@@ -39,8 +39,8 @@ class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator,
-    modifications: Seq[DataRowModification] = Seq.empty
-) extends DefaultStreamingSource(modifications, DataRowSchemaVersion.V0)
+    modifications: Seq[DataRowModification]
+) extends DefaultStreamingSource(modifications)
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -495,7 +495,7 @@ object MsSqlStreamingSource:
           connectionSettings = extractor(context),
           fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
           nameGenerator = nameGenerator,
-          modifications = context.source.dataRowSchemaVersion.modifications
+          modifications = context.source.modifications.modifications
         )
       }
     }

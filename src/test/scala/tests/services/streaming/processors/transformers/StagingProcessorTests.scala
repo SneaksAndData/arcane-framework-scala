@@ -10,7 +10,6 @@ import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.{
   DataRowModificationSettings,
-  DataRowSchemaVersion,
   DefaultDataRowModificationSettings,
   SourceBufferingSettings,
   SourceSettings,
@@ -102,7 +101,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val buffering: SourceBufferingSettings             = TestSourceBufferingSettings
       override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
       override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
-      override val dataRowSchemaVersion: DataRowSchemaVersion     = DataRowSchemaVersion.V0
     }
     override val staging: StagingSettings             = TestStagingSettings()
     override val observability: ObservabilitySettings = TestObservabilitySettings

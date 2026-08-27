@@ -31,7 +31,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification] = Seq.empty
+    modifications: Seq[DataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -133,6 +133,6 @@ object BlobListingJsonStreamingSource:
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
         jsonArrayPointers = sourceSettings.jsonArrayPointers,
         fieldSelector = context.source.fieldSelectionRule,
-        modifications = context.source.dataRowSchemaVersion.modifications
+        modifications = context.source.modifications.modifications
       )
     }

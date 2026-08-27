@@ -127,7 +127,8 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
         primaryKeys = Seq("col0"),
         useNameMapping = false,
         sourceSchema = None,
-        fieldSelector = TestFieldSelectionRuleSettings
+        fieldSelector = TestFieldSelectionRuleSettings,
+        modifications = Seq.empty
       )
     )
     backfillSettings <- ZIO.succeed(
