@@ -157,7 +157,7 @@ class PullStreamingSource(
   private def runDynamoQuery(queryRequest: QueryRequest): Task[QueryResponse] =
     for
       response <- ZIO.attemptBlocking(dynamodbClient.query(queryRequest))
-      hasMore   = Option(response.lastEvaluatedKey()).exists(k => k != null && !k.isEmpty)
+      hasMore   = Option(response.lastEvaluatedKey()).exists(!_.isEmpty)
       itemCount = Option(response.items()).map(_.size()).getOrElse(0)
       _ <-
         if hasMore then
@@ -187,9 +187,8 @@ class PullStreamingSource(
           response <- ZIO.attemptBlocking(dynamodbClient.query(pagedRequest))
           pageItemCount = Option(response.items()).map(_.size()).getOrElse(0)
           totalItems    = itemsSoFar + pageItemCount
-          nextKey = Option(response.lastEvaluatedKey())
-            .filter(k => k != null && !k.isEmpty)
-          hasMore = nextKey.isDefined
+          nextKey       = Option(response.lastEvaluatedKey()).filter(!_.isEmpty)
+          hasMore       = nextKey.isDefined
           _ <-
             if pageIndex == 1 && !hasMore then
               zlog(
