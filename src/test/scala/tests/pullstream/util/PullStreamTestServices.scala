@@ -163,7 +163,7 @@ object PullStreamTestServices:
       override val tableName: String                     = sourceTableName
       override val pullIndexKey: String                  = primaryKeyField
       override val pullIndexValue: String                = PullStreamTestServices.primaryKeyValue
-      override val versionFieldName: String            = watermarkField
+      override val versionFieldName: String              = watermarkField
       override val region: String                        = "us-east-1"
       override val endpoint: Option[String]              = None
       override val pageSize: Option[Int]                 = None
