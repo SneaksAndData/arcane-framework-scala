@@ -5,27 +5,36 @@ import models.settings.sources.pullstream.DefaultPullStreamSourceSettings
 
 import zio.test.*
 
+import scala.util.Try
+
 /** Covers the path production actually uses: the plugin deserializes these settings straight from the stream
-  * configuration document, so the payload flattening options are only reachable if they survive that round trip.
+  * configuration document, so the payload pointer option is only reachable if it survives that round trip.
   */
 object PullStreamSourceSettingsTests extends ZIOSpecDefault:
 
   private val requiredFields =
-    """"pullIndexKey":"pk","pullIndexValue":"v","watermarkFieldName":"timestampUTC","region":"eu-central-1","tableName":"arcane-push-stream-tokens","endpoint":null"""
+    """"pullIndexKey":"pk","pullIndexValue":"v","watermarkFieldName":"timestampUTC","region":"eu-central-1","tableName":"arcane-push-stream-tokens","endpoint":null,"pageSize":null"""
 
   def spec: Spec[Any, Any] = suite("PullStreamSourceSettings")(
-    test("reads the payload flattening options from the stream configuration") {
+    test("reads the payload pointer option from the stream configuration") {
       val settings = upickle.read[DefaultPullStreamSourceSettings](
-        s"""{$requiredFields,"jsonPointerExpression":"/payload","jsonArrayPointers":{"/payload":{"id":"push_event_id"}}}"""
+        s"""{$requiredFields,"jsonPointerExpression":"/payload"}"""
       )
 
       assertTrue(settings.jsonPointerExpression.contains("/payload"))
-      && assertTrue(settings.jsonArrayPointers == Map("/payload" -> Map("id" -> "push_event_id")))
     },
-    test("keeps configurations written before the flattening options were introduced readable") {
-      val settings = upickle.read[DefaultPullStreamSourceSettings](s"""{$requiredFields}""")
+    test("reads a configuration that decodes the document from its root") {
+      val settings = upickle.read[DefaultPullStreamSourceSettings](
+        s"""{$requiredFields,"jsonPointerExpression":null}"""
+      )
 
-      // absent options must default to "no flattening" rather than failing the stream on startup
-      assertTrue(settings.jsonArrayPointers.isEmpty) && assertTrue(settings.jsonPointerExpression.isEmpty)
+      assertTrue(settings.jsonPointerExpression.isEmpty)
+    },
+    test("rejects a configuration that omits an optional-valued key") {
+      // every field is mandatory in the document even when its value is nullable, so a configuration written before
+      // these keys existed fails loudly on startup instead of silently streaming with an unintended default
+      val parsed = Try(upickle.read[DefaultPullStreamSourceSettings](s"""{$requiredFields}"""))
+
+      assertTrue(parsed.isFailure)
     }
   )

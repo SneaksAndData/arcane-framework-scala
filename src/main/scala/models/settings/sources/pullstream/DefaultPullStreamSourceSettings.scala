@@ -11,6 +11,5 @@ case class DefaultPullStreamSourceSettings(
     override val region: String,
     override val tableName: String,
     override val endpoint: Option[String],
-    override val jsonPointerExpression: Option[String],
-    override val jsonArrayPointers: Map[String, Map[String, String]]
+    override val jsonPointerExpression: Option[String]
 ) extends PullStreamSourceSettings derives ReadWriter

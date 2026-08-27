@@ -63,7 +63,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
 
   /** The decoded production payload, plus the two columns the framework synthesizes from the envelope. */
   private val targetSchema: ArcaneSchema = ArcaneSchema(
-    PullStreamTestServices.productionPayloadSchema
+    PullStreamTestServices.pointedPayloadSchema
       ++ Seq(Field(watermarkColumn, StringType), Field(mergeKeyColumn, StringType))
   )
 
@@ -132,7 +132,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             source = PullStreamingSource(
               settings = PullStreamTestServices.pullStreamSettings(
                 sourceTableName,
-                arrayPointers = PullStreamTestServices.productionArrayPointers
+                pointerExpression = Some("/payload")
               ),
               dynamodbClient = client,
               sinkPropertyManager = sinkPropertyManager,
@@ -172,21 +172,11 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
               mergeKeyColumn,
               firstItemKey
             )
-            businessId <- getFieldValueInTarget(
-              connection,
-              targetTableFullName,
-              PullStreamTestServices.pushEventIdField,
-              mergeKeyColumn,
-              firstItemKey
-            )
           yield
             // one target row per DynamoDB item: a missing or constant merge key would have collapsed them
             assertTrue(rowCount == totalItems)
             // the watermark is absent from the payload, so it can only have come from the item attribute
               && assertTrue(watermark == startAt.toString)
-              // the row is addressable by the envelope's `id`, proving that supplied the merge key, while the payload's
-              // own `id` keeps its distinct business value under the renamed column
-              && assertTrue(businessId == "evt_001")
               // members of the nested `payload` object landed in their own columns instead of one JSON string
               && assertTrue(eventType == "Producer1Event")
               && assertTrue(message == "Hello from Avro map<string> payload")

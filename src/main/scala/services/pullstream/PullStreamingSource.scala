@@ -63,7 +63,6 @@ class PullStreamingSource(
 ) extends StreamingSource:
 
   import settings.{
-    jsonArrayPointers,
     jsonPointerExpression,
     pullIndexKey,
     pullIndexValue,
@@ -286,10 +285,9 @@ class PullStreamingSource(
       envelope: EnvelopeColumns,
       jsonPointer: Option[String]
   ): ZStream[Any, Throwable, DataRow] =
-    val decoder = AvroJsonDecoder(
+    val decoder = new AvroJsonDecoder(
       schema = avroSchema,
       jsonPointerExpr = jsonPointer,
-      jsonArrayPointers = jsonArrayPointers,
       tolerateMissingFields = false,
       // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant
       decodeObjectsAsVariant = true
