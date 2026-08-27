@@ -268,6 +268,10 @@ class PullStreamingSource(
     * Only `payload` holds producer data; the remaining item attributes are envelope metadata. The watermark and the
     * merge key are appended to every decoded row whenever the sink declares a column for them, so the ingestion
     * timestamp and the row identity are persisted alongside the payload instead of being discarded.
+    *
+    * The item iterable is chunked explicitly rather than at ZIO's default of 4096: a chunk is decoded as a unit, so
+    * letting a whole page land in one chunk would hold every decoded row of that page in memory at once. A page is up
+    * to `listPageSize` items of raw JSON, and decoding amplifies that into DataRows, which is where the peak sits.
     */
   private def responseStream(
       queryResponse: QueryResponse,
@@ -284,7 +288,7 @@ class PullStreamingSource(
     )
 
     ZStream
-      .fromIterable(queryResponse.items().asScala)
+      .fromIterable(queryResponse.items().asScala, PullStreamingSource.decodeChunkSize)
       .map { item =>
         val attributes = item.asScala
         def stringAttribute(name: String): Option[String] =
@@ -360,6 +364,14 @@ object PullStreamingSource:
     * per page anyway, so this is a soft upper bound on items evaluated per network call, not a total-result cap.
     */
   val defaultPageSize: Int = 1000
+
+  /** Items decoded as a single unit while a page is turned into rows.
+    *
+    * ZIO's default is 4096, which for this stream would place an entire page in one chunk: `mapZIO` materializes a
+    * whole chunk before emitting it, so every decoded row of the page would be live at once. Decoding amplifies raw
+    * JSON several times over, so the bound is kept well below a page.
+    */
+  val decodeChunkSize: Int = 32
 
   /** Normalizes a watermark timestamp to a lexicographically comparable ISO-8601 string in UTC. The DynamoDB sort key
     * is a string, so mixed offsets (`+02:00` vs `+00:00`) would order incorrectly under `wm > :t`. Producers are
