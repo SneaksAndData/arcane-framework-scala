@@ -228,9 +228,10 @@ given Conversion[Schema, MergeableArcaneSchema] with
       }
       .toSeq
     val withKey =
-      if tagged.exists { 
-        case field: IndexedMergeKeyField => true 
-        case _: => false
-        } then tagged
+      if tagged.exists {
+          case field: IndexedMergeKeyField => true
+          case _                           => false
+        }
+      then tagged
       else tagged :+ IndexedMergeKeyField(fieldId = inferMergeKeyIndex(icebergSchema.columns().getLast))
     MergeableArcaneSchema(withKey)
