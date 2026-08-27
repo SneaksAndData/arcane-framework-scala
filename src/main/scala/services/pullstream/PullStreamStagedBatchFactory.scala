@@ -4,6 +4,7 @@ package services.pullstream
 import models.batches.{PullStreamChangeTrackingMergeBatch, PullStreamChangeTrackingWatermarkOnlyBatch}
 import models.schemas.ArcaneSchema
 import models.settings.EmptyTablePropertiesSettings
+import exceptions.FatalStreamFailException
 import services.streaming.batching.StagedBatchFactory
 
 import zio.{Task, ZIO, ZLayer}
@@ -11,7 +12,7 @@ import zio.{Task, ZIO, ZLayer}
 /** Raised when the configured version column is absent from the sink schema. Without it the generated MERGE references
   * an unknown column and fails inside the query engine with a message that gives no hint about the cause.
   */
-final class MissingVersionFieldException(message: String) extends RuntimeException(message)
+final class MissingVersionFieldException(message: String) extends FatalStreamFailException(message)
 
 /** @param versionFieldName
   *   Column used to order concurrent versions of the same merge key. It must exist in the sink table, and is taken from
