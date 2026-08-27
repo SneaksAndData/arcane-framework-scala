@@ -57,13 +57,6 @@ object CreateTableRequest:
   /** Lowest format version that admits a `variant` column. */
   val IcebergFormatVersion = "3"
 
-  /** Whether the type, or anything nested inside it, is a variant. */
-  private[ddl] def containsVariant(icebergType: Type): Boolean = icebergType match
-    case _: Types.VariantType => true
-    case nested: Type.NestedType =>
-      nested.fields().asScala.exists(field => containsVariant(field.`type`()))
-    case _ => false
-
   /** Create a table using provided schema, replacing if exists, if requested
     * @return
     */
@@ -108,3 +101,11 @@ object CreateTableRequest:
     sortOrder,
     parquetBloomFilterFields
   )
+
+extension (r: CreateTableRequest)
+  /** Whether the type, or anything nested inside it, is a variant. */
+  def containsVariant(icebergType: Type): Boolean = icebergType match
+    case _: Types.VariantType => true
+    case nested: Type.NestedType =>
+      nested.fields().asScala.exists(field => containsVariant(field.`type`()))
+    case _ => false
