@@ -180,33 +180,32 @@ class PullStreamingSource(
     */
   private def paginatedQuery(request: QueryRequest): ZStream[Any, Throwable, QueryResponse] =
     // State: (pageIndex, itemsSoFar, Option[startKey]). pageIndex starts at 1 for the first response.
-    ZStream.paginateZIO((1, 0L, Option.empty[java.util.Map[String, AttributeValue]])) {
-      case (pageIndex, itemsSoFar, startKey) =>
-        val pagedRequest = startKey.fold(request)(k => request.toBuilder.exclusiveStartKey(k).build())
-        for
-          response <- ZIO.attemptBlocking(dynamodbClient.query(pagedRequest))
-          pageItemCount = Option(response.items()).map(_.size()).getOrElse(0)
-          totalItems    = itemsSoFar + pageItemCount
-          nextKey       = Option(response.lastEvaluatedKey()).filter(!_.isEmpty)
-          hasMore       = nextKey.isDefined
-          _ <-
-            if pageIndex == 1 && !hasMore then
-              zlog(
-                "DynamoDB paginated query on table '%s' completed in a single page (%s items, no pagination needed)",
-                settings.tableName,
-                pageItemCount.toString
-              )
-            else
-              zlog(
-                "DynamoDB paginated query on table '%s' page %s returned %s items (total so far: %s, more pages: %s)",
-                settings.tableName,
-                pageIndex.toString,
-                pageItemCount.toString,
-                totalItems.toString,
-                hasMore.toString
-              )
-          next = nextKey.map(k => (pageIndex + 1, totalItems, Some(k)))
-        yield response -> next
+    ZStream.paginateZIO((1, 0L, Option.empty[Map[String, AttributeValue]])) { case (pageIndex, itemsSoFar, startKey) =>
+      val pagedRequest = startKey.fold(request)(k => request.toBuilder.exclusiveStartKey(k.asJava).build())
+      for
+        response <- ZIO.attemptBlocking(dynamodbClient.query(pagedRequest))
+        pageItemCount = Option(response.items()).map(_.size()).getOrElse(0)
+        totalItems    = itemsSoFar + pageItemCount
+        nextKey       = Option(response.lastEvaluatedKey()).map(_.asScala.toMap).filter(_.nonEmpty)
+        hasMore       = nextKey.isDefined
+        _ <-
+          if pageIndex == 1 && !hasMore then
+            zlog(
+              "DynamoDB paginated query on table '%s' completed in a single page (%s items, no pagination needed)",
+              settings.tableName,
+              pageItemCount.toString
+            )
+          else
+            zlog(
+              "DynamoDB paginated query on table '%s' page %s returned %s items (total so far: %s, more pages: %s)",
+              settings.tableName,
+              pageIndex.toString,
+              pageItemCount.toString,
+              totalItems.toString,
+              hasMore.toString
+            )
+        next = nextKey.map(k => (pageIndex + 1, totalItems, Some(k)))
+      yield response -> next
     }
 
   private def getSchemaInfo: Task[
