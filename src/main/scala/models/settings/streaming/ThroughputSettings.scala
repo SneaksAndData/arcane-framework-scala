@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.settings.streaming
 
 import models.serialization.FlowRateRW.*
-import models.settings.FlowRate
+import models.settings.{FlowRate, Mergeable}
 
 import upickle.default.*
 import upickle.implicits.key
@@ -61,5 +61,12 @@ case class DefaultThroughputSettings(
     override val advisedRate: FlowRate,
     override val advisedBurst: Int,
     override val advisedChunkSize: Int
-) extends ThroughputSettings derives ReadWriter:
+) extends ThroughputSettings, Mergeable[DefaultThroughputSettings] derives ReadWriter:
   override val shaperImpl: ThroughputShaperImpl = shaperImplSetting.resolveShaperImpl
+  override def merge(base: DefaultThroughputSettings, overrides: DefaultThroughputSettings): DefaultThroughputSettings =
+    DefaultThroughputSettings(
+      shaperImplSetting = base.shaperImplSetting,
+      advisedRate = overrides.advisedRate,
+      advisedBurst = overrides.advisedBurst,
+      advisedChunkSize = overrides.advisedChunkSize
+    )
