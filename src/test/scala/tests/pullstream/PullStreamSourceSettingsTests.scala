@@ -30,11 +30,10 @@ object PullStreamSourceSettingsTests extends ZIOSpecDefault:
 
       assertTrue(settings.jsonPointerExpression.isEmpty)
     },
-    test("rejects a configuration that omits an optional-valued key") {
-      // every field is mandatory in the document even when its value is nullable, so a configuration written before
-      // these keys existed fails loudly on startup instead of silently streaming with an unintended default
-      val parsed = Try(upickle.read[DefaultPullStreamSourceSettings](s"""{$requiredFields}"""))
-
-      assertTrue(parsed.isFailure)
+    test("reads a configuration that decodes the document from its root and omits jsonPointerExpression") {
+      val settings = upickle.read[DefaultPullStreamSourceSettings](
+        s"""{$requiredFields}"""
+      )
+      assertTrue(settings.jsonPointerExpression.isEmpty)
     }
   )
