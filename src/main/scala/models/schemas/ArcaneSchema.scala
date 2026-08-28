@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.schemas
 
-import ArcaneType.{StringType, StructType}
+import ArcaneType.{LongType, StringType, StructType}
 import models.*
 import services.base.CanAdd
 
@@ -86,6 +86,12 @@ case object MergeKeyField extends ArcaneSchemaField:
 case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
   val name: String          = MergeKeyField.name
   val fieldType: ArcaneType = MergeKeyField.fieldType
+
+/** VersionField represents a field used for batch merges
+  */
+case object VersionField extends ArcaneSchemaField:
+  val name: String          = "ARCANE_VERSION"
+  val fieldType: ArcaneType = LongType
 
 /** ArcaneSchema is a type alias for a sequence of fields or structs.
   */

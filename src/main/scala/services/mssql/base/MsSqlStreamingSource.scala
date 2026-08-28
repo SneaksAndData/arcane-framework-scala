@@ -75,6 +75,8 @@ class MsSqlStreamingSource(
       }
     )
 
+  override protected val versionName: Task[String] = ZIO.succeed("SYS_CHANGE_VERSION")
+
   /** Create a stream from a provided shard table.
     */
   def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] =

@@ -12,6 +12,7 @@ import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.streaming.base.StructuredZStream
 
+import com.sneaksanddata.arcane.framework.models.batches.BlobBatchCommons
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
@@ -31,6 +32,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 
   protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()
   override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(primaryKeys)
+  override protected val versionName: Task[String]          = ZIO.succeed(BlobBatchCommons.versionField.name)
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 

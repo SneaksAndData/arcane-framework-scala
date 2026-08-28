@@ -39,6 +39,8 @@ final class SynapseLinkStreamingSource(
 
   override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(Seq("Id"))
 
+  override protected val versionName: Task[String] = ZIO.succeed("versionnumber")
+
   // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
   // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.
   private def applyFieldSelector(schema: ArcaneSchema): ArcaneSchema =
@@ -70,7 +72,6 @@ final class SynapseLinkStreamingSource(
   override protected def getSourceSchema: Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
       .map(applyFieldSelector)
-      .flatMap(applySchemaModifications)
 
   /** Schema from batch-level model.json
     */
