@@ -1,52 +1,62 @@
-import sbtrelease.ReleaseStateTransformations.{checkSnapshotDependencies, inquireVersions, publishArtifacts, runClean, setReleaseVersion}
+import sbtrelease.ReleaseStateTransformations.{
+  checkSnapshotDependencies,
+  inquireVersions,
+  publishArtifacts,
+  runClean,
+  setReleaseVersion
+}
 
 val scala383 = "3.8.3"
 
 ThisBuild / organization := "com.sneaksanddata"
 ThisBuild / scalaVersion := scala383
+// SemanticDB is built into the Scala 3 compiler; only `semanticdbEnabled` is needed.
+// `semanticdbVersion` applies to Scala 2 (loads the semanticdb-scalac plugin) and is a no-op here.
+ThisBuild / semanticdbEnabled := true
 
 credentials += Credentials(
-    "GitHub Package Registry",
-    "maven.pkg.github.com",
-    sys.env.getOrElse("GITHUB_ACTOR", ""),
-    sys.env.getOrElse("GITHUB_TOKEN", "")
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  sys.env.getOrElse("GITHUB_ACTOR", ""),
+  sys.env.getOrElse("GITHUB_TOKEN", "")
 )
 
 releaseVersionFile := file("version.sbt")
 releaseVersionBump := sbtrelease.Version.Bump.Bugfix
 releaseProcess := Seq[ReleaseStep](
-    checkSnapshotDependencies,              // : ReleaseStep
-    inquireVersions,                        // : ReleaseStep
-    runClean,                               // : ReleaseStep
-    setReleaseVersion,                      // : ReleaseStep
-    publishArtifacts,                       // : ReleaseStep
+  checkSnapshotDependencies, // : ReleaseStep
+  inquireVersions,           // : ReleaseStep
+  runClean,                  // : ReleaseStep
+  setReleaseVersion,         // : ReleaseStep
+  publishArtifacts           // : ReleaseStep
 )
 releaseIgnoreUntrackedFiles := true
 publishTo := {
-    val ghRepo = "SneaksAndData/arcane-framework-scala"
-    val ghUser = "_"
-    val ghToken = sys.env.get("GITHUB_TOKEN")
-    ghToken.map { token =>
-        "GitHub Package Registry" at s"https://maven.pkg.github.com/$ghRepo"
-    }
+  val ghRepo  = "SneaksAndData/arcane-framework-scala"
+  val ghUser  = "_"
+  val ghToken = sys.env.get("GITHUB_TOKEN")
+  ghToken.map { token =>
+    "GitHub Package Registry" at s"https://maven.pkg.github.com/$ghRepo"
+  }
 }
 publishMavenStyle := true
 
 lazy val root = (project in file("."))
   .settings(
-    name := "arcane-framework",
+    name             := "arcane-framework",
     idePackagePrefix := Some("com.sneaksanddata.arcane.framework"),
 
     // Compiler options
     Test / logBuffered := false,
 
     // Framework dependencies
-    libraryDependencies += "dev.zio" %% "zio" % "2.1.26",
-    libraryDependencies += "dev.zio" %% "zio-streams" % "2.1.26",
-      libraryDependencies += "dev.zio" %% "zio-cache" % "0.2.8",
-    libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % "12.8.2.jre11",
-    libraryDependencies += "software.amazon.awssdk" % "s3" % "2.33.13",
-    libraryDependencies += "com.lihaoyi" %% "upickle" % "4.4.3",
+    libraryDependencies += "dev.zio"                %% "zio"                        % "2.1.26",
+    libraryDependencies += "dev.zio"                %% "zio-streams"                % "2.1.26",
+    libraryDependencies += "dev.zio"                %% "zio-cache"                  % "0.2.8",
+    libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc"                 % "12.8.2.jre11",
+    libraryDependencies += "software.amazon.awssdk"  % "s3"                         % "2.33.13",
+    libraryDependencies += "software.amazon.awssdk"  % "dynamodb"                   % "2.33.13",
+    libraryDependencies += "com.lihaoyi"            %% "upickle"                    % "4.4.3",
     libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
     // Iceberg deps - read
@@ -81,30 +91,29 @@ lazy val root = (project in file("."))
     // https://mvnrepository.com/artifact/com.azure/azure-identity
     libraryDependencies += "com.azure" % "azure-identity" % "1.18.3",
     // Jackson pin
-    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.1",
-    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-core" % "2.18.1",
-    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-annotations" % "2.18.1",
+    libraryDependencies += "com.fasterxml.jackson.core"     % "jackson-databind"        % "2.18.1",
+    libraryDependencies += "com.fasterxml.jackson.core"     % "jackson-core"            % "2.18.1",
+    libraryDependencies += "com.fasterxml.jackson.core"     % "jackson-annotations"     % "2.18.1",
     libraryDependencies += "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.1",
 
-
     // Test dependencies
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
-    libraryDependencies += "org.scalatestplus" %% "easymock-5-6" % "3.2.20.0" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
+    libraryDependencies += "org.scalatest"     %% "scalatest"          % "3.2.20"   % Test,
+    libraryDependencies += "org.scalatest"     %% "scalatest-flatspec" % "3.2.20"   % Test,
+    libraryDependencies += "org.scalatestplus" %% "easymock-5-6"       % "3.2.20.0" % Test,
+    libraryDependencies += "dev.zio"           %% "zio-test"           % "2.1.26"   % Test,
+    libraryDependencies += "dev.zio"           %% "zio-test-sbt"       % "2.1.26"   % Test,
 
     // Logging and metrics
     // For ZIO
-    libraryDependencies += "dev.zio" %% "zio-logging" % "2.5.3",
+    libraryDependencies += "dev.zio" %% "zio-logging"        % "2.5.3",
     libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.5.3",
-    
+
     // For DataDog
-    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j" % "2.25.3",
-    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.5.34",
-    libraryDependencies += "net.logstash.logback" % "logstash-logback-encoder" % "9.0",
+    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j"           % "2.25.3",
+    libraryDependencies += "ch.qos.logback"           % "logback-classic"          % "1.5.34",
+    libraryDependencies += "net.logstash.logback"     % "logstash-logback-encoder" % "9.0",
 
     // Metrics
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors" % "2.5.6",
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.6",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors"         % "2.5.6",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.6"
   )

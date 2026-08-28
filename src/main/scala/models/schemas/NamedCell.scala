@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.schemas
 
-/** Represents a row of data or schema with name assigned to it.
+/** Represents a unit of data or schema with name assigned to it.
   */
 trait NamedCell[A]:
   /** Gets the name of the value.
