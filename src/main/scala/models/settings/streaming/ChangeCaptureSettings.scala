@@ -3,6 +3,7 @@ package models.settings.streaming
 
 import models.serialization.JavaDurationRW.*
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import upickle.ReadWriter
 import upickle.default.*
 
@@ -33,4 +34,11 @@ case class DefaultChangeCaptureSettings(
     override val changeCaptureJitterVariance: Double,
     override val changeCaptureInterval: Duration,
     override val changeCaptureRangeLimit: Int
-) extends ChangeCaptureSettings derives ReadWriter
+) extends ChangeCaptureSettings, Mergeable[DefaultChangeCaptureSettings] derives ReadWriter:
+  override def merge(base: DefaultChangeCaptureSettings, overrides: DefaultChangeCaptureSettings): DefaultChangeCaptureSettings =
+    DefaultChangeCaptureSettings(
+      changeCaptureJitterSeed = overrides.changeCaptureJitterSeed,
+      changeCaptureJitterVariance = overrides.changeCaptureJitterVariance,
+      changeCaptureInterval = overrides.changeCaptureInterval,
+      changeCaptureRangeLimit = overrides.changeCaptureRangeLimit
+    )

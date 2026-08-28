@@ -3,7 +3,7 @@ package models.settings.sink
 
 import models.settings.iceberg.IcebergCatalogSettings
 import models.settings.staging.{DefaultJdbcMergeServiceClientSettings, JdbcMergeServiceClientSettings}
-import models.settings.{DefaultTablePropertiesSettings, TableName, TablePropertiesSettings}
+import models.settings.{DefaultTablePropertiesSettings, Mergeable, TableName, TablePropertiesSettings}
 
 import upickle.ReadWriter
 
@@ -36,4 +36,12 @@ case class DefaultSinkSettings(
     override val targetTableFullName: String,
     override val targetTableProperties: DefaultTablePropertiesSettings,
     override val mergeServiceClient: DefaultJdbcMergeServiceClientSettings
-) extends SinkSettings derives ReadWriter
+) extends SinkSettings, Mergeable[DefaultSinkSettings] derives ReadWriter:
+  override def merge(base: DefaultSinkSettings, overrides: DefaultSinkSettings): DefaultSinkSettings =
+    DefaultSinkSettings(
+      icebergCatalog = base.icebergCatalog.merge(base.icebergCatalog, overrides.icebergCatalog),
+      maintenanceSettings = base.maintenanceSettings.merge(base.maintenanceSettings, overrides.maintenanceSettings),
+      targetTableFullName = overrides.targetTableFullName,
+      targetTableProperties = base.targetTableProperties.merge(base.targetTableProperties, overrides.targetTableProperties),
+      mergeServiceClient = base.mergeServiceClient.merge(base.mergeServiceClient, overrides.mergeServiceClient)
+    )

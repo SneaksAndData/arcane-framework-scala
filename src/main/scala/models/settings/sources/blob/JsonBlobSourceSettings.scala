@@ -3,6 +3,7 @@ package models.settings.sources.blob
 
 import services.storage.models.s3.S3ClientSettings
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import upickle.ReadWriter
 import upickle.implicits.key
 
@@ -28,4 +29,14 @@ case class DefaultJsonBlobSourceSettings(
     override val tempStoragePath: String,
     override val jsonPointerExpression: Option[String] = None,
     @key("s3") override val s3ClientSettings: S3ClientSettings
-) extends JsonBlobSourceSettings derives ReadWriter
+) extends JsonBlobSourceSettings, Mergeable[DefaultJsonBlobSourceSettings] derives ReadWriter:
+  def merge(base: DefaultJsonBlobSourceSettings, overrides: DefaultJsonBlobSourceSettings): DefaultJsonBlobSourceSettings =
+    DefaultJsonBlobSourceSettings(
+      avroSchemaString = overrides.avroSchemaString,
+      primaryKeys = overrides.primaryKeys,
+      sourcePath = overrides.sourcePath,
+      shardStoragePath = overrides.shardStoragePath,
+      tempStoragePath = overrides.tempStoragePath,
+      jsonPointerExpression = overrides.jsonPointerExpression.orElse(base.jsonPointerExpression),
+      s3ClientSettings = base.s3ClientSettings.merge(base.s3ClientSettings, overrides.s3ClientSettings)
+    )

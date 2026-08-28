@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import upickle.ReadWriter
 
 /** The settings related to the maintenance of the table
@@ -28,4 +29,11 @@ case class DefaultTableMaintenanceSettings(
     override val targetOptimizeSettings: DefaultOptimizeSettings,
     override val targetSnapshotExpirationSettings: DefaultSnapshotExpirationSettings,
     override val targetOrphanFilesExpirationSettings: DefaultOrphanFilesExpirationSettings
-) extends TableMaintenanceSettings derives ReadWriter
+) extends TableMaintenanceSettings, Mergeable[DefaultTableMaintenanceSettings] derives ReadWriter:
+  override def merge(base: DefaultTableMaintenanceSettings, overrides: DefaultTableMaintenanceSettings): DefaultTableMaintenanceSettings =
+    DefaultTableMaintenanceSettings(
+      targetAnalyzeSettings = base.targetAnalyzeSettings.merge(base.targetAnalyzeSettings, overrides.targetAnalyzeSettings),
+      targetOptimizeSettings = base.targetOptimizeSettings.merge(base.targetOptimizeSettings, overrides.targetOptimizeSettings),
+      targetSnapshotExpirationSettings = base.targetSnapshotExpirationSettings.merge(base.targetSnapshotExpirationSettings, overrides.targetSnapshotExpirationSettings),
+      targetOrphanFilesExpirationSettings = base.targetOrphanFilesExpirationSettings.merge(base.targetOrphanFilesExpirationSettings, overrides.targetOrphanFilesExpirationSettings)
+    )

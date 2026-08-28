@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import upickle.ReadWriter
 
 /** Settings for optimizing the data table
@@ -18,4 +19,9 @@ trait OptimizeSettings:
 case class DefaultOptimizeSettings(
     override val fileSizeThreshold: String,
     override val batchThreshold: Int
-) extends OptimizeSettings derives ReadWriter
+) extends OptimizeSettings, Mergeable[DefaultOptimizeSettings] derives ReadWriter:
+  override def merge(base: DefaultOptimizeSettings, overrides: DefaultOptimizeSettings): DefaultOptimizeSettings =
+    DefaultOptimizeSettings(
+      fileSizeThreshold = overrides.fileSizeThreshold,
+      batchThreshold = overrides.batchThreshold
+    )

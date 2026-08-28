@@ -5,6 +5,7 @@ import models.serialization.ZIODurationRW.*
 import models.settings.database.JdbcConnectionUrl
 import models.settings.database.JdbcConnectionExtensions.*
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import upickle.ReadWriter
 import upickle.default.*
 import upickle.implicits.key
@@ -109,6 +110,18 @@ case class DefaultJdbcMergeServiceClientSettings(
     override val queryRetryScaleFactor: Double,
     override val queryRetryMaxAttempts: Int,
     override val extraConnectionParameters: Map[String, String]
-) extends JdbcMergeServiceClientSettings derives ReadWriter:
+) extends JdbcMergeServiceClientSettings, Mergeable[DefaultJdbcMergeServiceClientSettings] derives ReadWriter:
   override val queryRetryMode: JdbcQueryRetryMode = queryRetryModeSettings.resolveRetryMode
   override val credentialType: JdbcCredentialType = credentialSetting.resolveCredentialType
+
+  override def merge( base: DefaultJdbcMergeServiceClientSettings, overrides: DefaultJdbcMergeServiceClientSettings ): DefaultJdbcMergeServiceClientSettings =
+    DefaultJdbcMergeServiceClientSettings(
+      connectionUrl = overrides.connectionUrl,
+      credentialSetting = overrides.credentialSetting,
+      queryRetryModeSettings = overrides.queryRetryModeSettings,
+      queryRetryBaseDuration = overrides.queryRetryBaseDuration,
+      queryRetryOnMessageContents = overrides.queryRetryOnMessageContents,
+      queryRetryScaleFactor = overrides.queryRetryScaleFactor,
+      queryRetryMaxAttempts = overrides.queryRetryMaxAttempts,
+      extraConnectionParameters = overrides.extraConnectionParameters
+    )

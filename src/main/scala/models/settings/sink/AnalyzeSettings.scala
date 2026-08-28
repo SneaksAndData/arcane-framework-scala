@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import upickle.ReadWriter
 
 /** Settings for orphan files expiration
@@ -18,4 +19,9 @@ trait AnalyzeSettings:
 case class DefaultAnalyzeSettings(
     override val includedColumns: Seq[String],
     override val batchThreshold: Int
-) extends AnalyzeSettings derives ReadWriter
+) extends AnalyzeSettings, Mergeable[DefaultAnalyzeSettings] derives ReadWriter:
+  override def merge(base: DefaultAnalyzeSettings, overrides: DefaultAnalyzeSettings): DefaultAnalyzeSettings =
+    DefaultAnalyzeSettings(
+      includedColumns = overrides.includedColumns,
+      batchThreshold = overrides.batchThreshold
+    )

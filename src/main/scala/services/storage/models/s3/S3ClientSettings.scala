@@ -5,6 +5,7 @@ import models.serialization.S3RegionRW.*
 import models.serialization.UriRW.*
 import models.serialization.JavaDurationRW.*
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
 import software.amazon.awssdk.regions.Region
 import upickle.ReadWriter
 
@@ -19,7 +20,17 @@ case class S3ClientSettings(
     retryMaxAttempts: Int,
     retryBaseDelay: Duration,
     retryMaxDelay: Duration
-) derives ReadWriter
+) extends Mergeable[S3ClientSettings] derives ReadWriter:
+  def merge(base: S3ClientSettings, overrides: S3ClientSettings): S3ClientSettings =
+    S3ClientSettings(
+      usePathStyle = overrides.usePathStyle,
+      region = overrides.region.orElse(base.region),
+      endpoint = overrides.endpoint.orElse(base.endpoint),
+      maxResultsPerPage = overrides.maxResultsPerPage,
+      retryMaxAttempts = overrides.retryMaxAttempts,
+      retryBaseDelay = overrides.retryBaseDelay,
+      retryMaxDelay = overrides.retryMaxDelay
+    )
 
 object S3ClientSettings:
   def apply(

@@ -3,6 +3,8 @@ package models.settings.backfill
 
 import models.serialization.OffsetDateTimeRW.*
 
+import com.sneaksanddata.arcane.framework.models.settings.Mergeable
+import com.sneaksanddata.arcane.framework.models.settings.streaming.DefaultStreamModeSettings
 import upickle.ReadWriter
 import upickle.default.*
 
@@ -30,4 +32,9 @@ trait BackfillSettings:
 case class DefaultBackfillSettings(
     override val backfillBehavior: BackfillBehavior,
     override val backfillStartDate: Option[OffsetDateTime]
-) extends BackfillSettings derives ReadWriter
+) extends BackfillSettings, Mergeable[DefaultBackfillSettings] derives ReadWriter:
+  def merge(base: DefaultBackfillSettings, overrides: DefaultBackfillSettings): DefaultBackfillSettings =
+    DefaultBackfillSettings(
+      backfillBehavior = overrides.backfillBehavior,
+      backfillStartDate = overrides.backfillStartDate
+    )
