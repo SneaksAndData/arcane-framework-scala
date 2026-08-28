@@ -34,8 +34,12 @@ case class DefaultChangeCaptureSettings(
     override val changeCaptureJitterVariance: Double,
     override val changeCaptureInterval: Duration,
     override val changeCaptureRangeLimit: Int
-) extends ChangeCaptureSettings, Mergeable[DefaultChangeCaptureSettings] derives ReadWriter:
-  override def merge(base: DefaultChangeCaptureSettings, overrides: DefaultChangeCaptureSettings): DefaultChangeCaptureSettings =
+) extends ChangeCaptureSettings,
+      Mergeable[DefaultChangeCaptureSettings] derives ReadWriter:
+  override def merge(
+      base: DefaultChangeCaptureSettings,
+      overrides: DefaultChangeCaptureSettings
+  ): DefaultChangeCaptureSettings =
     DefaultChangeCaptureSettings(
       changeCaptureJitterSeed = overrides.changeCaptureJitterSeed,
       changeCaptureJitterVariance = overrides.changeCaptureJitterVariance,

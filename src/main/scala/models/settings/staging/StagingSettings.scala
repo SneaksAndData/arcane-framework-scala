@@ -20,10 +20,10 @@ trait StagingSettings:
 case class DefaultStagingSettings(
     override val table: DefaultStagingTableSettings,
     override val icebergCatalog: DefaultIcebergStagingSettings
-) extends StagingSettings, Mergeable[DefaultStagingSettings] derives ReadWriter:
+) extends StagingSettings,
+      Mergeable[DefaultStagingSettings] derives ReadWriter:
   override def merge(base: DefaultStagingSettings, overrides: DefaultStagingSettings): DefaultStagingSettings =
     DefaultStagingSettings(
       table = base.table.merge(base.table, overrides.table),
       icebergCatalog = base.icebergCatalog.merge(base.icebergCatalog, overrides.icebergCatalog)
     )
-

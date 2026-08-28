@@ -29,8 +29,12 @@ case class DefaultJsonBlobSourceSettings(
     override val tempStoragePath: String,
     override val jsonPointerExpression: Option[String] = None,
     @key("s3") override val s3ClientSettings: S3ClientSettings
-) extends JsonBlobSourceSettings, Mergeable[DefaultJsonBlobSourceSettings] derives ReadWriter:
-  def merge(base: DefaultJsonBlobSourceSettings, overrides: DefaultJsonBlobSourceSettings): DefaultJsonBlobSourceSettings =
+) extends JsonBlobSourceSettings,
+      Mergeable[DefaultJsonBlobSourceSettings] derives ReadWriter:
+  def merge(
+      base: DefaultJsonBlobSourceSettings,
+      overrides: DefaultJsonBlobSourceSettings
+  ): DefaultJsonBlobSourceSettings =
     DefaultJsonBlobSourceSettings(
       avroSchemaString = overrides.avroSchemaString,
       primaryKeys = overrides.primaryKeys,

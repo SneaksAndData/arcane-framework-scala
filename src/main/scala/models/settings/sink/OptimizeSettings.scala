@@ -19,7 +19,8 @@ trait OptimizeSettings:
 case class DefaultOptimizeSettings(
     override val fileSizeThreshold: String,
     override val batchThreshold: Int
-) extends OptimizeSettings, Mergeable[DefaultOptimizeSettings] derives ReadWriter:
+) extends OptimizeSettings,
+      Mergeable[DefaultOptimizeSettings] derives ReadWriter:
   override def merge(base: DefaultOptimizeSettings, overrides: DefaultOptimizeSettings): DefaultOptimizeSettings =
     DefaultOptimizeSettings(
       fileSizeThreshold = overrides.fileSizeThreshold,

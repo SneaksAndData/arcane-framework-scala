@@ -56,10 +56,14 @@ trait SourceBufferingSettings:
 case class DefaultSourceBufferingSettings(
     @key("strategy") bufferingStrategySetting: BufferingSettings,
     @key("enabled") override val bufferingEnabled: Boolean
-) extends SourceBufferingSettings, Mergeable[DefaultSourceBufferingSettings] derives ReadWriter:
+) extends SourceBufferingSettings,
+      Mergeable[DefaultSourceBufferingSettings] derives ReadWriter:
   override val bufferingStrategy: BufferingStrategy = bufferingStrategySetting.resolveStrategy
-  
-  override def merge(base: DefaultSourceBufferingSettings, overrides: DefaultSourceBufferingSettings): DefaultSourceBufferingSettings =
+
+  override def merge(
+      base: DefaultSourceBufferingSettings,
+      overrides: DefaultSourceBufferingSettings
+  ): DefaultSourceBufferingSettings =
     DefaultSourceBufferingSettings(
       bufferingStrategySetting = BufferingSettings(
         unbounded = overrides.bufferingStrategySetting.unbounded.orElse(base.bufferingStrategySetting.unbounded),

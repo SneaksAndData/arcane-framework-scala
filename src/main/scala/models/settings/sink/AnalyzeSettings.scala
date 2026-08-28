@@ -19,7 +19,8 @@ trait AnalyzeSettings:
 case class DefaultAnalyzeSettings(
     override val includedColumns: Seq[String],
     override val batchThreshold: Int
-) extends AnalyzeSettings, Mergeable[DefaultAnalyzeSettings] derives ReadWriter:
+) extends AnalyzeSettings,
+      Mergeable[DefaultAnalyzeSettings] derives ReadWriter:
   override def merge(base: DefaultAnalyzeSettings, overrides: DefaultAnalyzeSettings): DefaultAnalyzeSettings =
     DefaultAnalyzeSettings(
       includedColumns = overrides.includedColumns,

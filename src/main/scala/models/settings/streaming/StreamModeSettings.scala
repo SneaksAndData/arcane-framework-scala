@@ -20,7 +20,8 @@ trait StreamModeSettings:
 case class DefaultStreamModeSettings(
     override val changeCapture: DefaultChangeCaptureSettings,
     override val backfill: DefaultBackfillSettings
-) extends StreamModeSettings, Mergeable[DefaultStreamModeSettings] derives ReadWriter:
+) extends StreamModeSettings,
+      Mergeable[DefaultStreamModeSettings] derives ReadWriter:
   override def merge(base: DefaultStreamModeSettings, overrides: DefaultStreamModeSettings): DefaultStreamModeSettings =
     DefaultStreamModeSettings(
       changeCapture = base.changeCapture.merge(base.changeCapture, overrides.changeCapture),

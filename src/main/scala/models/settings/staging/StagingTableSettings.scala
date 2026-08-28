@@ -33,7 +33,8 @@ case class DefaultStagingTableSettings(
     override val stagingCatalogName: String,
     override val stagingSchemaName: String,
     override val isUnifiedSchema: Boolean
-) extends StagingTableSettings, Mergeable[DefaultStagingTableSettings] derives ReadWriter:
+) extends StagingTableSettings,
+      Mergeable[DefaultStagingTableSettings] derives ReadWriter:
   def merge(base: DefaultStagingTableSettings, overrides: DefaultStagingTableSettings): DefaultStagingTableSettings =
     DefaultStagingTableSettings(
       maxRowsPerFile = overrides.maxRowsPerFile.orElse(base.maxRowsPerFile),

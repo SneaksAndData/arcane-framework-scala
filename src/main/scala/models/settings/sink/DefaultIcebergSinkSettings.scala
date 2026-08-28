@@ -15,7 +15,8 @@ case class DefaultIcebergSinkSettings(
     override val catalogUri: String,
     override val warehouse: String,
     override val maxCatalogInstanceLifetime: zio.Duration
-) extends IcebergCatalogSettings, Mergeable[DefaultIcebergSinkSettings] derives ReadWriter:
+) extends IcebergCatalogSettings,
+      Mergeable[DefaultIcebergSinkSettings] derives ReadWriter:
   /** Important to note that currently we do not provide separation between Sink and Staging catalog auth and FileIO
     * implementations. This should be fixed in the future.
     */
@@ -23,8 +24,10 @@ case class DefaultIcebergSinkSettings(
     case Some(_) => S3CatalogFileIO.properties ++ catalogProperties
     case None    => S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties ++ catalogProperties
 
-  override def merge(base: DefaultIcebergSinkSettings, overrides: DefaultIcebergSinkSettings):
-  DefaultIcebergSinkSettings = DefaultIcebergSinkSettings(
+  override def merge(
+      base: DefaultIcebergSinkSettings,
+      overrides: DefaultIcebergSinkSettings
+  ): DefaultIcebergSinkSettings = DefaultIcebergSinkSettings(
     catalogProperties = overrides.catalogProperties,
     namespace = overrides.namespace,
     catalogUri = overrides.catalogUri,

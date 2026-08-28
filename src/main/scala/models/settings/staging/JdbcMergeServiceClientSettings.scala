@@ -110,11 +110,15 @@ case class DefaultJdbcMergeServiceClientSettings(
     override val queryRetryScaleFactor: Double,
     override val queryRetryMaxAttempts: Int,
     override val extraConnectionParameters: Map[String, String]
-) extends JdbcMergeServiceClientSettings, Mergeable[DefaultJdbcMergeServiceClientSettings] derives ReadWriter:
+) extends JdbcMergeServiceClientSettings,
+      Mergeable[DefaultJdbcMergeServiceClientSettings] derives ReadWriter:
   override val queryRetryMode: JdbcQueryRetryMode = queryRetryModeSettings.resolveRetryMode
   override val credentialType: JdbcCredentialType = credentialSetting.resolveCredentialType
 
-  override def merge( base: DefaultJdbcMergeServiceClientSettings, overrides: DefaultJdbcMergeServiceClientSettings ): DefaultJdbcMergeServiceClientSettings =
+  override def merge(
+      base: DefaultJdbcMergeServiceClientSettings,
+      overrides: DefaultJdbcMergeServiceClientSettings
+  ): DefaultJdbcMergeServiceClientSettings =
     DefaultJdbcMergeServiceClientSettings(
       connectionUrl = overrides.connectionUrl,
       credentialSetting = overrides.credentialSetting,

@@ -71,10 +71,14 @@ case class DefaultFieldSelectionRuleSettings(
     override val essentialFields: Set[String],
     @key("rule") ruleSetting: FieldSelectionRuleSetting,
     override val isServerSide: Boolean
-) extends FieldSelectionRuleSettings, Mergeable[DefaultFieldSelectionRuleSettings] derives ReadWriter:
+) extends FieldSelectionRuleSettings,
+      Mergeable[DefaultFieldSelectionRuleSettings] derives ReadWriter:
   override val rule: FieldSelectionRule = ruleSetting.resolveSetting
-  
-  override def merge(base: DefaultFieldSelectionRuleSettings, overrides: DefaultFieldSelectionRuleSettings): DefaultFieldSelectionRuleSettings =
+
+  override def merge(
+      base: DefaultFieldSelectionRuleSettings,
+      overrides: DefaultFieldSelectionRuleSettings
+  ): DefaultFieldSelectionRuleSettings =
     DefaultFieldSelectionRuleSettings(
       essentialFields = base.essentialFields.union(overrides.essentialFields),
       ruleSetting = FieldSelectionRuleSetting(

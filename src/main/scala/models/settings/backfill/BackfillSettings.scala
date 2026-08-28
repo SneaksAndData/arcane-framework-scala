@@ -32,7 +32,8 @@ trait BackfillSettings:
 case class DefaultBackfillSettings(
     override val backfillBehavior: BackfillBehavior,
     override val backfillStartDate: Option[OffsetDateTime]
-) extends BackfillSettings, Mergeable[DefaultBackfillSettings] derives ReadWriter:
+) extends BackfillSettings,
+      Mergeable[DefaultBackfillSettings] derives ReadWriter:
   def merge(base: DefaultBackfillSettings, overrides: DefaultBackfillSettings): DefaultBackfillSettings =
     DefaultBackfillSettings(
       backfillBehavior = overrides.backfillBehavior,

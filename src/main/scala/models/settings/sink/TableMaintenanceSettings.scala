@@ -29,11 +29,19 @@ case class DefaultTableMaintenanceSettings(
     override val targetOptimizeSettings: DefaultOptimizeSettings,
     override val targetSnapshotExpirationSettings: DefaultSnapshotExpirationSettings,
     override val targetOrphanFilesExpirationSettings: DefaultOrphanFilesExpirationSettings
-) extends TableMaintenanceSettings, Mergeable[DefaultTableMaintenanceSettings] derives ReadWriter:
-  override def merge(base: DefaultTableMaintenanceSettings, overrides: DefaultTableMaintenanceSettings): DefaultTableMaintenanceSettings =
+) extends TableMaintenanceSettings,
+      Mergeable[DefaultTableMaintenanceSettings] derives ReadWriter:
+  override def merge(
+      base: DefaultTableMaintenanceSettings,
+      overrides: DefaultTableMaintenanceSettings
+  ): DefaultTableMaintenanceSettings =
     DefaultTableMaintenanceSettings(
-      targetAnalyzeSettings = base.targetAnalyzeSettings.merge(base.targetAnalyzeSettings, overrides.targetAnalyzeSettings),
-      targetOptimizeSettings = base.targetOptimizeSettings.merge(base.targetOptimizeSettings, overrides.targetOptimizeSettings),
-      targetSnapshotExpirationSettings = base.targetSnapshotExpirationSettings.merge(base.targetSnapshotExpirationSettings, overrides.targetSnapshotExpirationSettings),
-      targetOrphanFilesExpirationSettings = base.targetOrphanFilesExpirationSettings.merge(base.targetOrphanFilesExpirationSettings, overrides.targetOrphanFilesExpirationSettings)
+      targetAnalyzeSettings =
+        base.targetAnalyzeSettings.merge(base.targetAnalyzeSettings, overrides.targetAnalyzeSettings),
+      targetOptimizeSettings =
+        base.targetOptimizeSettings.merge(base.targetOptimizeSettings, overrides.targetOptimizeSettings),
+      targetSnapshotExpirationSettings = base.targetSnapshotExpirationSettings
+        .merge(base.targetSnapshotExpirationSettings, overrides.targetSnapshotExpirationSettings),
+      targetOrphanFilesExpirationSettings = base.targetOrphanFilesExpirationSettings
+        .merge(base.targetOrphanFilesExpirationSettings, overrides.targetOrphanFilesExpirationSettings)
     )

@@ -95,8 +95,12 @@ case class DefaultTablePropertiesSettings(
     override val format: TableFormat,
     override val sortedBy: Array[String],
     override val parquetBloomFilterColumns: Array[String]
-) extends TablePropertiesSettings, Mergeable[DefaultTablePropertiesSettings] derives ReadWriter:
-  override def merge( base: DefaultTablePropertiesSettings, overrides: DefaultTablePropertiesSettings ): DefaultTablePropertiesSettings =
+) extends TablePropertiesSettings,
+      Mergeable[DefaultTablePropertiesSettings] derives ReadWriter:
+  override def merge(
+      base: DefaultTablePropertiesSettings,
+      overrides: DefaultTablePropertiesSettings
+  ): DefaultTablePropertiesSettings =
     DefaultTablePropertiesSettings(
       format = overrides.format,
       sortedBy = overrides.sortedBy,
