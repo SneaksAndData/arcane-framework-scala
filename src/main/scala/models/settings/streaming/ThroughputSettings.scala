@@ -61,7 +61,8 @@ case class DefaultThroughputSettings(
     override val advisedRate: FlowRate,
     override val advisedBurst: Int,
     override val advisedChunkSize: Int
-) extends ThroughputSettings, Mergeable[DefaultThroughputSettings] derives ReadWriter:
+) extends ThroughputSettings,
+      Mergeable[DefaultThroughputSettings] derives ReadWriter:
   override val shaperImpl: ThroughputShaperImpl = shaperImplSetting.resolveShaperImpl
   override def merge(base: DefaultThroughputSettings, overrides: DefaultThroughputSettings): DefaultThroughputSettings =
     DefaultThroughputSettings(
