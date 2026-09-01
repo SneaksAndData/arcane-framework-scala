@@ -28,12 +28,13 @@ trait PluginStreamContext extends BaseStreamContext:
 
   val throughput: ThroughputSettings
 
-  def merge(other: Option[PluginStreamContext]): PluginStreamContext
+  def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext
 
 object PluginStreamContext:
-  def apply[Spec <: PluginStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
+  def apply[Spec <: PluginStreamContext | OverrideStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec =
+    upickle.read(value)
 
-  private def fromEnvironment[Spec <: PluginStreamContext](envVarName: String)(implicit
+  private def fromEnvironment[Spec <: PluginStreamContext | OverrideStreamContext](envVarName: String)(implicit
       rw: ReadWriter[Spec]
   ): Option[Spec] =
     sys.env.get(envVarName).map(env => apply(env))
@@ -52,14 +53,15 @@ object PluginStreamContext:
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
     * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
     */
-  def getLayer[ContextImpl <: PluginStreamContext](implicit
-      rw: ReadWriter[ContextImpl]
+  def getLayer[ContextImpl <: PluginStreamContext, OverrideImpl <: OverrideStreamContext](implicit
+      rws: ReadWriter[ContextImpl],
+      rwo: ReadWriter[OverrideImpl]
   ): ZLayer[Any, Throwable, PluginConfiguration] =
     val context = PluginStreamContext
       .fromEnvironment[ContextImpl]("STREAMCONTEXT__SPEC")
 
     val contextOverrides = PluginStreamContext
-      .fromEnvironment[ContextImpl]("STREAMCONTEXT_SPEC_OVERRIDE")
+      .fromEnvironment[OverrideImpl]("STREAMCONTEXT_SPEC_OVERRIDE")
 
     context
       .map(parsed =>

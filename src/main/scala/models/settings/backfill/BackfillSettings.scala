@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.settings.backfill
 
 import models.serialization.OffsetDateTimeRW.*
+import models.settings.Mergeable
 
 import upickle.ReadWriter
 import upickle.default.*
@@ -16,7 +17,7 @@ enum BackfillBehavior derives ReadWriter:
 
 /** The settings that controls the backfill graph behavior
   */
-trait BackfillSettings:
+trait BackfillSettings extends Mergeable:
 
   /** The start date of the backfill process. If it's None, the backfill process will start from the beginning of the
     * data.
@@ -30,4 +31,12 @@ trait BackfillSettings:
 case class DefaultBackfillSettings(
     override val backfillBehavior: BackfillBehavior,
     override val backfillStartDate: Option[OffsetDateTime]
-) extends BackfillSettings derives ReadWriter
+) extends BackfillSettings derives ReadWriter:
+
+  override type MergeableFrom = OverrideBackfillSettings
+  override type MergeResult = DefaultBackfillSettings
+  override def merge(overrides: MergeableFrom): MergeResult =
+    DefaultBackfillSettings(
+      backfillBehavior = overrides.backfillBehavior.getOrElse(this.backfillBehavior),
+      backfillStartDate = overrides.backfillStartDate.orElse(this.backfillStartDate)
+    )
