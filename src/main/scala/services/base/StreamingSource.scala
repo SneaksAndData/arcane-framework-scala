@@ -1,16 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
-import models.schemas.{
-  ArcaneSchema,
-  ArcaneSchemaField,
-  DataCell,
-  DataRow,
-  MergeKeyField,
-  VersionField,
-  given_CanAdd_ArcaneSchema
-}
-import models.settings.sources.{DataRowModification, SurrogateMergeKeyImpl, SurrogateVersionImpl}
+import models.schemas.*
+import models.schemas.given_CanAdd_ArcaneSchema
+import models.settings.sources.modification.*
 import utils.HashUtils
 
 import zio.{Task, ZIO}
@@ -23,10 +16,20 @@ trait PrimaryKeyProvider:
 trait VersionProvider:
   protected def versionName: Task[String]
 
-abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowModification])
+abstract class DefaultStreamingSource(protected val configurableModifications: Seq[ConfigurableDataRowModification])
     extends StreamingSource
     with PrimaryKeyProvider
     with VersionProvider {
+
+  private val requiredModifications: Seq[RequiredDataRowModification] =
+    Seq(
+      SurrogateMergeKeyImpl(SurrogateMergeKey()),
+      SurrogateVersionImpl(SurrogateVersion())
+    )
+
+  protected final val modifications: Seq[DataRowModification] =
+    requiredModifications ++ configurableModifications
+
   protected def getSourceSchema: Task[ArcaneSchema]
 
   protected def applyDataRowModification(

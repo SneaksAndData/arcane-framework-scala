@@ -6,6 +6,7 @@ import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
+import modification.ConfigurableDataRowModification
 import services.base.DefaultStreamingSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
@@ -39,7 +40,7 @@ class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[ConfigurableDataRowModification]
 ) extends DefaultStreamingSource(modifications)
     with AutoCloseable:
 

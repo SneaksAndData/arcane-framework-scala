@@ -8,13 +8,7 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
-import models.settings.sources.{
-  DataRowModificationSettings,
-  DefaultDataRowModificationSettings,
-  SourceBufferingSettings,
-  SourceSettings,
-  StreamSourceSettings
-}
+import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
 import models.settings.staging.StagingSettings
 import models.settings.streaming.*
 import models.settings.{FieldSelectionRuleSettings, FlowRate}
@@ -24,6 +18,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
 import services.naming.DefaultNameGenerator
 import tests.shared.*
+import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

@@ -2,10 +2,9 @@ package com.sneaksanddata.arcane.framework
 package tests.mssql
 
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField}
+import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField, VersionField}
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import models.settings.sources.{SurrogateMergeKey, SurrogateMergeKeyImpl}
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
 import services.mssql.base.{ColumnSummary, ColumnSummaryFieldSelector, MsSqlStreamingSource}
@@ -35,8 +34,9 @@ import scala.util.Success
 object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
-  private val fieldString = "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
-  private val pkString    = "primary key(x)"
+  private val fieldString =
+    "(x varchar(128) not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
+  private val pkString                     = "primary key(x)"
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
   private val nopSelector: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(new FieldSelectionRuleSettings {
@@ -60,7 +60,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
       ) { statement =>
         ZIO.foreach(1 to 10) { index =>
           val insertCmd =
-            s"use arcane; insert into dbo.$tableName values($index, ${index + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+            s"use arcane; insert into dbo.$tableName values('$index', ${index + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
           ZIO.attemptBlocking(statement.execute(insertCmd))
         }
       }
@@ -341,7 +341,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         )
         expected <- ZIO.succeed(
           List(
-            IndexedField("x", IntType, 0),
+            IndexedField("x", StringType, 0),
             IndexedField("SYS_CHANGE_VERSION", LongType, 1),
             IndexedField("SYS_CHANGE_OPERATION", StringType, 2),
             IndexedField("y", IntType, 3),
@@ -350,7 +350,9 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             IndexedField("b", TimestampType, 6),
             IndexedField("cd", IntType, 7),
             IndexedField("e", FloatType, 8),
-            IndexedField("ChangeTrackingVersion", LongType, 9)
+            IndexedField("ChangeTrackingVersion", LongType, 9),
+            IndexedMergeKeyField(10),
+            IndexedField(VersionField.name, LongType, 11)
           )
         )
         schema <- reader.getSchema
@@ -387,7 +389,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_rows", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
-    test("MsSqlStreamingSource injects surrogate merge keys for composite string primary keys") {
+    test("MsSqlStreamingSource injects required merge key and version fields") {
       val testTableName    = "surrogate_merge_key"
       val primaryKeyValue1 = "string-key-1"
       val primaryKeyValue2 = "string-key-2"
@@ -423,7 +425,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq(SurrogateMergeKeyImpl(SurrogateMergeKey()))
+            Seq.empty
           )
         )
         schema    <- reader.getSchema
@@ -433,13 +435,17 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           .flatMap(_._1)
           .runCollect
         mergeKey         = rows.head.find(_.name == MergeKeyField.name).map(_.value)
+        sourceVersion    = rows.head.find(_.name == "SYS_CHANGE_VERSION").map(_.value)
+        arcaneVersion    = rows.head.find(_.name == VersionField.name).map(_.value)
         expectedMergeKey = HashUtils.murmur3(s"$primaryKeyValue1#$primaryKeyValue2")
       yield assertTrue(
         schema.exists {
           case _: IndexedMergeKeyField => true
           case _                       => false
         },
-        mergeKey.contains(expectedMergeKey)
+        schema.exists(_.name == VersionField.name),
+        mergeKey.contains(expectedMergeKey),
+        arcaneVersion == sourceVersion
       )
     },
     test("MsSqlStreamingSource returns correct number of columns on a shard stream") {
@@ -469,7 +475,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
 
         summaries <- reader.getColumnSummaries
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_columns", summaries)).flatMap(_._1).runCollect
-      yield assertTrue(rows.head.size == 10)
+      yield assertTrue(rows.head.size == 12)
     },
     test("MsSqlStreamingSource returns correct number of columns on a shard stream with filter") {
       for
@@ -502,7 +508,16 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
         expected <- ZIO.succeed(
-          List("x", "SYS_CHANGE_VERSION", "SYS_CHANGE_OPERATION", "a", "b", "ChangeTrackingVersion")
+          List(
+            "x",
+            "SYS_CHANGE_VERSION",
+            "SYS_CHANGE_OPERATION",
+            "a",
+            "b",
+            "ChangeTrackingVersion",
+            MergeKeyField.name,
+            VersionField.name
+          )
         )
 
         summaries <- reader.getColumnSummaries
@@ -561,7 +576,9 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "SYS_CHANGE_VERSION",
             "SYS_CHANGE_OPERATION",
             "a",
-            "ChangeTrackingVersion"
+            "ChangeTrackingVersion",
+            MergeKeyField.name,
+            VersionField.name
           )
         )
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -610,7 +627,9 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "b",
             "cd",
             "e",
-            "ChangeTrackingVersion"
+            "ChangeTrackingVersion",
+            MergeKeyField.name,
+            VersionField.name
           )
         )
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(

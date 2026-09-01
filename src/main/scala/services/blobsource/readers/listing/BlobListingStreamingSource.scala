@@ -2,9 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.settings.sources.DataRowModification
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
+import models.settings.sources.modification.{ConfigurableDataRowModification, DataRowModification}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.batches.BlobBatchCommons
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -12,7 +13,6 @@ import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.streaming.base.StructuredZStream
 
-import com.sneaksanddata.arcane.framework.models.batches.BlobBatchCommons
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
@@ -27,7 +27,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     tempStoragePath: String,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[ConfigurableDataRowModification]
 ) extends BlobStreamingSource(modifications):
 
   protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()

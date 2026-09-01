@@ -7,10 +7,10 @@ import models.app.PluginStreamContext
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
-import models.settings.sources.DataRowModification
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
+import models.settings.sources.modification.ConfigurableDataRowModification
 import models.cdm.CSVParser
-import services.base.{SchemaProvider, DefaultStreamingSource}
+import services.base.{DefaultStreamingSource, SchemaProvider}
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
@@ -31,7 +31,7 @@ final class SynapseLinkStreamingSource(
     entityName: String,
     reader: AzureBlobStorageReader,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[ConfigurableDataRowModification]
 ) extends DefaultStreamingSource(modifications):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
@@ -78,7 +78,6 @@ final class SynapseLinkStreamingSource(
   private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, (location + batchFolderName).toHdfsPath, entityName).getSchema
       .map(applyFieldSelector)
-      .flatMap(applySchemaModifications)
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
@@ -190,7 +189,12 @@ final class SynapseLinkStreamingSource(
   def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
-    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm, batchSchema), batchSchema)))
+    .mapZIO(wm =>
+      getBatchSchema(wm.prefix).flatMap(batchSchema =>
+        applySchemaModifications(batchSchema)
+          .map(modifiedSchema => (getChangesForVersion(wm, batchSchema), modifiedSchema))
+      )
+    )
 
   /** Converts an arbitrary timestamp into a matching watermark
     * @return
@@ -222,8 +226,10 @@ final class SynapseLinkStreamingSource(
     watermark <- ZIO.succeed(StoredBlob(name = folder, createdOn = None).asWatermark)
     result <- ZIO.ifZIO(isValidSynapseBatch(watermark.prefix))(
       getBatchSchema(watermark.prefix)
-        .map(batchSchema =>
-          Some((stream = (getChangesForVersion(watermark, batchSchema), batchSchema), source = watermark.prefix))
+        .flatMap(batchSchema =>
+          applySchemaModifications(batchSchema).map(modifiedSchema =>
+            Some((stream = (getChangesForVersion(watermark, batchSchema), modifiedSchema), source = watermark.prefix))
+          )
         ),
       ZIO.succeed(None)
     )

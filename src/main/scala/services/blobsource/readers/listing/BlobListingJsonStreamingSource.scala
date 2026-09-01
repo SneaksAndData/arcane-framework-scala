@@ -5,8 +5,8 @@ import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.FieldSelectionRuleSettings
-import models.settings.sources.DataRowModification
 import models.settings.sources.blob.JsonBlobSourceSettings
+import models.settings.sources.modification.ConfigurableDataRowModification
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
 import services.naming.NameGenerator
@@ -31,7 +31,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     jsonPointerExpr: Option[String],
     jsonArrayPointers: Map[String, Map[String, String]],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[ConfigurableDataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,

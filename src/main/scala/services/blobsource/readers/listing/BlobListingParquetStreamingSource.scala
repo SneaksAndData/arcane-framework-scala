@@ -8,7 +8,7 @@ import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import models.settings.sources.DataRowModification
+import models.settings.sources.modification.ConfigurableDataRowModification
 import services.iceberg.interop.ParquetScanner
 import services.iceberg.{given_Conversion_Schema_Seq, inferMergeKeyIndex}
 import services.naming.NameGenerator
@@ -34,7 +34,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     useNameMapping: Boolean,
     sourceSchema: Option[String],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[ConfigurableDataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
