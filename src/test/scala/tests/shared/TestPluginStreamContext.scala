@@ -1,29 +1,15 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.app.PluginStreamContext
+import models.app.{OverrideStreamContext, PluginStreamContext}
 import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
-import models.settings.sources.{
-  BufferingStrategy,
-  SourceBufferingSettings,
-  SourceSettings,
-  StreamSourceSettings,
-  Unbounded,
-  UnboundedImpl
-}
+import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, SourceSettings, StreamSourceSettings, Unbounded, UnboundedImpl}
 import models.settings.staging.StagingSettings
-import models.settings.streaming.{
-  ChangeCaptureSettings,
-  Static,
-  StaticImpl,
-  StreamModeSettings,
-  ThroughputSettings,
-  ThroughputShaperImpl
-}
+import models.settings.streaming.{ChangeCaptureSettings, Static, StaticImpl, StreamModeSettings, ThroughputSettings, ThroughputShaperImpl}
 
 import zio.{IO, ZIO}
 
@@ -58,7 +44,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   }
   override val staging: StagingSettings = TestStagingSettings()
 
-  override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+  def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext = ???
 
   override val source: StreamSourceSettings = new StreamSourceSettings {
     override type SourceSettingsType = SourceSettings

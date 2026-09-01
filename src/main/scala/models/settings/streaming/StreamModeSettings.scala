@@ -8,7 +8,7 @@ import upickle.ReadWriter
 
 /** Settings for available streaming mode
   */
-trait StreamModeSettings extends Mergeable:
+trait StreamModeSettings:
 
   /** Backfill mode-only settings
     */
@@ -21,10 +21,11 @@ trait StreamModeSettings extends Mergeable:
 case class DefaultStreamModeSettings(
     override val changeCapture: DefaultChangeCaptureSettings,
     override val backfill: DefaultBackfillSettings
-) extends StreamModeSettings derives ReadWriter:
+) extends StreamModeSettings,
+      Mergeable derives ReadWriter:
 
   override type MergeableFrom = OverrideStreamModeSettings
-  override type MergeResult = DefaultStreamModeSettings
+  override type MergeResult   = DefaultStreamModeSettings
   override def merge(overrides: MergeableFrom): MergeResult =
     DefaultStreamModeSettings(
       changeCapture = this.changeCapture,

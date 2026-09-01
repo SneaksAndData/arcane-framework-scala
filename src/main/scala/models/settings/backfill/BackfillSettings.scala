@@ -17,7 +17,7 @@ enum BackfillBehavior derives ReadWriter:
 
 /** The settings that controls the backfill graph behavior
   */
-trait BackfillSettings extends Mergeable:
+trait BackfillSettings:
 
   /** The start date of the backfill process. If it's None, the backfill process will start from the beginning of the
     * data.
@@ -31,10 +31,11 @@ trait BackfillSettings extends Mergeable:
 case class DefaultBackfillSettings(
     override val backfillBehavior: BackfillBehavior,
     override val backfillStartDate: Option[OffsetDateTime]
-) extends BackfillSettings derives ReadWriter:
+) extends BackfillSettings,
+      Mergeable derives ReadWriter:
 
   override type MergeableFrom = OverrideBackfillSettings
-  override type MergeResult = DefaultBackfillSettings
+  override type MergeResult   = DefaultBackfillSettings
   override def merge(overrides: MergeableFrom): MergeResult =
     DefaultBackfillSettings(
       backfillBehavior = overrides.backfillBehavior.getOrElse(this.backfillBehavior),
