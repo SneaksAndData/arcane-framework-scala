@@ -4,7 +4,6 @@ package services.base
 import models.schemas.*
 import models.settings.sources.modification.*
 import exceptions.FatalStreamFailException
-import logging.ZIOLogAnnotations.zlogWarning
 import utils.HashUtils
 import InsertUpdateDeleteSource.*
 
@@ -47,9 +46,7 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
         case value: Long =>
           ZIO.succeed(value)
         case null =>
-          zlogWarning(
-            s"Version field '$sourceVersionName' is null; ${VersionField.name} will also be null"
-          ).as(null)
+          ZIO.succeed(null)
         case value =>
           ZIO.fail(
             FatalStreamFailException(
