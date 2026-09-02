@@ -9,6 +9,7 @@ import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
+import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 import utils.HashUtils
 
@@ -47,17 +48,37 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
+            mergeModifications
+          )
+        )
+        unmodifiedSource <- ZIO.succeed(
+          BlobListingJsonStreamingSource(
+            path,
+            shardPath,
+            storageReader,
+            nameGenerator,
+            "/tmp",
+            Seq("col1"),
+            flatSchema,
+            Some("/body"),
+            Map(),
+            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
-        schema <- source.getSchema
+        schema           <- source.getSchema
+        unmodifiedSchema <- unmodifiedSource.getSchema
       yield assertTrue(schema.size == 10 + 3) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
       ) && assertTrue(
         schema.exists(f => f.name == BlobBatchCommons.versionField.name)
       ) && assertTrue(
         schema.exists(f => f.name == VersionField.name)
-      ) // expect 10 fields + source version + required Arcane fields
+      ) && assertTrue(
+        unmodifiedSchema.size == 10 + 1,
+        !unmodifiedSchema.exists(f => f.name == MergeKeyField.name),
+        !unmodifiedSchema.exists(f => f.name == VersionField.name)
+      ) // expect 10 fields + source version + configured Arcane fields
     },
     test("getChanges return correct rows") {
       for
@@ -75,13 +96,13 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 13)
     },
-    test("getChanges adds required merge key and version fields") {
+    test("getChanges adds configured merge key and version fields") {
       val pkColumns = Seq("col1", "col3")
 
       for
@@ -99,7 +120,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -133,7 +154,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -155,7 +176,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map("/nested_array/value" -> Map()),
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -177,7 +198,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map("/data" -> Map(), "/nested_array/value" -> Map()),
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -199,7 +220,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map("/nested_array/value" -> Map()),
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

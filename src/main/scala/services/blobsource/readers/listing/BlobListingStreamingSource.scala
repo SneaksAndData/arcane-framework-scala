@@ -3,7 +3,7 @@ package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import models.settings.sources.modification.{ConfigurableDataRowModification, DataRowModification}
+import models.settings.sources.modification.DataRowModification
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.batches.BlobBatchCommons
 import services.blobsource.readers.BlobStreamingSource
@@ -27,7 +27,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     tempStoragePath: String,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[ConfigurableDataRowModification]
+    modifications: Seq[DataRowModification]
 ) extends BlobStreamingSource(modifications):
 
   protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()

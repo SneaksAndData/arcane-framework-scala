@@ -10,16 +10,13 @@ import upickle.implicits.key
   */
 sealed trait DataRowModification
 
-sealed trait RequiredDataRowModification     extends DataRowModification
-sealed trait ConfigurableDataRowModification extends DataRowModification
-
 /** Adds an Arcane-generated merge key to the source schema and data rows.
   */
 case class SurrogateMergeKey() derives ReadWriter
 
 /** ADT composed with settings for the surrogate merge-key modification.
   */
-case class SurrogateMergeKeyImpl(surrogateMergeKey: SurrogateMergeKey) extends RequiredDataRowModification
+case class SurrogateMergeKeyImpl(surrogateMergeKey: SurrogateMergeKey) extends DataRowModification
 
 /** Adds an Arcane-generated version to the source schema and data rows.
   */
@@ -27,7 +24,7 @@ case class SurrogateVersion() derives ReadWriter
 
 /** ADT composed with settings for the surrogate-version modification.
   */
-case class SurrogateVersionImpl(surrogateVersion: SurrogateVersion) extends RequiredDataRowModification
+case class SurrogateVersionImpl(surrogateVersion: SurrogateVersion) extends DataRowModification
 
 /** Adds the time at which Arcane loaded a batch to its schema and data rows.
   */
@@ -35,7 +32,7 @@ case class LoadTimestamp() derives ReadWriter
 
 /** ADT composed with settings for the load-timestamp modification.
   */
-case class LoadTimestampImpl(loadTimestamp: LoadTimestamp) extends ConfigurableDataRowModification
+case class LoadTimestampImpl(loadTimestamp: LoadTimestamp) extends DataRowModification
 
 /** Selects the fields included in the modified schema and data rows.
   *
@@ -51,7 +48,7 @@ case class FieldSelector(
 
 /** ADT composed with settings for the field-selection modification.
   */
-case class FieldSelectorImpl(fieldSelector: FieldSelector) extends ConfigurableDataRowModification
+case class FieldSelectorImpl(fieldSelector: FieldSelector) extends DataRowModification
 
 /** Serializable representation of one schema modification.
   *
@@ -59,12 +56,18 @@ case class FieldSelectorImpl(fieldSelector: FieldSelector) extends ConfigurableD
   * [[DataRowModification]] ADT directly. Exactly one modification must be configured in each entry. Multiple
   * modifications are expressed as separate entries in [[DefaultDataRowModificationSettings.modificationSettings]].
   *
+  * @param surrogateMergeKey
+  *   settings for adding an Arcane-generated merge key
+  * @param surrogateVersion
+  *   settings for adding an Arcane-generated version
   * @param loadTimestamp
   *   settings for adding a batch load timestamp
   * @param fieldSelector
   *   settings for selecting fields
   */
 case class DataRowModificationSetting(
+    surrogateMergeKey: Option[SurrogateMergeKey] = None,
+    surrogateVersion: Option[SurrogateVersion] = None,
     loadTimestamp: Option[LoadTimestamp] = None,
     fieldSelector: Option[FieldSelector] = None
 ) derives ReadWriter:
@@ -74,8 +77,10 @@ case class DataRowModificationSetting(
     * @throws IllegalArgumentException
     *   when the entry contains either no modification or more than one modification
     */
-  def resolveSetting: ConfigurableDataRowModification =
+  def resolveSetting: DataRowModification =
     val configured = Seq(
+      surrogateMergeKey.map(SurrogateMergeKeyImpl(_)),
+      surrogateVersion.map(SurrogateVersionImpl(_)),
       loadTimestamp.map(LoadTimestampImpl(_)),
       fieldSelector.map(FieldSelectorImpl(_))
     ).flatten
@@ -90,11 +95,11 @@ case class DataRowModificationSetting(
 /** Settings for modifications applied to source data rows and their corresponding schemas.
   */
 trait DataRowModificationSettings:
-  /** Data-row modifications to apply, in their configured order.
+  /** Optional data-row modifications to apply, in their configured order.
     */
-  val modifications: Seq[ConfigurableDataRowModification]
+  val modifications: Seq[DataRowModification]
 
-/** Default serializable implementation of [[ConfigurableDataRowModification]].
+/** Default serializable implementation of [[DataRowModification]].
   *
   * An empty `modifications` array disables schema modification.
   *
@@ -106,4 +111,4 @@ case class DefaultDataRowModificationSettings(
 ) extends DataRowModificationSettings derives ReadWriter:
   /** Resolved internal modification definitions.
     */
-  override val modifications: Seq[ConfigurableDataRowModification] = modificationSettings.map(_.resolveSetting)
+  override val modifications: Seq[DataRowModification] = modificationSettings.map(_.resolveSetting)

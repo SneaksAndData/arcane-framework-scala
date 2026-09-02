@@ -9,6 +9,7 @@ import services.synapse.SynapseAzureBlobReaderExtensions.asWatermark
 import services.synapse.SynapseLinkStreamingDataProvider
 import services.synapse.base.{SynapseLinkDataProvider, SynapseLinkStreamingSource}
 import tests.shared.*
+import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.TestAzureStorageInfo.*
 import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
 
@@ -77,7 +78,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             sourceTableName,
             storageReader,
             allFieldsSelector,
-            List.empty
+            mergeModifications
           )
         )
         synapseLinkDataProvider <- ZIO.succeed(
@@ -124,7 +125,7 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
             sourceTableName,
             storageReader,
             allFieldsSelector,
-            List.empty
+            mergeModifications
           )
         )
         synapseLinkDataProvider <- ZIO.succeed(

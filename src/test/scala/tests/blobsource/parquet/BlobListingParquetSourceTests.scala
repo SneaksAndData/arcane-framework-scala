@@ -8,6 +8,7 @@ import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
+import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 
 import zio.test.*
@@ -38,7 +39,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             false,
             None,
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         sourceMapped <- ZIO.succeed(
@@ -52,7 +53,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             true,
             None,
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         schema       <- source.getSchema
@@ -63,7 +64,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
         schema.exists(f => f.name == BlobBatchCommons.versionField.name)
       ) && assertTrue(
         schema.exists(f => f.name == VersionField.name)
-      ) // expect 11 fields + source version + required Arcane fields
+      ) // expect 11 fields + source version + configured Arcane fields
         && assertTrue(schema == mappedSchema)
     },
     test("getChanges return correct rows") {
@@ -81,7 +82,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             false,
             None,
             TestFieldSelectionRuleSettings,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

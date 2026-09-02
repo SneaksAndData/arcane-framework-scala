@@ -6,7 +6,7 @@ import services.base.DefaultStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.base.StoredBlob
 import services.streaming.base.StructuredZStream
-import models.settings.sources.modification.{ConfigurableDataRowModification, DataRowModification}
+import models.settings.sources.modification.DataRowModification
 
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Task, ZIO}
@@ -17,7 +17,7 @@ import java.util.Base64
 
 /** Base abstract class for all blob source readers
   */
-abstract class BlobStreamingSource(modifications: Seq[ConfigurableDataRowModification])
+abstract class BlobStreamingSource(modifications: Seq[DataRowModification])
     extends DefaultStreamingSource(modifications):
 
   final override type ShardMetadata = Seq[String]

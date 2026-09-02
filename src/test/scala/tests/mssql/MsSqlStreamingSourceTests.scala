@@ -14,6 +14,7 @@ import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.*
 import tests.shared.TestSinkSettings
+import tests.shared.TestDataRowModifications.mergeModifications
 import utils.HashUtils
 
 import org.scalatest.*
@@ -126,7 +127,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         query <- QueryProvider.getColumnSummariesQuery(
@@ -154,7 +155,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         query <- QueryProvider.getSchemaQuery(reader)
@@ -187,7 +188,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
@@ -232,7 +233,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
@@ -274,7 +275,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
 
@@ -309,7 +310,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
 
@@ -336,7 +337,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         expected <- ZIO.succeed(
@@ -381,7 +382,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
 
@@ -389,7 +390,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_rows", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
-    test("MsSqlStreamingSource injects required merge key and version fields") {
+    test("MsSqlStreamingSource applies configured merge key and version fields") {
       val testTableName    = "surrogate_merge_key"
       val primaryKeyValue1 = "string-key-1"
       val primaryKeyValue2 = "string-key-2"
@@ -425,7 +426,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         schema    <- reader.getSchema
@@ -469,7 +470,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
 
@@ -504,7 +505,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         expected <- ZIO.succeed(
@@ -548,7 +549,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- reader
@@ -600,7 +601,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             new ColumnSummaryFieldSelector(fieldSelectionRule),
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- reader
@@ -651,7 +652,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         rows <- reader
@@ -686,7 +687,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         nextTime     <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
@@ -741,7 +742,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq.empty
+            mergeModifications
           )
         )
         _ <- reader.deleteShards("backfill__s1__")

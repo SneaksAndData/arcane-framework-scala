@@ -16,19 +16,10 @@ trait PrimaryKeyProvider:
 trait VersionProvider:
   protected def versionName: Task[String]
 
-abstract class DefaultStreamingSource(protected val configurableModifications: Seq[ConfigurableDataRowModification])
+abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowModification])
     extends StreamingSource
     with PrimaryKeyProvider
     with VersionProvider {
-
-  private val requiredModifications: Seq[RequiredDataRowModification] =
-    Seq(
-      SurrogateMergeKeyImpl(SurrogateMergeKey()),
-      SurrogateVersionImpl(SurrogateVersion())
-    )
-
-  protected final val modifications: Seq[DataRowModification] =
-    requiredModifications ++ configurableModifications
 
   protected def getSourceSchema: Task[ArcaneSchema]
 

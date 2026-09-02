@@ -7,7 +7,11 @@ import models.settings.sources.modification.{
   FieldSelector,
   FieldSelectorImpl,
   LoadTimestamp,
-  LoadTimestampImpl
+  LoadTimestampImpl,
+  SurrogateMergeKey,
+  SurrogateMergeKeyImpl,
+  SurrogateVersion,
+  SurrogateVersionImpl
 }
 
 import org.scalatest.Inspectors.forAll
@@ -26,6 +30,8 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
     (
       DefaultDataRowModificationSettings(
         Seq(
+          DataRowModificationSetting(surrogateMergeKey = Some(SurrogateMergeKey())),
+          DataRowModificationSetting(surrogateVersion = Some(SurrogateVersion())),
           DataRowModificationSetting(loadTimestamp = Some(LoadTimestamp())),
           DataRowModificationSetting(
             fieldSelector = Some(
@@ -37,7 +43,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           )
         )
       ),
-      """{"modifications":[{"loadTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
+      """{"modifications":[{"surrogateMergeKey":{}},{"surrogateVersion":{}},{"loadTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
     )
   )
 
@@ -58,6 +64,8 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
 
     settings.modifications should equal(
       Seq(
+        SurrogateMergeKeyImpl(SurrogateMergeKey()),
+        SurrogateVersionImpl(SurrogateVersion()),
         LoadTimestampImpl(LoadTimestamp()),
         FieldSelectorImpl(
           FieldSelector(
