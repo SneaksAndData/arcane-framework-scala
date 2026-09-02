@@ -95,11 +95,11 @@ case class DataRowModificationSetting(
 /** Settings for modifications applied to source data rows and their corresponding schemas.
   */
 trait DataRowModificationSettings:
-  /** Optional data-row modifications to apply, in their configured order.
+  /** Data-row modifications to apply, in their configured order.
     */
   val modifications: Seq[DataRowModification]
 
-/** Default serializable implementation of [[DataRowModification]].
+/** Default serializable implementation of [[DefaultDataRowModificationSettings]].
   *
   * An empty `modifications` array disables schema modification.
   *
