@@ -9,7 +9,6 @@ import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
-import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 import utils.HashUtils
 
@@ -48,7 +47,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         schema <- source.getSchema
@@ -76,13 +75,13 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 13)
     },
-    test("getChanges adds configured merge key and version fields") {
+    test("getChanges adds required merge key and version fields") {
       val pkColumns = Seq("col1", "col3")
 
       for
@@ -100,7 +99,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -134,7 +133,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map(),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -156,7 +155,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map("/nested_array/value" -> Map()),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -178,7 +177,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map("/data" -> Map(), "/nested_array/value" -> Map()),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
@@ -200,7 +199,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Some("/body"),
             Map("/nested_array/value" -> Map()),
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

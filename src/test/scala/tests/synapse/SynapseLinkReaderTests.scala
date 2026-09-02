@@ -7,7 +7,6 @@ import services.storage.models.azure.AdlsStoragePath
 import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.*
-import tests.shared.TestDataRowModifications.mergeModifications
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -36,7 +35,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(
-          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, mergeModifications)
+          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
         startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
@@ -54,7 +53,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(
-          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, mergeModifications)
+          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
         schema <- synapseLinkReader.getSchema
       yield assertTrue(
@@ -69,7 +68,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
           AdlsStoragePath(s"abfss://$malformedSchemaContainer@$storageAccount.dfs.core.windows.net/").get
         )
         synapseLinkReader <- ZIO.succeed(
-          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, mergeModifications)
+          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
         startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader

@@ -8,7 +8,6 @@ import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
-import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 
 import zio.test.*
@@ -39,7 +38,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             false,
             None,
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         sourceMapped <- ZIO.succeed(
@@ -53,7 +52,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             true,
             None,
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         schema       <- source.getSchema
@@ -82,7 +81,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             false,
             None,
             TestFieldSelectionRuleSettings,
-            mergeModifications
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect

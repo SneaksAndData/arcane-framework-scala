@@ -20,7 +20,6 @@ import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.{bucket, storageReader}
-import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestFieldSelectionRuleSettings, TestThroughputShaperBuilder}
 
 import zio.internal.stacktracer.SourceLocation
@@ -129,7 +128,7 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
         useNameMapping = false,
         sourceSchema = None,
         fieldSelector = TestFieldSelectionRuleSettings,
-        modifications = mergeModifications
+        modifications = Seq.empty
       )
     )
     backfillSettings <- ZIO.succeed(

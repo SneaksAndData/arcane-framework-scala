@@ -15,7 +15,6 @@ import services.synapse.backfill.{
 import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
 import tests.shared.TestAzureStorageInfo.{sourceRoot, storageReader}
-import tests.shared.TestDataRowModifications.mergeModifications
 import tests.shared.{IcebergUtil, TestDynamicSinkSettings, TestSourceBufferingSettings, TestThroughputShaperBuilder}
 import tests.synapse.SynapseLinkTestSettings.defaultStreamMode
 
@@ -84,7 +83,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             sourceTableName,
             storageReader,
             allFieldsSelector,
-            mergeModifications
+            Seq.empty
           )
         )
         schema            <- synapseLinkReader.getSchema
@@ -165,7 +164,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             sourceTableName,
             storageReader,
             allFieldsSelector,
-            mergeModifications
+            Seq.empty
           )
         )
         folders <- storageReader
