@@ -87,7 +87,7 @@ case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
   val name: String          = MergeKeyField.name
   val fieldType: ArcaneType = MergeKeyField.fieldType
 
-/** VersionField represents a field used for batch merges
+/** VersionField represents a field used for deduplicating staged batches
   */
 case object VersionField extends ArcaneSchemaField:
   val name: String          = "ARCANE_VERSION"

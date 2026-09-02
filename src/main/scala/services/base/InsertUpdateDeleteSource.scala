@@ -3,6 +3,8 @@ package services.base
 
 import models.schemas.*
 import models.settings.sources.modification.*
+import exceptions.FatalStreamFailException
+import logging.ZIOLogAnnotations.zlogWarning
 import utils.HashUtils
 import InsertUpdateDeleteSource.*
 
@@ -40,15 +42,17 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
       sourceVersionName <- versionFieldName
       versionCell <- ZIO
         .fromOption(row.find(_.name.equalsIgnoreCase(sourceVersionName)))
-        .orElseFail(new IllegalArgumentException(s"Version field '$sourceVersionName' is missing from the source row"))
+        .orElseFail(FatalStreamFailException(s"Version field '$sourceVersionName' is missing from the source row"))
       versionValue <- versionCell.value match
         case value: Long =>
           ZIO.succeed(value)
         case null =>
-          ZIO.fail(new IllegalArgumentException(s"Version field '$sourceVersionName' must not be null"))
+          zlogWarning(
+            s"Version field '$sourceVersionName' is null; ${VersionField.name} will also be null"
+          ).as(null)
         case value =>
           ZIO.fail(
-            new IllegalArgumentException(
+            FatalStreamFailException(
               s"Version field '$sourceVersionName' must contain a Long value, but contains ${value.getClass.getName}"
             )
           )
@@ -84,11 +88,11 @@ object InsertUpdateDeleteSource {
   private def getPrimaryKeyValue(row: DataRow, key: String): Task[Any] =
     ZIO
       .fromOption(row.find(_.name.equalsIgnoreCase(key)))
-      .orElseFail(new IllegalArgumentException(s"Primary-key field '$key' is missing from the source row"))
+      .orElseFail(FatalStreamFailException(s"Primary-key field '$key' is missing from the source row"))
       .flatMap(cell =>
         ZIO
           .fromOption(Option(cell.value))
-          .orElseFail(new IllegalArgumentException(s"Primary-key field '$key' is null"))
+          .orElseFail(FatalStreamFailException(s"Primary-key field '$key' is null"))
       )
 
   private def createMergeKey(keyValues: Seq[Any]): String =
@@ -96,8 +100,8 @@ object InsertUpdateDeleteSource {
       .map {
         // Covers String and org.apache.avro.util.Utf8
         case value: CharSequence => value.toString
-        case null                => throw new IllegalArgumentException("PK value must not be null")
-        case other => throw new UnsupportedOperationException(s"Unsupported PK type: ${other.getClass.getName}")
+        case null                => throw FatalStreamFailException("PK value must not be null")
+        case other               => throw FatalStreamFailException(s"Unsupported PK type: ${other.getClass.getName}")
       }
       .mkString("#")
 
