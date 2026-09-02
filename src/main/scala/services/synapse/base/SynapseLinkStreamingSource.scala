@@ -10,7 +10,7 @@ import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import models.settings.sources.modification.DataRowModification
 import models.cdm.CSVParser
-import services.base.{DefaultStreamingSource, SchemaProvider}
+import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
@@ -32,14 +32,14 @@ final class SynapseLinkStreamingSource(
     reader: AzureBlobStorageReader,
     fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification]
-) extends DefaultStreamingSource(modifications):
+) extends InsertUpdateDeleteSource(modifications):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
 
   override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(Seq("Id"))
 
-  override protected val versionName: Task[String] = ZIO.succeed("versionnumber")
+  override protected val versionFieldName: Task[String] = ZIO.succeed("versionnumber")
 
   // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
   // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.

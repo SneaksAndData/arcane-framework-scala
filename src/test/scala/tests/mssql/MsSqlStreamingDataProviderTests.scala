@@ -48,7 +48,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val stagingSettings = TestStagingSettings()
 
-  private val fieldString = "(x int not null, y int)"
+  private val fieldString = "(x varchar(128) not null, y int)"
   private val pkString    = "primary key(x)"
 
   private val emptyFieldsFilteringService: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(
@@ -80,7 +80,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
       ) { statement =>
         ZIO.foreach(1 to 10) { index =>
           val insertCmd =
-            s"use arcane; insert into dbo.$tableName values($index, ${index + 1})"
+            s"use arcane; insert into dbo.$tableName values('$index', ${index + 1})"
           ZIO.attemptBlocking(statement.execute(insertCmd))
         }
       }
@@ -89,7 +89,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
       ) { statement =>
         ZIO.foreach(1 to 10) { index =>
           val updateCmd =
-            s"use arcane; insert into dbo.$tableName values(${index * 1000}, ${index * 1000 + 1})"
+            s"use arcane; insert into dbo.$tableName values('${index * 1000}', ${index * 1000 + 1})"
           ZIO.attemptBlocking(statement.execute(updateCmd))
         }
       }

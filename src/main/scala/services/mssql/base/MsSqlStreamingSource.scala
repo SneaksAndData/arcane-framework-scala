@@ -7,7 +7,7 @@ import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
 import modification.DataRowModification
-import services.base.DefaultStreamingSource
+import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
@@ -41,7 +41,7 @@ class MsSqlStreamingSource(
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator,
     modifications: Seq[DataRowModification]
-) extends DefaultStreamingSource(modifications)
+) extends InsertUpdateDeleteSource(modifications)
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -76,7 +76,7 @@ class MsSqlStreamingSource(
       }
     )
 
-  override protected val versionName: Task[String] = ZIO.succeed("SYS_CHANGE_VERSION")
+  override protected val versionFieldName: Task[String] = ZIO.succeed("SYS_CHANGE_VERSION")
 
   /** Create a stream from a provided shard table.
     */

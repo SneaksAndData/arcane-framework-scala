@@ -32,7 +32,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 
   protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()
   override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(primaryKeys)
-  override protected val versionName: Task[String]          = ZIO.succeed(BlobBatchCommons.versionField.name)
+  override protected val versionFieldName: Task[String]     = ZIO.succeed(BlobBatchCommons.versionField.name)
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 

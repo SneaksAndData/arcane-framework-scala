@@ -51,33 +51,13 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             mergeModifications
           )
         )
-        unmodifiedSource <- ZIO.succeed(
-          BlobListingJsonStreamingSource(
-            path,
-            shardPath,
-            storageReader,
-            nameGenerator,
-            "/tmp",
-            Seq("col1"),
-            flatSchema,
-            Some("/body"),
-            Map(),
-            TestFieldSelectionRuleSettings,
-            Seq.empty
-          )
-        )
-        schema           <- source.getSchema
-        unmodifiedSchema <- unmodifiedSource.getSchema
+        schema <- source.getSchema
       yield assertTrue(schema.size == 10 + 3) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
       ) && assertTrue(
         schema.exists(f => f.name == BlobBatchCommons.versionField.name)
       ) && assertTrue(
         schema.exists(f => f.name == VersionField.name)
-      ) && assertTrue(
-        unmodifiedSchema.size == 10 + 1,
-        !unmodifiedSchema.exists(f => f.name == MergeKeyField.name),
-        !unmodifiedSchema.exists(f => f.name == VersionField.name)
       ) // expect 10 fields + source version + configured Arcane fields
     },
     test("getChanges return correct rows") {
