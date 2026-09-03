@@ -38,7 +38,7 @@ final class SynapseLinkStreamingSource(
   override type WatermarkType = SynapseWatermark
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
-    ZIO.succeed(FrozenSurrogateMergeKey(Seq("Id").toSet))
+    ZIO.succeed(FrozenSurrogateMergeKey(Seq("Id".toLowerCase).toSet))
 
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion("versionnumber"))
