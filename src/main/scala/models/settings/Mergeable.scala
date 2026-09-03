@@ -18,4 +18,4 @@ trait Mergeable:
     * @return
     *   A new instance of `MergeResult` that represents the result of the merge.
     */
-  def merge(overrides: MergeableFrom): MergeResult
+  def merge(overrides: Option[MergeableFrom]): MergeResult

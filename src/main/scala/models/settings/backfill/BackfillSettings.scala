@@ -37,8 +37,8 @@ case class DefaultBackfillSettings(
   override type MergeableFrom = OverrideBackfillSettings
   override type MergeResult   = DefaultBackfillSettings
 
-  override def merge(overrides: MergeableFrom): MergeResult =
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
     DefaultBackfillSettings(
-      backfillBehavior = overrides.backfillBehavior.getOrElse(this.backfillBehavior),
-      backfillStartDate = overrides.backfillStartDate.orElse(this.backfillStartDate)
+      backfillBehavior = overrides.flatMap(_.backfillBehavior).getOrElse(this.backfillBehavior),
+      backfillStartDate = overrides.flatMap(_.backfillStartDate).orElse(this.backfillStartDate)
     )

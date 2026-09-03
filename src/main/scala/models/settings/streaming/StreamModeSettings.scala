@@ -26,8 +26,8 @@ case class DefaultStreamModeSettings(
 
   override type MergeableFrom = OverrideStreamModeSettings
   override type MergeResult   = DefaultStreamModeSettings
-  override def merge(overrides: MergeableFrom): MergeResult =
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
     DefaultStreamModeSettings(
       changeCapture = this.changeCapture,
-      backfill = overrides.backfill.map(b => this.backfill.merge(b)).getOrElse(this.backfill)
+      backfill = this.backfill.merge(overrides.flatMap(_.backfill))
     )
