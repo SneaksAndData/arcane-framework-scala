@@ -86,9 +86,6 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-annotations" % "2.18.1",
     libraryDependencies += "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.1",
 
-    // Codec
-    libraryDependencies += "commons-codec" % "commons-codec" % "1.22.1",
-
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,

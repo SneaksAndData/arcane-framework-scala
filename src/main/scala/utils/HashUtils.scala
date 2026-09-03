@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package utils
 
 import java.nio.charset.StandardCharsets
-import org.apache.commons.codec.digest.MurmurHash3
 
 object HashUtils:
   /** Equivalent to Trino expression: lower(to_hex(murmur3(to_utf8('<input>')))).
