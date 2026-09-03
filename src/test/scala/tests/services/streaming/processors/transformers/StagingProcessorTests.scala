@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
-import models.app.PluginStreamContext
+import models.app.{OverrideStreamContext, PluginStreamContext}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import models.settings.backfill.BackfillBehavior.Overwrite
@@ -69,7 +69,10 @@ object StagingProcessorTests extends ZIOSpecDefault:
   } yield stagingProcessor
 
   private val mockPluginContextLayer = ZLayer.succeed(new PluginStreamContext {
+    override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext = ???
+
     override val streamMode: StreamModeSettings = new StreamModeSettings {
+
 
       /** Backfill mode-only settings
         */
@@ -105,7 +108,6 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val advisedBurst: Int                = 10
     }
 
-    override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
   })
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
