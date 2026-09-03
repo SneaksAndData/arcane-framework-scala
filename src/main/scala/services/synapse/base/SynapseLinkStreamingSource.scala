@@ -8,7 +8,7 @@ import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import models.cdm.CSVParser
 import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
@@ -40,7 +40,8 @@ final class SynapseLinkStreamingSource(
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
     ZIO.succeed(FrozenSurrogateMergeKey(Seq("Id").toSet))
 
-  override protected val versionFieldName: Task[String] = ZIO.succeed("versionnumber")
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion("versionnumber"))
 
   // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
   // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.

@@ -7,7 +7,7 @@ import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
 
-import modification.{DataRowModification, FrozenSurrogateMergeKey}
+import modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
@@ -80,7 +80,8 @@ class MsSqlStreamingSource(
       )
       .map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
 
-  override protected val versionFieldName: Task[String] = ZIO.succeed("SYS_CHANGE_VERSION")
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion("SYS_CHANGE_VERSION"))
 
   /** Create a stream from a provided shard table.
     */

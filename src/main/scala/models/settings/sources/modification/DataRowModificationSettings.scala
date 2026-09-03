@@ -14,7 +14,7 @@ sealed trait DataRowModification
   */
 case class SurrogateMergeKey() derives ReadWriter
 
-/** Merge key with preset key field names
+/** Merge key with preset key field names. For internal usage only.
   */
 case class FrozenSurrogateMergeKey(fieldNames: Set[String]) extends DataRowModification
 
@@ -28,6 +28,10 @@ case class SurrogateMergeKeyImpl(surrogateMergeKey: SurrogateMergeKey) extends D
 /** Adds an Arcane-generated version to the source schema and data rows.
   */
 case class SurrogateVersion() derives ReadWriter
+
+/** Version mod with preset field name. For internal usage only.
+  */
+case class FrozenSurrogateVersion(fieldName: String) extends DataRowModification
 
 /** ADT composed with settings for the surrogate-version modification.
   */

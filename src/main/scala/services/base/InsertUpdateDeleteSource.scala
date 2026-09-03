@@ -6,28 +6,34 @@ import models.settings.sources.modification.*
 import exceptions.FatalStreamFailException
 import utils.HashUtils
 
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.combineWith
 import zio.{Task, UIO, ZIO}
 
 trait PrimaryKeyProvider:
   protected def getPrimaryKey: Task[FrozenSurrogateMergeKey]
 
 trait VersionProvider:
-  protected def versionFieldName: Task[String]
+  protected def getVersionField: Task[FrozenSurrogateVersion]
 
+/** A streaming source that supports INSERT, UPDATE and DELETE data modifications. This source requires primary key
+  * fields and a version field to be defined in concrete implementations.
+  */
 abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModification])
     extends DefaultStreamingSource(suppliedModifications)
     with PrimaryKeyProvider
     with VersionProvider:
 
   override lazy val allModifications: Task[Seq[DataRowModification]] =
-    getPrimaryKey.map(suppliedModifications ++ Seq(_))
+    getPrimaryKey.combineWith(getVersionField).map { case (pk, v) =>
+      suppliedModifications ++ Seq(pk, v)
+    }
 
   override protected def applyDataRowModification(
       row: DataRow,
       modification: DataRowModification
   ): DataRow = modification match
     case FrozenSurrogateMergeKey(fieldNames) => addSurrogateMergeKey(row, fieldNames)
-    case SurrogateVersionImpl(_)             => row // addSurrogateVersion(row)
+    case FrozenSurrogateVersion(fieldName)   => addSurrogateVersion(row, fieldName)
     case _                                   => row
 
   override protected def applySchemaModification(
@@ -38,24 +44,20 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
     case SurrogateVersionImpl(_)  => addFieldToSchema(VersionField, schema)
     case _                        => ZIO.succeed(schema)
 
-  private def addSurrogateVersion(row: DataRow): Task[DataRow] =
-    for
-      sourceVersionName <- versionFieldName
-      versionCell <- ZIO
-        .fromOption(row.find(_.name.equalsIgnoreCase(sourceVersionName)))
-        .orElseFail(FatalStreamFailException(s"Version field '$sourceVersionName' is missing from the source row"))
-      versionValue <- versionCell.value match
-        case value: Long =>
-          ZIO.succeed(value)
-        case null =>
-          ZIO.succeed(null)
-        case value =>
-          ZIO.fail(
-            FatalStreamFailException(
-              s"Version field '$sourceVersionName' must contain a Long value, but contains ${value.getClass.getName}"
+  private def addSurrogateVersion(row: DataRow, sourceVersionFieldName: String): DataRow =
+    val versionValue = row.find(_.name.equalsIgnoreCase(sourceVersionFieldName)) match
+      case None =>
+        throw FatalStreamFailException(s"Version field '$sourceVersionFieldName' is missing from the source row")
+      case Some(cell) =>
+        cell.value match
+          case value: Long => value
+          case null        => null
+          case other =>
+            throw FatalStreamFailException(
+              s"Version field '$sourceVersionFieldName' must contain a Long value, but contains ${other.getClass.getName}"
             )
-          )
-    yield row.filterNot(_.name.equalsIgnoreCase(VersionField.name)) :+ DataCell(
+
+    row.filterNot(_.name.equalsIgnoreCase(VersionField.name)) :+ DataCell(
       name = VersionField.name,
       Type = VersionField.fieldType,
       value = versionValue
@@ -72,7 +74,7 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
     val valueToHash = keyValues.map(_.value.toString).mkString("#")
     val mergeKey    = HashUtils.murmur3(valueToHash)
 
-    row :+ DataCell(
+    row.filterNot(_.name.equalsIgnoreCase(MergeKeyField.name)) :+ DataCell(
       name = MergeKeyField.name,
       Type = MergeKeyField.fieldType,
       value = mergeKey

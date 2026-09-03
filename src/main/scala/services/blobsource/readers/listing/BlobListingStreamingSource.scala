@@ -3,7 +3,7 @@ package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.batches.BlobBatchCommons
 import services.blobsource.readers.BlobStreamingSource
@@ -33,7 +33,9 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
   override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
     ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.toSet))
-  override protected val versionFieldName: Task[String] = ZIO.succeed(BlobBatchCommons.versionField.name)
+
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion(BlobBatchCommons.versionField.name))
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 
