@@ -32,7 +32,7 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
   override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
-    ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.map(_.toLowerCase).toSet))
+    ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.map(_.toLowerCase)))
 
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion(BlobBatchCommons.versionField.name))

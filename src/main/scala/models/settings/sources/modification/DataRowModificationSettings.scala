@@ -16,7 +16,7 @@ case class SurrogateMergeKey() derives ReadWriter
 
 /** Merge key with preset key field names. For internal usage only.
   */
-case class FrozenSurrogateMergeKey(fieldNames: Set[String]) extends DataRowModification
+case class FrozenSurrogateMergeKey(fieldNames: Seq[String]) extends DataRowModification
 
 /** ADT composed with settings for the surrogate merge-key modification.
   */
