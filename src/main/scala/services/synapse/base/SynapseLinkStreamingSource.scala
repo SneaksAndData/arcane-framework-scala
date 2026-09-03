@@ -2,22 +2,23 @@ package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
 import extensions.BufferedReaderExtensions.*
+import extensions.ZExtensions.combineWith
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
+import models.cdm.CSVParser
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
-import models.cdm.CSVParser
 import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
-import services.synapse.versioning.SynapseWatermark
 import services.synapse.SynapseEntitySchemaProvider
+import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -192,10 +193,10 @@ final class SynapseLinkStreamingSource(
     .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
     .mapZIO(wm =>
-      getBatchSchema(wm.prefix).flatMap(batchSchema =>
-        applySchemaModifications(batchSchema)
+      getBatchSchema(wm.prefix).combineWith(allModifications).flatMap { case (batchSchema, mods) =>
+        applySchemaModifications(batchSchema, mods)
           .map(modifiedSchema => (getChangesForVersion(wm, batchSchema), modifiedSchema))
-      )
+      }
     )
 
   /** Converts an arbitrary timestamp into a matching watermark
@@ -230,11 +231,12 @@ final class SynapseLinkStreamingSource(
     watermark <- ZIO.succeed(StoredBlob(name = folder, createdOn = None).asWatermark)
     result <- ZIO.ifZIO(isValidSynapseBatch(watermark.prefix))(
       getBatchSchema(watermark.prefix)
-        .flatMap(batchSchema =>
-          applySchemaModifications(batchSchema).map(modifiedSchema =>
+        .combineWith(allModifications)
+        .flatMap { case (batchSchema, mods) =>
+          applySchemaModifications(batchSchema, mods).map(modifiedSchema =>
             Some((stream = (getChangesForVersion(watermark, batchSchema), modifiedSchema), source = watermark.prefix))
           )
-        ),
+        },
       ZIO.succeed(None)
     )
   yield result

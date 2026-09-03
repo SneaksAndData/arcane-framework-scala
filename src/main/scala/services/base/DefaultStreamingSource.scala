@@ -4,6 +4,7 @@ package services.base
 import models.schemas.*
 import models.schemas.given_CanAdd_ArcaneSchema
 import models.settings.sources.modification.*
+import extensions.ZExtensions.combineWith
 
 import zio.stream.ZStream
 import zio.{Chunk, Task, UIO, ZIO}
@@ -11,7 +12,9 @@ import zio.{Chunk, Task, UIO, ZIO}
 abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowModification]) extends StreamingSource {
 
   final override lazy val getSchema: Task[ArcaneSchema] =
-    getSourceSchema.flatMap(applySchemaModifications)
+    getSourceSchema.combineWith(allModifications).flatMap { case (schema, mods) =>
+      applySchemaModifications(schema, mods)
+    }
 
   protected lazy val allModifications: Task[Seq[DataRowModification]] = ZIO.succeed(modifications)
 
@@ -30,8 +33,8 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
   final def applyDataRowModifications(rows: Chunk[DataRow], supplied: Seq[DataRowModification]): Chunk[DataRow] =
     supplied.foldLeft(rows)((agg, e) => agg.map(applyDataRowModification(_, e)))
 
-  final def applySchemaModifications(schema: ArcaneSchema): Task[ArcaneSchema] =
-    ZIO.foldLeft(modifications)(schema)(applySchemaModification)
+  final def applySchemaModifications(schema: ArcaneSchema, supplied: Seq[DataRowModification]): Task[ArcaneSchema] =
+    ZIO.foldLeft(supplied)(schema)(applySchemaModification)
 
   protected def addFieldToSchema(field: ArcaneSchemaField, schema: ArcaneSchema): Task[ArcaneSchema] =
     val newSchema =
