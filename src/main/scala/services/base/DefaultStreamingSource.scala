@@ -12,11 +12,11 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
 
   final override lazy val getSchema: Task[ArcaneSchema] =
     getSourceSchema.flatMap(applySchemaModifications)
-    
+
   protected lazy val allModifications: Task[Seq[DataRowModification]] = ZIO.succeed(modifications)
 
   protected def getSourceSchema: Task[ArcaneSchema]
-  
+
   protected def applyDataRowModification(
       row: DataRow,
       modification: DataRowModification

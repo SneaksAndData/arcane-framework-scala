@@ -73,9 +73,8 @@ object ZExtensions:
             yield ()
     }
 
-  /**
-   * Combine results of two tasks
-   */
+  /** Combine results of two tasks
+    */
   extension [Result](task: Task[Result])
     def combineWith[OtherResult](other: Task[OtherResult]): Task[(Result, OtherResult)] = for
       r1 <- task

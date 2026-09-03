@@ -1,25 +1,27 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
-import exceptions.FatalStreamFailException
-import extensions.ZExtensions.combineWith
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.schemas.*
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey}
+
+import modification.{DataRowModification, FrozenSurrogateMergeKey}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
-import services.mssql.SqlDataCell.normalizeName
+import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
-import services.mssql.*
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
-import services.naming.NameGenerator
+import services.mssql.*
+import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
-import utils.HashUtils
+import services.naming.NameGenerator
+import services.mssql.SqlDataCell.normalizeName
+import exceptions.FatalStreamFailException
+import extensions.ZExtensions.combineWith
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream

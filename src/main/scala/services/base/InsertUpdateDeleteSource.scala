@@ -19,15 +19,16 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
     with PrimaryKeyProvider
     with VersionProvider:
 
-  override lazy val allModifications: Task[Seq[DataRowModification]] = getPrimaryKey.map(suppliedModifications ++ Seq(_))
+  override lazy val allModifications: Task[Seq[DataRowModification]] =
+    getPrimaryKey.map(suppliedModifications ++ Seq(_))
 
   override protected def applyDataRowModification(
       row: DataRow,
       modification: DataRowModification
   ): DataRow = modification match
     case FrozenSurrogateMergeKey(fieldNames) => addSurrogateMergeKey(row, fieldNames)
-    case SurrogateVersionImpl(_)  => row // addSurrogateVersion(row)
-    case _                        => row
+    case SurrogateVersionImpl(_)             => row // addSurrogateVersion(row)
+    case _                                   => row
 
   override protected def applySchemaModification(
       schema: ArcaneSchema,
@@ -64,10 +65,12 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
     val keyValues = row.filter(cell => keys.contains(cell.name.toLowerCase))
 
     if keyValues.size != keys.size then
-      throw FatalStreamFailException(s"Some primary-key fields are missing or have NULL values. Required: ${keys.mkString(",")}, found: ${keyValues.map(_.name).mkString(",")}. Please review source configuration.")
+      throw FatalStreamFailException(
+        s"Some primary-key fields are missing or have NULL values. Required: ${keys.mkString(",")}, found: ${keyValues.map(_.name).mkString(",")}. Please review source configuration."
+      )
 
     val valueToHash = keyValues.map(_.value.toString).mkString("#")
-    val mergeKey = HashUtils.murmur3(valueToHash)
+    val mergeKey    = HashUtils.murmur3(valueToHash)
 
     row :+ DataCell(
       name = MergeKeyField.name,

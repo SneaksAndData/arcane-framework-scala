@@ -30,9 +30,10 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     modifications: Seq[DataRowModification]
 ) extends BlobStreamingSource(modifications):
 
-  protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()
-  override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] = ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.toSet))
-  override protected val versionFieldName: Task[String]     = ZIO.succeed(BlobBatchCommons.versionField.name)
+  protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+  override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.toSet))
+  override protected val versionFieldName: Task[String] = ZIO.succeed(BlobBatchCommons.versionField.name)
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 

@@ -95,7 +95,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       scanner.getRows
         .map(applyFieldSelector)
         .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
-        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods)) 
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
     },
     schema
   )
@@ -113,7 +113,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               .fromZIO {
                 for
                   filePath <- downloadSourceFile(sourceFile)
-                  scanner <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
+                  scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
                 yield scanner
               }
               .flatMap(
@@ -124,7 +124,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               )
           },
         schema
-      ) 
+      )
     }
 
 object BlobListingParquetStreamingSource:
