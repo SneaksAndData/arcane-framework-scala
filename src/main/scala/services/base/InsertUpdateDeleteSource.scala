@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package services.base
 
+import exceptions.FatalStreamFailException
+import extensions.ZExtensions.combineWith
 import models.schemas.*
 import models.settings.sources.modification.*
-import exceptions.FatalStreamFailException
 import utils.HashUtils
 
-import com.sneaksanddata.arcane.framework.extensions.ZExtensions.combineWith
-import zio.{Task, UIO, ZIO}
+import zio.{Task, ZIO}
 
 trait PrimaryKeyProvider:
   protected def getPrimaryKey: Task[FrozenSurrogateMergeKey]
@@ -40,9 +40,9 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
       schema: ArcaneSchema,
       modification: DataRowModification
   ): Task[ArcaneSchema] = modification match
-    case SurrogateMergeKeyImpl(_) => addFieldToSchema(MergeKeyField, schema)
-    case SurrogateVersionImpl(_)  => addFieldToSchema(VersionField, schema)
-    case _                        => ZIO.succeed(schema)
+    case FrozenSurrogateMergeKey(_) => addFieldToSchema(MergeKeyField, schema)
+    case FrozenSurrogateVersion(_)  => addFieldToSchema(VersionField, schema)
+    case _                          => ZIO.succeed(schema)
 
   private def addSurrogateVersion(row: DataRow, sourceVersionFieldName: String): DataRow =
     val versionValue = row.find(_.name.equalsIgnoreCase(sourceVersionFieldName)) match
