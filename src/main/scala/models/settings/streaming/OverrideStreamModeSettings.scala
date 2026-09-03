@@ -9,7 +9,9 @@ import upickle.ReadWriter
   */
 trait OverrideStreamModeSettings:
   val backfill: Option[OverrideBackfillSettings]
+  val changeCapture: Option[OverrideChangeCaptureSettings]
 
 case class DefaultOverrideStreamModeSettings(
-    override val backfill: Option[DefaultOverrideBackfillSettings] = None
+    override val backfill: Option[DefaultOverrideBackfillSettings] = None,
+    override val changeCapture: Option[DefaultOverrideChangeCaptureSettings] = None
 ) extends OverrideStreamModeSettings derives ReadWriter

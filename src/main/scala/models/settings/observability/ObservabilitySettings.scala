@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.observability
 
-import upickle.{ReadWriter, macroRW}
+import models.settings.Mergeable
+
+import upickle.ReadWriter
 
 trait ObservabilitySettings:
   /** Custom metric tags
@@ -10,4 +12,13 @@ trait ObservabilitySettings:
 
 case class DefaultObservabilitySettings(
     override val metricTags: Map[String, String]
-) extends ObservabilitySettings derives ReadWriter
+) extends ObservabilitySettings,
+      Mergeable derives ReadWriter:
+
+  override type MergeableFrom = OverrideObservabilitySettings
+  override type MergeResult   = DefaultObservabilitySettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultObservabilitySettings(
+      metricTags = overrides.flatMap(_.metricTags).getOrElse(this.metricTags)
+    )
