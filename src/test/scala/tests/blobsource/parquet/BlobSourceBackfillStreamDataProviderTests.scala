@@ -124,7 +124,7 @@ object BlobSourceBackfillStreamDataProviderTests extends ZIOSpecDefault:
         storageClient = storageReader,
         nameGenerator = nameGenerator,
         tempStoragePath = "/tmp",
-        primaryKeys = Seq("col1"),
+        primaryKeys = Seq("col0"),
         useNameMapping = false,
         sourceSchema = None,
         fieldSelector = TestFieldSelectionRuleSettings,
