@@ -47,8 +47,10 @@ jobs:
       - name: Validate formatting
         shell: bash
         run: sbt scalafmtCheckAll
+
       - uses: actions/upload-code-coverage@v1
         with:
+          fail-on-error: false
           file: target/scala-3.8.3/coverage-report/cobertura.xml
           language: Java
           label: code-coverage/jacoco

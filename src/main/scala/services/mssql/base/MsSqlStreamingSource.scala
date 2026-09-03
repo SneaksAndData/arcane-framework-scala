@@ -3,10 +3,11 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
-import modification.DataRowModification
+
+import modification.{DataRowModification, FrozenSurrogateMergeKey}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
@@ -22,6 +23,8 @@ import services.mssql.SqlDataCell.normalizeName
 import exceptions.FatalStreamFailException
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
+import com.sneaksanddata.arcane.framework.extensions.ZExtensions.combineWith
+import com.sneaksanddata.arcane.framework.utils.HashUtils
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -69,19 +72,19 @@ class MsSqlStreamingSource(
       result <- executeColumnSummariesQuery(query)
     yield result
 
-  override protected val primaryKeyNames: Task[Seq[String]] =
+  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
     getColumnSummaries.map(
       _.collect { case (name, true) =>
         name.normalizeName
       }
-    )
+    ).map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
 
   override protected val versionFieldName: Task[String] = ZIO.succeed("SYS_CHANGE_VERSION")
 
   /** Create a stream from a provided shard table.
     */
   def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] =
-    getSchema.map { schema =>
+    getSchema.combineWith(allModifications).map { case (schema, mods) =>
       (
         for
           query <- ZStream.fromZIO(
@@ -107,11 +110,10 @@ class MsSqlStreamingSource(
               for
                 columns     <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
                 row         <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-                modifiedRow <- applyDataRowModifications(row.handleSpecialTypes)
                 hasNextRow  <- ZIO.attemptBlockingInterrupt(resultSet.next())
-              yield Some((modifiedRow, hasNextRow))
+              yield Some((row, hasNextRow))
             else ZIO.succeed(None)
-          }
+          }.mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.handleSpecialTypes), mods))
         yield stream,
         schema
       )
@@ -177,7 +179,7 @@ class MsSqlStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchema).map { schema =>
+    ZStream.fromZIO(getSchema.combineWith(allModifications)).map { case (schema, mods) =>
       (
         ZStream
           .fromZIO(ZIO.scoped {
@@ -190,8 +192,7 @@ class MsSqlStreamingSource(
             yield MsSqlStreamingSource.ensureHead(result)
           })
           .flatMap(batch => unfoldBatch(batch))
-          .map(_.handleSpecialTypes)
-          .mapZIO(applyDataRowModifications),
+          .mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.handleSpecialTypes), mods)),
         schema
       )
     }

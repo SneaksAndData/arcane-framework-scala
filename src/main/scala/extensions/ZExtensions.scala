@@ -72,3 +72,12 @@ object ZExtensions:
               _ <- exitHandler(zio.ExitCode(2))
             yield ()
     }
+
+  /**
+   * Combine results of two tasks
+   */
+  extension [Result](task: Task[Result])
+    def combineWith[OtherResult](other: Task[OtherResult]): Task[(Result, OtherResult)] = for
+      r1 <- task
+      r2 <- other
+    yield (r1, r2)

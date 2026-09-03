@@ -8,7 +8,7 @@ import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import models.settings.sources.modification.DataRowModification
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey}
 import models.cdm.CSVParser
 import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
@@ -37,7 +37,7 @@ final class SynapseLinkStreamingSource(
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
 
-  override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(Seq("Id"))
+  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] = ZIO.succeed(FrozenSurrogateMergeKey(Seq("Id").toSet))
 
   override protected val versionFieldName: Task[String] = ZIO.succeed("versionnumber")
 
@@ -211,13 +211,15 @@ final class SynapseLinkStreamingSource(
       version: SynapseWatermark,
       batchSchema: ArcaneSchema
   ): ZStream[Any, Throwable, DataRow] =
-    getEntityChangeData(version, batchSchema)
-      .mapZIO(getFileStream)
-      .flatMap { case (fileStream, blob) =>
-        getTableChanges(fileStream, batchSchema, blob.name)
-      }
-      .map(convertRow)
-      .mapZIO(applyDataRowModifications)
+    ZStream.fromZIO(allModifications).flatMap { mods =>
+      getEntityChangeData(version, batchSchema)
+        .mapZIO(getFileStream)
+        .flatMap { case (fileStream, blob) =>
+          getTableChanges(fileStream, batchSchema, blob.name)
+        }
+        .map(convertRow)
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))  
+    }
 
   def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
