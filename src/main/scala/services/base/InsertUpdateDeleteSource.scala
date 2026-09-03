@@ -66,9 +66,11 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
   private def addSurrogateMergeKey(row: DataRow, keys: Set[String]): DataRow =
     val keyValues = row.filter(cell => keys.contains(cell.name.toLowerCase))
 
-    if keyValues.size != keys.size then
+    if keyValues.size != keys.size || keyValues.exists(_.value == null) then
       throw FatalStreamFailException(
-        s"Some primary-key fields are missing or have NULL values. Required: ${keys.mkString(",")}, found: ${keyValues.map(_.name).mkString(",")}. Please review source configuration."
+        s"Some primary-key fields are missing or have NULL values. " +
+          s"Required: ${keys.mkString(",")}, found: ${keyValues.map(_.name).mkString(",")}. " +
+          "Please review source configuration."
       )
 
     val valueToHash = keyValues.map(_.value.toString).mkString("#")
