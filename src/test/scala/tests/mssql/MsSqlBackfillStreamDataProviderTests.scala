@@ -38,7 +38,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
   private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
   private val fieldString =
     val base = (1 to 50).map(ix => s"col$ix nvarchar(50)").mkString(",")
-    s"(x nvarchar(50) not null, $base)"
+    s"(x int not null, $base)"
   private val pkString = "primary key(x)"
   private val emptyFieldsFilteringService: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(
     new FieldSelectionRuleSettings {
@@ -85,7 +85,7 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
               .map(v => s"N'$v'")
               .mkString(",")
             val insertCmd =
-              s"use arcane; insert into dbo.$tableName values(N'$index', $colValues)"
+              s"use arcane; insert into dbo.$tableName values($index, $colValues)"
             ZIO.attemptBlocking(statement.execute(insertCmd))
           }
         }
