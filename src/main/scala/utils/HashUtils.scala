@@ -6,6 +6,7 @@ import org.apache.commons.codec.digest.MurmurHash3
 
 object HashUtils:
   private val hasher = com.google.common.hash.Hashing.murmur3_128()
+
   /** Equivalent to Trino expression: lower(to_hex(murmur3(to_utf8('<input>')))).
     *
     * Trino docs for murmur3: https://trino.io/docs/current/functions/binary.html#hashing-functions.

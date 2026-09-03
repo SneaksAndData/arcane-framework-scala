@@ -1,30 +1,27 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
+import exceptions.FatalStreamFailException
+import extensions.ZExtensions.combineWith
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataCell, DataRow, MergeKeyField, given_CanAdd_ArcaneSchema}
+import models.schemas.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
-
-import modification.{DataRowModification, FrozenSurrogateMergeKey}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
-import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
+import services.mssql.SqlDataCell.normalizeName
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
+import services.mssql.*
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
-import services.mssql.*
-import services.mssql.given_Conversion_SqlDataRow_DataRow
-import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
-import services.mssql.SqlDataCell.normalizeName
-import exceptions.FatalStreamFailException
+import services.streaming.base.StructuredZStream
+import utils.HashUtils
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
-import com.sneaksanddata.arcane.framework.extensions.ZExtensions.combineWith
-import com.sneaksanddata.arcane.framework.utils.HashUtils
 import zio.stream.ZStream
 import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
@@ -73,11 +70,13 @@ class MsSqlStreamingSource(
     yield result
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
-    getColumnSummaries.map(
-      _.collect { case (name, true) =>
-        name.normalizeName
-      }
-    ).map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
+    getColumnSummaries
+      .map(
+        _.collect { case (name, true) =>
+          name.normalizeName
+        }
+      )
+      .map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
 
   override protected val versionFieldName: Task[String] = ZIO.succeed("SYS_CHANGE_VERSION")
 
@@ -105,15 +104,17 @@ class MsSqlStreamingSource(
             shardTableName,
             resultSet.getFetchSize.toString
           )
-          stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-            if hasNext then
-              for
-                columns     <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-                row         <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-                hasNextRow  <- ZIO.attemptBlockingInterrupt(resultSet.next())
-              yield Some((row, hasNextRow))
-            else ZIO.succeed(None)
-          }.mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.handleSpecialTypes), mods))
+          stream <- ZStream
+            .unfoldZIO(resultSet.next()) { hasNext =>
+              if hasNext then
+                for
+                  columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                  row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                  hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
+                yield Some((row, hasNextRow))
+              else ZIO.succeed(None)
+            }
+            .mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.handleSpecialTypes), mods))
         yield stream,
         schema
       )

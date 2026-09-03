@@ -68,11 +68,11 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchema         <- sourceSchema
     scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
   yield (
-    ZStream.fromZIO(allModifications).flatMap{ mods =>
+    ZStream.fromZIO(allModifications).flatMap { mods =>
       scanner.getRows
         .map(applyFieldSelector)
         .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
-        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods)) 
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
     },
     schema
   )
@@ -80,7 +80,7 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
   override def filesToStream(
       sourceFiles: Seq[StoredBlob],
       schema: ArcaneSchema
-  ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] = 
+  ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] =
     allModifications.flatMap { mods =>
       ZIO.attempt(
         ZStream
@@ -89,9 +89,9 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
             ZStream
               .fromZIO {
                 for
-                  filePath <- downloadSourceFile(sourceFile)
+                  filePath   <- downloadSourceFile(sourceFile)
                   avroSchema <- sourceSchema
-                  scanner <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
+                  scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
                 yield scanner
               }
               .flatMap(
@@ -104,8 +104,6 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
         schema
       )
     }
-    
-  
 
 object BlobListingJsonStreamingSource:
   private type SettingsExtractor = PluginStreamContext => JsonBlobSourceSettings

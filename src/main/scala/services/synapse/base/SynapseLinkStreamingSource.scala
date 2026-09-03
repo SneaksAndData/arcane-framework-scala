@@ -37,7 +37,8 @@ final class SynapseLinkStreamingSource(
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
 
-  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] = ZIO.succeed(FrozenSurrogateMergeKey(Seq("Id").toSet))
+  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    ZIO.succeed(FrozenSurrogateMergeKey(Seq("Id").toSet))
 
   override protected val versionFieldName: Task[String] = ZIO.succeed("versionnumber")
 
@@ -218,7 +219,7 @@ final class SynapseLinkStreamingSource(
           getTableChanges(fileStream, batchSchema, blob.name)
         }
         .map(convertRow)
-        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))  
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
     }
 
   def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
