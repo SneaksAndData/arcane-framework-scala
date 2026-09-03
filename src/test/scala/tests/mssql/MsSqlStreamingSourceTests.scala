@@ -35,7 +35,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val fieldString =
-    "(x varchar(128) not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
+    "(x int not null, y int, z DECIMAL(30, 6), a VARBINARY(MAX), b DATETIME, [c/d] int, e real)"
   private val pkString                     = "primary key(x)"
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
@@ -60,7 +60,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
       ) { statement =>
         ZIO.foreach(1 to 10) { index =>
           val insertCmd =
-            s"use arcane; insert into dbo.$tableName values('$index', ${index + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+            s"use arcane; insert into dbo.$tableName values($index, ${index + 1}, null, CAST(123456 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
           ZIO.attemptBlocking(statement.execute(insertCmd))
         }
       }
@@ -341,7 +341,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         )
         expected <- ZIO.succeed(
           List(
-            IndexedField("x", StringType, 0),
+            IndexedField("x", IntType, 0),
             IndexedField("SYS_CHANGE_VERSION", LongType, 1),
             IndexedField("SYS_CHANGE_OPERATION", StringType, 2),
             IndexedField("y", IntType, 3),
