@@ -63,8 +63,8 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
       value = versionValue
     )
 
-  private def addSurrogateMergeKey(row: DataRow, keys: Seq[String]): DataRow =
-    val keyValues = keys.flatMap(key => row.find(_.name.equalsIgnoreCase(key)))
+  private def addSurrogateMergeKey(row: DataRow, keys: Set[String]): DataRow =
+    val keyValues = row.filter(cell => keys.contains(cell.name.toLowerCase))
 
     if keyValues.size != keys.size || keyValues.exists(_.value == null) then
       throw FatalStreamFailException(

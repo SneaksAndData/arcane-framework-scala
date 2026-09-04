@@ -12,7 +12,7 @@ sealed trait DataRowModification
 
 /** Merge key with preset key field names. For internal usage only.
   */
-case class FrozenSurrogateMergeKey(fieldNames: Seq[String]) extends DataRowModification
+case class FrozenSurrogateMergeKey(fieldNames: Set[String]) extends DataRowModification
 
 /** Version mod with preset field name. For internal usage only.
   */

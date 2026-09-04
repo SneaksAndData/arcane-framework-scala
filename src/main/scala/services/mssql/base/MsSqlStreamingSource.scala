@@ -78,7 +78,7 @@ class MsSqlStreamingSource(
           name.normalizeName
         }
       )
-      .map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase)))
+      .map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
 
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion("SYS_CHANGE_VERSION"))
