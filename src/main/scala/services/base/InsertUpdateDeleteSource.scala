@@ -7,7 +7,7 @@ import models.schemas.*
 import models.settings.sources.modification.*
 import utils.HashUtils
 
-import zio.{Task, ZIO}
+import zio.{Chunk, Task, ZIO}
 
 trait PrimaryKeyProvider:
   protected def getPrimaryKey: Task[FrozenSurrogateMergeKey]
@@ -29,12 +29,12 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
     }
 
   override protected def applyDataRowModification(
-      row: DataRow,
+      rows: Chunk[DataRow],
       modification: DataRowModification
-  ): DataRow = modification match
-    case FrozenSurrogateMergeKey(fieldNames) => addSurrogateMergeKey(row, fieldNames)
-    case FrozenSurrogateVersion(fieldName)   => addSurrogateVersion(row, fieldName)
-    case _                                   => row
+  ): Chunk[DataRow] = modification match
+    case FrozenSurrogateMergeKey(fieldNames) => rows.map(addSurrogateMergeKey(_, fieldNames))
+    case FrozenSurrogateVersion(fieldName)   => rows.map(addSurrogateVersion(_, fieldName))
+    case _                                   => rows
 
   override protected def applySchemaModification(
       schema: ArcaneSchema,

@@ -21,9 +21,9 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
   protected def getSourceSchema: Task[ArcaneSchema]
 
   protected def applyDataRowModification(
-      row: DataRow,
+      rows: Chunk[DataRow],
       modification: DataRowModification
-  ): DataRow = row
+  ): Chunk[DataRow] = rows
 
   protected def applySchemaModification(
       schema: ArcaneSchema,
@@ -31,7 +31,7 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
   ): Task[ArcaneSchema] = ZIO.succeed(schema)
 
   final def applyDataRowModifications(rows: Chunk[DataRow], supplied: Seq[DataRowModification]): Chunk[DataRow] =
-    supplied.foldLeft(rows)((agg, e) => agg.map(applyDataRowModification(_, e)))
+    supplied.foldLeft(rows)((agg, mod) => applyDataRowModification(agg, mod))
 
   final def applySchemaModifications(schema: ArcaneSchema, supplied: Seq[DataRowModification]): Task[ArcaneSchema] =
     ZIO.foldLeft(supplied)(schema)(applySchemaModification)
