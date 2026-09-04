@@ -4,10 +4,10 @@ package services.base
 import models.schemas.*
 import models.schemas.given_CanAdd_ArcaneSchema
 import models.settings.sources.modification.*
+import services.time.CurrentTimeUTCProvider
 import extensions.ZExtensions.combineWith
 
-import zio.stream.ZStream
-import zio.{Chunk, Task, UIO, ZIO}
+import zio.{Chunk, Task, ZIO}
 
 abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowModification]) extends StreamingSource {
 
@@ -23,12 +23,18 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
   protected def applyDataRowModification(
       rows: Chunk[DataRow],
       modification: DataRowModification
-  ): Chunk[DataRow] = rows
+  ): Chunk[DataRow] = modification match {
+    case LoadTimestampImpl(_) => addLoadTimestamp(rows)
+    case _                    => rows
+  }
 
   protected def applySchemaModification(
       schema: ArcaneSchema,
       modification: DataRowModification
-  ): Task[ArcaneSchema] = ZIO.succeed(schema)
+  ): Task[ArcaneSchema] = modification match {
+    case LoadTimestampImpl(_) => addFieldToSchema(LoadTimestampField, schema)
+    case _                    => ZIO.succeed(schema)
+  }
 
   final def applyDataRowModifications(rows: Chunk[DataRow], supplied: Seq[DataRowModification]): Chunk[DataRow] =
     supplied.foldLeft(rows)((agg, mod) => applyDataRowModification(agg, mod))
@@ -44,4 +50,15 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
         else schema.addField(field.name, field.fieldType)
       else schema
     ZIO.succeed(newSchema)
+
+  private def addLoadTimestamp(rows: Chunk[DataRow]): Chunk[DataRow] =
+    val time = CurrentTimeUTCProvider.time
+
+    rows.map { row =>
+      row.filterNot(_.name.equalsIgnoreCase(LoadTimestampField.name)) :+ DataCell(
+        name = LoadTimestampField.name,
+        Type = LoadTimestampField.fieldType,
+        value = time
+      )
+    }
 }

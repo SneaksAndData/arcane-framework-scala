@@ -34,7 +34,7 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
   ): Chunk[DataRow] = modification match
     case FrozenSurrogateMergeKey(fieldNames) => rows.map(addSurrogateMergeKey(_, fieldNames))
     case FrozenSurrogateVersion(fieldName)   => rows.map(addSurrogateVersion(_, fieldName))
-    case _                                   => rows
+    case _                                   => super.applyDataRowModification(rows, modification)
 
   override protected def applySchemaModification(
       schema: ArcaneSchema,
@@ -42,7 +42,7 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
   ): Task[ArcaneSchema] = modification match
     case FrozenSurrogateMergeKey(_) => addFieldToSchema(MergeKeyField, schema)
     case FrozenSurrogateVersion(_)  => addFieldToSchema(VersionField, schema)
-    case _                          => ZIO.succeed(schema)
+    case _                          => super.applySchemaModification(schema, modification)
 
   private def addSurrogateVersion(row: DataRow, sourceVersionFieldName: String): DataRow =
     val versionValue = row.find(_.name.equalsIgnoreCase(sourceVersionFieldName)) match
