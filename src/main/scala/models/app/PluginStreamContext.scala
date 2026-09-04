@@ -28,7 +28,7 @@ trait PluginStreamContext extends BaseStreamContext:
 
   val throughput: ThroughputSettings
 
-  def merge(other: Option[PluginStreamContext]): PluginStreamContext
+  def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext
 
 object PluginStreamContext:
   def apply[Spec <: PluginStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
@@ -52,18 +52,18 @@ object PluginStreamContext:
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
     * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
     */
-  def getLayer[ContextImpl <: PluginStreamContext](implicit
-      rw: ReadWriter[ContextImpl]
+  def getLayer[ContextImpl <: PluginStreamContext, OverridesImpl <: OverrideStreamContext](implicit
+      rwc: ReadWriter[ContextImpl],
+      rwo: ReadWriter[OverridesImpl]
   ): ZLayer[Any, Throwable, PluginConfiguration] =
     val context = PluginStreamContext
       .fromEnvironment[ContextImpl]("STREAMCONTEXT__SPEC")
 
-    val contextOverrides = PluginStreamContext
-      .fromEnvironment[ContextImpl]("STREAMCONTEXT_SPEC_OVERRIDE")
+    val contextOverrides = OverrideStreamContext.fromEnvironmentOverrides[OverridesImpl]("STREAMCONTEXT_SPEC_OVERRIDE")
 
     context
       .map(parsed =>
-        val merged = parsed.merge(contextOverrides)
+        val merged = parsed.merge[OverridesImpl](contextOverrides)
         ZLayer.succeed(merged) ++ ZLayer.succeed[DatagramSocketConfig](merged) ++ ZLayer
           .succeed[MetricsConfig](merged) ++ ZLayer.succeed(DatadogPublisherConfig())
       )
