@@ -24,6 +24,7 @@ import models.settings.streaming.{
   ThroughputSettings,
   ThroughputShaperImpl
 }
+import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
 
 import zio.{IO, ZIO}
 
@@ -75,6 +76,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
       override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
     }
     override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
+    override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
   }
 
 object TestPluginStreamContext extends TestPluginStreamContextImpl:

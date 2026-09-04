@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.sources
+package models.settings.sources.modification
+
+import models.settings.sources.*
 
 import upickle.default.*
 import upickle.implicits.key
@@ -8,21 +10,13 @@ import upickle.implicits.key
   */
 sealed trait DataRowModification
 
-/** Adds an Arcane-generated merge key to the source schema and data rows.
+/** Merge key with preset key field names. For internal usage only.
   */
-case class SurrogateMergeKey() derives ReadWriter
+case class FrozenSurrogateMergeKey(fieldNames: Set[String]) extends DataRowModification
 
-/** ADT composed with settings for the surrogate merge-key modification.
+/** Version mod with preset field name. For internal usage only.
   */
-case class SurrogateMergeKeyImpl(surrogateMergeKey: SurrogateMergeKey) extends DataRowModification
-
-/** Adds an Arcane-generated version to the source schema and data rows.
-  */
-case class SurrogateVersion() derives ReadWriter
-
-/** ADT composed with settings for the surrogate-version modification.
-  */
-case class SurrogateVersionImpl(surrogateVersion: SurrogateVersion) extends DataRowModification
+case class FrozenSurrogateVersion(fieldName: String) extends DataRowModification
 
 /** Adds the time at which Arcane loaded a batch to its schema and data rows.
   */
@@ -54,18 +48,12 @@ case class FieldSelectorImpl(fieldSelector: FieldSelector) extends DataRowModifi
   * [[DataRowModification]] ADT directly. Exactly one modification must be configured in each entry. Multiple
   * modifications are expressed as separate entries in [[DefaultDataRowModificationSettings.modificationSettings]].
   *
-  * @param surrogateMergeKey
-  *   settings for adding a surrogate merge key
-  * @param surrogateVersion
-  *   settings for adding a surrogate version
   * @param loadTimestamp
   *   settings for adding a batch load timestamp
   * @param fieldSelector
   *   settings for selecting fields
   */
 case class DataRowModificationSetting(
-    surrogateMergeKey: Option[SurrogateMergeKey] = None,
-    surrogateVersion: Option[SurrogateVersion] = None,
     loadTimestamp: Option[LoadTimestamp] = None,
     fieldSelector: Option[FieldSelector] = None
 ) derives ReadWriter:
@@ -77,8 +65,6 @@ case class DataRowModificationSetting(
     */
   def resolveSetting: DataRowModification =
     val configured = Seq(
-      surrogateMergeKey.map(SurrogateMergeKeyImpl(_)),
-      surrogateVersion.map(SurrogateVersionImpl(_)),
       loadTimestamp.map(LoadTimestampImpl(_)),
       fieldSelector.map(FieldSelectorImpl(_))
     ).flatten
@@ -97,7 +83,7 @@ trait DataRowModificationSettings:
     */
   val modifications: Seq[DataRowModification]
 
-/** Default serializable implementation of [[DataRowModificationSettings]].
+/** Default serializable implementation of [[DefaultDataRowModificationSettings]].
   *
   * An empty `modifications` array disables schema modification.
   *

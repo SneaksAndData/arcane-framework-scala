@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.blobsource.parquet
 
 import models.batches.BlobBatchCommons
-import models.schemas.MergeKeyField
+import models.schemas.{MergeKeyField, VersionField}
 import services.blobsource.readers.listing.BlobListingParquetStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.DefaultNameGenerator
@@ -13,9 +13,6 @@ import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO}
-
-import java.security.MessageDigest
-import java.util.Base64
 
 object BlobListingParquetSourceTests extends ZIOSpecDefault:
   private val nameGenerator =
@@ -40,7 +37,8 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         sourceMapped <- ZIO.succeed(
@@ -53,16 +51,19 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             true,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         schema       <- source.getSchema
         mappedSchema <- sourceMapped.getSchema
-      yield assertTrue(schema.size == 11 + 2) && assertTrue(
+      yield assertTrue(schema.size == 11 + 3) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
       ) && assertTrue(
         schema.exists(f => f.name == BlobBatchCommons.versionField.name)
-      ) // expect 11 fields + ARCANE_MERGE_KEY + versionField
+      ) && assertTrue(
+        schema.exists(f => f.name == VersionField.name)
+      ) // expect 11 fields + source version + configured Arcane fields
         && assertTrue(schema == mappedSchema)
     },
     test("getChanges return correct rows") {
@@ -79,29 +80,16 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 13)) && assertTrue(
-        rows
-          .forall(row =>
-            val pred = (row.takeRight(2).head.name == MergeKeyField.name) && (row
-              .takeRight(2)
-              .head
-              .value
-              .asInstanceOf[String] == Base64.getEncoder.encodeToString(
-              MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8"))
-            ))
-
-            if !pred then {
-              println(
-                s"Mismatch on ${row.takeRight(2).head.value}, key ${row.head.name} / value ${row.head.value}: expected ${Base64.getEncoder.encodeToString(MessageDigest.getInstance("SHA-256").digest(row.head.value.toString.getBytes("UTF-8")))}"
-              )
-            }
-
-            pred
-          )
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 14)) && assertTrue(
+        rows.forall { row =>
+          row.find(_.name == VersionField.name).map(_.value) ==
+            row.find(_.name == BlobBatchCommons.versionField.name).map(_.value)
+        }
       )
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

@@ -2,8 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.batches.BlobBatchCommons
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -14,7 +16,6 @@ import services.streaming.base.StructuredZStream
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
 
-import java.security.MessageDigest
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -25,10 +26,16 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     nameGenerator: NameGenerator,
     primaryKeys: Seq[String],
     tempStoragePath: String,
-    fieldSelector: FieldSelectionRuleSettings
-) extends BlobStreamingSource:
+    fieldSelector: FieldSelectionRuleSettings,
+    modifications: Seq[DataRowModification]
+) extends BlobStreamingSource(modifications):
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+  override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.map(_.toLowerCase).toSet))
+
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion(BlobBatchCommons.versionField.name))
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 
@@ -42,10 +49,6 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
       )
     )
     .runDrain
-
-  /** SHA-256 hasher.
-    */
-  protected def mergeKeyHasher(): MessageDigest = MessageDigest.getInstance("SHA-256")
 
   protected def downloadSourceFile(sourceFile: StoredBlob): Task[String] =
     storageClient.downloadBlob(s"${sourcePath.protocol}://${sourceFile.name}", tempStoragePath)
@@ -158,11 +161,3 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
         )
       case ExcludeFieldsImpl(excludeFields) =>
         row.filterNot(cell => excludeFields.fields.exists(_.equalsIgnoreCase(cell.name)))
-
-  /** Schema for source files. Source will return `getSchema` as stream schema, which may differ if a field selector is
-    * applied. This code will be removed in 2.4.
-    * @return
-    */
-  protected def getFullSchema: Task[SchemaType]
-
-  final override lazy val getSchema: Task[SchemaType] = getFullSchema.map(applyFieldSelector)

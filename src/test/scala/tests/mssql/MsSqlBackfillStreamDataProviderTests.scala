@@ -149,7 +149,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           override val backfillShardSchemaName: String                = "dbo"
         },
         emptyFieldsFilteringService,
-        nameGenerator
+        nameGenerator,
+        Seq.empty
       )
     )
     dataProvider <- ZIO.succeed(

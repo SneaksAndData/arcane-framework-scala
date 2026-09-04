@@ -8,8 +8,9 @@ import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import services.iceberg.given_Conversion_Schema_ArcaneSchema
+import models.settings.sources.modification.DataRowModification
 import services.iceberg.interop.ParquetScanner
+import services.iceberg.{given_Conversion_Schema_Seq, inferMergeKeyIndex}
 import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
@@ -17,6 +18,7 @@ import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
 
+import org.apache.iceberg.Schema
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -31,7 +33,8 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
     sourceSchema: Option[String],
-    fieldSelector: FieldSelectionRuleSettings
+    fieldSelector: FieldSelectionRuleSettings,
+    modifications: Seq[DataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -39,18 +42,19 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       nameGenerator,
       primaryKeys,
       tempStoragePath,
-      fieldSelector
+      fieldSelector,
+      modifications
     ):
 
-  override lazy val getFullSchema: Task[SchemaType] = for
+  override protected def getSourceSchema: Task[SchemaType] = for
     preconfiguredSchema <- ZIO.when(sourceSchema.isDefined) {
       for
         schemaBytes <- ZIO.attempt(Base64.getDecoder.decode(sourceSchema.get))
         scanner     <- ZIO.attempt(ParquetScanner(schemaBytes, useNameMapping))
-        schema      <- scanner.getIcebergSchema.map(implicitly)
+        schema      <- scanner.getIcebergSchema
       yield schema
     }
-    runtimeSchema <- preconfiguredSchema match
+    icebergSchema <- preconfiguredSchema match
       case Some(schema) => ZIO.succeed(schema)
       case None =>
         for
@@ -60,7 +64,7 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
           maybeFilePath <- storageClient.downloadRandomBlob(sourcePath, tempStoragePath)
           schema <- maybeFilePath match
             case Some(filePath) =>
-              ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema.map(implicitly))
+              ZIO.attempt(ParquetScanner(filePath, useNameMapping)).flatMap(_.getIcebergSchema)
             case None =>
               ZIO.fail(
                 FatalStreamFailException(
@@ -68,10 +72,13 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
                 )
               )
         yield schema
-  yield runtimeSchema ++ Seq(BlobBatchCommons.indexedVersionField(runtimeSchema.mergeKey match {
-    case IndexedMergeKeyField(fieldId) => fieldId + 1
-    case _ => throw FatalStreamFailException("Unsupported schema: parquet source supplied a non-indexed merge key")
-  }))
+
+    originalFields: Seq[IndexedField] = summon[
+      Conversion[org.apache.iceberg.Schema, Seq[IndexedField]]
+    ].apply(icebergSchema)
+    originalSchema = applyFieldSelector(ArcaneSchema(originalFields))
+    nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
+  yield originalSchema ++ Seq(BlobBatchCommons.indexedVersionField(nextFieldId))
 
   /** Gets an empty schema.
     *
@@ -84,11 +91,12 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     downloadedFilePath <- downloadSourceFile(sourceFile)
     scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
   yield (
-    scanner.getRows
-      .map(
-        BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-      )
-      .map(applyFieldSelector),
+    ZStream.fromZIO(allModifications).flatMap { mods =>
+      scanner.getRows
+        .map(applyFieldSelector)
+        .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+    },
     schema
   )
 
@@ -96,27 +104,28 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       sourceFiles: Seq[StoredBlob],
       schema: ArcaneSchema
   ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] =
-    ZIO.attempt(
-      ZStream
-        .fromIterable(sourceFiles)
-        .flatMapPar(parallelism) { sourceFile =>
-          ZStream
-            .fromZIO {
-              for
-                filePath <- downloadSourceFile(sourceFile)
-                scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
-              yield scanner
-            }
-            .flatMap(
-              _.getRows
-                .map(
-                  BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0), primaryKeys, mergeKeyHasher())
-                )
-                .map(applyFieldSelector)
-            )
-        },
-      schema
-    )
+    allModifications.flatMap { mods =>
+      ZIO.attempt(
+        ZStream
+          .fromIterable(sourceFiles)
+          .flatMapPar(parallelism) { sourceFile =>
+            ZStream
+              .fromZIO {
+                for
+                  filePath <- downloadSourceFile(sourceFile)
+                  scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
+                yield scanner
+              }
+              .flatMap(
+                _.getRows
+                  .map(applyFieldSelector)
+                  .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
+                  .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+              )
+          },
+        schema
+      )
+    }
 
 object BlobListingParquetStreamingSource:
   private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings
@@ -149,6 +158,7 @@ object BlobListingParquetStreamingSource:
         primaryKeys = sourceSettings.primaryKeys,
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
-        fieldSelector = context.source.fieldSelectionRule
+        fieldSelector = context.source.fieldSelectionRule,
+        modifications = context.source.modifications.modifications
       )
     }

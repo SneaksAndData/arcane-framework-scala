@@ -18,6 +18,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
 import services.naming.DefaultNameGenerator
 import tests.shared.*
+import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -27,7 +28,6 @@ import zio.test.TestAspect.timeout
 import zio.{Chunk, Scope, ZIO, ZLayer}
 
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
-
 type TestInput = DataRow
 
 object StagingProcessorTests extends ZIOSpecDefault:
@@ -95,6 +95,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val configuration: SourceSettingsType              = new SourceSettings {}
       override val buffering: SourceBufferingSettings             = TestSourceBufferingSettings
       override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
+      override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
     }
     override val staging: StagingSettings             = TestStagingSettings()
     override val observability: ObservabilitySettings = TestObservabilitySettings

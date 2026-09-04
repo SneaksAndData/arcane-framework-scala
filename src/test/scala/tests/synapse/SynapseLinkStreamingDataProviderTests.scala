@@ -75,7 +75,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          new SynapseLinkStreamingSource(
+            sourceRoot,
+            sourceTableName,
+            storageReader,
+            allFieldsSelector,
+            Seq.empty
+          )
         )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
@@ -116,7 +122,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          new SynapseLinkStreamingSource(
+            sourceRoot,
+            sourceTableName,
+            storageReader,
+            allFieldsSelector,
+            Seq.empty
+          )
         )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
