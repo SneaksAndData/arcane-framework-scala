@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.app.PluginStreamContext
+import models.app.{OverrideStreamContext, PluginStreamContext}
 import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
@@ -62,7 +62,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   }
   override val staging: StagingSettings = TestStagingSettings()
 
-  override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext = ???
 
   override val source: StreamSourceSettings = new StreamSourceSettings {
     override type SourceSettingsType = SourceSettings
