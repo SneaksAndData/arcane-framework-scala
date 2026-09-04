@@ -5,6 +5,7 @@ import exceptions.FatalStreamFailException
 import extensions.ZExtensions.combineWith
 import models.schemas.*
 import models.settings.sources.modification.*
+import services.time.TimestampProvider
 import utils.HashUtils
 
 import zio.{Chunk, Task, ZIO}
@@ -18,8 +19,10 @@ trait VersionProvider:
 /** A streaming source that supports INSERT, UPDATE and DELETE data modifications. This source requires primary key
   * fields and a version field to be defined in concrete implementations.
   */
-abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModification])
-    extends DefaultStreamingSource(suppliedModifications)
+abstract class InsertUpdateDeleteSource(
+    suppliedModifications: Seq[DataRowModification],
+    timestampProvider: TimestampProvider
+) extends DefaultStreamingSource(suppliedModifications, timestampProvider)
     with PrimaryKeyProvider
     with VersionProvider:
 

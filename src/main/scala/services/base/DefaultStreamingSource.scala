@@ -4,12 +4,15 @@ package services.base
 import models.schemas.*
 import models.schemas.given_CanAdd_ArcaneSchema
 import models.settings.sources.modification.*
-import services.time.CurrentTimeUTCProvider
+import services.time.TimestampProvider
 import extensions.ZExtensions.combineWith
 
 import zio.{Chunk, Task, ZIO}
 
-abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowModification]) extends StreamingSource {
+abstract class DefaultStreamingSource(
+    protected val modifications: Seq[DataRowModification],
+    protected val timestampProvider: TimestampProvider
+) extends StreamingSource {
 
   final override lazy val getSchema: Task[ArcaneSchema] =
     getSourceSchema.combineWith(allModifications).flatMap { case (schema, mods) =>
@@ -52,13 +55,13 @@ abstract class DefaultStreamingSource(protected val modifications: Seq[DataRowMo
     ZIO.succeed(newSchema)
 
   private def addLoadTimestamp(rows: Chunk[DataRow]): Chunk[DataRow] =
-    val time = CurrentTimeUTCProvider.time
+    val timestamp = timestampProvider.timestamp
 
     rows.map { row =>
       row.filterNot(_.name.equalsIgnoreCase(LoadTimestampField.name)) :+ DataCell(
         name = LoadTimestampField.name,
         Type = LoadTimestampField.fieldType,
-        value = time
+        value = timestamp
       )
     }
 }
