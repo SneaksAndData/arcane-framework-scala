@@ -32,5 +32,6 @@ case class DefaultIcebergStagingSettings(
       namespace = overrides.flatMap(_.namespace).getOrElse(this.namespace),
       catalogUri = overrides.flatMap(_.catalogUri).getOrElse(this.catalogUri),
       warehouse = overrides.flatMap(_.warehouse).getOrElse(this.warehouse),
-      maxCatalogInstanceLifetime = overrides.flatMap(_.maxCatalogInstanceLifetime).getOrElse(this.maxCatalogInstanceLifetime)
+      maxCatalogInstanceLifetime =
+        overrides.flatMap(_.maxCatalogInstanceLifetime).getOrElse(this.maxCatalogInstanceLifetime)
     )

@@ -124,8 +124,10 @@ case class DefaultJdbcMergeServiceClientSettings(
       credentialSetting = overrides.flatMap(_.credentialType).getOrElse(this.credentialSetting),
       queryRetryModeSettings = overrides.flatMap(_.queryRetryMode).getOrElse(this.queryRetryModeSettings),
       queryRetryBaseDuration = overrides.flatMap(_.queryRetryBaseDuration).getOrElse(this.queryRetryBaseDuration),
-      queryRetryOnMessageContents = overrides.flatMap(_.queryRetryOnMessageContents).getOrElse(this.queryRetryOnMessageContents),
+      queryRetryOnMessageContents =
+        overrides.flatMap(_.queryRetryOnMessageContents).getOrElse(this.queryRetryOnMessageContents),
       queryRetryScaleFactor = overrides.flatMap(_.queryRetryScaleFactor).getOrElse(this.queryRetryScaleFactor),
       queryRetryMaxAttempts = overrides.flatMap(_.queryRetryMaxAttempts).getOrElse(this.queryRetryMaxAttempts),
-      extraConnectionParameters = overrides.flatMap(_.extraConnectionParameters).getOrElse(this.extraConnectionParameters)
+      extraConnectionParameters =
+        overrides.flatMap(_.extraConnectionParameters).getOrElse(this.extraConnectionParameters)
     )

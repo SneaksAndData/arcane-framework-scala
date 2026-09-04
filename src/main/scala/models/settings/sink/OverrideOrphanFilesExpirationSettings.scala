@@ -3,8 +3,8 @@ package models.settings.sink
 
 import upickle.ReadWriter
 
-/** A partial override of `OrphanFilesExpirationSettings` where every field is optional to support override/patch-style JSON
-  * deserialization.
+/** A partial override of `OrphanFilesExpirationSettings` where every field is optional to support override/patch-style
+  * JSON deserialization.
   */
 trait OverrideOrphanFilesExpirationSettings:
   /** Optional override for the threshold of batches that trigger orphan file expiration.

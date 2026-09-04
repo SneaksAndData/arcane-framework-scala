@@ -43,7 +43,8 @@ case class DefaultChangeCaptureSettings(
   override def merge(overrides: Option[MergeableFrom]): MergeResult =
     DefaultChangeCaptureSettings(
       changeCaptureJitterSeed = overrides.flatMap(_.changeCaptureJitterSeed).getOrElse(this.changeCaptureJitterSeed),
-      changeCaptureJitterVariance = overrides.flatMap(_.changeCaptureJitterVariance).getOrElse(this.changeCaptureJitterVariance),
+      changeCaptureJitterVariance =
+        overrides.flatMap(_.changeCaptureJitterVariance).getOrElse(this.changeCaptureJitterVariance),
       changeCaptureInterval = overrides.flatMap(_.changeCaptureInterval).getOrElse(this.changeCaptureInterval),
       changeCaptureRangeLimit = overrides.flatMap(_.changeCaptureRangeLimit).getOrElse(this.changeCaptureRangeLimit)
     )

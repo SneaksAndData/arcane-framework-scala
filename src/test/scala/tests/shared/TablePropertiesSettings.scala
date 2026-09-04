@@ -8,3 +8,7 @@ object TablePropertiesSettings extends TablePropertiesSettings:
   override val format: TableFormat                      = PARQUET
   override val sortedBy: Array[String]                  = Array()
   override val parquetBloomFilterColumns: Array[String] = Array()
+
+  override type MergeableFrom = this.type
+  override type MergeResult = this.type
+  override def merge(overrides: Option[MergeableFrom]): MergeResult = ???

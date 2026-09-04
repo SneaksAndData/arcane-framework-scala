@@ -5,8 +5,8 @@ import upickle.ReadWriter
 import upickle.default.*
 import upickle.implicits.key
 
-/** A partial override of `FieldSelectionRuleSettings` where every field is optional to support override/patch-style JSON
-  * deserialization.
+/** A partial override of `FieldSelectionRuleSettings` where every field is optional to support override/patch-style
+  * JSON deserialization.
   */
 trait OverrideFieldSelectionRuleSettings:
   /** Optional override for the field selection rule.
@@ -24,7 +24,7 @@ trait OverrideFieldSelectionRuleSettings:
 /** Default implementation for `OverrideFieldSelectionRuleSettings` using optional values.
   */
 case class DefaultOverrideFieldSelectionRuleSettings(
-     @key("rule") override val ruleSetting: Option[FieldSelectionRuleSetting] = None,
+    @key("rule") override val ruleSetting: Option[FieldSelectionRuleSetting] = None,
     override val essentialFields: Option[Set[String]] = None,
     override val isServerSide: Option[Boolean] = None
 ) extends OverrideFieldSelectionRuleSettings derives ReadWriter

@@ -20,6 +20,6 @@ trait OverrideSourceBufferingSettings:
 /** Default implementation for `OverrideSourceBufferingSettings` using optional values.
   */
 case class DefaultOverrideSourceBufferingSettings(
-     @key("strategy") override val bufferingStrategySetting: Option[BufferingSettings] = None,
-      @key("enabled") override val bufferingEnabled: Option[Boolean] = None
+    @key("strategy") override val bufferingStrategySetting: Option[BufferingSettings] = None,
+    @key("enabled") override val bufferingEnabled: Option[Boolean] = None
 ) extends OverrideSourceBufferingSettings derives ReadWriter
