@@ -20,20 +20,8 @@ trait JsonBlobSourceSettings extends BlobSourceSettings:
     */
   val jsonPointerExpression: Option[String]
 
-  /** JSON source can automatically explode array fields into additional rows. Out map key should contain a json pointer
-    * string to the json array field. Inner map links array property names with field names in Avro Schema. Given fields
-    * in Avro Schema: colA, colB, colC and source json: { "rootColA": "abc", "lines": [{ "a":1, "b":2, "c": 3}, { "a":1,
-    * "b":2, "c": 3}] } the value for this setting should be: Map("/lines" -> Map("a" -> "colA", "b" -> "colB", "c" ->
-    * "colC"))
-    *
-    * If not provided, nested and array fields will be recorded as Iceberg Variant type (ObjectType in Arcane) and
-    * target table will require readers to support Iceberg V3 or later.
-    */
-  val jsonArrayPointers: Map[String, Map[String, String]]
-
 case class DefaultJsonBlobSourceSettings(
     override val avroSchemaString: String,
-    override val jsonArrayPointers: Map[String, Map[String, String]],
     override val primaryKeys: List[String],
     override val sourcePath: String,
     override val shardStoragePath: String,
