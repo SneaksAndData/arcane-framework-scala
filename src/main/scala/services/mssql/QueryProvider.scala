@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package services.mssql
 
-import models.schemas.MergeKeyField
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import services.mssql.base.{ColumnSummary, MsSqlQuery, MsSqlStreamingSource}
 import services.mssql.versioning.MsSqlWatermark
@@ -14,10 +13,6 @@ import scala.io.Source
 import scala.math.{log, pow}
 
 object QueryProvider:
-  /** The key used to merge rows in the output table.
-    */
-  private val UPSERT_MERGE_KEY = MergeKeyField.name
-
   /** Gets the schema query for the Microsoft SQL Server database.
     *
     * msSqlConnection The connection to the database.
@@ -28,13 +23,11 @@ object QueryProvider:
     def getSchemaQuery: Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries
-        mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
           reader.connectionSettings,
           reader.catalog,
-          mergeExpression,
           columnExpression,
           matchStatement,
           Long.MaxValue
@@ -54,13 +47,11 @@ object QueryProvider:
     def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries
-        mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "ct")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
         matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
         query <- QueryProvider.getChangesQuery(
           reader.connectionSettings,
           reader.catalog,
-          mergeExpression,
           columnExpression,
           matchStatement,
           fromVersion
@@ -81,14 +72,12 @@ object QueryProvider:
         columnSummaries: List[ColumnSummary]
     ): Task[MsSqlQuery] =
       for
-        mergeExpression  = QueryProvider.getMergeExpression(columnSummaries, "tq")
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
         query <- QueryProvider.getAllQuery(
           reader.connectionSettings,
           reader.catalog,
           shardSchemaName,
           shardTableName,
-          mergeExpression,
           columnExpression
         )
       yield query
@@ -238,11 +227,6 @@ object QueryProvider:
        |        CT.SYS_CHANGE_VERSION ASC
        |) as sorted_versions""".stripMargin
 
-  private def getMergeExpression(cs: List[ColumnSummary], tableAlias: String): String =
-    cs.filter((name, isPrimaryKey) => isPrimaryKey)
-      .map((name, _) => s"cast($tableAlias.[$name] as nvarchar(128))")
-      .mkString(" + '#' + ")
-
   def primaryKeyList(cs: List[ColumnSummary]): String = cs
     .collect { case (name, isPrimaryKey) if isPrimaryKey => name }
     .map(v => s"[$v]")
@@ -297,7 +281,6 @@ object QueryProvider:
   private def getChangesQuery(
       connectionSettings: MsSqlServerDatabaseSourceSettings,
       databaseName: String,
-      mergeExpression: String,
       columnStatement: String,
       matchStatement: String,
       changeTrackingId: Long
@@ -314,8 +297,6 @@ object QueryProvider:
           .replace("{tableName}", connectionSettings.tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnStatement)
           .replace("{ChangeTrackingMatchStatement}", matchStatement)
-          .replace("{MERGE_EXPRESSION}", mergeExpression)
-          .replace("{MERGE_KEY}", MergeKeyField.name)
           .replace("{lastId}", changeTrackingId.toString)
       yield query
     }
@@ -325,7 +306,6 @@ object QueryProvider:
       databaseName: String,
       schemaName: String,
       tableName: String,
-      mergeExpression: String,
       columnExpression: String
   ): Task[MsSqlQuery] =
     ZIO.scoped {
@@ -339,7 +319,5 @@ object QueryProvider:
           .replace("{schema}", schemaName)
           .replace("{tableName}", tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnExpression)
-          .replace("{MERGE_EXPRESSION}", mergeExpression)
-          .replace("{MERGE_KEY}", MergeKeyField.name)
       yield query
     }

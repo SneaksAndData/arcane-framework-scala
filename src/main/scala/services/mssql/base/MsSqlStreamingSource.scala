@@ -3,9 +3,12 @@ package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import services.base.{SchemaProvider, StreamingSource}
+import models.settings.sources.*
+
+import modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
@@ -16,7 +19,9 @@ import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
+import services.mssql.SqlDataCell.normalizeName
 import exceptions.FatalStreamFailException
+import extensions.ZExtensions.combineWith
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
@@ -36,9 +41,10 @@ import scala.annotation.tailrec
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
-    nameGenerator: NameGenerator
-) extends AutoCloseable
-    with StreamingSource:
+    nameGenerator: NameGenerator,
+    modifications: Seq[DataRowModification]
+) extends InsertUpdateDeleteSource(modifications)
+    with AutoCloseable:
 
   override type ShardMetadata = String
   override type WatermarkType = MsSqlWatermark
@@ -65,10 +71,22 @@ class MsSqlStreamingSource(
       result <- executeColumnSummariesQuery(query)
     yield result
 
+  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    getColumnSummaries
+      .map(
+        _.collect { case (name, true) =>
+          name.normalizeName
+        }
+      )
+      .map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
+
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion("SYS_CHANGE_VERSION"))
+
   /** Create a stream from a provided shard table.
     */
   def createShardStream(shardTableName: String, columnSummaries: List[ColumnSummary]): Task[StructuredZStream] =
-    getSchema.map { schema =>
+    getSchema.combineWith(allModifications).map { case (schema, mods) =>
       (
         for
           query <- ZStream.fromZIO(
@@ -89,15 +107,17 @@ class MsSqlStreamingSource(
             shardTableName,
             resultSet.getFetchSize.toString
           )
-          stream <- ZStream.unfoldZIO(resultSet.next()) { hasNext =>
-            if hasNext then
-              for
-                columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
-                row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
-                hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
-              yield Some((row.handleSpecialTypes, hasNextRow))
-            else ZIO.succeed(None)
-          }
+          stream <- ZStream
+            .unfoldZIO(resultSet.next()) { hasNext =>
+              if hasNext then
+                for
+                  columns    <- ZIO.attemptBlockingInterrupt(resultSet.getMetaData.getColumnCount)
+                  row        <- ZIO.fromTry(toDataRow(resultSet, columns, List.empty))
+                  hasNextRow <- ZIO.attemptBlockingInterrupt(resultSet.next())
+                yield Some((row, hasNextRow))
+              else ZIO.succeed(None)
+            }
+            .mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.handleSpecialTypes), mods))
         yield stream,
         schema
       )
@@ -163,7 +183,7 @@ class MsSqlStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchema).map { schema =>
+    ZStream.fromZIO(getSchema.combineWith(allModifications)).map { case (schema, mods) =>
       (
         ZStream
           .fromZIO(ZIO.scoped {
@@ -176,7 +196,7 @@ class MsSqlStreamingSource(
             yield MsSqlStreamingSource.ensureHead(result)
           })
           .flatMap(batch => unfoldBatch(batch))
-          .map(_.handleSpecialTypes),
+          .mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.handleSpecialTypes), mods)),
         schema
       )
     }
@@ -290,7 +310,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the schema for the data produced by Arcane.
     */
-  override lazy val getSchema: Task[this.SchemaType] =
+  override lazy val getSourceSchema: Task[this.SchemaType] =
     for
       query     <- this.getSchemaQuery
       sqlSchema <- getSqlSchema(query)
@@ -480,9 +500,10 @@ object MsSqlStreamingSource:
           context       <- ZIO.service[PluginStreamContext]
           nameGenerator <- ZIO.service[NameGenerator]
         yield new MsSqlStreamingSource(
-          extractor(context),
-          new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
-          nameGenerator
+          connectionSettings = extractor(context),
+          fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
+          nameGenerator = nameGenerator,
+          modifications = context.source.modifications.modifications
         )
       }
     }

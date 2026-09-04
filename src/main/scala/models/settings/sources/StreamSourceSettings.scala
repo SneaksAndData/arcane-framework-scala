@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.settings.sources
 
 import models.settings.{DefaultFieldSelectionRuleSettings, FieldSelectionRule, FieldSelectionRuleSettings}
+import models.settings.sources.modification.DataRowModificationSettings
 
 import upickle.ReadWriter
 import upickle.default.*
@@ -14,3 +15,5 @@ trait StreamSourceSettings:
   val buffering: SourceBufferingSettings
 
   val fieldSelectionRule: FieldSelectionRuleSettings
+
+  val modifications: DataRowModificationSettings
