@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.staging
 
+import models.settings.Mergeable
+
 import upickle.ReadWriter
 
 import java.time.format.DateTimeFormatter
@@ -9,7 +11,7 @@ import java.util.UUID
 
 /** Settings for staging data
   */
-trait StagingTableSettings:
+trait StagingTableSettings extends Mergeable:
 
   /** The name of the catalog where the staging table is located
     */
@@ -32,4 +34,16 @@ case class DefaultStagingTableSettings(
     override val stagingCatalogName: String,
     override val stagingSchemaName: String,
     override val isUnifiedSchema: Boolean
-) extends StagingTableSettings derives ReadWriter
+) extends StagingTableSettings,
+      Mergeable derives ReadWriter:
+
+  override type MergeableFrom = OverrideStagingTableSettings
+  override type MergeResult   = DefaultStagingTableSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultStagingTableSettings(
+      maxRowsPerFile = overrides.flatMap(_.maxRowsPerFile).orElse(this.maxRowsPerFile),
+      stagingCatalogName = overrides.flatMap(_.stagingCatalogName).getOrElse(this.stagingCatalogName),
+      stagingSchemaName = overrides.flatMap(_.stagingSchemaName).getOrElse(this.stagingSchemaName),
+      isUnifiedSchema = overrides.flatMap(_.isUnifiedSchema).getOrElse(this.isUnifiedSchema)
+    )

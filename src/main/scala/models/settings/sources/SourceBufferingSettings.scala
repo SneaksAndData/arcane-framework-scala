@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources
 
+import models.settings.Mergeable
+
 import upickle.ReadWriter
 import upickle.implicits.key
 
@@ -43,7 +45,7 @@ case class BufferingSettings(
   * The buffering settings are applied to the data provider to allow the data provider and the later stages of the
   * pipeline run asynchronously.
   */
-trait SourceBufferingSettings:
+trait SourceBufferingSettings extends Mergeable:
   /** The buffering strategy to use.
     */
   val bufferingStrategy: BufferingStrategy
@@ -55,5 +57,15 @@ trait SourceBufferingSettings:
 case class DefaultSourceBufferingSettings(
     @key("strategy") bufferingStrategySetting: BufferingSettings,
     @key("enabled") override val bufferingEnabled: Boolean
-) extends SourceBufferingSettings derives ReadWriter:
+) extends SourceBufferingSettings,
+      Mergeable derives ReadWriter:
   override val bufferingStrategy: BufferingStrategy = bufferingStrategySetting.resolveStrategy
+
+  override type MergeableFrom = OverrideSourceBufferingSettings
+  override type MergeResult   = DefaultSourceBufferingSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultSourceBufferingSettings(
+      bufferingStrategySetting = overrides.flatMap(_.bufferingStrategySetting).getOrElse(this.bufferingStrategySetting),
+      bufferingEnabled = overrides.flatMap(_.bufferingEnabled).getOrElse(this.bufferingEnabled)
+    )

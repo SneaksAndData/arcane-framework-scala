@@ -104,6 +104,9 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val advisedChunkSize: Int            = 1
       override val advisedRate: FlowRate            = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
       override val advisedBurst: Int                = 10
+      override type MergeableFrom = this.type
+      override type MergeResult   = this.type
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
     }
 
     override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
