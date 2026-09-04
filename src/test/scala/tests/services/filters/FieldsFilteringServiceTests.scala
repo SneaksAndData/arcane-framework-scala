@@ -32,6 +32,9 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
       override val isServerSide: Boolean        = false
+      override type MergeableFrom = this.type
+      override type MergeResult = this.type
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows       = fieldsFilteringService.filter(dataRows)
@@ -52,6 +55,9 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
       override val isServerSide: Boolean        = false
+      override type MergeableFrom = this.type
+      override type MergeResult = this.type
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows       = fieldsFilteringService.filter(dataRows)
@@ -72,6 +78,9 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
       override val isServerSide: Boolean        = false
+      override type MergeableFrom = this.type
+      override type MergeResult = this.type
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows       = fieldsFilteringService.filter(schema)
@@ -92,6 +101,9 @@ class FieldsFilteringServiceTests extends AnyFlatSpec with Matchers:
       override val rule: FieldSelectionRule     = fieldSelectionRule
       override val essentialFields: Set[String] = Set("Id", "versionnumber")
       override val isServerSide: Boolean        = false
+      override type MergeableFrom = this.type
+      override type MergeResult = this.type
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
 
     val fieldsFilteringService = FieldsFilteringService(settings)
     val filteredDataRows       = fieldsFilteringService.filter(schema)
