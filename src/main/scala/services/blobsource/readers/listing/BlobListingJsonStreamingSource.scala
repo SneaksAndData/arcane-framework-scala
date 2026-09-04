@@ -15,6 +15,7 @@ import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
+import services.time.{CurrentTimestampProvider, TimestampProvider}
 
 import org.apache.avro.Schema as AvroSchema
 import zio.stream.ZStream
@@ -30,7 +31,8 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[DataRowModification],
+    timestampProvider: TimestampProvider = CurrentTimestampProvider
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -39,7 +41,8 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       primaryKeys,
       tempStoragePath,
       fieldSelector,
-      modifications
+      modifications,
+      timestampProvider
     ):
 
   private def sourceSchema: Task[AvroSchema] = for
@@ -136,6 +139,7 @@ object BlobListingJsonStreamingSource:
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
         fieldSelector = context.source.fieldSelectionRule,
-        modifications = context.source.modifications.modifications
+        modifications = context.source.modifications.modifications,
+        timestampProvider = CurrentTimestampProvider
       )
     }

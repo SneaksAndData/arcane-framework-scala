@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.schemas
 
-import ArcaneType.{LongType, StringType, StructType}
+import ArcaneType.{LongType, StringType, TimestampType, StructType}
 import models.*
 import services.base.CanAdd
 
@@ -92,6 +92,10 @@ case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
 case object VersionField extends ArcaneSchemaField:
   val name: String          = "ARCANE_VERSION"
   val fieldType: ArcaneType = LongType
+
+case object LoadTimestampField extends ArcaneSchemaField:
+  val name: String          = "ARCANE_LOAD_TIMESTAMP"
+  val fieldType: ArcaneType = TimestampType
 
 /** ArcaneSchema is a type alias for a sequence of fields or structs.
   */
