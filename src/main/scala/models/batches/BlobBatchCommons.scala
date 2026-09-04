@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.batches
 
 import models.schemas.ArcaneType.LongType
-import com.sneaksanddata.arcane.framework.models.schemas.{Field, IndexedField, DataRow, DataCell}
+import models.schemas.{Field, IndexedField, DataRow, DataCell}
 
 object BlobBatchCommons:
   val versionField: Field = Field(

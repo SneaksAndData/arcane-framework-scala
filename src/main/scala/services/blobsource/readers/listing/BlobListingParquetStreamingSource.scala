@@ -8,7 +8,7 @@ import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
 import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
-import models.settings.sources.DataRowModification
+import models.settings.sources.modification.DataRowModification
 import services.iceberg.interop.ParquetScanner
 import services.iceberg.{given_Conversion_Schema_Seq, inferMergeKeyIndex}
 import services.naming.NameGenerator
@@ -91,10 +91,12 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     downloadedFilePath <- downloadSourceFile(sourceFile)
     scanner            <- ZIO.attempt(ParquetScanner(downloadedFilePath, useNameMapping))
   yield (
-    scanner.getRows
-      .map(applyFieldSelector)
-      .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
-      .mapZIO(applyDataRowModifications),
+    ZStream.fromZIO(allModifications).flatMap { mods =>
+      scanner.getRows
+        .map(applyFieldSelector)
+        .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+    },
     schema
   )
 
@@ -102,26 +104,28 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       sourceFiles: Seq[StoredBlob],
       schema: ArcaneSchema
   ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] =
-    ZIO.attempt(
-      ZStream
-        .fromIterable(sourceFiles)
-        .flatMapPar(parallelism) { sourceFile =>
-          ZStream
-            .fromZIO {
-              for
-                filePath <- downloadSourceFile(sourceFile)
-                scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
-              yield scanner
-            }
-            .flatMap(
-              _.getRows
-                .map(applyFieldSelector)
-                .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
-                .mapZIO(applyDataRowModifications)
-            )
-        },
-      schema
-    )
+    allModifications.flatMap { mods =>
+      ZIO.attempt(
+        ZStream
+          .fromIterable(sourceFiles)
+          .flatMapPar(parallelism) { sourceFile =>
+            ZStream
+              .fromZIO {
+                for
+                  filePath <- downloadSourceFile(sourceFile)
+                  scanner  <- ZIO.attempt(ParquetScanner(filePath, useNameMapping))
+                yield scanner
+              }
+              .flatMap(
+                _.getRows
+                  .map(applyFieldSelector)
+                  .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
+                  .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+              )
+          },
+        schema
+      )
+    }
 
 object BlobListingParquetStreamingSource:
   private type SettingsExtractor = PluginStreamContext => ParquetBlobSourceSettings

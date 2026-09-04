@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers
 
 import models.schemas.ArcaneSchema
-import models.settings.sources.DataRowModification
-import services.base.DefaultStreamingSource
+import services.base.InsertUpdateDeleteSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.base.StoredBlob
 import services.streaming.base.StructuredZStream
+import models.settings.sources.modification.DataRowModification
 
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Task, ZIO}
@@ -18,7 +18,7 @@ import java.util.Base64
 /** Base abstract class for all blob source readers
   */
 abstract class BlobStreamingSource(modifications: Seq[DataRowModification])
-    extends DefaultStreamingSource(modifications):
+    extends InsertUpdateDeleteSource(modifications):
 
   final override type ShardMetadata = Seq[String]
   final override type WatermarkType = BlobSourceWatermark

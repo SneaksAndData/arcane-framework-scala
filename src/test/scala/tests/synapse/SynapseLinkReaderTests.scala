@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.synapse
 
+import models.schemas.{MergeKeyField, VersionField}
 import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.base.SynapseLinkStreamingSource
@@ -55,7 +56,11 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
           new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
         )
         schema <- synapseLinkReader.getSchema
-      yield assertTrue(schema.size == 25)
+      yield assertTrue(
+        schema.size == 27,
+        schema.exists(_.name == MergeKeyField.name),
+        schema.exists(_.name == VersionField.name)
+      )
     },
     test("fails on incorrect schema") {
       for

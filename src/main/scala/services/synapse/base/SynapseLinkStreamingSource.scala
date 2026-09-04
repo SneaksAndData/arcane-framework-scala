@@ -2,22 +2,23 @@ package com.sneaksanddata.arcane.framework
 package services.synapse.base
 
 import extensions.BufferedReaderExtensions.*
+import extensions.ZExtensions.combineWith
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import models.app.PluginStreamContext
+import models.cdm.CSVParser
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
-import models.settings.sources.DataRowModification
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
-import models.cdm.CSVParser
-import services.base.{SchemaProvider, DefaultStreamingSource}
+import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
-import services.synapse.versioning.SynapseWatermark
 import services.synapse.SynapseEntitySchemaProvider
+import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
@@ -32,12 +33,16 @@ final class SynapseLinkStreamingSource(
     reader: AzureBlobStorageReader,
     fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification]
-) extends DefaultStreamingSource(modifications):
+) extends InsertUpdateDeleteSource(modifications):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
 
-  override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(Seq("Id"))
+  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    ZIO.succeed(FrozenSurrogateMergeKey(Set("Id".toLowerCase)))
+
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion("versionnumber"))
 
   // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
   // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.
@@ -70,14 +75,12 @@ final class SynapseLinkStreamingSource(
   override protected def getSourceSchema: Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
       .map(applyFieldSelector)
-      .flatMap(applySchemaModifications)
 
   /** Schema from batch-level model.json
     */
   private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, (location + batchFolderName).toHdfsPath, entityName).getSchema
       .map(applyFieldSelector)
-      .flatMap(applySchemaModifications)
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
@@ -189,7 +192,12 @@ final class SynapseLinkStreamingSource(
   def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
-    .mapZIO(wm => getBatchSchema(wm.prefix).map(batchSchema => (getChangesForVersion(wm, batchSchema), batchSchema)))
+    .mapZIO(wm =>
+      getBatchSchema(wm.prefix).combineWith(allModifications).flatMap { case (batchSchema, mods) =>
+        applySchemaModifications(batchSchema, mods)
+          .map(modifiedSchema => (getChangesForVersion(wm, batchSchema), modifiedSchema))
+      }
+    )
 
   /** Converts an arbitrary timestamp into a matching watermark
     * @return
@@ -206,13 +214,15 @@ final class SynapseLinkStreamingSource(
       version: SynapseWatermark,
       batchSchema: ArcaneSchema
   ): ZStream[Any, Throwable, DataRow] =
-    getEntityChangeData(version, batchSchema)
-      .mapZIO(getFileStream)
-      .flatMap { case (fileStream, blob) =>
-        getTableChanges(fileStream, batchSchema, blob.name)
-      }
-      .map(convertRow)
-      .mapZIO(applyDataRowModifications)
+    ZStream.fromZIO(allModifications).flatMap { mods =>
+      getEntityChangeData(version, batchSchema)
+        .mapZIO(getFileStream)
+        .flatMap { case (fileStream, blob) =>
+          getTableChanges(fileStream, batchSchema, blob.name)
+        }
+        .map(convertRow)
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+    }
 
   def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
     reader.getDateRange(location, startAt.timestamp, endAt.timestamp).map(_.map(_.asWatermark))
@@ -221,9 +231,12 @@ final class SynapseLinkStreamingSource(
     watermark <- ZIO.succeed(StoredBlob(name = folder, createdOn = None).asWatermark)
     result <- ZIO.ifZIO(isValidSynapseBatch(watermark.prefix))(
       getBatchSchema(watermark.prefix)
-        .map(batchSchema =>
-          Some((stream = (getChangesForVersion(watermark, batchSchema), batchSchema), source = watermark.prefix))
-        ),
+        .combineWith(allModifications)
+        .flatMap { case (batchSchema, mods) =>
+          applySchemaModifications(batchSchema, mods).map(modifiedSchema =>
+            Some((stream = (getChangesForVersion(watermark, batchSchema), modifiedSchema), source = watermark.prefix))
+          )
+        },
       ZIO.succeed(None)
     )
   yield result

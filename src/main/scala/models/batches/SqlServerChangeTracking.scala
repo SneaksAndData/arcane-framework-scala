@@ -11,7 +11,7 @@ import models.queries.{
   WhenMatchedUpdate,
   WhenNotMatchedInsert
 }
-import models.schemas.ArcaneSchema
+import models.schemas.{ArcaneSchema, VersionField}
 import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 
 object WhenMatchedDelete:
@@ -24,7 +24,7 @@ object WhenMatchedDelete:
 object WhenMatchedUpdate {
   def apply(cols: Seq[String]): WhenMatchedUpdate = new WhenMatchedUpdate {
     override val segmentCondition: Option[String] = Some(
-      s"${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_OPERATION != 'D' AND ${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_VERSION > ${MergeQueryCommons.TARGET_ALIAS}.SYS_CHANGE_VERSION"
+      s"${MergeQueryCommons.SOURCE_ALIAS}.SYS_CHANGE_OPERATION != 'D' AND ${MergeQueryCommons.SOURCE_ALIAS}.${VersionField.name} > ${MergeQueryCommons.TARGET_ALIAS}.${VersionField.name}"
     )
     override val columns: Seq[String] = cols
   }
@@ -76,7 +76,7 @@ class SqlServerChangeTrackingMergeBatch(
 
   override def reduceExpr: String =
     s"""SELECT * FROM (
-     |SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY SYS_CHANGE_VERSION DESC) FETCH FIRST 1 ROWS WITH TIES
+     |SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
      |)""".stripMargin
 
   override val batchQuery: MergeQuery =

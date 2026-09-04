@@ -9,8 +9,6 @@ import models.settings.observability.ObservabilitySettings
 import models.settings.sink.SinkSettings
 import models.settings.sources.{
   BufferingStrategy,
-  DataRowModificationSettings,
-  DefaultDataRowModificationSettings,
   SourceBufferingSettings,
   SourceSettings,
   StreamSourceSettings,
@@ -26,6 +24,7 @@ import models.settings.streaming.{
   ThroughputSettings,
   ThroughputShaperImpl
 }
+import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
 
 import zio.{IO, ZIO}
 

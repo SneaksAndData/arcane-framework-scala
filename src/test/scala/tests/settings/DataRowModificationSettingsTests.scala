@@ -1,17 +1,13 @@
 package com.sneaksanddata.arcane.framework
 package tests.settings
 
-import models.settings.sources.{
+import models.settings.sources.modification.{
+  DataRowModificationSetting,
   DefaultDataRowModificationSettings,
   FieldSelector,
   FieldSelectorImpl,
   LoadTimestamp,
-  LoadTimestampImpl,
-  DataRowModificationSetting,
-  SurrogateMergeKey,
-  SurrogateMergeKeyImpl,
-  SurrogateVersion,
-  SurrogateVersionImpl
+  LoadTimestampImpl
 }
 
 import org.scalatest.Inspectors.forAll
@@ -30,8 +26,6 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
     (
       DefaultDataRowModificationSettings(
         Seq(
-          DataRowModificationSetting(surrogateMergeKey = Some(SurrogateMergeKey())),
-          DataRowModificationSetting(surrogateVersion = Some(SurrogateVersion())),
           DataRowModificationSetting(loadTimestamp = Some(LoadTimestamp())),
           DataRowModificationSetting(
             fieldSelector = Some(
@@ -43,7 +37,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           )
         )
       ),
-      """{"modifications":[{"surrogateMergeKey":{}},{"surrogateVersion":{}},{"loadTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
+      """{"modifications":[{"loadTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
     )
   )
 
@@ -64,8 +58,6 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
 
     settings.modifications should equal(
       Seq(
-        SurrogateMergeKeyImpl(SurrogateMergeKey()),
-        SurrogateVersionImpl(SurrogateVersion()),
         LoadTimestampImpl(LoadTimestamp()),
         FieldSelectorImpl(
           FieldSelector(
@@ -86,8 +78,8 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
   it should "reject an entry containing multiple modifications" in {
     an[IllegalArgumentException] should be thrownBy {
       DataRowModificationSetting(
-        surrogateMergeKey = Some(SurrogateMergeKey()),
-        loadTimestamp = Some(LoadTimestamp())
+        loadTimestamp = Some(LoadTimestamp()),
+        fieldSelector = Some(FieldSelector())
       ).resolveSetting
     }
   }

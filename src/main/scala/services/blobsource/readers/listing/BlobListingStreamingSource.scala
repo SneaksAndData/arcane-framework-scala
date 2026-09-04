@@ -2,9 +2,10 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.settings.sources.DataRowModification
 import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import models.batches.BlobBatchCommons
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -29,8 +30,12 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     modifications: Seq[DataRowModification]
 ) extends BlobStreamingSource(modifications):
 
-  protected val parallelism: Int                            = Runtime.getRuntime.availableProcessors()
-  override protected val primaryKeyNames: Task[Seq[String]] = ZIO.succeed(primaryKeys)
+  protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+  override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.map(_.toLowerCase).toSet))
+
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion(BlobBatchCommons.versionField.name))
 
   override def fileToBlob(sourceFile: String): Task[StoredBlob] = storageClient.blobMetadata(sourceFile)
 

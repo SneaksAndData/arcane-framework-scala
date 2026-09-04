@@ -5,8 +5,8 @@ import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.FieldSelectionRuleSettings
-import models.settings.sources.DataRowModification
 import models.settings.sources.blob.JsonBlobSourceSettings
+import models.settings.sources.modification.DataRowModification
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
 import services.iceberg.interop.JsonScanner
 import services.naming.NameGenerator
@@ -68,10 +68,12 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     avroSchema         <- sourceSchema
     scanner            <- ZIO.attempt(JsonScanner(downloadedFilePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
   yield (
-    scanner.getRows
-      .map(applyFieldSelector)
-      .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
-      .mapZIO(applyDataRowModifications),
+    ZStream.fromZIO(allModifications).flatMap { mods =>
+      scanner.getRows
+        .map(applyFieldSelector)
+        .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+    },
     schema
   )
 
@@ -79,27 +81,30 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       sourceFiles: Seq[StoredBlob],
       schema: ArcaneSchema
   ): Task[(ZStream[Any, Throwable, DataRow], ArcaneSchema)] =
-    ZIO.attempt(
-      ZStream
-        .fromIterable(sourceFiles)
-        .flatMapPar(parallelism) { sourceFile =>
-          ZStream
-            .fromZIO {
-              for
-                filePath   <- downloadSourceFile(sourceFile)
-                avroSchema <- sourceSchema
-                scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
-              yield scanner
-            }
-            .flatMap(
-              _.getRows
-                .map(applyFieldSelector)
-                .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
-                .mapZIO(applyDataRowModifications)
-            )
-        },
-      schema
-    )
+    allModifications.flatMap { mods =>
+      ZIO.attempt(
+        ZStream
+          .fromIterable(sourceFiles)
+          .flatMapPar(parallelism) { sourceFile =>
+            ZStream
+              .fromZIO {
+                for
+                  filePath   <- downloadSourceFile(sourceFile)
+                  avroSchema <- sourceSchema
+                  scanner    <- ZIO.attempt(JsonScanner(filePath, avroSchema, jsonPointerExpr, jsonArrayPointers))
+                yield scanner
+              }
+              .flatMap(
+                _.getRows
+                  .map(applyFieldSelector)
+                  .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
+                  .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+              )
+          },
+        schema
+      )
+    }
+
 object BlobListingJsonStreamingSource:
   private type SettingsExtractor = PluginStreamContext => JsonBlobSourceSettings
 
