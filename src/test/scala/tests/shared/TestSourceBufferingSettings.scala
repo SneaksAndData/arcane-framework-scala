@@ -8,5 +8,5 @@ object TestSourceBufferingSettings extends SourceBufferingSettings:
   override val bufferingEnabled: Boolean            = true
 
   override type MergeableFrom = this.type
-  override type MergeResult = this.type
+  override type MergeResult   = this.type
   override def merge(overrides: Option[MergeableFrom]): MergeResult = ???

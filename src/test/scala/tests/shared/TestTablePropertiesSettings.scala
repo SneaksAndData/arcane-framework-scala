@@ -8,7 +8,7 @@ object TestTablePropertiesSettings extends TablePropertiesSettings:
   override val sortedBy: Array[String]                  = Array()
   override val parquetBloomFilterColumns: Array[String] = Array()
   override type MergeableFrom = this.type
-  override type MergeResult = this.type
+  override type MergeResult   = this.type
   override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
 
 object CustomTablePropertiesSettings:
@@ -17,6 +17,6 @@ object CustomTablePropertiesSettings:
     override val format: TableFormat                      = TableFormat.PARQUET
     override val sortedBy: Array[String]                  = Array.empty
     override type MergeableFrom = this.type
-    override type MergeResult = this.type
+    override type MergeResult   = this.type
     override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
   }

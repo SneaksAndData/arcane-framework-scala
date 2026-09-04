@@ -10,5 +10,5 @@ object TablePropertiesSettings extends TablePropertiesSettings:
   override val parquetBloomFilterColumns: Array[String] = Array()
 
   override type MergeableFrom = this.type
-  override type MergeResult = this.type
+  override type MergeResult   = this.type
   override def merge(overrides: Option[MergeableFrom]): MergeResult = ???

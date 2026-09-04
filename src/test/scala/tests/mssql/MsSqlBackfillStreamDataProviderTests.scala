@@ -53,9 +53,9 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         */
       override val essentialFields: Set[String] = Set.empty[String]
       override val isServerSide: Boolean        = true
-      
+
       override type MergeableFrom = this.type
-      override type MergeResult = this.type
+      override type MergeResult   = this.type
       override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
     }
   )

@@ -10,5 +10,5 @@ object TestStagingTableSettings extends StagingTableSettings:
   override val maxRowsPerFile: Option[Int] = Some(10000)
 
   override type MergeableFrom = this.type
-  override type MergeResult = this.type
+  override type MergeResult   = this.type
   override def merge(overrides: Option[MergeableFrom]): MergeResult = ???

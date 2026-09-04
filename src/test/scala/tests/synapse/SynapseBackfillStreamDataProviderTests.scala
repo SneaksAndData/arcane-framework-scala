@@ -41,7 +41,7 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
     override val essentialFields: Set[String] = Set.empty[String]
     override val isServerSide: Boolean        = false
     override type MergeableFrom = this.type
-    override type MergeResult = this.type
+    override type MergeResult   = this.type
     override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
   }
 

@@ -10,5 +10,5 @@ object TestFieldSelectionRuleSettings extends FieldSelectionRuleSettings:
   override val isServerSide: Boolean = false
 
   override type MergeableFrom = this.type
-  override type MergeResult = this.type
+  override type MergeResult   = this.type
   override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
