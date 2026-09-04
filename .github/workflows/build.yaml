@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-      - 2.4-wip
 
 jobs:
   validate_commit:
