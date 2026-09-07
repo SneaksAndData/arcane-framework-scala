@@ -43,7 +43,7 @@ object OverrideStreamContext:
   def fromEnvironmentOverrides[Spec <: OverrideStreamContext](implicit
       rw: ReadWriter[Spec]
   ): IO[SecurityException, Option[Spec]] = {
-    zio.System.env("STREAMCONTEXT_SPEC_OVERRIDE").flatMap {
+    zio.System.env("STREAMCONTEXT__SPEC_OVERRIDE").flatMap {
       case Some(value) => ZIO.succeed(Some(apply(value)))
       case None        => ZIO.succeed(None)
     }
