@@ -5,7 +5,13 @@ import models.settings.observability.{DefaultOverrideObservabilitySettings, Over
 import models.settings.sink.{DefaultOverrideSinkSettings, OverrideSinkSettings}
 import models.settings.sources.OverrideStreamSourceSettings
 import models.settings.staging.{DefaultOverrideStagingSettings, OverrideStagingSettings}
-import models.settings.streaming.{DefaultOverrideStreamModeSettings, DefaultOverrideThroughputSettings, OverrideStreamModeSettings, OverrideThroughputSettings, StreamModeSettings}
+import models.settings.streaming.{
+  DefaultOverrideStreamModeSettings,
+  DefaultOverrideThroughputSettings,
+  OverrideStreamModeSettings,
+  OverrideThroughputSettings,
+  StreamModeSettings
+}
 
 import upickle.ReadWriter
 import zio.{IO, ZIO}
@@ -34,9 +40,11 @@ abstract class DefaultOverrideStreamContext(
 
 object OverrideStreamContext:
   def apply[Spec <: OverrideStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
-  def fromEnvironmentOverrides[Spec <: OverrideStreamContext](envVarName: String)(implicit rw: ReadWriter[Spec] ): IO[SecurityException, Option[Spec]] = {
-      zio.System.env(envVarName).flatMap {
-        case Some(value) => ZIO.succeed(Some(apply(value)))
-        case None => ZIO.succeed(None)
-      }
+  def fromEnvironmentOverrides[Spec <: OverrideStreamContext](implicit
+      rw: ReadWriter[Spec]
+  ): IO[SecurityException, Option[Spec]] = {
+    zio.System.env("STREAMCONTEXT_SPEC_OVERRIDE").flatMap {
+      case Some(value) => ZIO.succeed(Some(apply(value)))
+      case None        => ZIO.succeed(None)
+    }
   }

@@ -34,12 +34,13 @@ trait PluginStreamContext extends BaseStreamContext:
 object PluginStreamContext:
   def apply[Spec <: PluginStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
 
-  private def fromEnvironment[Spec <: PluginStreamContext](envVarName: String)(implicit rw: ReadWriter[Spec] ): IO[SecurityException, Option[Spec]] =
-    zio.System.env(envVarName).flatMap {
+  private def fromEnvironment[Spec <: PluginStreamContext](implicit
+      rw: ReadWriter[Spec]
+  ): IO[SecurityException, Option[Spec]] =
+    zio.System.env("STREAMCONTEXT__SPEC").flatMap {
       case Some(value) => ZIO.succeed(Some(apply(value)))
-      case None => ZIO.succeed(None)
+      case None        => ZIO.succeed(None)
     }
-
 
   given Conversion[PluginStreamContext, DatagramSocketConfig] with
     def apply(spec: PluginStreamContext): DatagramSocketConfig =
@@ -61,14 +62,16 @@ object PluginStreamContext:
   ): ZLayer[Any, Throwable, PluginConfiguration] =
 
     val effect = for
-        context <- PluginStreamContext.fromEnvironment[ContextImpl]("STREAMCONTEXT__SPEC")
-        contextOverrides <- OverrideStreamContext.fromEnvironmentOverrides[OverridesImpl]("STREAMCONTEXT_SPEC_OVERRIDE")
+      context          <- PluginStreamContext.fromEnvironment[ContextImpl]
+      contextOverrides <- OverrideStreamContext.fromEnvironmentOverrides[OverridesImpl]
     yield context match
       case Some(parsed) => parsed.merge[OverridesImpl](contextOverrides)
-      case None => throw new Throwable( s"Unable to resolve stream context. Please verify that STREAMCONTEXT__SPEC is defined as a valid JSON string." )
+      case None =>
+        throw new Throwable(
+          s"Unable to resolve stream context. Please verify that STREAMCONTEXT__SPEC is defined as a valid JSON string."
+        )
 
     ZLayer.fromZIO[Any, Throwable, PluginStreamContext](effect)
       ++ ZLayer.fromZIO[Any, Throwable, DatagramSocketConfig](effect)
       ++ ZLayer.fromZIO[Any, Throwable, MetricsConfig](effect)
       ++ ZLayer.succeed(DatadogPublisherConfig())
-
