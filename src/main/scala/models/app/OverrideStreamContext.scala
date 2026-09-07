@@ -5,15 +5,10 @@ import models.settings.observability.{DefaultOverrideObservabilitySettings, Over
 import models.settings.sink.{DefaultOverrideSinkSettings, OverrideSinkSettings}
 import models.settings.sources.OverrideStreamSourceSettings
 import models.settings.staging.{DefaultOverrideStagingSettings, OverrideStagingSettings}
-import models.settings.streaming.{
-  DefaultOverrideStreamModeSettings,
-  DefaultOverrideThroughputSettings,
-  OverrideStreamModeSettings,
-  OverrideThroughputSettings,
-  StreamModeSettings
-}
+import models.settings.streaming.{DefaultOverrideStreamModeSettings, DefaultOverrideThroughputSettings, OverrideStreamModeSettings, OverrideThroughputSettings, StreamModeSettings}
 
 import upickle.ReadWriter
+import zio.{IO, ZIO}
 
 /** The stream mode that can be overridden by the stream override provided by the arcane operator with the environment
   * variable.
@@ -39,7 +34,9 @@ abstract class DefaultOverrideStreamContext(
 
 object OverrideStreamContext:
   def apply[Spec <: OverrideStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
-  def fromEnvironmentOverrides[Spec <: OverrideStreamContext](envVarName: String)(implicit
-      rw: ReadWriter[Spec]
-  ): Option[Spec] =
-    sys.env.get(envVarName).map(env => apply(env))
+  def fromEnvironmentOverrides[Spec <: OverrideStreamContext](envVarName: String)(implicit rw: ReadWriter[Spec] ): IO[SecurityException, Option[Spec]] = {
+      zio.System.env(envVarName).flatMap {
+        case Some(value) => ZIO.succeed(Some(apply(value)))
+        case None => ZIO.succeed(None)
+      }
+  }

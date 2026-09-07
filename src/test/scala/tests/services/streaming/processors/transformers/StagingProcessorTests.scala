@@ -106,10 +106,10 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val advisedBurst: Int                = 10
       override type MergeableFrom = this.type
       override type MergeResult   = this.type
-      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
+      override def merge(overrides: Option[MergeableFrom]): this.type = ???
     }
 
-    override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext = ???
+    override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = ???
   })
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
