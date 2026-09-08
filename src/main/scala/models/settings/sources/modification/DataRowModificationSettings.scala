@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources.modification
 
+import models.settings.Mergeable
 import models.settings.sources.*
 
 import upickle.default.*
@@ -78,7 +79,7 @@ case class DataRowModificationSetting(
 
 /** Settings for modifications applied to source data rows and their corresponding schemas.
   */
-trait DataRowModificationSettings:
+trait DataRowModificationSettings extends Mergeable:
   /** Data-row modifications to apply, in their configured order.
     */
   val modifications: Seq[DataRowModification]
@@ -92,7 +93,17 @@ trait DataRowModificationSettings:
   */
 case class DefaultDataRowModificationSettings(
     @key("modifications") modificationSettings: Seq[DataRowModificationSetting]
-) extends DataRowModificationSettings derives ReadWriter:
+) extends DataRowModificationSettings,
+      Mergeable derives ReadWriter:
+
   /** Resolved internal modification definitions.
     */
   override val modifications: Seq[DataRowModification] = modificationSettings.map(_.resolveSetting)
+
+  override type MergeableFrom = OverrideDataRowModificationSettings
+  override type MergeResult   = DefaultDataRowModificationSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultDataRowModificationSettings(
+      modificationSettings = overrides.flatMap(_.modificationSettings).getOrElse(this.modificationSettings)
+    )
