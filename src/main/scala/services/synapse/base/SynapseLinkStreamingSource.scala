@@ -16,6 +16,7 @@ import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
 import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
+import services.time.{CurrentTimestampProvider, TimestampProvider}
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.SynapseEntitySchemaProvider
 import services.synapse.versioning.SynapseWatermark
@@ -32,8 +33,9 @@ final class SynapseLinkStreamingSource(
     entityName: String,
     reader: AzureBlobStorageReader,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
-) extends InsertUpdateDeleteSource(modifications):
+    modifications: Seq[DataRowModification],
+    timestampProvider: TimestampProvider = CurrentTimestampProvider
+) extends InsertUpdateDeleteSource(modifications, timestampProvider):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
@@ -341,6 +343,7 @@ object SynapseLinkStreamingSource:
         settings.entityName,
         AzureBlobStorageReader(settings.storageConnection),
         context.source.fieldSelectionRule,
-        context.source.modifications.modifications
+        context.source.modifications.modifications,
+        CurrentTimestampProvider
       )
     }

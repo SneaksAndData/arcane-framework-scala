@@ -6,6 +6,7 @@ import services.base.InsertUpdateDeleteSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.storage.models.base.StoredBlob
 import services.streaming.base.StructuredZStream
+import services.time.TimestampProvider
 import models.settings.sources.modification.DataRowModification
 
 import zio.stream.{ZPipeline, ZStream}
@@ -17,8 +18,8 @@ import java.util.Base64
 
 /** Base abstract class for all blob source readers
   */
-abstract class BlobStreamingSource(modifications: Seq[DataRowModification])
-    extends InsertUpdateDeleteSource(modifications):
+abstract class BlobStreamingSource(modifications: Seq[DataRowModification], timestampProvider: TimestampProvider)
+    extends InsertUpdateDeleteSource(modifications, timestampProvider):
 
   final override type ShardMetadata = Seq[String]
   final override type WatermarkType = BlobSourceWatermark

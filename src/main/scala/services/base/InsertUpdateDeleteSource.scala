@@ -5,9 +5,10 @@ import exceptions.FatalStreamFailException
 import extensions.ZExtensions.combineWith
 import models.schemas.*
 import models.settings.sources.modification.*
+import services.time.TimestampProvider
 import utils.HashUtils
 
-import zio.{Task, ZIO}
+import zio.{Chunk, Task, ZIO}
 
 trait PrimaryKeyProvider:
   protected def getPrimaryKey: Task[FrozenSurrogateMergeKey]
@@ -18,8 +19,10 @@ trait VersionProvider:
 /** A streaming source that supports INSERT, UPDATE and DELETE data modifications. This source requires primary key
   * fields and a version field to be defined in concrete implementations.
   */
-abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModification])
-    extends DefaultStreamingSource(suppliedModifications)
+abstract class InsertUpdateDeleteSource(
+    suppliedModifications: Seq[DataRowModification],
+    timestampProvider: TimestampProvider
+) extends DefaultStreamingSource(suppliedModifications, timestampProvider)
     with PrimaryKeyProvider
     with VersionProvider:
 
@@ -29,12 +32,12 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
     }
 
   override protected def applyDataRowModification(
-      row: DataRow,
+      rows: Chunk[DataRow],
       modification: DataRowModification
-  ): DataRow = modification match
-    case FrozenSurrogateMergeKey(fieldNames) => addSurrogateMergeKey(row, fieldNames)
-    case FrozenSurrogateVersion(fieldName)   => addSurrogateVersion(row, fieldName)
-    case _                                   => row
+  ): Chunk[DataRow] = modification match
+    case FrozenSurrogateMergeKey(fieldNames) => rows.map(addSurrogateMergeKey(_, fieldNames))
+    case FrozenSurrogateVersion(fieldName)   => rows.map(addSurrogateVersion(_, fieldName))
+    case _                                   => super.applyDataRowModification(rows, modification)
 
   override protected def applySchemaModification(
       schema: ArcaneSchema,
@@ -42,7 +45,7 @@ abstract class InsertUpdateDeleteSource(suppliedModifications: Seq[DataRowModifi
   ): Task[ArcaneSchema] = modification match
     case FrozenSurrogateMergeKey(_) => addFieldToSchema(MergeKeyField, schema)
     case FrozenSurrogateVersion(_)  => addFieldToSchema(VersionField, schema)
-    case _                          => ZIO.succeed(schema)
+    case _                          => super.applySchemaModification(schema, modification)
 
   private def addSurrogateVersion(row: DataRow, sourceVersionFieldName: String): DataRow =
     val versionValue = row.find(_.name.equalsIgnoreCase(sourceVersionFieldName)) match

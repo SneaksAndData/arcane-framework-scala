@@ -17,6 +17,7 @@ import services.storage.models.base.{BlobPath, StoredBlob}
 import services.storage.models.s3.S3StoragePath
 import services.storage.services.s3.S3BlobStorageService
 import services.streaming.base.StructuredZStream
+import services.time.{CurrentTimestampProvider, TimestampProvider}
 
 import org.apache.iceberg.Schema
 import zio.stream.ZStream
@@ -34,7 +35,8 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     useNameMapping: Boolean,
     sourceSchema: Option[String],
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[DataRowModification],
+    timestampProvider: TimestampProvider = CurrentTimestampProvider
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
       shardStoragePath,
@@ -43,7 +45,8 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       primaryKeys,
       tempStoragePath,
       fieldSelector,
-      modifications
+      modifications,
+      timestampProvider
     ):
 
   override protected def getSourceSchema: Task[SchemaType] = for
@@ -159,6 +162,7 @@ object BlobListingParquetStreamingSource:
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
         fieldSelector = context.source.fieldSelectionRule,
-        modifications = context.source.modifications.modifications
+        modifications = context.source.modifications.modifications,
+        timestampProvider = CurrentTimestampProvider
       )
     }

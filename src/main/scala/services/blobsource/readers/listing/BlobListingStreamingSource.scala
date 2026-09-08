@@ -12,6 +12,7 @@ import services.naming.NameGenerator
 import services.storage.base.{BlobStorageReader, BlobStorageWriter}
 import services.storage.models.base.{BlobPath, StoredBlob}
 import services.streaming.base.StructuredZStream
+import services.time.TimestampProvider
 
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Task, ZIO}
@@ -27,8 +28,9 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     tempStoragePath: String,
     fieldSelector: FieldSelectionRuleSettings,
-    modifications: Seq[DataRowModification]
-) extends BlobStreamingSource(modifications):
+    modifications: Seq[DataRowModification],
+    timestampProvider: TimestampProvider
+) extends BlobStreamingSource(modifications, timestampProvider):
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
   override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
