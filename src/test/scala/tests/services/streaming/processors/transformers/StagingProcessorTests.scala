@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
-import models.app.PluginStreamContext
+import models.app.{OverrideStreamContext, PluginStreamContext}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import models.settings.backfill.BackfillBehavior.Overwrite
@@ -106,10 +106,10 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val advisedBurst: Int                = 10
       override type MergeableFrom = this.type
       override type MergeResult   = this.type
-      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
+      override def merge(overrides: Option[MergeableFrom]): this.type = ???
     }
 
-    override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+    override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = ???
   })
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(
