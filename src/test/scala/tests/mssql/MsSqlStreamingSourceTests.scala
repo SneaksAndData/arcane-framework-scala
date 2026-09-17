@@ -1,13 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package tests.mssql
 
+import models.schemas.*
 import models.schemas.ArcaneType.*
-import models.schemas.{ArcaneSchemaField, DataCell, IndexedField, IndexedMergeKeyField, MergeKeyField, VersionField}
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
+import models.settings.sources.modification.FrozenSurrogateTimestamp
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
-import services.mssql.base.{ColumnSummary, ColumnSummaryFieldSelector, MsSqlStreamingSource}
+import services.mssql.base.{ColumnSummaryFieldSelector, MsSqlStreamingSource}
 import services.mssql.query.ResultSetIterator
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
@@ -26,10 +27,9 @@ import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
+import java.time.*
 import scala.List
 import scala.language.postfixOps
-import scala.util.Success
 
 object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -450,6 +450,51 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         schema.exists(_.name == VersionField.name),
         mergeKey.contains(expectedMergeKey),
         arcaneVersion == sourceVersion
+      )
+    },
+    test("MsSqlStreamingSource adds the configured load timestamp to its schema and rows") {
+      val testTableName  = "load_timestamp"
+      val fixedTimestamp = LocalDateTime.of(2026, 9, 4, 12, 30).atOffset(ZoneOffset.UTC)
+
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable(testTableName, connection, fieldString, pkString))
+              .flatMap(_ => insertData(connection, testTableName))
+        )
+        reader <- ZIO.succeed(
+          MsSqlStreamingSource(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = testTableName
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            nopSelector,
+            nameGenerator,
+            Seq(FrozenSurrogateTimestamp(fixedTimestamp))
+          )
+        )
+        schema    <- reader.getSchema
+        summaries <- reader.getColumnSummaries
+        rows <- ZStream
+          .fromZIO(reader.createShardStream(testTableName, summaries))
+          .flatMap(_._1)
+          .runCollect
+      yield assertTrue(
+        schema.exists(field =>
+          field.name == LoadTimestampField.name && field.fieldType == LoadTimestampField.fieldType
+        ),
+        rows.nonEmpty,
+        rows.forall(
+          _.find(_.name == LoadTimestampField.name).exists(cell =>
+            cell.Type == LoadTimestampField.fieldType && cell.value == fixedTimestamp
+          )
+        )
       )
     },
     test("MsSqlStreamingSource returns correct number of columns on a shard stream") {
