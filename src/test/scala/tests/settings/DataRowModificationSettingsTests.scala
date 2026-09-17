@@ -37,7 +37,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           )
         )
       ),
-      """{"modifications":[{"loadTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
+      """{"modifications":[{"surrogateTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
     )
   )
 
