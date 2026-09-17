@@ -18,7 +18,6 @@ import services.mssql.versioning.MsSqlWatermark
 import services.mssql.*
 import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
-import services.time.{CurrentTimestampProvider, TimestampProvider}
 import services.naming.NameGenerator
 import services.mssql.SqlDataCell.normalizeName
 import exceptions.FatalStreamFailException
@@ -43,9 +42,8 @@ class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     fieldSelector: ColumnSummaryFieldSelector,
     nameGenerator: NameGenerator,
-    modifications: Seq[DataRowModification],
-    timestampProvider: TimestampProvider = CurrentTimestampProvider
-) extends InsertUpdateDeleteSource(modifications, timestampProvider)
+    modifications: Seq[DataRowModification]
+) extends InsertUpdateDeleteSource(modifications)
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -505,8 +503,7 @@ object MsSqlStreamingSource:
           connectionSettings = extractor(context),
           fieldSelector = new ColumnSummaryFieldSelector(context.source.fieldSelectionRule),
           nameGenerator = nameGenerator,
-          modifications = context.source.modifications.modifications,
-          timestampProvider = CurrentTimestampProvider
+          modifications = context.source.modifications.modifications
         )
       }
     }

@@ -6,8 +6,8 @@ import models.settings.sources.modification.{
   DefaultDataRowModificationSettings,
   FieldSelector,
   FieldSelectorImpl,
-  LoadTimestamp,
-  LoadTimestampImpl
+  SurrogateTimestamp,
+  SurrogateTimestampImpl
 }
 
 import org.scalatest.Inspectors.forAll
@@ -26,7 +26,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
     (
       DefaultDataRowModificationSettings(
         Seq(
-          DataRowModificationSetting(loadTimestamp = Some(LoadTimestamp())),
+          DataRowModificationSetting(surrogateTimestamp = Some(SurrogateTimestamp())),
           DataRowModificationSetting(
             fieldSelector = Some(
               FieldSelector(
@@ -58,7 +58,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
 
     settings.modifications should equal(
       Seq(
-        LoadTimestampImpl(LoadTimestamp()),
+        SurrogateTimestampImpl(SurrogateTimestamp()),
         FieldSelectorImpl(
           FieldSelector(
             includeFields = Seq("id", "name"),
@@ -78,7 +78,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
   it should "reject an entry containing multiple modifications" in {
     an[IllegalArgumentException] should be thrownBy {
       DataRowModificationSetting(
-        loadTimestamp = Some(LoadTimestamp()),
+        surrogateTimestamp = Some(SurrogateTimestamp()),
         fieldSelector = Some(FieldSelector())
       ).resolveSetting
     }

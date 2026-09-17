@@ -5,14 +5,13 @@ import models.schemas.ArcaneType.*
 import models.schemas.*
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import models.settings.sources.modification.{LoadTimestamp, LoadTimestampImpl}
+import models.settings.sources.modification.{FrozenSurrogateTimestamp, SurrogateTimestamp, SurrogateTimestampImpl}
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
 import services.mssql.base.{ColumnSummary, ColumnSummaryFieldSelector, MsSqlStreamingSource}
 import services.mssql.query.ResultSetIterator
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
-import services.time.TimestampProvider
 import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.*
 import tests.shared.TestSinkSettings
@@ -31,7 +30,6 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
 import scala.List
 import scala.language.postfixOps
-import scala.util.Success
 
 object MsSqlStreamingSourceTests extends ZIOSpecDefault:
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -456,9 +454,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
     },
     test("MsSqlStreamingSource adds the configured load timestamp to its schema and rows") {
       val testTableName  = "load_timestamp"
-      val fixedTimestamp = LocalDateTime.of(2026, 9, 4, 12, 30)
-      val timestampProvider = new TimestampProvider:
-        override def timestamp: LocalDateTime = fixedTimestamp
+      val fixedTimestamp = LocalDateTime.of(2026, 9, 4, 12, 30).atOffset(ZoneOffset.UTC)
 
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
@@ -480,8 +476,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             },
             nopSelector,
             nameGenerator,
-            Seq(LoadTimestampImpl(LoadTimestamp())),
-            timestampProvider
+            Seq(FrozenSurrogateTimestamp(fixedTimestamp))
           )
         )
         schema    <- reader.getSchema

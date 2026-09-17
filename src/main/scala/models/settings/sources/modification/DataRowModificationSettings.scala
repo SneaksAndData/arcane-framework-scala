@@ -7,6 +7,8 @@ import models.settings.sources.*
 import upickle.default.*
 import upickle.implicits.key
 
+import java.time.OffsetDateTime
+
 /** A modification applied to source data rows and their corresponding schema.
   */
 sealed trait DataRowModification
@@ -19,13 +21,17 @@ case class FrozenSurrogateMergeKey(fieldNames: Set[String]) extends DataRowModif
   */
 case class FrozenSurrogateVersion(fieldName: String) extends DataRowModification
 
+/** Timestamp mod with a preset timestamp. for internal usage only.
+  */
+case class FrozenSurrogateTimestamp(timestamp: OffsetDateTime) extends DataRowModification
+
 /** Adds the time at which Arcane loaded a batch to its schema and data rows.
   */
-case class LoadTimestamp() derives ReadWriter
+case class SurrogateTimestamp() derives ReadWriter
 
 /** ADT composed with settings for the load-timestamp modification.
   */
-case class LoadTimestampImpl(loadTimestamp: LoadTimestamp) extends DataRowModification
+case class SurrogateTimestampImpl(surrogateTimestamp: SurrogateTimestamp) extends DataRowModification
 
 /** Selects the fields included in the modified schema and data rows.
   *
@@ -49,13 +55,13 @@ case class FieldSelectorImpl(fieldSelector: FieldSelector) extends DataRowModifi
   * [[DataRowModification]] ADT directly. Exactly one modification must be configured in each entry. Multiple
   * modifications are expressed as separate entries in [[DefaultDataRowModificationSettings.modificationSettings]].
   *
-  * @param loadTimestamp
+  * @param surrogateTimestamp
   *   settings for adding a batch load timestamp
   * @param fieldSelector
   *   settings for selecting fields
   */
 case class DataRowModificationSetting(
-    loadTimestamp: Option[LoadTimestamp] = None,
+    surrogateTimestamp: Option[SurrogateTimestamp] = None,
     fieldSelector: Option[FieldSelector] = None
 ) derives ReadWriter:
 
@@ -66,7 +72,7 @@ case class DataRowModificationSetting(
     */
   def resolveSetting: DataRowModification =
     val configured = Seq(
-      loadTimestamp.map(LoadTimestampImpl(_)),
+      surrogateTimestamp.map(SurrogateTimestampImpl(_)),
       fieldSelector.map(FieldSelectorImpl(_))
     ).flatten
 

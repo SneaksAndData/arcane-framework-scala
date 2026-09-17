@@ -5,7 +5,6 @@ import exceptions.FatalStreamFailException
 import extensions.ZExtensions.combineWith
 import models.schemas.*
 import models.settings.sources.modification.*
-import services.time.TimestampProvider
 import utils.HashUtils
 
 import zio.{Chunk, Task, ZIO}
@@ -20,9 +19,8 @@ trait VersionProvider:
   * fields and a version field to be defined in concrete implementations.
   */
 abstract class InsertUpdateDeleteSource(
-    suppliedModifications: Seq[DataRowModification],
-    timestampProvider: TimestampProvider
-) extends DefaultStreamingSource(suppliedModifications, timestampProvider)
+    suppliedModifications: Seq[DataRowModification]
+) extends DefaultStreamingSource(suppliedModifications)
     with PrimaryKeyProvider
     with VersionProvider:
 

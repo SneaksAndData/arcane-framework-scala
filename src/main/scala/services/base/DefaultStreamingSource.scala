@@ -4,14 +4,14 @@ package services.base
 import models.schemas.*
 import models.schemas.given_CanAdd_ArcaneSchema
 import models.settings.sources.modification.*
-import services.time.TimestampProvider
 import extensions.ZExtensions.combineWith
 
 import zio.{Chunk, Task, ZIO}
 
+import java.time.{Instant, OffsetDateTime, ZoneOffset}
+
 abstract class DefaultStreamingSource(
-    protected val modifications: Seq[DataRowModification],
-    protected val timestampProvider: TimestampProvider
+    protected val modifications: Seq[DataRowModification]
 ) extends StreamingSource {
 
   final override lazy val getSchema: Task[ArcaneSchema] =
@@ -27,16 +27,17 @@ abstract class DefaultStreamingSource(
       rows: Chunk[DataRow],
       modification: DataRowModification
   ): Chunk[DataRow] = modification match {
-    case LoadTimestampImpl(_) => addLoadTimestamp(rows)
-    case _                    => rows
+    case SurrogateTimestampImpl(_)       => addLoadTimestamp(rows, None)
+    case FrozenSurrogateTimestamp(value) => addLoadTimestamp(rows, Some(value))
+    case _                               => rows
   }
 
   protected def applySchemaModification(
       schema: ArcaneSchema,
       modification: DataRowModification
   ): Task[ArcaneSchema] = modification match {
-    case LoadTimestampImpl(_) => addFieldToSchema(LoadTimestampField, schema)
-    case _                    => ZIO.succeed(schema)
+    case SurrogateTimestampImpl(_) => addFieldToSchema(LoadTimestampField, schema)
+    case _                         => ZIO.succeed(schema)
   }
 
   final def applyDataRowModifications(rows: Chunk[DataRow], supplied: Seq[DataRowModification]): Chunk[DataRow] =
@@ -54,14 +55,14 @@ abstract class DefaultStreamingSource(
       else schema
     ZIO.succeed(newSchema)
 
-  private def addLoadTimestamp(rows: Chunk[DataRow]): Chunk[DataRow] =
-    val timestamp = timestampProvider.timestamp
-
+  private def addLoadTimestamp(rows: Chunk[DataRow], timestamp: Option[OffsetDateTime]): Chunk[DataRow] =
     rows.map { row =>
-      row.filterNot(_.name.equalsIgnoreCase(LoadTimestampField.name)) :+ DataCell(
+      row :+ DataCell(
         name = LoadTimestampField.name,
         Type = LoadTimestampField.fieldType,
-        value = timestamp
+        value = timestamp match
+          case None     => OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
+          case Some(ts) => ts
       )
     }
 }
