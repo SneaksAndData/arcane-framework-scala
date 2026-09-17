@@ -36,8 +36,9 @@ abstract class DefaultStreamingSource(
       schema: ArcaneSchema,
       modification: DataRowModification
   ): Task[ArcaneSchema] = modification match {
-    case SurrogateTimestampImpl(_) => addFieldToSchema(LoadTimestampField, schema)
-    case _                         => ZIO.succeed(schema)
+    case SurrogateTimestampImpl(_)   => addFieldToSchema(LoadTimestampField, schema)
+    case FrozenSurrogateTimestamp(_) => addFieldToSchema(LoadTimestampField, schema)
+    case _                           => ZIO.succeed(schema)
   }
 
   final def applyDataRowModifications(rows: Chunk[DataRow], supplied: Seq[DataRowModification]): Chunk[DataRow] =
