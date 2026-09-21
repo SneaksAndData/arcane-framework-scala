@@ -113,7 +113,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamStreamingDataProviderTests")(
     test("returns correct number of rows while streaming") {
-      val numberRowsToTake = 5
+      val totalRowsToTake = 10
       for
         sourceTableName <- genSourceTableName
         targetTableName     = s"demo.test.$sourceTableName"
@@ -124,8 +124,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
           PullStreamTestServices.createTable(sourceTableName, client)
         )(_ => PullStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
           for
-            // seed source DDB table with more than `numberRowsToTake` rows
-            _                 <- insertRows(client, sourceTableName, numberRowsToTake * 2)
+            // seed source DDB table
+            _                 <- insertRows(client, sourceTableName, totalRowsToTake)
             sinkEntityManager <- icebergUtil.getSinkEntityManager
             _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(sourceTableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
@@ -158,10 +158,11 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
               )
             )
             rows <- streamingDataProvider.stream
-              .flatMap(_._1)
+              .interruptAfter(zio.Duration.fromSeconds(5))
+              .flatMap(_._1.haltAfter(zio.Duration.fromSeconds(5)))
               .rechunk(1)
               .runCollect
-          yield assertTrue(rows.size == numberRowsToTake)
+          yield assertTrue(rows.size == totalRowsToTake + 1 && rows.last.isWatermark)
         }
       yield result
     },
