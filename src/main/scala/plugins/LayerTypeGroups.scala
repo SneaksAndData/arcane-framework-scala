@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package plugins
 
-import services.app.base.StreamLifetimeService
 import services.backfill.base.{
   BackfillStateManager,
   BackfillStreamDataProvider,
@@ -30,10 +29,9 @@ import services.streaming.processors.batch_processors.streaming.{
 import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 
 type FrameworkProvidedPipelineServices = DisposeBatchProcessor & MergeBatchProcessor & FieldFilteringTransformer &
-  FieldsFilteringService & StreamLifetimeService & SinkPropertyManager & SinkEntityManager & StagingPropertyManager &
-  StagingEntityManager & MergeServiceClient & NameGenerator & DeclaredMetrics & StreamBootstrapper & StreamFinalizer &
-  MetricTagProvider & IcebergS3CatalogWriter & WatermarkProcessor & TargetMaintenanceProcessor &
-  SchemaMigrationProcessor
+  FieldsFilteringService & SinkPropertyManager & SinkEntityManager & StagingPropertyManager & StagingEntityManager &
+  MergeServiceClient & NameGenerator & DeclaredMetrics & StreamBootstrapper & StreamFinalizer & MetricTagProvider &
+  IcebergS3CatalogWriter & WatermarkProcessor & TargetMaintenanceProcessor & SchemaMigrationProcessor
 
 type FrameworkRequiredStagingServices = StagedBatchFactory & IcebergS3CatalogWriter & ShardFactory & DeclaredMetrics &
   NameGenerator & SinkPropertyManager & MergeServiceClient

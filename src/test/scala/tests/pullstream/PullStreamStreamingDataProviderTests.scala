@@ -8,13 +8,13 @@ import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.iceberg.SchemaConversions.toIcebergSchema
+import services.iceberg.interop.MissingFieldException
 import services.metrics.DeclaredMetrics
-import services.pullstream.{PullStreamSourceDataProvider, PullStreamStreamingDataProvider, PullStreamingSource}
 import services.pullstream.versioning.PullStreamWatermark
+import services.pullstream.{PullStreamSourceDataProvider, PullStreamStreamingDataProvider, PullStreamingSource}
 import tests.pullstream.util.PullStreamTestServices
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.iceberg.interop.MissingFieldException
 import org.apache.avro.AvroTypeException
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest, PutItemResponse}
@@ -157,11 +157,9 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 DeclaredMetrics()
               )
             )
-            lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
             rows <- streamingDataProvider.stream
               .flatMap(_._1)
               .rechunk(1)
-              .takeUntil(_ => lifetimeService.cancelled)
               .runCollect
           yield assertTrue(rows.size == numberRowsToTake)
         }

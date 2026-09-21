@@ -156,11 +156,9 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
         rows <- streamingDataProvider.stream
           .flatMap(_._1)
           .rechunk(1)
-          .takeUntil(_ => lifetimeService.cancelled)
           .runCollect
       yield assertTrue(rows.size == numberRowsToTake)
     }

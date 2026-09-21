@@ -98,7 +98,6 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       IcebergS3CatalogWriter.layer,
 
       // Mocks
-      ZLayer.succeed(new TestStreamLifetimeService(streamRepeatCount, identity)),
       ZLayer.succeed(disposeServiceClient),
       ZLayer.succeed(mergeServiceClient),
       ZLayer.succeed(new StreamingSource {

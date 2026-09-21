@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package plugins
 
 import models.app.PluginStreamContext
-import services.app.PosixStreamLifetimeService
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.StreamingSource
 import services.bootstrap.DefaultStreamBootstrapper
@@ -40,7 +39,6 @@ object LayerAssemblies:
       FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
       FieldsFilteringService.layer,
-      PosixStreamLifetimeService.layer,
       IcebergS3CatalogWriter.layer,
       IcebergEntityManager.sinkLayer,
       IcebergEntityManager.stagingLayer,
