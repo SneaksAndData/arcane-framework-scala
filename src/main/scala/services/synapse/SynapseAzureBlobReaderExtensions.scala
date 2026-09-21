@@ -5,10 +5,10 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
+import services.synapse.versioning.SynapseWatermark
 
-import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
-import zio.{Task, ZIO}
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
