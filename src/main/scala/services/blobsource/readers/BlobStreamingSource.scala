@@ -24,11 +24,8 @@ abstract class BlobStreamingSource(modifications: Seq[DataRowModification])
   final override type WatermarkType = BlobSourceWatermark
 
   /** Change stream for this reader. If startFrom == 0, should behave like a backfill.
-    * @param startFrom
-    *   Time (Unix) to emit changes from for next iteration
-    * @return
     */
-  def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream]
+  def getChanges(startFrom: BlobSourceWatermark, endAt: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream]
 
   /** Latest file by creation data in the blob source
     */

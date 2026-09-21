@@ -84,7 +84,8 @@ object SynapseAzureBlobReaderExtensions:
 
     def getEligibleDates(
         storagePath: AdlsStoragePath,
-        startFrom: OffsetDateTime
+        startFrom: OffsetDateTime,
+        endAt: OffsetDateTime
     ): ZStream[Any, Throwable, StoredBlob] = for
       // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
       inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
@@ -103,7 +104,8 @@ object SynapseAzureBlobReaderExtensions:
         .collect {
           case (Some(date), blob)
               // take dates strictly >= startFrom, < inProgressDate
-              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) =>
+              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) && date
+                .isBefore(endAt) =>
             blob
         }
     yield eligibleBlob

@@ -27,6 +27,10 @@ object BlobSourceWatermark:
     val start = OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC)
     BlobSourceWatermark(version = start.toEpochSecond.toString, timestamp = start)
 
+  val eot: BlobSourceWatermark =
+    val end = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
+    BlobSourceWatermark(version = end.toEpochSecond.toString, timestamp = end)
+
   def fromEpochSecond(value: Long): BlobSourceWatermark = BlobSourceWatermark(
     version = value.toString,
     timestamp = OffsetDateTime.ofInstant(Instant.ofEpochSecond(value), ZoneOffset.UTC)

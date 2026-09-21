@@ -42,7 +42,10 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         )
         startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
-          .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
+          .getChanges(
+            SynapseWatermark(version = "", timestamp = startFrom, prefix = ""),
+            SynapseWatermark(version = "", timestamp = startFrom.plusDays(1), prefix = "")
+          )
           .flatMap(_._1)
           .map(_ => 1)
           .runSum // OffsetDateTime.now().minus(Duration.ofHours(12))
@@ -75,7 +78,10 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         )
         startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader
-          .getChanges(SynapseWatermark(version = "", timestamp = startFrom, prefix = ""))
+          .getChanges(
+            SynapseWatermark(version = "", timestamp = startFrom, prefix = ""),
+            SynapseWatermark(version = "", timestamp = startFrom.plusDays(1), prefix = "")
+          )
           .flatMap(_._1)
           .map(_ => 1)
           .runSum

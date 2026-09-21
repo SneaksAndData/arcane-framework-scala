@@ -31,8 +31,10 @@ class PullStreamSourceDataProvider(
   override protected def changeStream(
       previousVersion: PullStreamWatermark,
       currentVersion: PullStreamWatermark
-  ): ZStream[Any, Throwable, StructuredZStream] =
+  ): ZStream[Any, Throwable, StructuredZStream] = {
+    // this source ignores version limiting - as designed
     source.getChanges(previousVersion)
+  }
 
   /** Checks whether the provided watermark from previous iteration has accrued any changes in [previousVersion ... now]
     * interval

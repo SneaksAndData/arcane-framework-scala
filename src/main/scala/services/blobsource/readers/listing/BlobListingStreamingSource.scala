@@ -125,12 +125,18 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
       result    <- storageClient.readBlobContent(shardStoragePath + shardName)
     yield result
 
-  override def getChanges(startFrom: BlobSourceWatermark): ZStream[Any, Throwable, StructuredZStream] = ZStream
+  override def getChanges(
+      startFrom: BlobSourceWatermark,
+      endAt: BlobSourceWatermark
+  ): ZStream[Any, Throwable, StructuredZStream] = ZStream
     .fromZIO(getSchema)
     .flatMap { changeSetSchema =>
       storageClient
         .streamPrefixes(sourcePath)
-        .filter(_.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch) >= startFrom)
+        .filter { sb =>
+          val wm = sb.createdOn.map(BlobSourceWatermark.fromEpochSecond).getOrElse(BlobSourceWatermark.epoch)
+          wm >= startFrom && wm <= endAt
+        }
         // regroup files based on core count available
         .rechunk(parallelism * 10)
         .mapChunksZIO(files => filesToStream(files, changeSetSchema).map(stream => Chunk(stream)))

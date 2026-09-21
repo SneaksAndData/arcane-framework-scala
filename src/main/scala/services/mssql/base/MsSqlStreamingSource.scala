@@ -179,8 +179,8 @@ class MsSqlStreamingSource(
   /** Gets the changes in the database since the given version.
     * @param fromVersion
     *   The version to fetch changes from.
-    * @param toVersion 
-    *   The version boundary to apply. Changes from after this version will be ignored. 
+    * @param toVersion
+    *   The version boundary to apply. Changes from after this version will be ignored.
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */

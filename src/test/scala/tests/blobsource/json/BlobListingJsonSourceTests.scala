@@ -76,7 +76,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq.empty
           )
         )
-        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+        rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 13)
     },
     test("getChanges adds required merge key and version fields") {
@@ -99,7 +99,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq.empty
           )
         )
-        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+        rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 13) && assertTrue(
         rows.forall { row =>
           val primaryKeyValues = pkColumns.map(name => row.find(_.name == name).map(_.value))
@@ -132,7 +132,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq.empty
           )
         )
-        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+        rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
       yield assertValidChunk(rows, 50 * 100, 13)
     }
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock

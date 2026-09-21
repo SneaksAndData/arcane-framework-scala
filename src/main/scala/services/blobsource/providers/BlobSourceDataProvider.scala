@@ -43,7 +43,7 @@ class BlobSourceDataProvider(
       previousVersion: BlobSourceWatermark,
       currentVersion: BlobSourceWatermark
   ): ZStream[Any, Throwable, StructuredZStream] =
-    streamingSource.getChanges(previousVersion)
+    streamingSource.getChanges(previousVersion, currentVersion)
 
   override def getLatestWatermarkInRange(
       startWatermark: BlobSourceWatermark,
