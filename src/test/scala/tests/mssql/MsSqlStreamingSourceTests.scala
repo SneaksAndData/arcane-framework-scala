@@ -605,6 +605,10 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             MsSqlWatermark(
               version = "1",
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            ),
+            MsSqlWatermark(
+              version = Long.MaxValue.toString,
+              timestamp = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
             )
           )
           .flatMap(_._1)
@@ -657,6 +661,10 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             MsSqlWatermark(
               version = "1",
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            ),
+            MsSqlWatermark(
+              version = Long.MaxValue.toString,
+              timestamp = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
             )
           )
           .flatMap(_._1)
@@ -708,6 +716,10 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             MsSqlWatermark(
               version = "1",
               timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+            ),
+            MsSqlWatermark(
+              version = Long.MaxValue.toString,
+              timestamp = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
             )
           )
           .flatMap(_._1)
@@ -743,13 +755,13 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         maybeVersion <- reader.getVersion(QueryProvider.getVersionFromTimestampQuery(startTime, formatter))
         version      <- ZIO.getOrFail(maybeVersion)
         commitTime   <- reader.getVersionCommitTime(version)
-        rows         <- reader.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime)).runCollect
+        rows         <- reader.getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, commitTime), MsSqlWatermark.fromChangeTrackingVersion(Long.MaxValue, commitTime.plusDays(365))).runCollect
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection => deleteData(connection, Seq(2), "get_changes_deletes")
         )
 
         rowsAfterDelete <- reader
-          .getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, nextTime))
+          .getChanges(MsSqlWatermark.fromChangeTrackingVersion(version, nextTime), MsSqlWatermark.fromChangeTrackingVersion(Long.MaxValue, nextTime.plusDays(365)))
           .flatMap(_._1)
           .runCollect
       yield assertTrue(

@@ -30,6 +30,7 @@ object QueryProvider:
           reader.catalog,
           columnExpression,
           matchStatement,
+          Long.MaxValue,
           Long.MaxValue
         )
       yield query
@@ -44,7 +45,7 @@ object QueryProvider:
     *   A future containing the changes query for the Microsoft SQL Server database.
     */
   extension (reader: MsSqlStreamingSource)
-    def getChangesQuery(fromVersion: Long): Task[MsSqlQuery] =
+    def getChangesQuery(fromVersion: Long, toVersion: Long): Task[MsSqlQuery] =
       for
         columnSummaries <- reader.getColumnSummaries
         columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
@@ -54,7 +55,8 @@ object QueryProvider:
           reader.catalog,
           columnExpression,
           matchStatement,
-          fromVersion
+          fromVersion,
+          toVersion
         )
       yield query
 
@@ -283,7 +285,8 @@ object QueryProvider:
       databaseName: String,
       columnStatement: String,
       matchStatement: String,
-      changeTrackingId: Long
+      changeTrackingId: Long,
+      maxChangeTrackingId: Long
   ): Task[MsSqlQuery] =
     ZIO.scoped {
       for
@@ -298,6 +301,7 @@ object QueryProvider:
           .replace("{ChangeTrackingColumnsStatement}", columnStatement)
           .replace("{ChangeTrackingMatchStatement}", matchStatement)
           .replace("{lastId}", changeTrackingId.toString)
+          .replace("{maxId}", maxChangeTrackingId.toString)
       yield query
     }
 

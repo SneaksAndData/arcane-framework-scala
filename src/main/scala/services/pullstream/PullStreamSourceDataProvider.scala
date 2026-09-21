@@ -29,7 +29,8 @@ class PullStreamSourceDataProvider(
       declaredMetrics
     ):
   override protected def changeStream(
-      previousVersion: PullStreamWatermark
+      previousVersion: PullStreamWatermark,
+      currentVersion: PullStreamWatermark
   ): ZStream[Any, Throwable, StructuredZStream] =
     source.getChanges(previousVersion)
 

@@ -53,7 +53,9 @@ class SynapseLinkDataProvider(
     *   Previous watermark
     * @return
     */
-  override protected def changeStream(previousVersion: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
+  override protected def changeStream(
+                                       previousVersion: SynapseWatermark,
+                                       currentVersion: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
     streamingSource.getChanges(previousVersion)
 
 object SynapseLinkDataProvider:

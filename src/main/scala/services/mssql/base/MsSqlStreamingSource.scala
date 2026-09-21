@@ -177,18 +177,20 @@ class MsSqlStreamingSource(
     yield row
 
   /** Gets the changes in the database since the given version.
-    * @param latestVersion
+    * @param fromVersion
     *   The version to fetch changes from.
+    * @param toVersion 
+    *   The version boundary to apply. Changes from after this version will be ignored. 
     * @return
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
-  def getChanges(latestVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
+  def getChanges(fromVersion: MsSqlWatermark, toVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
     ZStream.fromZIO(getSchema.combineWith(allModifications)).map { case (schema, mods) =>
       (
         ZStream
           .fromZIO(ZIO.scoped {
             for
-              changesQuery <- this.getChangesQuery(latestVersion - 1)
+              changesQuery <- this.getChangesQuery(fromVersion - 1, toVersion - 0)
 
               // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
               // And the LazyQueryResult will close the statement/result set when it is closed.
@@ -204,7 +206,7 @@ class MsSqlStreamingSource(
   def hasChanges(latestVersion: MsSqlWatermark): Task[Boolean] =
     ZIO.scoped {
       for
-        changesQuery <- this.getChangesQuery(latestVersion - 1)
+        changesQuery <- this.getChangesQuery(latestVersion - 1, Long.MaxValue)
 
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.
