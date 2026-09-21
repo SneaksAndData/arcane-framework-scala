@@ -77,12 +77,12 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
   private val defaultSinkSettings = TestDynamicSinkSettings("mssql__mssql_test")
   private val icebergUtil         = IcebergUtil(defaultSinkSettings.icebergCatalog)
 
-  def insertData(con: Connection, tableName: String): Task[Unit] =
+  def insertData(con: Connection, tableName: String, rowsToInsert1: Int, rowsToInsert2: Int): Task[Unit] =
     for
       _ <- ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
         ZIO.attemptBlocking(statement.close()).orDie
       ) { statement =>
-        ZIO.foreach(1 to 10) { index =>
+        ZIO.foreach(1 to rowsToInsert1) { index =>
           val insertCmd =
             s"use arcane; insert into dbo.$tableName values($index, ${index + 1})"
           ZIO.attemptBlocking(statement.execute(insertCmd))
@@ -91,7 +91,7 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
       _ <- ZIO.acquireReleaseWith(ZIO.attempt(con.createStatement()))(statement =>
         ZIO.attemptBlocking(statement.close()).orDie
       ) { statement =>
-        ZIO.foreach(1 to 10) { index =>
+        ZIO.foreach(1 to rowsToInsert2) { index =>
           val updateCmd =
             s"use arcane; insert into dbo.$tableName values(${index * 1000}, ${index * 1000 + 1})"
           ZIO.attemptBlocking(statement.execute(updateCmd))
@@ -106,15 +106,23 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
       streamId = "mssql_reader_tests"
     )
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlDataProviderTests") {
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("MsSqlStreamingDataProviderTests") {
     test("returns correct number of rows while streaming") {
       for
         testTableName <- ZIO.succeed("streaming_test")
+        totalRowsToInsert = 20
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
           connection =>
             ZIO
               .attemptBlocking(createTable(testTableName, connection, fieldString, pkString))
-              .flatMap(_ => insertData(connection, testTableName))
+              .flatMap(_ =>
+                insertData(
+                  connection,
+                  testTableName,
+                  rowsToInsert1 = totalRowsToInsert / 2,
+                  rowsToInsert2 = totalRowsToInsert / 2
+                )
+              )
         )
         connection <- ZIO.succeed(
           MsSqlStreamingSource(
@@ -133,8 +141,6 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
           )
         )
         propertyManager <- icebergUtil.getSinkTablePropertyManager
-        numberRowsToTake =
-          5 // if set to 20, will run indefinitely since no elements will be emitted and cancelled will not be called
         provider <- ZIO.succeed(
           MsSqlDataProvider(
             connection,
@@ -156,12 +162,11 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           )
         )
-        lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
         rows <- streamingDataProvider.stream
-          .flatMap(_._1)
+          .interruptAfter(zio.Duration.fromSeconds(2))
+          .flatMap(_._1.haltAfter(zio.Duration.fromSeconds(2)))
           .rechunk(1)
-          .takeUntil(_ => lifetimeService.cancelled)
           .runCollect
-      yield assertTrue(rows.size == numberRowsToTake)
+      yield assertTrue(rows.size % totalRowsToInsert >= 0 && rows.drop(totalRowsToInsert).forall(_.isWatermark))
     }
   } @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
