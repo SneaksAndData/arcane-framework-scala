@@ -192,6 +192,7 @@ final class SynapseLinkStreamingSource(
   def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
     .getEligibleDates(storagePath = location, startFrom = version.timestamp)
     .map(_.asWatermark)
+    .filterZIO(wm => isValidSynapseBatch(wm.prefix))
     .mapZIO(wm =>
       getBatchSchema(wm.prefix).combineWith(allModifications).flatMap { case (batchSchema, mods) =>
         applySchemaModifications(batchSchema, mods)
