@@ -163,8 +163,8 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
           )
         )
         rows <- streamingDataProvider.stream
-          .interruptAfter(zio.Duration.fromSeconds(5))
-          .flatMap(_._1.haltAfter(zio.Duration.fromSeconds(5)))
+          .interruptAfter(zio.Duration.fromSeconds(3))
+          .flatMap(_._1.haltAfter(zio.Duration.fromSeconds(3)))
           .rechunk(1)
           .runCollect
       yield assertTrue(rows.size == totalRowsToInsert + 1 && rows.last.isWatermark)

@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
+import extensions.ZExtensions.*
 import models.*
 import models.schemas.{
   ArcaneSchema,
@@ -59,7 +60,7 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     )
   )
 
-  it should "gracefully handle stream shutdown" in {
+  it should "run correct number of stages and terminate gracefully" in {
     // Arrange
     val streamRepeatCount = 5
 
@@ -73,14 +74,21 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       streamDataProvider.stream.andReturn(
         ZStream.succeed(
           (
-            ZStream.fromIterable(testInput).repeat(Schedule.forever).rechunk(1),
+            // 2 rows x 5 repeats + 2 rows from initial run + 1 watermark = 12 total emissions
+            ZStream.fromIterable(testInput).repeat(Schedule.recurs(streamRepeatCount)).rechunk(1),
             ArcaneSchema(Seq(IndexedMergeKeyField(1), IndexedField("name", StringType, 2)))
           )
         )
       )
 
-      mergeServiceClient.applyBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(true)).times(5)
-      disposeServiceClient.disposeBatch(EasyMock.anyObject()).andReturn(ZIO.succeed(BatchDisposeResult(true))).times(5)
+      mergeServiceClient
+        .applyBatch(EasyMock.anyObject())
+        .andReturn(ZIO.succeed(true))
+        .times(streamRepeatCount * 2 + 2 + 1)
+      disposeServiceClient
+        .disposeBatch(EasyMock.anyObject())
+        .andReturn(ZIO.succeed(BatchDisposeResult(true)))
+        .times(streamRepeatCount * 2 + 2 + 1)
     }
     replay(streamDataProvider, mergeServiceClient, disposeServiceClient)
 
@@ -131,7 +139,19 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
     // Act
     Unsafe
       .unsafe(implicit unsafe =>
-        runtime.unsafe.runToFuture(ZIO.service[StreamRunnerService].flatMap(_.run).provideLayer(streamRunnerService))
+        runtime.unsafe.runToFuture(
+          ZIO
+            .service[StreamRunnerService]
+            .flatMap(
+              _.run.handleAppFailure(code =>
+                ZIO.ifZIO(ZIO.succeed(code).map(_.code == 0))(
+                  onTrue = ZIO.unit,
+                  onFalse = ZIO.fail(new Throwable("Non-zero exit code"))
+                )
+              )
+            )
+            .provideLayer(streamRunnerService)
+        )
       )
       .map { _ =>
         // Assert
