@@ -608,7 +608,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             ),
             MsSqlWatermark(
               version = Long.MaxValue.toString,
-              timestamp = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
+              timestamp = OffsetDateTime.ofInstant(Instant.now().plus(Duration.ofDays(365)), ZoneOffset.UTC)
             )
           )
           .flatMap(_._1)
@@ -664,7 +664,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             ),
             MsSqlWatermark(
               version = Long.MaxValue.toString,
-              timestamp = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
+              timestamp = OffsetDateTime.ofInstant(Instant.now().plus(Duration.ofDays(365)), ZoneOffset.UTC)
             )
           )
           .flatMap(_._1)
@@ -719,7 +719,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             ),
             MsSqlWatermark(
               version = Long.MaxValue.toString,
-              timestamp = OffsetDateTime.ofInstant(Instant.MAX, ZoneOffset.UTC)
+              timestamp = OffsetDateTime.ofInstant(Instant.now().plus(Duration.ofDays(365)), ZoneOffset.UTC)
             )
           )
           .flatMap(_._1)
