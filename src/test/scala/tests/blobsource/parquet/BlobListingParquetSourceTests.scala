@@ -84,7 +84,7 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq.empty
           )
         )
-        rows <- source.getChanges(BlobSourceWatermark.epoch).flatMap(_._1).runCollect
+        rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 14)) && assertTrue(
         rows.forall { row =>
           row.find(_.name == VersionField.name).map(_.value) ==

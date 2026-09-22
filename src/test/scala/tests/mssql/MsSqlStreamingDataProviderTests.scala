@@ -16,6 +16,7 @@ import tests.mssql.util.MsSqlTestServices
 import tests.mssql.util.MsSqlTestServices.{createTable, getConnection}
 import tests.shared.*
 
+import com.sneaksanddata.arcane.framework.models.schemas.MergeKeyField
 import zio.test.TestAspect.timeout
 import zio.test.{Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Scope, Task, ZIO}
@@ -167,6 +168,13 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
           .flatMap(_._1.haltAfter(zio.Duration.fromSeconds(2)))
           .rechunk(1)
           .runCollect
-      yield assertTrue(rows.size % totalRowsToInsert >= 0 && rows.drop(totalRowsToInsert).forall(_.isWatermark))
+        watermarks = rows.filter(_.isWatermark)
+        data       = rows.filterNot(_.isWatermark)
+      yield assertTrue(
+        data
+          .map(_.filter(_.name == MergeKeyField.name).head.value.toString)
+          .toSet
+          .size == totalRowsToInsert && watermarks.nonEmpty
+      )
     }
   } @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

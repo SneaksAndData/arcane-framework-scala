@@ -189,16 +189,17 @@ final class SynapseLinkStreamingSource(
     * deleted records. Start date to get changes from
     * @return
     */
-  def getChanges(version: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] = reader
-    .getEligibleDates(storagePath = location, startFrom = version.timestamp)
-    .map(_.asWatermark)
-    .filterZIO(wm => isValidSynapseBatch(wm.prefix))
-    .mapZIO(wm =>
-      getBatchSchema(wm.prefix).combineWith(allModifications).flatMap { case (batchSchema, mods) =>
-        applySchemaModifications(batchSchema, mods)
-          .map(modifiedSchema => (getChangesForVersion(wm, batchSchema), modifiedSchema))
-      }
-    )
+  def getChanges(startFrom: SynapseWatermark, endAt: SynapseWatermark): ZStream[Any, Throwable, StructuredZStream] =
+    reader
+      .getEligibleDates(storagePath = location, startFrom = startFrom.timestamp, endAt = endAt.timestamp)
+      .map(_.asWatermark)
+      .filterZIO(wm => isValidSynapseBatch(wm.prefix))
+      .mapZIO(wm =>
+        getBatchSchema(wm.prefix).combineWith(allModifications).flatMap { case (batchSchema, mods) =>
+          applySchemaModifications(batchSchema, mods)
+            .map(modifiedSchema => (getChangesForVersion(wm, batchSchema), modifiedSchema))
+        }
+      )
 
   /** Converts an arbitrary timestamp into a matching watermark
     * @return

@@ -40,13 +40,14 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     * @return
     */
   protected def changeStream(
-      previousVersion: WatermarkType
+      previousVersion: WatermarkType,
+      currentVersion: WatermarkType
   ): ZStream[Any, Throwable, StructuredZStream]
 
   final override def requestChanges(
       previousVersion: WatermarkType,
       nextVersion: WatermarkType
-  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion)
+  ): ZStream[Any, Throwable, StructuredZStream] = changeStream(previousVersion, nextVersion)
     .map(changeSet =>
       (
         throughputShaper

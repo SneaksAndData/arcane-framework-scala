@@ -50,8 +50,11 @@ class MsSqlDataProvider(
         }
     yield version
 
-  override protected def changeStream(previousVersion: MsSqlWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    streamingSource.getChanges(previousVersion)
+  override protected def changeStream(
+      previousVersion: MsSqlWatermark,
+      currentVersion: MsSqlWatermark
+  ): ZStream[Any, Throwable, StructuredZStream] =
+    streamingSource.getChanges(previousVersion, currentVersion)
 
   override def getLatestWatermarkInRange(
       startWatermark: MsSqlWatermark,

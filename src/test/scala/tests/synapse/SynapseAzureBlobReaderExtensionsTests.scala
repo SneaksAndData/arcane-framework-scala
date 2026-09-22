@@ -39,8 +39,10 @@ object SynapseAzureBlobReaderExtensionsTests extends ZIOSpecDefault:
     testCases.map { case (startDate, expectedCount) =>
       test("reads root prefixes correctly") {
         for
-          path     <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
-          prefixes <- storageReader.getEligibleDates(path, startDate).run(ZSink.collectAll)
+          path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
+          prefixes <- storageReader
+            .getEligibleDates(path, startDate, OffsetDateTime.now(ZoneOffset.UTC).plusHours(12))
+            .run(ZSink.collectAll)
         yield assertTrue(prefixes.size == expectedCount)
       }
     }
