@@ -4,7 +4,6 @@ package services.blobsource.readers.listing
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{ArcaneSchema, DataRow}
-import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.JsonBlobSourceSettings
 import models.settings.sources.modification.DataRowModification
 import services.iceberg.given_Conversion_AvroSchema_ArcaneSchema
@@ -29,7 +28,6 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     avroSchemaString: String,
     jsonPointerExpr: Option[String],
-    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
@@ -38,7 +36,6 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       nameGenerator,
       primaryKeys,
       tempStoragePath,
-      fieldSelector,
       modifications
     ):
 
@@ -49,11 +46,11 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
       .orDieWith(e => Throwable("Invalid Avro schema provided for source", e))
   yield schema
 
-  override protected def getSourceSchema: Task[SchemaType] = sourceSchema.map { avroSchema =>
-    val originalSchema: ArcaneSchema = avroSchema
-    val schemaAfterSelection         = applyFieldSelector(originalSchema)
-    schemaAfterSelection ++ Seq(BlobBatchCommons.versionField)
-  }
+  override protected def getSourceSchema: Task[SchemaType] = for
+    mods <- allModifications
+    avroSchema <- sourceSchema
+    modifiedSchema <- applySchemaModifications(avroSchema, mods)
+  yield modifiedSchema 
 
   /** Gets an empty schema.
     *
@@ -69,7 +66,6 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
   yield (
     ZStream.fromZIO(allModifications).flatMap { mods =>
       scanner.getRows
-        .map(applyFieldSelector)
         .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
         .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
     },
@@ -95,7 +91,6 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
               }
               .flatMap(
                 _.getRows
-                  .map(applyFieldSelector)
                   .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
                   .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
               )
@@ -135,7 +130,6 @@ object BlobListingJsonStreamingSource:
         nameGenerator = nameGenerator,
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
-        fieldSelector = context.source.fieldSelectionRule,
         modifications = context.source.modifications.modifications
       )
     }

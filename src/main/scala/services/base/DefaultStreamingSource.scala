@@ -12,7 +12,7 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 abstract class DefaultStreamingSource(
     protected val modifications: Seq[DataRowModification]
-) extends StreamingSource {
+) extends StreamingSource:
 
   final override lazy val getSchema: Task[ArcaneSchema] =
     getSourceSchema.combineWith(allModifications).flatMap { case (schema, mods) =>
@@ -26,20 +26,24 @@ abstract class DefaultStreamingSource(
   protected def applyDataRowModification(
       rows: Chunk[DataRow],
       modification: DataRowModification
-  ): Chunk[DataRow] = modification match {
+  ): Chunk[DataRow] = modification match
     case SurrogateTimestampImpl(_)       => addLoadTimestamp(rows, None)
     case FrozenSurrogateTimestamp(value) => addLoadTimestamp(rows, Some(value))
+    case m: IncludeFieldSelectorImpl => rows.map(applyFieldSelector(_, r => r.name, m).toList)
+    case m: ExcludeFieldSelectorImpl => rows.map(applyFieldSelector(_, r => r.name, m).toList)
     case _                               => rows
-  }
+  
 
   protected def applySchemaModification(
       schema: ArcaneSchema,
       modification: DataRowModification
-  ): Task[ArcaneSchema] = modification match {
+  ): Task[ArcaneSchema] = modification match 
     case SurrogateTimestampImpl(_)   => addFieldToSchema(LoadTimestampField, schema)
     case FrozenSurrogateTimestamp(_) => addFieldToSchema(LoadTimestampField, schema)
+    case m: IncludeFieldSelectorImpl => ZIO.attempt(applyFieldSelector(schema, f => f.name, m).toList)
+    case m: ExcludeFieldSelectorImpl => ZIO.attempt(applyFieldSelector(schema, f => f.name, m).toList)
     case _                           => ZIO.succeed(schema)
-  }
+  
 
   final def applyDataRowModifications(rows: Chunk[DataRow], supplied: Seq[DataRowModification]): Chunk[DataRow] =
     supplied.foldLeft(rows)((agg, mod) => applyDataRowModification(agg, mod))
@@ -66,4 +70,12 @@ abstract class DefaultStreamingSource(
           case Some(ts) => ts
       )
     }
-}
+
+  protected def applyFieldSelector[T](target: Seq[T], comparator: T => String, fieldSelector: FieldSelector): Seq[T] =
+    fieldSelector match
+      case IncludeFieldSelectorImpl(IncludeFieldSelector(includeFields)) =>
+        target.filter(f =>
+          includeFields.exists(_.equalsIgnoreCase(comparator(f)))
+        )
+      case ExcludeFieldSelectorImpl(ExcludeFieldSelector(excludeFields)) =>
+        target.filterNot(f => excludeFields.exists(_.equalsIgnoreCase(comparator(f))))

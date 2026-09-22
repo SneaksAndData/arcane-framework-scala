@@ -4,7 +4,7 @@ package tests.settings
 import models.settings.sources.modification.{
   DataRowModificationSetting,
   DefaultDataRowModificationSettings,
-  FieldSelector,
+  FieldSelectorSetting,
   FieldSelectorImpl,
   SurrogateTimestamp,
   SurrogateTimestampImpl
@@ -29,7 +29,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           DataRowModificationSetting(surrogateTimestamp = Some(SurrogateTimestamp())),
           DataRowModificationSetting(
             fieldSelector = Some(
-              FieldSelector(
+              FieldSelectorSetting(
                 includeFields = Seq("id", "name"),
                 excludeFields = Seq("secret")
               )
@@ -60,7 +60,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
       Seq(
         SurrogateTimestampImpl(SurrogateTimestamp()),
         FieldSelectorImpl(
-          FieldSelector(
+          FieldSelectorSetting(
             includeFields = Seq("id", "name"),
             excludeFields = Seq("secret")
           )
@@ -79,7 +79,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
     an[IllegalArgumentException] should be thrownBy {
       DataRowModificationSetting(
         surrogateTimestamp = Some(SurrogateTimestamp()),
-        fieldSelector = Some(FieldSelector())
+        fieldSelector = Some(FieldSelectorSetting())
       ).resolveSetting
     }
   }
