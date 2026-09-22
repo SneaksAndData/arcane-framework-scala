@@ -208,7 +208,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             |tq.[e],
             |@currentVersion AS 'ChangeTrackingVersion'
             |FROM [arcane].[dbo].[backfill_query] tq""".stripMargin)
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         query     <- reader.getBackfillQuery("dbo", "backfill_query", summaries)
       yield assertTrue(query == expected)
     },
@@ -249,7 +249,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               |tq.[e],
               |@currentVersion AS 'ChangeTrackingVersion'
               |FROM [arcane].[dbo].[field_selection_rule] tq""".stripMargin)
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         query     <- reader.getBackfillQuery("dbo", "field_selection_rule", summaries)
       yield assertTrue(query == expected)
     },
@@ -282,7 +282,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        tryGetSummaries <- reader.getColumnSummaries.exit
+        tryGetSummaries <- reader.getFilteredSummaries.exit
       yield zio.test.assert(tryGetSummaries)(
         fails(
           hasMessage(equalTo("Fields ['x'] are primary keys, and cannot be filtered out by the field selection rule"))
@@ -317,7 +317,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        tryGetSummaries <- reader.getColumnSummaries.exit
+        tryGetSummaries <- reader.getFilteredSummaries.exit
       yield zio.test.assert(tryGetSummaries)(
         fails(hasMessage(equalTo("Fields ['x'] are primary keys, and must be included in the field selection rule")))
       )
@@ -389,7 +389,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_rows", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.size == 20)
     },
@@ -433,7 +433,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
         schema    <- reader.getSchema
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         rows <- ZStream
           .fromZIO(reader.createShardStream(testTableName, summaries))
           .flatMap(_._1)
@@ -480,7 +480,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
         schema    <- reader.getSchema
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         rows <- ZStream
           .fromZIO(reader.createShardStream(testTableName, summaries))
           .flatMap(_._1)
@@ -522,7 +522,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         rows      <- ZStream.fromZIO(reader.createShardStream("backfill_columns", summaries)).flatMap(_._1).runCollect
       yield assertTrue(rows.head.size == 12)
     },
@@ -569,7 +569,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         )
 
-        summaries <- reader.getColumnSummaries
+        summaries <- reader.getFilteredSummaries
         rows <- ZStream
           .fromZIO(reader.createShardStream("backfill_columns_filtered", summaries))
           .flatMap(_._1)

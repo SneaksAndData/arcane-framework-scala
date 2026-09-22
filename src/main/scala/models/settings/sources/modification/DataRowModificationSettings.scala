@@ -53,6 +53,11 @@ case class ExcludeFieldSelector(fields: Set[String]) derives ReadWriter
  */
 case class ExcludeFieldSelectorImpl(exclude: ExcludeFieldSelector) extends FieldSelector
 
+/**
+ * Fields selector that signals to DRM API that no further operations are necessary
+ */
+case class FrozenFieldSelector(fields: Seq[String]) extends DataRowModification
+
 /** Field selector modification excludes provided fields or only selects fields from an include list.
   */
 case class FieldSelectorSetting(

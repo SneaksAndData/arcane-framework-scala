@@ -6,7 +6,6 @@ import models.sharding.{CompletedShard, CompletionShard, StagedShard}
 import services.backfill.base.{BackfillStateManager, ShardedBackfillStreamDataProvider, ShardFactory}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
-import services.streaming.processors.transformers.FieldFilteringTransformer
 
 import zio.stream.{ZPipeline, ZSink, ZStream}
 import zio.{ZIO, ZLayer}
@@ -19,7 +18,6 @@ class DefaultBackfillOverwriteGraphBuilder(
     mergeServiceClient: MergeServiceClient,
     stateManager: BackfillStateManager,
     shardFactory: ShardFactory,
-    fieldFilteringProcessor: FieldFilteringTransformer,
     backfillCompletionProcessor: BackfillCompletionProcessor
 ) extends BackfillStreamingGraphBuilder:
 
@@ -56,7 +54,6 @@ class DefaultBackfillOverwriteGraphBuilder(
                   .fromZIO(stateManager.prepareShardStage(shard, shard.shardStream._2))
                   .flatMap { _ =>
                     shard.shardStream._1
-                      .via(fieldFilteringProcessor.process)
                       .via(shardStageProcessor.process(shard, shard.shardStream._2))
                       .via(aggregateStagedShards)
                       .collect { case Some(staged) =>
@@ -122,8 +119,7 @@ object DefaultBackfillOverwriteGraphBuilder:
 
   /** The environment required for the DefaultBackfillOverwriteGraphBuilder.
     */
-  type Environment = ShardedBackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient &
-    FieldFilteringTransformer & BackfillCompletionProcessor & BackfillStateManager & ShardFactory
+  type Environment = ShardedBackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient & BackfillCompletionProcessor & BackfillStateManager & ShardFactory
 
   /** Creates a new DefaultBackfillOverwriteGraphBuilder.
     */
@@ -131,7 +127,6 @@ object DefaultBackfillOverwriteGraphBuilder:
       streamDataProvider: ShardedBackfillStreamDataProvider,
       shardStageProcessor: ShardStagingProcessor,
       mergeServiceClient: MergeServiceClient,
-      fieldFilteringProcessor: FieldFilteringTransformer,
       backfillCompletionProcessor: BackfillCompletionProcessor,
       stateManager: BackfillStateManager,
       shardFactory: ShardFactory
@@ -142,7 +137,6 @@ object DefaultBackfillOverwriteGraphBuilder:
       mergeServiceClient,
       stateManager,
       shardFactory,
-      fieldFilteringProcessor,
       backfillCompletionProcessor
     )
 
@@ -154,7 +148,6 @@ object DefaultBackfillOverwriteGraphBuilder:
         streamDataProvider         <- ZIO.service[ShardedBackfillStreamDataProvider]
         shardStageProcessor        <- ZIO.service[ShardStagingProcessor]
         mergeServiceClient         <- ZIO.service[MergeServiceClient]
-        fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
         backfillWatermarkProcessor <- ZIO.service[BackfillCompletionProcessor]
         stateManager               <- ZIO.service[BackfillStateManager]
         shardFactory               <- ZIO.service[ShardFactory]
@@ -162,7 +155,6 @@ object DefaultBackfillOverwriteGraphBuilder:
         streamDataProvider,
         shardStageProcessor,
         mergeServiceClient,
-        fieldFilteringProcessor,
         backfillWatermarkProcessor,
         stateManager,
         shardFactory

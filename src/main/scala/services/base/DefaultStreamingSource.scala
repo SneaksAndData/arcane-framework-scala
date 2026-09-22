@@ -29,6 +29,7 @@ abstract class DefaultStreamingSource(
   ): Chunk[DataRow] = modification match
     case SurrogateTimestampImpl(_)       => addLoadTimestamp(rows, None)
     case FrozenSurrogateTimestamp(value) => addLoadTimestamp(rows, Some(value))
+    case FrozenFieldSelector(_) => rows
     case m: IncludeFieldSelectorImpl => rows.map(applyFieldSelector(_, r => r.name, m).toList)
     case m: ExcludeFieldSelectorImpl => rows.map(applyFieldSelector(_, r => r.name, m).toList)
     case _                               => rows
@@ -40,6 +41,7 @@ abstract class DefaultStreamingSource(
   ): Task[ArcaneSchema] = modification match 
     case SurrogateTimestampImpl(_)   => addFieldToSchema(LoadTimestampField, schema)
     case FrozenSurrogateTimestamp(_) => addFieldToSchema(LoadTimestampField, schema)
+    case FrozenFieldSelector(_) => ZIO.succeed(schema)
     case m: IncludeFieldSelectorImpl => ZIO.attempt(applyFieldSelector(schema, f => f.name, m).toList)
     case m: ExcludeFieldSelectorImpl => ZIO.attempt(applyFieldSelector(schema, f => f.name, m).toList)
     case _                           => ZIO.succeed(schema)

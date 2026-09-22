@@ -5,15 +5,10 @@ import exceptions.FatalStreamFailException
 import extensions.ZExtensions.combineWith
 import models.schemas.*
 import models.settings.sources.modification.*
+import models.{PrimaryKeyProvider, VersionProvider}
 import utils.HashUtils
 
-import zio.{Chunk, Task, ZIO}
-
-trait PrimaryKeyProvider:
-  protected def getPrimaryKey: Task[FrozenSurrogateMergeKey]
-
-trait VersionProvider:
-  protected def getVersionField: Task[FrozenSurrogateVersion]
+import zio.{Chunk, Task}
 
 /** A streaming source that supports INSERT, UPDATE and DELETE data modifications. This source requires primary key
   * fields and a version field to be defined in concrete implementations.

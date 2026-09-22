@@ -11,7 +11,6 @@ import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingPr
 import services.base.{MergeServiceClient, StreamingSource}
 import services.bootstrap.base.StreamBootstrapper
 import services.completion.base.StreamFinalizer
-import services.filters.FieldsFilteringService
 import services.iceberg.IcebergS3CatalogWriter
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.metrics.DeclaredMetrics
@@ -26,10 +25,9 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 
-type FrameworkProvidedPipelineServices = DisposeBatchProcessor & MergeBatchProcessor & FieldFilteringTransformer &
-  FieldsFilteringService & SinkPropertyManager & SinkEntityManager & StagingPropertyManager & StagingEntityManager &
+type FrameworkProvidedPipelineServices = DisposeBatchProcessor & MergeBatchProcessor & SinkPropertyManager & SinkEntityManager & StagingPropertyManager & StagingEntityManager &
   MergeServiceClient & NameGenerator & DeclaredMetrics & StreamBootstrapper & StreamFinalizer & MetricTagProvider &
   IcebergS3CatalogWriter & WatermarkProcessor & TargetMaintenanceProcessor & SchemaMigrationProcessor
 
