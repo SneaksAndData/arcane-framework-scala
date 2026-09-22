@@ -12,10 +12,10 @@ import upickle.implicits.key
 trait OverrideDataRowModificationSettings:
   /** Optional override for the ordered list of modification settings.
     */
-  val modificationSettings: Option[Seq[CompositeSetting[DataRowModification]]]
+  val modificationSettings: Option[SupportedModifications]
 
 /** Default implementation for `OverrideDataRowModificationSettings` using optional values.
   */
 case class DefaultOverrideDataRowModificationSettings(
-    @key("modifications") override val modificationSettings: Option[Seq[CompositeSetting[DataRowModification]]] = None
+    @key("modifications") override val modificationSettings: Option[SupportedModifications] = None
 ) extends OverrideDataRowModificationSettings derives ReadWriter

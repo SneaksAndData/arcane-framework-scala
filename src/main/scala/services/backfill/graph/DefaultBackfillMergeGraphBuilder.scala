@@ -36,8 +36,8 @@ class DefaultBackfillMergeGraphBuilder(
 
 object DefaultBackfillMergeGraphBuilder:
 
-  type Environment = BackfillStreamDataProvider & StagingProcessor & MergeBatchProcessor &
-    WatermarkProcessor & SchemaMigrationProcessor
+  type Environment = BackfillStreamDataProvider & StagingProcessor & MergeBatchProcessor & WatermarkProcessor &
+    SchemaMigrationProcessor
 
   val layer: ZLayer[Environment, Nothing, DefaultBackfillMergeGraphBuilder] =
     ZLayer {

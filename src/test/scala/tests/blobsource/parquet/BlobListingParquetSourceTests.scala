@@ -8,7 +8,7 @@ import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.shared.S3StorageInfo.*
-import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
+import tests.shared.TestSinkSettings
 
 import zio.test.*
 import zio.test.TestAspect.timeout
@@ -37,7 +37,6 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
@@ -51,7 +50,6 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             true,
             None,
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
@@ -80,7 +78,6 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )

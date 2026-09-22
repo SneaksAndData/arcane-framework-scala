@@ -48,8 +48,8 @@ object DefaultStreamingGraphBuilder:
 
   /** The environment required for the DefaultStreamingGraphBuilder.
     */
-  type Environment = StreamDataProvider & StagingProcessor & MergeBatchProcessor &
-    DisposeBatchProcessor & WatermarkProcessor & SchemaMigrationProcessor & TargetMaintenanceProcessor
+  type Environment = StreamDataProvider & StagingProcessor & MergeBatchProcessor & DisposeBatchProcessor &
+    WatermarkProcessor & SchemaMigrationProcessor & TargetMaintenanceProcessor
 
   /** Creates a new DefaultStreamingGraphBuilder.
     */

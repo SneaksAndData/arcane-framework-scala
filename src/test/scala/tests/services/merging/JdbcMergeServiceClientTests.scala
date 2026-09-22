@@ -5,7 +5,6 @@ import models.batches.SynapseLinkMergeBatch
 import models.schemas.ArcaneType.{BooleanType, StringType}
 import models.schemas.{ArcaneSchema, Field, MergeKeyField, VersionField}
 import services.base.SchemaProvider
-import services.filters.FieldsFilteringService
 import services.merging.*
 import services.metrics.DeclaredMetrics
 import tests.services.merging.JdbcMergeServiceClientTests.test
@@ -27,8 +26,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
     StringType
   ) :: Field("colB", StringType) :: Field("Id", StringType) :: Nil
 
-  private val schemaProviderMock         = mock[SchemaProvider[ArcaneSchema]]
-  private val fieldsFilteringServiceMock = mock[FieldsFilteringService]
+  private val schemaProviderMock = mock[SchemaProvider[ArcaneSchema]]
 
   private def getJdbcMergeServiceClient =
     new JdbcMergeServiceClient(

@@ -35,47 +35,47 @@ case class SurrogateTimestampImpl(surrogateTimestamp: SurrogateTimestamp) extend
 
 sealed trait FieldSelector extends DataRowModification
 
-/**
- * Field selector which limits the resulting DataRow/Schema to only contain fields from an include list.
- */
+/** Field selector which limits the resulting DataRow/Schema to only contain fields from an include list.
+  */
 case class IncludeFieldSelector(fields: Set[String]) derives ReadWriter
 
 /** ADT composed with settings for the IncludeFieldSelector.
- */
+  */
 case class IncludeFieldSelectorImpl(include: IncludeFieldSelector) extends FieldSelector
 
-/**
- * Field selector which removes blacklisted fields from the resulting DataRow/Schema.
- */
+/** Field selector which removes blacklisted fields from the resulting DataRow/Schema.
+  */
 case class ExcludeFieldSelector(fields: Set[String]) derives ReadWriter
 
 /** ADT composed with settings for the ExcludeFieldSelector.
- */
+  */
 case class ExcludeFieldSelectorImpl(exclude: ExcludeFieldSelector) extends FieldSelector
 
-/**
- * Fields selector that signals to DRM API that no further operations are necessary
- */
+/** Fields selector that signals to DRM API that no further operations are necessary
+  */
 case class FrozenFieldSelector(fields: Seq[String]) extends DataRowModification
 
 /** Field selector modification excludes provided fields or only selects fields from an include list.
   */
 case class FieldSelectorSetting(
-    @key("fieldSelector.include") include: Option[IncludeFieldSelector] = None,
-    @key("fieldSelector.exclude") exclude: Option[ExcludeFieldSelector] = None,
+    include: Option[IncludeFieldSelector] = None,
+    exclude: Option[ExcludeFieldSelector] = None
 ) extends CompositeSetting[FieldSelector] derives ReadWriter:
   override def resolve: FieldSelector =
-    if include.isDefined then
-      IncludeFieldSelectorImpl(include.get)
-    if exclude.isDefined then
-      ExcludeFieldSelectorImpl(exclude.get)
+    if include.isDefined then IncludeFieldSelectorImpl(include.get)
+    if exclude.isDefined then ExcludeFieldSelectorImpl(exclude.get)
 
     throw new RuntimeException("Invalid fieldSelector setting: neither `include`, nor `exclude` sections are defined.")
-    
-case class SurrogateTimestampSetting(
-                                      loadTimestamp: SurrogateTimestamp
-                                    )  extends CompositeSetting[DataRowModification] derives ReadWriter:
-  override def resolve: DataRowModification = SurrogateTimestampImpl(loadTimestamp)
+
+case class SurrogateTimestampSetting() extends CompositeSetting[DataRowModification] derives ReadWriter:
+  override def resolve: DataRowModification = SurrogateTimestampImpl(SurrogateTimestamp())
+
+case class SupportedModifications(
+    fieldSelector: Option[FieldSelectorSetting] = None,
+    surrogateTimestamp: Option[SurrogateTimestampSetting] = None
+) derives ReadWriter
+
+object NoModifications extends SupportedModifications(None, None)
 
 /** Settings for modifications applied to source data rows and their corresponding schemas.
   */
@@ -84,7 +84,7 @@ trait DataRowModificationSettings extends Mergeable:
     */
   val modifications: Seq[DataRowModification]
 
-/** Default serializable implementation of [[DefaultDataRowModificationSettings]].
+/** Default serializable implementation of [[DataRowModificationSettings]].
   *
   * An empty `modifications` array disables schema modification.
   *
@@ -92,13 +92,18 @@ trait DataRowModificationSettings extends Mergeable:
   *   serialized modification entries to resolve and apply in order
   */
 case class DefaultDataRowModificationSettings(
-    @key("modifications") modificationSettings: Seq[CompositeSetting[DataRowModification]]
+    @key("modifications") modificationSettings: SupportedModifications
 ) extends DataRowModificationSettings,
       Mergeable derives ReadWriter:
 
   /** Resolved internal modification definitions.
     */
-  override val modifications: Seq[DataRowModification] = modificationSettings.map(_.resolve)
+  override val modifications: Seq[DataRowModification] = Seq(
+    modificationSettings.fieldSelector.map(_.resolve),
+    modificationSettings.surrogateTimestamp.map(_.resolve)
+  ).collect { case Some(v) =>
+    v
+  }
 
   override type MergeableFrom = OverrideDataRowModificationSettings
   override type MergeResult   = DefaultDataRowModificationSettings

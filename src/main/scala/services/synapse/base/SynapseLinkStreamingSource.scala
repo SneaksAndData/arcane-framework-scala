@@ -10,7 +10,6 @@ import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
 import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
-import models.settings.{AllFieldsImpl, ExcludeFieldsImpl, FieldSelectionRuleSettings, IncludeFieldsImpl}
 import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
@@ -31,7 +30,6 @@ final class SynapseLinkStreamingSource(
     location: AdlsStoragePath,
     entityName: String,
     reader: AzureBlobStorageReader,
-    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification]
 ) extends InsertUpdateDeleteSource(modifications):
 
@@ -44,43 +42,22 @@ final class SynapseLinkStreamingSource(
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion("versionnumber"))
 
-  // in 2.4 release this will be integrated via DataRowModification and provided uniformly for all source
-  // this code only addresses schema alignment issues in 2.3 release for non-server-side filtered sources.
-  private def applyFieldSelector(schema: ArcaneSchema): ArcaneSchema =
-    fieldSelector.rule match
-      case AllFieldsImpl(_) => schema
-      case IncludeFieldsImpl(includeFields) =>
-        schema.filter(f =>
-          includeFields.fields.exists(_.equalsIgnoreCase(f.name)) || fieldSelector.essentialFields.exists(
-            _.equalsIgnoreCase(f.name)
-          )
-        )
-      case ExcludeFieldsImpl(excludeFields) =>
-        schema.filterNot(f => excludeFields.fields.exists(_.equalsIgnoreCase(f.name)))
-
-  private def applyFieldSelector(row: DataRow): DataRow =
-    fieldSelector.rule match
-      case AllFieldsImpl(_) => row
-      case IncludeFieldsImpl(includeFields) =>
-        row.filter(cell =>
-          includeFields.fields.exists(_.equalsIgnoreCase(cell.name)) || fieldSelector.essentialFields.exists(
-            _.equalsIgnoreCase(cell.name)
-          )
-        )
-      case ExcludeFieldsImpl(excludeFields) =>
-        row.filterNot(cell => excludeFields.fields.exists(_.equalsIgnoreCase(cell.name)))
-
   /** Schema here comes from root-level model.json
     */
   override protected def getSourceSchema: Task[ArcaneSchema] =
     SynapseEntitySchemaProvider(reader, location.toHdfsPath, entityName).getSchema
-      .map(applyFieldSelector)
 
   /** Schema from batch-level model.json
     */
-  private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] =
-    SynapseEntitySchemaProvider(reader, (location + batchFolderName).toHdfsPath, entityName).getSchema
-      .map(applyFieldSelector)
+  private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] = for
+    mods <- allModifications
+    batchBaseSchema <- SynapseEntitySchemaProvider(
+      reader,
+      (location + batchFolderName).toHdfsPath,
+      entityName
+    ).getSchema
+    modifiedSchema <- applySchemaModifications(batchBaseSchema, mods)
+  yield modifiedSchema
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
@@ -222,8 +199,7 @@ final class SynapseLinkStreamingSource(
         .flatMap { case (fileStream, blob) =>
           getTableChanges(fileStream, batchSchema, blob.name)
         }
-        .map(convertRow)
-        .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+        .mapChunks(rowChunk => applyDataRowModifications(rowChunk.map(_.map(convertCell)), mods))
     }
 
   def getWatermarks(startAt: SynapseWatermark, endAt: SynapseWatermark): Task[Seq[SynapseWatermark]] =
@@ -242,12 +218,6 @@ final class SynapseLinkStreamingSource(
       ZIO.succeed(None)
     )
   yield result
-
-  /** Row type conversions. Should be moved to a separate class, implementing IcebergRowConverter trait, see
-    * https://github.com/SneaksAndData/arcane-framework-scala/issues/125
-    */
-
-  private def convertRow(row: DataRow): DataRow = applyFieldSelector(row).map(convertCell)
 
   private def convertCell(cell: DataCell): DataCell =
     cell.value match
@@ -342,7 +312,6 @@ object SynapseLinkStreamingSource:
         settings.baseLocation,
         settings.entityName,
         AzureBlobStorageReader(settings.storageConnection),
-        context.source.fieldSelectionRule,
         context.source.modifications.modifications
       )
     }

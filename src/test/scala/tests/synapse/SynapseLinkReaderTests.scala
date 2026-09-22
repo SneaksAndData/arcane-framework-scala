@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.synapse
 
 import models.schemas.{MergeKeyField, VersionField}
-import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
 import services.storage.models.azure.AdlsStoragePath
 import services.synapse.base.SynapseLinkStreamingSource
 import services.synapse.versioning.SynapseWatermark
@@ -16,29 +15,13 @@ import java.time.{Duration, OffsetDateTime}
 
 object SynapseLinkReaderTests extends ZIOSpecDefault:
   private val tableName = "dimensionattributelevelvalue"
-  private val allFieldsSelector = new FieldSelectionRuleSettings {
-
-    /** The field selection rule to use.
-      */
-    override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
-
-    /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list are
-      * used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane streaming
-      * plugin and should not be configurable.
-      */
-    override val essentialFields: Set[String] = Set.empty[String]
-    override val isServerSide: Boolean        = false
-    override type MergeableFrom = this.type
-    override type MergeResult   = this.type
-    override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
-  }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkStreamingSource")(
     test("streams changes belonging to the configured table") {
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(
-          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
+          new SynapseLinkStreamingSource(path, tableName, storageReader, Seq.empty)
         )
         startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         allRows <- synapseLinkReader
@@ -59,7 +42,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
       for
         path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
         synapseLinkReader <- ZIO.succeed(
-          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
+          new SynapseLinkStreamingSource(path, tableName, storageReader, Seq.empty)
         )
         schema <- synapseLinkReader.getSchema
       yield assertTrue(
@@ -74,7 +57,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
           AdlsStoragePath(s"abfss://$malformedSchemaContainer@$storageAccount.dfs.core.windows.net/").get
         )
         synapseLinkReader <- ZIO.succeed(
-          new SynapseLinkStreamingSource(path, tableName, storageReader, allFieldsSelector, Seq.empty)
+          new SynapseLinkStreamingSource(path, tableName, storageReader, Seq.empty)
         )
         startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
         exit <- synapseLinkReader

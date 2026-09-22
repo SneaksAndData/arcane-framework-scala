@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import models.app.{OverrideStreamContext, PluginStreamContext}
-import models.settings.{FieldSelectionRuleSettings, FlowRate}
+import models.settings.FlowRate
 import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.observability.ObservabilitySettings
@@ -24,7 +24,11 @@ import models.settings.streaming.{
   ThroughputSettings,
   ThroughputShaperImpl
 }
-import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
+import models.settings.sources.modification.{
+  DataRowModificationSettings,
+  DefaultDataRowModificationSettings,
+  SupportedModifications
+}
 
 import zio.{IO, ZIO}
 
@@ -75,8 +79,9 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
 
       override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
     }
-    override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
-    override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
+    override val modifications: DataRowModificationSettings = DefaultDataRowModificationSettings(
+      SupportedModifications(None, None)
+    )
   }
 
 object TestPluginStreamContext extends TestPluginStreamContextImpl:

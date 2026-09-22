@@ -7,7 +7,13 @@ import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
 
-import modification.{DataRowModification, FieldSelector, FrozenFieldSelector, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import modification.{
+  DataRowModification,
+  FieldSelector,
+  FrozenFieldSelector,
+  FrozenSurrogateMergeKey,
+  FrozenSurrogateVersion
+}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
@@ -55,12 +61,11 @@ class MsSqlStreamingSource(
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   implicit val formatter: DateTimeFormatter                  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
-  /** Gets the column summaries for the table in the database.
-    * TODO: cache this
+  /** Gets the column summaries for the table in the database. TODO: cache this
     * @return
     *   An effect containing the column summaries for the table in the database.
     */
-  private def getColumnSummaries: Task[List[ColumnSummary]] =
+  def getColumnSummaries: Task[List[ColumnSummary]] =
     for
       query <- QueryProvider.getColumnSummariesQuery(
         connectionSettings.schemaName,
@@ -69,11 +74,11 @@ class MsSqlStreamingSource(
       )
       result <- executeColumnSummariesQuery(query)
     yield result
-    
+
   // TODO: cache this
-  def getFilteredSummaries: Task[List[ColumnSummary]] = for 
-      summaries <- getColumnSummaries
-      schemaFields <- getSchema.map(v => v.map(_.name.toLowerCase).toSet)
+  def getFilteredSummaries: Task[List[ColumnSummary]] = for
+    summaries    <- getColumnSummaries
+    schemaFields <- getSchema.map(v => v.map(_.name.toLowerCase).toSet)
   yield summaries.filter(s => schemaFields.contains(s._1.toLowerCase))
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
@@ -88,13 +93,17 @@ class MsSqlStreamingSource(
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion("SYS_CHANGE_VERSION"))
 
-  override protected def applyFieldSelector[T](target: Seq[T], comparator: T => String, fieldSelector: FieldSelector): Seq[T] =
+  override protected def applyFieldSelector[T](
+      target: Seq[T],
+      comparator: T => String,
+      fieldSelector: FieldSelector
+  ): Seq[T] =
     target match
       // SQL performs schema filter and generates queries based on acquired schema
       // thus field selector mod should be applied to schema, after field name normalization
-      case ArcaneSchema => super.applyFieldSelector(target, comparator, fieldSelector)
+      case schema: ArcaneSchema => super.applyFieldSelector(target, comparator, fieldSelector)
       // however, since rows come out already filtered, they should just pass through
-      case _: DataRow => target
+      case row: List[_] => target
 
   /** Create a stream from a provided shard table.
     */
@@ -103,7 +112,8 @@ class MsSqlStreamingSource(
       (
         for
           query <- ZStream.fromZIO(
-            QueryProvider.getBackfillQuery(catalog, connectionSettings.backfillShardSchemaName, shardTableName, columnSummaries)
+            QueryProvider
+              .getBackfillQuery(catalog, connectionSettings.backfillShardSchemaName, shardTableName, columnSummaries)
           )
           statement <- ZStream
             .acquireReleaseWith(ZIO.attempt(connection.createStatement()))(st => ZIO.succeed(st.close()))
@@ -204,7 +214,14 @@ class MsSqlStreamingSource(
           .fromZIO(ZIO.scoped {
             for
               summaries <- getFilteredSummaries
-              changesQuery <- QueryProvider.getChangesForVersionRangeQuery(connectionSettings.schemaName, connectionSettings.tableName, catalog, fromVersion - 1, toVersion - 0, summaries)
+              changesQuery <- QueryProvider.getChangesForVersionRangeQuery(
+                connectionSettings.schemaName,
+                connectionSettings.tableName,
+                catalog,
+                fromVersion - 1,
+                toVersion - 0,
+                summaries
+              )
 
               // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
               // And the LazyQueryResult will close the statement/result set when it is closed.
@@ -221,7 +238,14 @@ class MsSqlStreamingSource(
     ZIO.scoped {
       for
         summaries <- getFilteredSummaries
-        changesQuery <- QueryProvider.getChangesForVersionRangeQuery(connectionSettings.schemaName, connectionSettings.tableName, catalog, latestVersion - 1, Long.MaxValue, summaries)
+        changesQuery <- QueryProvider.getChangesForVersionRangeQuery(
+          connectionSettings.schemaName,
+          connectionSettings.tableName,
+          catalog,
+          latestVersion - 1,
+          Long.MaxValue,
+          summaries
+        )
 
         // We don't need to close the statement/result set here, since the ownership is passed to the LazyQueryResult
         // And the LazyQueryResult will close the statement/result set when it is closed.
@@ -330,7 +354,12 @@ class MsSqlStreamingSource(
   override lazy val getSourceSchema: Task[this.SchemaType] =
     for
       summaries <- getColumnSummaries
-      query     <- QueryProvider.getSchemaQuery(connectionSettings.schemaName, connectionSettings.tableName, catalog, summaries)
+      query <- QueryProvider.getSchemaQuery(
+        connectionSettings.schemaName,
+        connectionSettings.tableName,
+        catalog,
+        summaries
+      )
       sqlSchema <- getSqlSchema(query)
     yield sqlSchema
 

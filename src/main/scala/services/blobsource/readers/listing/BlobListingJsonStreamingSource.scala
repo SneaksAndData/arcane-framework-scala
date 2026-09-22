@@ -47,10 +47,10 @@ class BlobListingJsonStreamingSource[PathType <: BlobPath](
   yield schema
 
   override protected def getSourceSchema: Task[SchemaType] = for
-    mods <- allModifications
-    avroSchema <- sourceSchema
+    mods           <- allModifications
+    avroSchema     <- sourceSchema
     modifiedSchema <- applySchemaModifications(avroSchema, mods)
-  yield modifiedSchema 
+  yield modifiedSchema
 
   /** Gets an empty schema.
     *

@@ -15,11 +15,11 @@ import scala.math.{log, pow}
 object QueryProvider:
 
   def getBackfillQuery(
-                        databaseName: String,
-                        shardSchemaName: String,
-                        shardTableName: String,
-                        columnSummaries: List[ColumnSummary]
-                      ): Task[MsSqlQuery] =
+      databaseName: String,
+      shardSchemaName: String,
+      shardTableName: String,
+      columnSummaries: List[ColumnSummary]
+  ): Task[MsSqlQuery] =
     for
       columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
       query <- QueryProvider.getAllQuery(
@@ -30,10 +30,17 @@ object QueryProvider:
       )
     yield query
 
-  def getChangesForVersionRangeQuery(schemaName: String, tableName: String, databaseName: String, fromVersion: Long, toVersion: Long, summaries: List[ColumnSummary]): Task[MsSqlQuery] =
+  def getChangesForVersionRangeQuery(
+      schemaName: String,
+      tableName: String,
+      databaseName: String,
+      fromVersion: Long,
+      toVersion: Long,
+      summaries: List[ColumnSummary]
+  ): Task[MsSqlQuery] =
     for
       columnExpression = QueryProvider.getChangeTrackingColumns(summaries, "ct", "tq")
-      matchStatement = QueryProvider.getMatchStatement(summaries, "ct", "tq", None)
+      matchStatement   = QueryProvider.getMatchStatement(summaries, "ct", "tq", None)
       query <- QueryProvider.getChangesQuery(
         schemaName,
         tableName,
@@ -43,12 +50,17 @@ object QueryProvider:
         fromVersion,
         toVersion
       )
-    yield query    
+    yield query
 
-  def getSchemaQuery(schemaName: String, tableName: String, databaseName: String, summaries: List[ColumnSummary]): Task[MsSqlQuery] =
+  def getSchemaQuery(
+      schemaName: String,
+      tableName: String,
+      databaseName: String,
+      summaries: List[ColumnSummary]
+  ): Task[MsSqlQuery] =
     for
       columnExpression = QueryProvider.getChangeTrackingColumns(summaries, "ct", "tq")
-      matchStatement = QueryProvider.getMatchStatement(summaries, "ct", "tq", None)
+      matchStatement   = QueryProvider.getMatchStatement(summaries, "ct", "tq", None)
       query <- QueryProvider.getChangesQuery(
         schemaName,
         tableName,
@@ -58,7 +70,7 @@ object QueryProvider:
         Long.MaxValue,
         Long.MaxValue
       )
-    yield query      
+    yield query
 
   /** Gets the column summaries query for the Microsoft SQL Server database.
     *

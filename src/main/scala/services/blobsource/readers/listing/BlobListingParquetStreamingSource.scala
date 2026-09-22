@@ -70,10 +70,10 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
                 )
               )
         yield schema
-    
-    mods <- allModifications
+
+    mods         <- allModifications
     resultSchema <- applySchemaModifications(icebergSchema, mods)
-    //  TODO: nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
+  //  TODO: nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
   yield resultSchema
 
   /** Gets an empty schema.

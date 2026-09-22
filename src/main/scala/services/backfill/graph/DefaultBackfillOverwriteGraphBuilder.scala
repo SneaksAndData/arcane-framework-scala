@@ -119,7 +119,8 @@ object DefaultBackfillOverwriteGraphBuilder:
 
   /** The environment required for the DefaultBackfillOverwriteGraphBuilder.
     */
-  type Environment = ShardedBackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient & BackfillCompletionProcessor & BackfillStateManager & ShardFactory
+  type Environment = ShardedBackfillStreamDataProvider & ShardStagingProcessor & MergeServiceClient &
+    BackfillCompletionProcessor & BackfillStateManager & ShardFactory
 
   /** Creates a new DefaultBackfillOverwriteGraphBuilder.
     */
