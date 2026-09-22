@@ -62,30 +62,10 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
     .concat(ZStream.succeed((ZStream.succeed(JsonWatermarkRow(nextVersion)), ArcaneSchema.empty())))
 
   final override def currentWatermark: Task[WatermarkType] = for
-    watermarkString <-
-      for
-        watermarkExpectedString <- sinkPropertyManager.getProperty(
-          sinkSettings.targetTableFullName.parts.name,
-          MetadataKeys.watermarkKey
-        )
-        watermarkResolvedString <- ZIO.ifZIO(ZIO.succeed(watermarkExpectedString.isEmpty))(
-          onTrue = for
-            _ <- zlog(
-              s"Reading watermark using legacy key (${MetadataKeys.legacyWatermarkKey}) - new values will be saved under a new (${MetadataKeys.watermarkKey})"
-            )
-            legacyValue <- sinkPropertyManager.getRequiredProperty(
-              sinkSettings.targetTableFullName.parts.name,
-              MetadataKeys.legacyWatermarkKey
-            )
-            _ <- sinkPropertyManager.setProperty(
-              sinkSettings.targetTableFullName.parts.name,
-              MetadataKeys.watermarkKey,
-              legacyValue
-            )
-          yield legacyValue,
-          onFalse = ZIO.attempt(watermarkExpectedString.get)
-        )
-      yield watermarkResolvedString
+    watermarkString <- sinkPropertyManager.getRequiredProperty(
+      sinkSettings.targetTableFullName.parts.name,
+      MetadataKeys.watermarkKey
+    )
     _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
     watermark <- ZIO
       .attempt(upickle.read(watermarkString))

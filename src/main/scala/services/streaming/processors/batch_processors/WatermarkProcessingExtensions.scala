@@ -25,12 +25,8 @@ object WatermarkProcessingExtensions:
               Seq(getAnnotation("processor", stageName)),
               watermark
             )
-            previousWatermark <-
-              for
-                existingValue <- propertyManager.getProperty(targetName, MetadataKeys.watermarkKey)
-                legacyValue   <- propertyManager.getProperty(targetName, MetadataKeys.legacyWatermarkKey)
-              yield existingValue.getOrElse(legacyValue.get)
-            _ <- propertyManager.setProperty(targetName, MetadataKeys.watermarkKey, watermark)
+            previousWatermark <- propertyManager.getRequiredProperty(targetName, MetadataKeys.watermarkKey)
+            _                 <- propertyManager.setProperty(targetName, MetadataKeys.watermarkKey, watermark)
             _ <- zlog(
               "Updated watermark from %s to %s",
               Seq(getAnnotation("processor", stageName)),
