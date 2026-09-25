@@ -56,7 +56,7 @@ object PluginStreamContext:
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
     * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
     */
-  def getLayer[ContextImpl <: PluginConfiguration, OverridesImpl <: OverrideStreamContext](implicit
+  def getLayer[ContextImpl <: PluginStreamContext, OverridesImpl <: OverrideStreamContext](implicit
       rwc: ReadWriter[ContextImpl],
       rwo: ReadWriter[OverridesImpl]
   ): ZLayer[Any, Throwable, PluginConfiguration] =
@@ -72,6 +72,10 @@ object PluginStreamContext:
         )
 
     ZLayer.fromZIO[Any, Throwable, PluginStreamContext](effect)
-      ++ ZLayer.fromZIO[Any, Throwable, DatagramSocketConfig](effect)
-      ++ ZLayer.fromZIO[Any, Throwable, MetricsConfig](effect)
+      ++ ZLayer.fromZIO[Any, Throwable, DatagramSocketConfig](
+        effect.map(summon[Conversion[PluginStreamContext, DatagramSocketConfig]])
+      )
+      ++ ZLayer.fromZIO[Any, Throwable, MetricsConfig](
+        effect.map(summon[Conversion[PluginStreamContext, MetricsConfig]])
+      )
       ++ ZLayer.succeed(DatadogPublisherConfig())
