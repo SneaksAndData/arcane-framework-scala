@@ -10,7 +10,6 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.{BufferingStrategy, SourceBufferingSettings, Unbounded, UnboundedImpl}
-import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
 import services.mssql.backfill.{
@@ -18,7 +17,7 @@ import services.mssql.backfill.{
   MsSqlShardFactory,
   MsSqlShardedBackfillStreamDataProvider
 }
-import services.mssql.base.{ColumnSummaryFieldSelector, MsSqlStreamingSource}
+import services.mssql.base.MsSqlStreamingSource
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
@@ -40,25 +39,6 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
     val base = (1 to 50).map(ix => s"col$ix nvarchar(50)").mkString(",")
     s"(x int not null, $base)"
   private val pkString = "primary key(x)"
-  private val emptyFieldsFilteringService: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(
-    new FieldSelectionRuleSettings {
-
-      /** The field selection rule to use.
-        */
-      override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
-
-      /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list
-        * are used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane
-        * streaming plugin and should not be configurable.
-        */
-      override val essentialFields: Set[String] = Set.empty[String]
-      override val isServerSide: Boolean        = true
-
-      override type MergeableFrom = this.type
-      override type MergeResult   = this.type
-      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
-    }
-  )
   private val backfillSettings = new BackfillSettings {
     override val backfillStartDate: Option[OffsetDateTime] = None
     override val backfillBehavior: BackfillBehavior        = Overwrite
@@ -148,7 +128,6 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           override val shardSizeMegabytes: Option[Int]                = None
           override val backfillShardSchemaName: String                = "dbo"
         },
-        emptyFieldsFilteringService,
         nameGenerator,
         Seq.empty
       )

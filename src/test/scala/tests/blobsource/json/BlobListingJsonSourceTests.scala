@@ -9,7 +9,7 @@ import services.naming.DefaultNameGenerator
 import services.storage.models.s3.S3StoragePath
 import tests.blobsource.json.JsonSourceSchemas.*
 import tests.shared.S3StorageInfo.*
-import tests.shared.{TestFieldSelectionRuleSettings, TestSinkSettings}
+import tests.shared.TestSinkSettings
 import utils.HashUtils
 
 import zio.test.TestAspect.timeout
@@ -45,7 +45,6 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             flatSchema,
             Some("/body"),
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
@@ -72,7 +71,6 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             flatSchema,
             Some("/body"),
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
@@ -95,7 +93,6 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             pkColumns,
             flatSchema,
             Some("/body"),
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
@@ -128,7 +125,6 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
             Seq("col0"),
             flatSchema,
             Some("/body"),
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )

@@ -9,7 +9,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 
 import zio.stream.ZStream
 import zio.{ZIO, ZLayer}
@@ -18,7 +18,6 @@ import zio.{ZIO, ZLayer}
   */
 class DefaultBackfillMergeGraphBuilder(
     streamDataProvider: BackfillStreamDataProvider,
-    fieldFilteringProcessor: FieldFilteringTransformer,
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
     watermarkProcessor: WatermarkProcessor,
@@ -29,7 +28,6 @@ class DefaultBackfillMergeGraphBuilder(
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] = streamDataProvider.stream.flatMap {
     case (subStream, schema) =>
       subStream
-        .via(fieldFilteringProcessor.process)
         .via(stagingProcessor.process(schema))
         .via(schemaMigrationProcessor.process)
         .via(mergeProcessor.process)
@@ -38,21 +36,19 @@ class DefaultBackfillMergeGraphBuilder(
 
 object DefaultBackfillMergeGraphBuilder:
 
-  type Environment = BackfillStreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
-    WatermarkProcessor & SchemaMigrationProcessor
+  type Environment = BackfillStreamDataProvider & StagingProcessor & MergeBatchProcessor & WatermarkProcessor &
+    SchemaMigrationProcessor
 
   val layer: ZLayer[Environment, Nothing, DefaultBackfillMergeGraphBuilder] =
     ZLayer {
       for
         streamDataProvider       <- ZIO.service[BackfillStreamDataProvider]
-        fieldFilteringProcessor  <- ZIO.service[FieldFilteringTransformer]
         stagingProcessor         <- ZIO.service[StagingProcessor]
         mergeProcessor           <- ZIO.service[MergeBatchProcessor]
         watermarkProcessor       <- ZIO.service[WatermarkProcessor]
         schemaMigrationProcessor <- ZIO.service[SchemaMigrationProcessor]
       yield new DefaultBackfillMergeGraphBuilder(
         streamDataProvider,
-        fieldFilteringProcessor,
         stagingProcessor,
         mergeProcessor,
         watermarkProcessor,

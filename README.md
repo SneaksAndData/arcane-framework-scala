@@ -103,10 +103,8 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_pr
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
+
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
@@ -132,7 +130,6 @@ object main extends ZIOAppDefault {
     GenericStreamRunnerService.layer,
     StreamGraphResolver.composedLayer,
     DisposeBatchProcessor.layer,
-    FieldFilteringTransformer.layer,
     MergeBatchProcessor.layer,
     StagingProcessor.layer,
     FieldsFilteringService.layer,

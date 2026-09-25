@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources.modification
 
-import models.settings.Mergeable
+import models.settings.{CompositeSetting, Mergeable}
 import models.settings.sources.*
 
 import upickle.default.*
@@ -33,55 +33,49 @@ case class SurrogateTimestamp() derives ReadWriter
   */
 case class SurrogateTimestampImpl(surrogateTimestamp: SurrogateTimestamp) extends DataRowModification
 
-/** Selects the fields included in the modified schema and data rows.
-  *
-  * @param includeFields
-  *   fields to include
-  * @param excludeFields
-  *   fields to exclude
+sealed trait FieldSelector extends DataRowModification
+
+/** Field selector which limits the resulting DataRow/Schema to only contain fields from an include list.
   */
-case class FieldSelector(
-    includeFields: Seq[String] = Seq.empty,
-    excludeFields: Seq[String] = Seq.empty
+case class IncludeFieldSelector(fields: Set[String]) derives ReadWriter
+
+/** ADT composed with settings for the IncludeFieldSelector.
+  */
+case class IncludeFieldSelectorImpl(include: IncludeFieldSelector) extends FieldSelector
+
+/** Field selector which removes blacklisted fields from the resulting DataRow/Schema.
+  */
+case class ExcludeFieldSelector(fields: Set[String]) derives ReadWriter
+
+/** ADT composed with settings for the ExcludeFieldSelector.
+  */
+case class ExcludeFieldSelectorImpl(exclude: ExcludeFieldSelector) extends FieldSelector
+
+/** Fields selector that signals to DRM API that no further operations are necessary
+  */
+case class FrozenFieldSelector(fields: Seq[String]) extends DataRowModification
+
+/** Field selector modification excludes provided fields or only selects fields from an include list.
+  */
+case class FieldSelectorSetting(
+    include: Option[IncludeFieldSelector] = None,
+    exclude: Option[ExcludeFieldSelector] = None
+) extends CompositeSetting[FieldSelector] derives ReadWriter:
+  override def resolve: FieldSelector =
+    if include.isDefined then IncludeFieldSelectorImpl(include.get)
+    if exclude.isDefined then ExcludeFieldSelectorImpl(exclude.get)
+
+    throw new RuntimeException("Invalid fieldSelector setting: neither `include`, nor `exclude` sections are defined.")
+
+case class SurrogateTimestampSetting() extends CompositeSetting[DataRowModification] derives ReadWriter:
+  override def resolve: DataRowModification = SurrogateTimestampImpl(SurrogateTimestamp())
+
+case class SupportedModifications(
+    fieldSelector: Option[FieldSelectorSetting] = None,
+    surrogateTimestamp: Option[SurrogateTimestampSetting] = None
 ) derives ReadWriter
 
-/** ADT composed with settings for the field-selection modification.
-  */
-case class FieldSelectorImpl(fieldSelector: FieldSelector) extends DataRowModification
-
-/** Serializable representation of one schema modification.
-  *
-  * This proxy class allows the supported modification settings to be deserialized without serializing the internal
-  * [[DataRowModification]] ADT directly. Exactly one modification must be configured in each entry. Multiple
-  * modifications are expressed as separate entries in [[DefaultDataRowModificationSettings.modificationSettings]].
-  *
-  * @param surrogateTimestamp
-  *   settings for adding a batch load timestamp
-  * @param fieldSelector
-  *   settings for selecting fields
-  */
-case class DataRowModificationSetting(
-    surrogateTimestamp: Option[SurrogateTimestamp] = None,
-    fieldSelector: Option[FieldSelector] = None
-) derives ReadWriter:
-
-  /** Resolves this serialized settings entry into its internal schema-modification representation.
-    *
-    * @throws IllegalArgumentException
-    *   when the entry contains either no modification or more than one modification
-    */
-  def resolveSetting: DataRowModification =
-    val configured = Seq(
-      surrogateTimestamp.map(SurrogateTimestampImpl(_)),
-      fieldSelector.map(FieldSelectorImpl(_))
-    ).flatten
-
-    require(
-      configured.size == 1,
-      s"Exactly one schema modification must be configured, but found ${configured.size}"
-    )
-
-    configured.head
+object NoModifications extends SupportedModifications(None, None)
 
 /** Settings for modifications applied to source data rows and their corresponding schemas.
   */
@@ -90,7 +84,7 @@ trait DataRowModificationSettings extends Mergeable:
     */
   val modifications: Seq[DataRowModification]
 
-/** Default serializable implementation of [[DefaultDataRowModificationSettings]].
+/** Default serializable implementation of [[DataRowModificationSettings]].
   *
   * An empty `modifications` array disables schema modification.
   *
@@ -98,13 +92,18 @@ trait DataRowModificationSettings extends Mergeable:
   *   serialized modification entries to resolve and apply in order
   */
 case class DefaultDataRowModificationSettings(
-    @key("modifications") modificationSettings: Seq[DataRowModificationSetting]
+    @key("modifications") modificationSettings: SupportedModifications
 ) extends DataRowModificationSettings,
       Mergeable derives ReadWriter:
 
   /** Resolved internal modification definitions.
     */
-  override val modifications: Seq[DataRowModification] = modificationSettings.map(_.resolveSetting)
+  override val modifications: Seq[DataRowModification] = Seq(
+    modificationSettings.fieldSelector.map(_.resolve),
+    modificationSettings.surrogateTimestamp.map(_.resolve)
+  ).collect { case Some(v) =>
+    v
+  }
 
   override type MergeableFrom = OverrideDataRowModificationSettings
   override type MergeResult   = DefaultDataRowModificationSettings

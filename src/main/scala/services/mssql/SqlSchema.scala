@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql
 
 import models.schemas.{ArcaneSchema, MergeKeyField, given_CanAdd_ArcaneSchema}
+import services.mssql.SqlDataCell.normalizeName
 import utils.SqlUtils.{JdbcFieldInfo, toArcaneType}
 
 /** Represents the schema of a table in a Microsoft SQL Server database. The schema is represented as a sequence of
@@ -15,7 +16,7 @@ given Conversion[SqlSchema, ArcaneSchema]:
       (
         agg.addIndexedField(
           fieldId = fieldIndex,
-          fieldName = "\\W+".r.replaceAllIn(name, ""),
+          fieldName = name.normalizeName,
           // propagate failure by resolving Try
           fieldType =
             toArcaneType(new JdbcFieldInfo(name = name, typeId = fieldType, precision = precision, scale = scale)).get

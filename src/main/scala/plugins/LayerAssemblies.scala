@@ -6,7 +6,6 @@ import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingPr
 import services.base.StreamingSource
 import services.bootstrap.DefaultStreamBootstrapper
 import services.completion.DefaultStreamFinalizer
-import services.filters.FieldsFilteringService
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
 import services.merging.JdbcMergeServiceClient
@@ -20,7 +19,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 
 import zio.ZLayer
 import zio.metrics.connectors.MetricsConfig
@@ -36,9 +35,7 @@ object LayerAssemblies:
   ] =
     ZLayer.makeSome[PluginStreamContext.PluginConfiguration & StreamingSource, FrameworkProvidedPipelineServices](
       DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
-      FieldsFilteringService.layer,
       IcebergS3CatalogWriter.layer,
       IcebergEntityManager.sinkLayer,
       IcebergEntityManager.stagingLayer,

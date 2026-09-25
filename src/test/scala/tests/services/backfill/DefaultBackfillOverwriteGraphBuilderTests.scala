@@ -26,7 +26,6 @@ import services.backfill.{
   DefaultShardedBackfillStreamDataProvider
 }
 import services.base.StreamingSource
-import services.filters.FieldsFilteringService
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.merging.JdbcMergeServiceClient
@@ -34,7 +33,6 @@ import services.metrics.DeclaredMetrics
 import services.naming.{DefaultNameGenerator, NameGenerator}
 import services.streaming.base.TimestampOnlyWatermark
 import services.streaming.base.TimestampOnlyWatermark.rw
-import services.streaming.processors.transformers.FieldFilteringTransformer
 import services.streaming.throughput.base.ThroughputShaperBuilder
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
@@ -298,7 +296,6 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
             DeclaredMetrics()
           ),
           mergeService,
-          new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
           new BackfillCompletionProcessor(propertyManager, mergeService, DeclaredMetrics()),
           backfillStateManager,
           shardFactory

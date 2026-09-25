@@ -16,7 +16,6 @@ import models.schemas.ArcaneType.StringType
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient, SchemaProvider, StreamingSource}
-import services.filters.FieldsFilteringService
 import services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -31,7 +30,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.bootstrap.DefaultStreamBootstrapper
 import services.streaming.graph.DefaultStreamingGraphBuilder
@@ -97,10 +96,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       GenericStreamRunnerService.layer,
       DefaultStreamingGraphBuilder.layer,
       DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
-      FieldsFilteringService.layer,
       IcebergEntityManager.sinkLayer,
       IcebergEntityManager.stagingLayer,
       IcebergS3CatalogWriter.layer,

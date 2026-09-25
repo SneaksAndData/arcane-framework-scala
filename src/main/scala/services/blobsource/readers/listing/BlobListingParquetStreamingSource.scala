@@ -6,9 +6,9 @@ import logging.ZIOLogAnnotations.zlog
 import models.app.PluginStreamContext
 import models.batches.BlobBatchCommons
 import models.schemas.{*, given}
-import models.settings.FieldSelectionRuleSettings
 import models.settings.sources.blob.ParquetBlobSourceSettings
 import models.settings.sources.modification.DataRowModification
+import services.iceberg.given_Conversion_Schema_ArcaneSchema
 import services.iceberg.interop.ParquetScanner
 import services.iceberg.{given_Conversion_Schema_Seq, inferMergeKeyIndex}
 import services.naming.NameGenerator
@@ -33,7 +33,6 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     useNameMapping: Boolean,
     sourceSchema: Option[String],
-    fieldSelector: FieldSelectionRuleSettings,
     modifications: Seq[DataRowModification]
 ) extends BlobListingStreamingSource[PathType](
       sourcePath,
@@ -42,7 +41,6 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
       nameGenerator,
       primaryKeys,
       tempStoragePath,
-      fieldSelector,
       modifications
     ):
 
@@ -73,12 +71,10 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               )
         yield schema
 
-    originalFields: Seq[IndexedField] = summon[
-      Conversion[org.apache.iceberg.Schema, Seq[IndexedField]]
-    ].apply(icebergSchema)
-    originalSchema = applyFieldSelector(ArcaneSchema(originalFields))
-    nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
-  yield originalSchema ++ Seq(BlobBatchCommons.indexedVersionField(nextFieldId))
+    mods         <- allModifications
+    resultSchema <- applySchemaModifications(icebergSchema, mods)
+  //  TODO: nextFieldId    = inferMergeKeyIndex(icebergSchema.columns().getLast)
+  yield resultSchema
 
   /** Gets an empty schema.
     *
@@ -93,7 +89,6 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
   yield (
     ZStream.fromZIO(allModifications).flatMap { mods =>
       scanner.getRows
-        .map(applyFieldSelector)
         .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
         .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
     },
@@ -118,7 +113,6 @@ class BlobListingParquetStreamingSource[PathType <: BlobPath](
               }
               .flatMap(
                 _.getRows
-                  .map(applyFieldSelector)
                   .map(BlobBatchCommons.enrichBatchRow(_, sourceFile.createdOn.getOrElse(0)))
                   .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
               )
@@ -158,7 +152,6 @@ object BlobListingParquetStreamingSource:
         primaryKeys = sourceSettings.primaryKeys,
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
-        fieldSelector = context.source.fieldSelectionRule,
         modifications = context.source.modifications.modifications
       )
     }
