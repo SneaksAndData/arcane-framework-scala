@@ -20,6 +20,10 @@ object TestThroughputShaperBuilder:
         override val advisedChunkSize: Int = 10
         override val advisedRate: FlowRate = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
         override val advisedBurst: Int     = 10
+        override type MergeableFrom = this.type
+        override type MergeResult   = this.type
+
+        override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
       },
       propertyManager,
       sinkSettings.targetTableFullName.parts.name,

@@ -76,7 +76,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         _               <- icebergUtil.prepareWatermark("test", BlobSourceWatermark.epoch)
@@ -119,7 +120,8 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings
+            TestFieldSelectionRuleSettings,
+            Seq.empty
           )
         )
         _ <- icebergUtil.prepareWatermark(

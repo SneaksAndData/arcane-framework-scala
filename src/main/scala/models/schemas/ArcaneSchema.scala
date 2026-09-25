@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package models.schemas
 
-import ArcaneType.{StringType, StructType}
+import ArcaneType.{LongType, StringType, TimestampType, StructType}
 import models.*
 import services.base.CanAdd
 
@@ -87,6 +87,16 @@ case class IndexedMergeKeyField(fieldId: Int) extends IndexedArcaneSchemaField:
   val name: String          = MergeKeyField.name
   val fieldType: ArcaneType = MergeKeyField.fieldType
 
+/** VersionField represents a field used for deduplicating staged batches
+  */
+case object VersionField extends ArcaneSchemaField:
+  val name: String          = "ARCANE_VERSION"
+  val fieldType: ArcaneType = LongType
+
+case object LoadTimestampField extends ArcaneSchemaField:
+  val name: String          = "ARCANE_LOAD_TIMESTAMP"
+  val fieldType: ArcaneType = TimestampType
+
 /** ArcaneSchema is a type alias for a sequence of fields or structs.
   */
 class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField]:
@@ -95,9 +105,10 @@ class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField
     * schema either consists of all IndexedField instances, or none.
     * @return
     */
-  def isIndexed: Boolean = fields.head match
-    case _: IndexedArcaneSchemaField => true
-    case _                           => false
+  def isIndexed: Boolean =
+    fields.headOption match
+      case Some(_: IndexedArcaneSchemaField) => true
+      case _                                 => false
 
   /** Returns a pure schema without Arcane metadata
     * @return
@@ -121,6 +132,8 @@ class ArcaneSchema(fields: Seq[ArcaneSchemaField]) extends Seq[ArcaneSchemaField
     require(maybeMergeKey.isDefined, "MergeKeyField must be defined for the schema to be usable for merges")
 
     maybeMergeKey.get
+
+  def nextFieldId: Int = fields.collect { case field: IndexedArcaneSchemaField => field.fieldId }.max + 1
 
   def apply(i: Int): ArcaneSchemaField = fields(i)
 
@@ -170,3 +183,6 @@ given CanAdd[ArcaneSchema] with
     def addIndexedField(fieldName: String, fieldType: ArcaneType, fieldId: Int): ArcaneSchema = fieldName match
       case MergeKeyField.name => a :+ IndexedMergeKeyField(fieldId)
       case _                  => a :+ IndexedField(fieldName, fieldType, fieldId)
+
+    def addIndexedField(fieldName: String, fieldType: ArcaneType): ArcaneSchema =
+      addIndexedField(fieldName, fieldType, a.nextFieldId)

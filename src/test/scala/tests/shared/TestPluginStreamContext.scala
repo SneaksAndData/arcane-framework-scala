@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.shared
 
-import models.app.PluginStreamContext
+import models.app.{OverrideStreamContext, PluginStreamContext}
 import models.settings.{FieldSelectionRuleSettings, FlowRate}
 import models.settings.backfill.BackfillBehavior.{Merge, Overwrite}
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
@@ -24,6 +24,7 @@ import models.settings.streaming.{
   ThroughputSettings,
   ThroughputShaperImpl
 }
+import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
 
 import zio.{IO, ZIO}
 
@@ -55,10 +56,13 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
     override val advisedChunkSize: Int            = 1
     override val advisedRate: FlowRate            = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
     override val advisedBurst: Int                = 1
+    override type MergeableFrom = this.type
+    override type MergeResult   = this.type
+    override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
   }
   override val staging: StagingSettings = TestStagingSettings()
 
-  override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = ???
 
   override val source: StreamSourceSettings = new StreamSourceSettings {
     override type SourceSettingsType = SourceSettings
@@ -66,8 +70,13 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
     override val buffering: SourceBufferingSettings = new SourceBufferingSettings {
       override val bufferingStrategy: BufferingStrategy = UnboundedImpl(Unbounded())
       override val bufferingEnabled: Boolean            = false
+      override type MergeableFrom = this.type
+      override type MergeResult   = this.type
+
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
     }
     override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
+    override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
   }
 
 object TestPluginStreamContext extends TestPluginStreamContextImpl:

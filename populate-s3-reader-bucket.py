@@ -60,7 +60,8 @@ def get_json_test_data():
     return { "index": random.randint(0, 1000), "body": { f"col{i}": generate_value(i) for i in range(10) } }
 
 def get_json_test_data_variable_content():
-    return { "index": random.randint(0, 1000), "body": { f"col{i}": generate_value(i) for i in range(10) if i % random.randint(1, 9) == 0 } }
+    body = { f"col{i}": generate_value(i) for i in range(10) if i % random.randint(1, 9) == 0 }
+    return { "index": random.randint(0, 1000), "body": body | { "col1": generate_value(1) } }
 
 def get_json_test_data_nested_array():
     base_body = { f"col{i}": generate_value(i) for i in range(10) if i % random.randint(1, 9) == 0 }

@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings
 
+import models.settings.{Mergeable, OverrideFieldSelectionRuleSettings}
+
 import upickle.default.*
 import upickle.implicits.key
 
@@ -54,7 +56,7 @@ case class FieldSelectionRuleSetting(
 
 /** Marker trait for a field selection rule classes
   */
-trait FieldSelectionRuleSettings:
+trait FieldSelectionRuleSettings extends Mergeable:
   /** The field selection rule to use.
     */
   val rule: FieldSelectionRule
@@ -71,5 +73,16 @@ case class DefaultFieldSelectionRuleSettings(
     override val essentialFields: Set[String],
     @key("rule") ruleSetting: FieldSelectionRuleSetting,
     override val isServerSide: Boolean
-) extends FieldSelectionRuleSettings derives ReadWriter:
+) extends FieldSelectionRuleSettings,
+      Mergeable derives ReadWriter:
   override val rule: FieldSelectionRule = ruleSetting.resolveSetting
+
+  override type MergeableFrom = OverrideFieldSelectionRuleSettings
+  override type MergeResult   = DefaultFieldSelectionRuleSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultFieldSelectionRuleSettings(
+      essentialFields = overrides.flatMap(_.essentialFields).getOrElse(this.essentialFields),
+      ruleSetting = overrides.flatMap(_.ruleSetting).getOrElse(this.ruleSetting),
+      isServerSide = overrides.flatMap(_.isServerSide).getOrElse(this.isServerSide)
+    )

@@ -40,6 +40,9 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
       */
     override val essentialFields: Set[String] = Set.empty[String]
     override val isServerSide: Boolean        = false
+    override type MergeableFrom = this.type
+    override type MergeResult   = this.type
+    override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
   }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseBackfillStreamDataProviderTests")(
@@ -78,7 +81,13 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          new SynapseLinkStreamingSource(
+            sourceRoot,
+            sourceTableName,
+            storageReader,
+            allFieldsSelector,
+            Seq.empty
+          )
         )
         schema            <- synapseLinkReader.getSchema
         backfillTableName <- nameGenerator.getBackfillTableName
@@ -153,7 +162,13 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
         backfillTableName <- nameGenerator.getBackfillTableName
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          new SynapseLinkStreamingSource(
+            sourceRoot,
+            sourceTableName,
+            storageReader,
+            allFieldsSelector,
+            Seq.empty
+          )
         )
         folders <- storageReader
           .streamPrefixes(sourceRoot)

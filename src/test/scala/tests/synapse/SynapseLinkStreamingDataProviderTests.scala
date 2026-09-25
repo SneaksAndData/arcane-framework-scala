@@ -32,6 +32,9 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
       */
     override val essentialFields: Set[String] = Set.empty[String]
     override val isServerSide: Boolean        = false
+    override type MergeableFrom = this.type
+    override type MergeResult   = this.type
+    override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
   }
 
   private def isDelete(row: DataRow): Boolean = row.exists(c => c.name == "IsDelete" && c.value == true)
@@ -72,7 +75,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          new SynapseLinkStreamingSource(
+            sourceRoot,
+            sourceTableName,
+            storageReader,
+            allFieldsSelector,
+            Seq.empty
+          )
         )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(
@@ -113,7 +122,13 @@ object SynapseLinkStreamingDataProviderTests extends ZIOSpecDefault:
         )
 
         synapseLinkReader <- ZIO.succeed(
-          SynapseLinkStreamingSource(storageReader, sourceTableName, sourceRoot, allFieldsSelector)
+          new SynapseLinkStreamingSource(
+            sourceRoot,
+            sourceTableName,
+            storageReader,
+            allFieldsSelector,
+            Seq.empty
+          )
         )
         synapseLinkDataProvider <- ZIO.succeed(
           SynapseLinkDataProvider(

@@ -11,7 +11,8 @@ First, you should create a serializable proxy for plugin source configuration:
 case class MySourceSettings(
     override val buffering: DefaultSourceBufferingSettings,
     override val fieldSelectionRule: DefaultFieldSelectionRuleSettings,
-    override val configuration: DefaultMySourceSettings
+    override val configuration: DefaultMySourceSettings,
+    override val modifications: DefaultDataRowModificationSettings
 ) extends StreamSourceSettings derives ReadWriter:
   override type SourceSettingsType = DefaultMySourceSettings
 ```

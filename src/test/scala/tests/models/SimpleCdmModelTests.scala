@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.framework
 package tests.models
 
 import models.cdm.{SimpleCdmModel, given_Conversion_SimpleCdmEntity_ArcaneSchema}
-import models.schemas.{ArcaneSchema, IndexedMergeKeyField}
+import models.schemas.ArcaneType.{BooleanType, DateTimeOffsetType, DoubleType, LongType, StringType, TimestampType}
+import models.schemas.{ArcaneSchema, IndexedField, MergeKeyField}
 
-import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
@@ -29,14 +29,24 @@ class SimpleCdmModelTests extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "generate valid ArcaneSchema" in {
+  it should "convert a SimpleCdmEntity to an indexed source schema" in {
     val serialized = Using(Source.fromURL(getClass.getResource("/cdm_model.json"))) {
       _.getLines().mkString("\n")
     }.get
 
-    val result: Seq[ArcaneSchema] = read[SimpleCdmModel](serialized).entities.map(implicitly)
+    val entity                           = read[SimpleCdmModel](serialized).entities.head
+    val schema: ArcaneSchema             = entity
+    val indexedFields: Seq[IndexedField] = schema.collect { case field: IndexedField => field }
 
-    noException should be thrownBy result.map(schema => schema.mergeKey).toList
-    forAll(result.map(schema => schema.mergeKey.asInstanceOf[IndexedMergeKeyField].fieldId == schema.length))
+    schema.map(_.name) should equal(entity.attributes.map(_.name))
+    indexedFields.map(_.fieldId) should equal(entity.attributes.indices)
+    schema.exists(_.name == MergeKeyField.name) should be(false)
+
+    schema.find(_.name == "Id").map(_.fieldType) should contain(StringType)
+    schema.find(_.name == "iseuro").map(_.fieldType) should contain(LongType)
+    schema.find(_.name == "roundingprecision").map(_.fieldType) should contain(DoubleType)
+    schema.find(_.name == "modifieddatetime").map(_.fieldType) should contain(TimestampType)
+    schema.find(_.name == "createdon").map(_.fieldType) should contain(DateTimeOffsetType)
+    schema.find(_.name == "IsDelete").map(_.fieldType) should contain(BooleanType)
   }
 }

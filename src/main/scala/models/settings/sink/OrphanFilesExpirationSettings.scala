@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import models.settings.Mergeable
+
 import upickle.ReadWriter
 
 /** Settings for orphan files expiration
@@ -18,4 +20,14 @@ trait OrphanFilesExpirationSettings:
 case class DefaultOrphanFilesExpirationSettings(
     override val retentionThreshold: String,
     override val batchThreshold: Int
-) extends OrphanFilesExpirationSettings derives ReadWriter
+) extends OrphanFilesExpirationSettings,
+      Mergeable derives ReadWriter:
+
+  override type MergeableFrom = OverrideOrphanFilesExpirationSettings
+  override type MergeResult   = DefaultOrphanFilesExpirationSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultOrphanFilesExpirationSettings(
+      retentionThreshold = overrides.flatMap(_.retentionThreshold).getOrElse(this.retentionThreshold),
+      batchThreshold = overrides.flatMap(_.batchThreshold).getOrElse(this.batchThreshold)
+    )

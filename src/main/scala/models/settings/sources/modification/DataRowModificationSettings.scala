@@ -1,36 +1,37 @@
 package com.sneaksanddata.arcane.framework
-package models.settings.sources
+package models.settings.sources.modification
+
+import models.settings.Mergeable
+import models.settings.sources.*
 
 import upickle.default.*
 import upickle.implicits.key
+
+import java.time.OffsetDateTime
 
 /** A modification applied to source data rows and their corresponding schema.
   */
 sealed trait DataRowModification
 
-/** Adds an Arcane-generated merge key to the source schema and data rows.
+/** Merge key with preset key field names. For internal usage only.
   */
-case class SurrogateMergeKey() derives ReadWriter
+case class FrozenSurrogateMergeKey(fieldNames: Set[String]) extends DataRowModification
 
-/** ADT composed with settings for the surrogate merge-key modification.
+/** Version mod with preset field name. For internal usage only.
   */
-case class SurrogateMergeKeyImpl(surrogateMergeKey: SurrogateMergeKey) extends DataRowModification
+case class FrozenSurrogateVersion(fieldName: String) extends DataRowModification
 
-/** Adds an Arcane-generated version to the source schema and data rows.
+/** Timestamp mod with a preset timestamp. for internal usage only.
   */
-case class SurrogateVersion() derives ReadWriter
-
-/** ADT composed with settings for the surrogate-version modification.
-  */
-case class SurrogateVersionImpl(surrogateVersion: SurrogateVersion) extends DataRowModification
+case class FrozenSurrogateTimestamp(timestamp: OffsetDateTime) extends DataRowModification
 
 /** Adds the time at which Arcane loaded a batch to its schema and data rows.
   */
-case class LoadTimestamp() derives ReadWriter
+case class SurrogateTimestamp() derives ReadWriter
 
 /** ADT composed with settings for the load-timestamp modification.
   */
-case class LoadTimestampImpl(loadTimestamp: LoadTimestamp) extends DataRowModification
+case class SurrogateTimestampImpl(surrogateTimestamp: SurrogateTimestamp) extends DataRowModification
 
 /** Selects the fields included in the modified schema and data rows.
   *
@@ -54,19 +55,13 @@ case class FieldSelectorImpl(fieldSelector: FieldSelector) extends DataRowModifi
   * [[DataRowModification]] ADT directly. Exactly one modification must be configured in each entry. Multiple
   * modifications are expressed as separate entries in [[DefaultDataRowModificationSettings.modificationSettings]].
   *
-  * @param surrogateMergeKey
-  *   settings for adding a surrogate merge key
-  * @param surrogateVersion
-  *   settings for adding a surrogate version
-  * @param loadTimestamp
+  * @param surrogateTimestamp
   *   settings for adding a batch load timestamp
   * @param fieldSelector
   *   settings for selecting fields
   */
 case class DataRowModificationSetting(
-    surrogateMergeKey: Option[SurrogateMergeKey] = None,
-    surrogateVersion: Option[SurrogateVersion] = None,
-    loadTimestamp: Option[LoadTimestamp] = None,
+    surrogateTimestamp: Option[SurrogateTimestamp] = None,
     fieldSelector: Option[FieldSelector] = None
 ) derives ReadWriter:
 
@@ -77,9 +72,7 @@ case class DataRowModificationSetting(
     */
   def resolveSetting: DataRowModification =
     val configured = Seq(
-      surrogateMergeKey.map(SurrogateMergeKeyImpl(_)),
-      surrogateVersion.map(SurrogateVersionImpl(_)),
-      loadTimestamp.map(LoadTimestampImpl(_)),
+      surrogateTimestamp.map(SurrogateTimestampImpl(_)),
       fieldSelector.map(FieldSelectorImpl(_))
     ).flatten
 
@@ -92,12 +85,12 @@ case class DataRowModificationSetting(
 
 /** Settings for modifications applied to source data rows and their corresponding schemas.
   */
-trait DataRowModificationSettings:
+trait DataRowModificationSettings extends Mergeable:
   /** Data-row modifications to apply, in their configured order.
     */
   val modifications: Seq[DataRowModification]
 
-/** Default serializable implementation of [[DataRowModificationSettings]].
+/** Default serializable implementation of [[DefaultDataRowModificationSettings]].
   *
   * An empty `modifications` array disables schema modification.
   *
@@ -106,7 +99,17 @@ trait DataRowModificationSettings:
   */
 case class DefaultDataRowModificationSettings(
     @key("modifications") modificationSettings: Seq[DataRowModificationSetting]
-) extends DataRowModificationSettings derives ReadWriter:
+) extends DataRowModificationSettings,
+      Mergeable derives ReadWriter:
+
   /** Resolved internal modification definitions.
     */
   override val modifications: Seq[DataRowModification] = modificationSettings.map(_.resolveSetting)
+
+  override type MergeableFrom = OverrideDataRowModificationSettings
+  override type MergeResult   = DefaultDataRowModificationSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultDataRowModificationSettings(
+      modificationSettings = overrides.flatMap(_.modificationSettings).getOrElse(this.modificationSettings)
+    )

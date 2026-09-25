@@ -5,10 +5,10 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.base.StoredBlob
+import services.synapse.versioning.SynapseWatermark
 
-import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
-import zio.{Task, ZIO}
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -84,7 +84,8 @@ object SynapseAzureBlobReaderExtensions:
 
     def getEligibleDates(
         storagePath: AdlsStoragePath,
-        startFrom: OffsetDateTime
+        startFrom: OffsetDateTime,
+        endAt: OffsetDateTime
     ): ZStream[Any, Throwable, StoredBlob] = for
       // changelog.info indicates which batch is in progress right now - thus we remove it from eligible prefixes to avoid reading incomplete data
       inProgressDate <- ZStream.fromZIO(reader.readBlobContent(storagePath + "Changelog/changelog.info"))
@@ -103,7 +104,8 @@ object SynapseAzureBlobReaderExtensions:
         .collect {
           case (Some(date), blob)
               // take dates strictly >= startFrom, < inProgressDate
-              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) =>
+              if (date.isAfter(startFrom) || date.isEqual(startFrom)) && date.isBefore(inProgressDateParsed) && date
+                .isBefore(endAt) =>
             blob
         }
     yield eligibleBlob

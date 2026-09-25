@@ -16,7 +16,7 @@ enum TableFormat derives ReadWriter:
   * https://trino.io/docs/current/connector/iceberg.html#table-properties Use this to add any extra properties to be
   * supported by the streaming runner
   */
-trait TablePropertiesSettings:
+trait TablePropertiesSettings extends Mergeable:
   // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
 
   /** Optionally specifies the format of table data files; either PARQUET, ORC, or AVRO. Defaults to the value of the
@@ -95,7 +95,19 @@ case class DefaultTablePropertiesSettings(
     override val format: TableFormat,
     override val sortedBy: Array[String],
     override val parquetBloomFilterColumns: Array[String]
-) extends TablePropertiesSettings derives ReadWriter
+) extends TablePropertiesSettings,
+      Mergeable derives ReadWriter:
+
+  override type MergeableFrom = OverrideTablePropertiesSettings
+  override type MergeResult   = DefaultTablePropertiesSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultTablePropertiesSettings(
+      format = overrides.flatMap(_.format).getOrElse(this.format),
+      sortedBy = overrides.flatMap(_.sortedBy).getOrElse(this.sortedBy),
+      parquetBloomFilterColumns =
+        overrides.flatMap(_.parquetBloomFilterColumns).getOrElse(this.parquetBloomFilterColumns)
+    )
 
 /** Empty settings to be used with no-op batches
   */
@@ -106,3 +118,9 @@ case object EmptyTablePropertiesSettings extends TablePropertiesSettings:
   override val sortedBy: Array[String] = Array.empty
 
   override val parquetBloomFilterColumns: Array[String] = Array.empty
+
+  override type MergeableFrom = OverrideTablePropertiesSettings
+  override type MergeResult   = EmptyTablePropertiesSettings.type
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    EmptyTablePropertiesSettings
