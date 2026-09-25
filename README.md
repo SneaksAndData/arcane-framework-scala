@@ -23,11 +23,22 @@ where `DefaultMySourceSettings` should be defined in the framework, but you can 
 Most plugins can rely on framework defaults and the stream source created on the previous step:
 ```scala 3
 import com.sneaksanddata.arcane.framework.extensions.ZExtensions.*
-import com.sneaksanddata.arcane.framework.models.app.{DefaultPluginStreamContext, PluginStreamContext}
-import com.sneaksanddata.arcane.framework.models.settings.observability.DefaultObservabilitySettings
-import com.sneaksanddata.arcane.framework.models.settings.sink.DefaultSinkSettings
-import com.sneaksanddata.arcane.framework.models.settings.staging.DefaultStagingSettings
+import com.sneaksanddata.arcane.framework.models.app.{
+  DefaultOverrideStreamContext,
+  DefaultPluginStreamContext,
+  OverrideStreamContext,
+  PluginStreamContext
+}
+import com.sneaksanddata.arcane.framework.models.settings.observability.{
+  DefaultObservabilitySettings,
+  DefaultOverrideObservabilitySettings
+}
+import com.sneaksanddata.arcane.framework.models.settings.sink.{DefaultOverrideSinkSettings, DefaultSinkSettings}
+import com.sneaksanddata.arcane.framework.models.settings.sources.OverrideStreamSourceSettings
+import com.sneaksanddata.arcane.framework.models.settings.staging.{DefaultOverrideStagingSettings, DefaultStagingSettings}
 import com.sneaksanddata.arcane.framework.models.settings.streaming.{
+  DefaultOverrideStreamModeSettings,
+  DefaultOverrideThroughputSettings,
   DefaultStreamModeSettings,
   DefaultThroughputSettings
 }
@@ -41,7 +52,17 @@ case class MyPluginStreamContext(
     override val source: MyPluginSourceSettings
 ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
   // TODO: should be implemented when Operator supports overrides
-  override def merge(other: Option[PluginStreamContext]): PluginStreamContext = this
+  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = this
+
+// Overrides supplied by the operator via STREAMCONTEXT__SPEC_OVERRIDE
+case class MyPluginOverrideStreamContext(
+    @key("observability") override val observability: Option[DefaultOverrideObservabilitySettings] = None,
+    @key("staging") override val staging: Option[DefaultOverrideStagingSettings] = None,
+    @key("streamMode") override val streamMode: Option[DefaultOverrideStreamModeSettings] = None,
+    @key("sink") override val sink: Option[DefaultOverrideSinkSettings] = None,
+    @key("throughput") override val throughput: Option[DefaultOverrideThroughputSettings] = None
+) extends DefaultOverrideStreamContext(streamMode, sink, staging, observability, throughput) derives ReadWriter:
+  override val source: Option[OverrideStreamSourceSettings] = None
 
 object MyPluginStreamContext:
   def apply(value: String): MyPluginStreamContext =
@@ -50,7 +71,7 @@ object MyPluginStreamContext:
   // ZLayer for injecting the stream context singleton
   lazy val layer
       : ZLayer[Any, Throwable, PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig] =
-    PluginStreamContext.getLayer[MyPluginStreamContext]
+    PluginStreamContext.getLayer[MyPluginStreamContext, MyPluginOverrideStreamContext]
 ```
 
 ### Entrypoint

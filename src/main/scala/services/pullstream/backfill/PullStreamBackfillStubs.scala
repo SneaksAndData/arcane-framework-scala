@@ -9,10 +9,11 @@ import com.sneaksanddata.arcane.framework.services.backfill.base.{
 }
 import com.sneaksanddata.arcane.framework.services.streaming.base.{JsonWatermark, StructuredZStream}
 import com.sneaksanddata.arcane.framework.exceptions.unsupported
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogWarning
 import zio.stream.ZStream
 import zio.{Task, ULayer, ZLayer}
 
-/** Names the component in the failures raised by the stubs below. */
+/** Names the component in the log messages and failures raised by the stubs below. */
 private val pullStreamPlugin = "the pull stream plugin"
 
 /** Backfilling is not supported by PullStream plugin. This module provides No-op implementations for the necessary
@@ -20,7 +21,9 @@ private val pullStreamPlugin = "the pull stream plugin"
   */
 object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(unsupported("BackfillStreamDataProvider.stream", pullStreamPlugin))
+    ZStream.fromZIO(
+      zlogWarning(s"Backfilling is not supported by $pullStreamPlugin, BackfillStreamDataProvider.stream is a no-op")
+    ) *> ZStream.empty
 
 /** Backfilling and sharding is not supported by PullStream plugin.
   */
