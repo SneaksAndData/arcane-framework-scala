@@ -33,11 +33,6 @@ services:
     restart: always
     environment:
       - S2_SERVER_BUCKETS=tmp,lakehouse,s3-blob-reader,s3-blob-reader-json,s3-blob-reader-json-variable,s3-blob-reader-json-nested-array,s3-blob-reader-json-root-nested-array,s3-blob-reader-json-root-nested-jarray
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9001"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
   s3_reader_prepare:
     image: python:3.11-slim-bookworm
     network_mode: host
@@ -47,7 +42,7 @@ services:
       - AWS_ENDPOINT_URL_S3=http://localhost:9000
     depends_on:
       minio:
-        condition: service_healthy
+        condition: service_started
     restart: "no"
     volumes:
       - ./populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
@@ -82,7 +77,7 @@ services:
       lakekeeper_db:
         condition: service_healthy
       minio:
-        condition: service_healthy
+        condition: service_started
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     restart: always
