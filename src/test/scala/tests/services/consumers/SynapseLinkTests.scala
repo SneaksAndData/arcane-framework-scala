@@ -3,7 +3,7 @@ package tests.services.consumers
 
 import models.batches.*
 import models.schemas.ArcaneType.{LongType, StringType}
-import models.schemas.{Field, MergeKeyField}
+import models.schemas.{Field, MergeKeyField, VersionField}
 import tests.shared.{CustomTablePropertiesSettings, TestTablePropertiesSettings}
 
 import org.scalatest.flatspec.AnyFlatSpec
@@ -31,12 +31,12 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   it should "generate a valid merge query" in {
     val query = SynapseLinkMergeQuery(
       "test.table_a",
-      """SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+      s"""SELECT * FROM (
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Seq(),
       "ARCANE_MERGE_KEY",
-      Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", "versionnumber")
+      Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", VersionField.name)
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query_synapse_link.sql"))) {
@@ -48,12 +48,12 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
   it should "generate a valid merge with partitions" in {
     val query = SynapseLinkMergeQuery(
       "test.table_a",
-      """SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+      s"""SELECT * FROM (
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Seq("colA"),
       "ARCANE_MERGE_KEY",
-      Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", "versionnumber")
+      Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", VersionField.name)
     )
 
     val expected =

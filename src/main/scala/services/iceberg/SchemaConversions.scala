@@ -119,12 +119,14 @@ def unfoldAvroUnion(field: AvroSchema.Field): AvroSchema.Type =
 
 given Conversion[AvroSchema, ArcaneSchema] with
   override def apply(avroSchema: AvroSchema): ArcaneSchema =
-    ArcaneSchema(avroSchema.getFields.asScala.map { avroField =>
-      Field(
-        name = avroField.name(),
-        fieldType = unfoldAvroUnion(avroField)
-      )
-    }.toSeq ++ Seq(MergeKeyField))
+    ArcaneSchema(
+      avroSchema.getFields.asScala.map { avroField =>
+        Field(
+          name = avroField.name(),
+          fieldType = unfoldAvroUnion(avroField)
+        )
+      }.toSeq
+    )
 
 given Conversion[AvroType, ArcaneType] with
   override def apply(avroType: AvroType): ArcaneType = avroType match

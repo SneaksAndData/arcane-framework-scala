@@ -1,6 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
+import models.settings.Mergeable
+
 import upickle.ReadWriter
 
 /** Settings for snapshot expiration
@@ -18,4 +20,14 @@ trait SnapshotExpirationSettings:
 case class DefaultSnapshotExpirationSettings(
     override val retentionThreshold: String,
     override val batchThreshold: Int
-) extends SnapshotExpirationSettings derives ReadWriter
+) extends SnapshotExpirationSettings,
+      Mergeable derives ReadWriter:
+
+  override type MergeableFrom = OverrideSnapshotExpirationSettings
+  override type MergeResult   = DefaultSnapshotExpirationSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultSnapshotExpirationSettings(
+      retentionThreshold = overrides.flatMap(_.retentionThreshold).getOrElse(this.retentionThreshold),
+      batchThreshold = overrides.flatMap(_.batchThreshold).getOrElse(this.batchThreshold)
+    )

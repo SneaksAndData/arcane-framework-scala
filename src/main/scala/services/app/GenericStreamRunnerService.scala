@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.app
 
 import logging.ZIOLogAnnotations.zlog
-import services.app.base.{StreamLifetimeService, StreamRunnerService}
+import services.app.base.StreamRunnerService
 import services.bootstrap.base.StreamBootstrapper
 import services.completion.base.StreamFinalizer
 import services.metrics.base.MetricTagProvider
@@ -18,12 +18,9 @@ import scala.collection.SortedMap
   *
   * @param builder
   *   The stream graph builder.
-  * @param lifetimeService
-  *   The stream lifetime service.
   */
 class GenericStreamRunnerService(
     builder: StreamingGraphBuilder,
-    lifetimeService: StreamLifetimeService,
     bootstrapper: StreamBootstrapper,
     finalizer: StreamFinalizer,
     tagProvider: MetricTagProvider
@@ -35,7 +32,6 @@ class GenericStreamRunnerService(
     *   A ZIO effect that represents the stream.
     */
   def run: ZIO[Any, Throwable, Unit] =
-    lifetimeService.start()
     ZIO
       .attempt(tagProvider.getTags)
       .flatMap(tags =>
@@ -47,17 +43,13 @@ class GenericStreamRunnerService(
 
           _ <- bootstrapper.createTargetTable
           _ <- bootstrapper.createBackFillTable
-          _ <- builder.produce().via(streamLifetimeGuard).run(logResults)
+          _ <- builder.produce().run(logResults)
           _ <- zlog("Stream completed, finalizing")
 
           _ <- finalizer.finalizeBackfill
           _ <- finalizer.finalizeChangeCapture
         yield ()) @@ ZIOAspect.tagged(Option(tags).getOrElse(SortedMap.empty[String, String]).toList*)
       )
-
-  /** The stage that completes the stream until the lifetime service is cancelled.
-    */
-  private def streamLifetimeGuard = ZPipeline.takeUntil(_ => lifetimeService.cancelled)
 
   /** Logs the results of the stream.
     */
@@ -69,28 +61,23 @@ object GenericStreamRunnerService:
 
   /** The required environment for the GenericStreamRunnerService.
     */
-  type Environment = StreamLifetimeService & StreamingGraphBuilder & StreamBootstrapper & StreamFinalizer &
-    MetricTagProvider
+  type Environment = StreamingGraphBuilder & StreamBootstrapper & StreamFinalizer & MetricTagProvider
 
   /** Creates a new instance of the GenericStreamRunnerService class.
     *
     * @param builder
     *   The stream graph builder.
-    * @param lifetimeService
-    *   The stream lifetime service.
     * @return
     *   A new instance of the GenericStreamRunnerService class.
     */
   def apply(
       builder: StreamingGraphBuilder,
-      lifetimeService: StreamLifetimeService,
       bootstrapper: StreamBootstrapper,
       finalizer: StreamFinalizer,
       tagProvider: MetricTagProvider
   ): GenericStreamRunnerService =
     new GenericStreamRunnerService(
       builder,
-      lifetimeService,
       bootstrapper,
       finalizer,
       tagProvider
@@ -101,14 +88,12 @@ object GenericStreamRunnerService:
   val layer: ZLayer[Environment, Nothing, StreamRunnerService] =
     ZLayer {
       for
-        lifetimeService <- ZIO.service[StreamLifetimeService]
-        builder         <- ZIO.service[StreamingGraphBuilder]
-        bootstrapper    <- ZIO.service[StreamBootstrapper]
-        finalizer       <- ZIO.service[StreamFinalizer]
-        tagProvider     <- ZIO.service[MetricTagProvider]
+        builder      <- ZIO.service[StreamingGraphBuilder]
+        bootstrapper <- ZIO.service[StreamBootstrapper]
+        finalizer    <- ZIO.service[StreamFinalizer]
+        tagProvider  <- ZIO.service[MetricTagProvider]
       yield GenericStreamRunnerService(
         builder,
-        lifetimeService,
         bootstrapper,
         finalizer,
         tagProvider

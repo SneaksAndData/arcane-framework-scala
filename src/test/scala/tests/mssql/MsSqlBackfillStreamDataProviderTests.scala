@@ -53,6 +53,10 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         */
       override val essentialFields: Set[String] = Set.empty[String]
       override val isServerSide: Boolean        = true
+
+      override type MergeableFrom = this.type
+      override type MergeResult   = this.type
+      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
     }
   )
   private val backfillSettings = new BackfillSettings {
@@ -145,7 +149,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
           override val backfillShardSchemaName: String                = "dbo"
         },
         emptyFieldsFilteringService,
-        nameGenerator
+        nameGenerator,
+        Seq.empty
       )
     )
     dataProvider <- ZIO.succeed(

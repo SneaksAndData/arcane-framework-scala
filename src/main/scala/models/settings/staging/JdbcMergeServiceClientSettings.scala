@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package models.settings.staging
 
 import models.serialization.ZIODurationRW.*
+import models.settings.Mergeable
 import models.settings.database.JdbcConnectionUrl
 import models.settings.database.JdbcConnectionExtensions.*
 
@@ -109,6 +110,24 @@ case class DefaultJdbcMergeServiceClientSettings(
     override val queryRetryScaleFactor: Double,
     override val queryRetryMaxAttempts: Int,
     override val extraConnectionParameters: Map[String, String]
-) extends JdbcMergeServiceClientSettings derives ReadWriter:
+) extends JdbcMergeServiceClientSettings,
+      Mergeable derives ReadWriter:
   override val queryRetryMode: JdbcQueryRetryMode = queryRetryModeSettings.resolveRetryMode
   override val credentialType: JdbcCredentialType = credentialSetting.resolveCredentialType
+
+  override type MergeableFrom = OverrideJdbcMergeServiceClientSettings
+  override type MergeResult   = DefaultJdbcMergeServiceClientSettings
+
+  override def merge(overrides: Option[MergeableFrom]): MergeResult =
+    DefaultJdbcMergeServiceClientSettings(
+      connectionUrl = overrides.flatMap(_.connectionUrl).getOrElse(this.connectionUrl),
+      credentialSetting = overrides.flatMap(_.credentialType).getOrElse(this.credentialSetting),
+      queryRetryModeSettings = overrides.flatMap(_.queryRetryMode).getOrElse(this.queryRetryModeSettings),
+      queryRetryBaseDuration = overrides.flatMap(_.queryRetryBaseDuration).getOrElse(this.queryRetryBaseDuration),
+      queryRetryOnMessageContents =
+        overrides.flatMap(_.queryRetryOnMessageContents).getOrElse(this.queryRetryOnMessageContents),
+      queryRetryScaleFactor = overrides.flatMap(_.queryRetryScaleFactor).getOrElse(this.queryRetryScaleFactor),
+      queryRetryMaxAttempts = overrides.flatMap(_.queryRetryMaxAttempts).getOrElse(this.queryRetryMaxAttempts),
+      extraConnectionParameters =
+        overrides.flatMap(_.extraConnectionParameters).getOrElse(this.extraConnectionParameters)
+    )

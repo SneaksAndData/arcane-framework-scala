@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.streaming.processors.transformers
 
-import models.app.PluginStreamContext
+import models.app.{OverrideStreamContext, PluginStreamContext}
 import models.schemas.*
 import models.schemas.ArcaneType.StringType
 import models.settings.backfill.BackfillBehavior.Overwrite
@@ -18,6 +18,7 @@ import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
 import services.naming.DefaultNameGenerator
 import tests.shared.*
+import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -27,7 +28,6 @@ import zio.test.TestAspect.timeout
 import zio.{Chunk, Scope, ZIO, ZLayer}
 
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
-
 type TestInput = DataRow
 
 object StagingProcessorTests extends ZIOSpecDefault:
@@ -95,6 +95,7 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val configuration: SourceSettingsType              = new SourceSettings {}
       override val buffering: SourceBufferingSettings             = TestSourceBufferingSettings
       override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
+      override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
     }
     override val staging: StagingSettings             = TestStagingSettings()
     override val observability: ObservabilitySettings = TestObservabilitySettings
@@ -103,9 +104,12 @@ object StagingProcessorTests extends ZIOSpecDefault:
       override val advisedChunkSize: Int            = 1
       override val advisedRate: FlowRate            = FlowRate(elements = 1, interval = Duration.ofSeconds(10))
       override val advisedBurst: Int                = 10
+      override type MergeableFrom = this.type
+      override type MergeResult   = this.type
+      override def merge(overrides: Option[MergeableFrom]): this.type = ???
     }
 
-    override def merge(other: Option[PluginStreamContext]): PluginStreamContext = ???
+    override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = ???
   })
 
   def spec: Spec[TestEnvironment & Scope, Throwable] = suite("StagingProcessor")(

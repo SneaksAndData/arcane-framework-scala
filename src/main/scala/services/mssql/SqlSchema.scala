@@ -10,8 +10,6 @@ import utils.SqlUtils.{JdbcFieldInfo, toArcaneType}
 type SqlSchema = Seq[(String, Int, Int, Int)]
 
 given Conversion[SqlSchema, ArcaneSchema]:
-  // assume that sqlSchema contains merge key and it always comes first
-  // check resources/get_select_delta_query.sql
   override def apply(sqlSchema: SqlSchema): ArcaneSchema = sqlSchema
     .foldLeft((ArcaneSchema.empty(), 0)) { case ((agg, fieldIndex), (name, fieldType, precision, scale)) =>
       (

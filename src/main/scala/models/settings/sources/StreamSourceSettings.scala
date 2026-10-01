@@ -1,12 +1,10 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources
 
-import models.settings.{DefaultFieldSelectionRuleSettings, FieldSelectionRule, FieldSelectionRuleSettings}
+import models.settings.sources.modification.DataRowModificationSettings
+import models.settings.{FieldSelectionRuleSettings, Mergeable}
 
-import upickle.ReadWriter
-import upickle.default.*
-
-trait StreamSourceSettings:
+trait StreamSourceSettings extends Mergeable:
   type SourceSettingsType <: SourceSettings
 
   val configuration: SourceSettingsType
@@ -14,3 +12,7 @@ trait StreamSourceSettings:
   val buffering: SourceBufferingSettings
 
   val fieldSelectionRule: FieldSelectionRuleSettings
+
+  val modifications: DataRowModificationSettings
+
+  override type MergeableFrom = OverrideStreamSourceSettings

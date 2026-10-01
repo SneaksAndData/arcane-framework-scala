@@ -2,8 +2,8 @@ package com.sneaksanddata.arcane.framework
 package tests.services.merging
 
 import models.batches.SynapseLinkMergeBatch
-import models.schemas.ArcaneType.{BooleanType, LongType, StringType}
-import models.schemas.{ArcaneSchema, Field, MergeKeyField}
+import models.schemas.ArcaneType.{BooleanType, StringType}
+import models.schemas.{ArcaneSchema, Field, MergeKeyField, VersionField}
 import services.base.SchemaProvider
 import services.filters.FieldsFilteringService
 import services.merging.*
@@ -22,7 +22,7 @@ import java.util.Properties
 
 object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private val connectionUri = "jdbc:trino://localhost:8080/iceberg/test?user=test"
-  private val schema = MergeKeyField :: Field("versionnumber", LongType) :: Field("IsDelete", BooleanType) :: Field(
+  private val schema = MergeKeyField :: VersionField :: Field("IsDelete", BooleanType) :: Field(
     "colA",
     StringType
   ) :: Field("colB", StringType) :: Field("Id", StringType) :: Nil
@@ -52,7 +52,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       dropTableStatement = s"DROP TABLE IF EXISTS iceberg.test.$tableName"
       _ <- ZIO.attemptBlocking(statement.execute(dropTableStatement))
       createTableStatement =
-        s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, versionnumber BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
+        s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, ${VersionField.name} BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
       _ <- ZIO.attemptBlocking(statement.execute(createTableStatement))
     yield ()
 
@@ -61,7 +61,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       updateStatement <- ZIO.attemptBlocking(connection.createStatement())
       _ <- ZIO.foreach(1 to 10) { i =>
         val insertCmd =
-          s"insert into iceberg.test.$tableName (ARCANE_MERGE_KEY, versionnumber, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
+          s"insert into iceberg.test.$tableName (ARCANE_MERGE_KEY, ${VersionField.name}, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
         ZIO.attemptBlocking(updateStatement.execute(insertCmd))
       }
     yield ()

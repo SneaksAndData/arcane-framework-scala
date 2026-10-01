@@ -8,13 +8,13 @@ import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
 import services.iceberg.SchemaConversions.toIcebergSchema
+import services.iceberg.interop.MissingFieldException
 import services.metrics.DeclaredMetrics
-import services.pullstream.{PullStreamSourceDataProvider, PullStreamStreamingDataProvider, PullStreamingSource}
 import services.pullstream.versioning.PullStreamWatermark
+import services.pullstream.{PullStreamSourceDataProvider, PullStreamStreamingDataProvider, PullStreamingSource}
 import tests.pullstream.util.PullStreamTestServices
 import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.iceberg.interop.MissingFieldException
 import org.apache.avro.AvroTypeException
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest, PutItemResponse}
@@ -113,7 +113,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamStreamingDataProviderTests")(
     test("returns correct number of rows while streaming") {
-      val numberRowsToTake = 5
+      val totalRowsToTake = 10
       for
         sourceTableName <- genSourceTableName
         targetTableName     = s"demo.test.$sourceTableName"
@@ -124,8 +124,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
           PullStreamTestServices.createTable(sourceTableName, client)
         )(_ => PullStreamTestServices.deleteTable(client, sourceTableName).orDie) { _ =>
           for
-            // seed source DDB table with more than `numberRowsToTake` rows
-            _                 <- insertRows(client, sourceTableName, numberRowsToTake * 2)
+            // seed source DDB table
+            _                 <- insertRows(client, sourceTableName, totalRowsToTake)
             sinkEntityManager <- icebergUtil.getSinkEntityManager
             _                 <- sinkEntityManager.createTable(IcebergCreateTableRequest(sourceTableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
@@ -157,13 +157,12 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 DeclaredMetrics()
               )
             )
-            lifetimeService <- ZIO.succeed(TestStreamLifetimeService(numberRowsToTake))
             rows <- streamingDataProvider.stream
-              .flatMap(_._1)
+              .interruptAfter(zio.Duration.fromSeconds(5))
+              .flatMap(_._1.haltAfter(zio.Duration.fromSeconds(5)))
               .rechunk(1)
-              .takeUntil(_ => lifetimeService.cancelled)
               .runCollect
-          yield assertTrue(rows.size == numberRowsToTake)
+          yield assertTrue(rows.size == totalRowsToTake + 1 && rows.last.isWatermark)
         }
       yield result
     },
