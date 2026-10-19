@@ -104,8 +104,8 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
                 )
               )
         )
-        connection <- ZIO.succeed(
-          MsSqlStreamingSource(
+        streamingSource <-
+          MsSqlStreamingSource.fromSettings(
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
@@ -118,11 +118,10 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
             nameGenerator,
             Seq.empty
           )
-        )
         propertyManager <- icebergUtil.getSinkTablePropertyManager
         provider <- ZIO.succeed(
           MsSqlDataProvider(
-            connection,
+            streamingSource,
             propertyManager,
             new TestDynamicSinkSettings(s"demo.test.$testTableName"),
             TestThroughputShaperBuilder.default(

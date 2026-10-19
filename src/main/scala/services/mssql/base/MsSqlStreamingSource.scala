@@ -24,7 +24,7 @@ import extensions.ZExtensions.combineWith
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
-import zio.{Scope, Task, UIO, ZIO, ZLayer}
+import zio.{Cached, Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.format.DateTimeFormatter
@@ -40,42 +40,28 @@ import scala.annotation.tailrec
 class MsSqlStreamingSource(
     val connectionSettings: MsSqlServerDatabaseSourceSettings,
     nameGenerator: NameGenerator,
-    modifications: Seq[DataRowModification]
+    modifications: Seq[DataRowModification],
+    connection: Connection,
+    val columnSummaries: List[ColumnSummary],
+    val sqlSchema: SqlSchema
 ) extends InsertUpdateDeleteSource(modifications)
     with AutoCloseable:
 
   override type ShardMetadata = String
   override type WatermarkType = MsSqlWatermark
 
-  lazy val catalog: String        = connection.getCatalog
-  private val shardingParallelism = Runtime.getRuntime.availableProcessors() * 2
-  private val driver              = new SQLServerDriver()
-  private lazy val connection     = driver.connect(connectionSettings.getConnectionString, new Properties())
+  lazy val catalog: String                                   = connection.getCatalog
+  private val shardingParallelism                            = Runtime.getRuntime.availableProcessors() * 2
   private implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   implicit val formatter: DateTimeFormatter                  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 
-  /** Gets the column summaries for the table in the database. TODO: cache this
-    * @return
-    *   An effect containing the column summaries for the table in the database.
-    */
-  def getColumnSummaries: Task[List[ColumnSummary]] =
-    for
-      query <- QueryProvider.getColumnSummariesQuery(
-        connectionSettings.schemaName,
-        connectionSettings.tableName,
-        catalog
-      )
-      result <- executeColumnSummariesQuery(query)
-    yield result
-
-  // TODO: cache this
-  def getFilteredSummaries: Task[List[ColumnSummary]] = for
-    summaries    <- getColumnSummaries
-    schemaFields <- getSchema.map(v => v.map(_.name.toLowerCase).toSet)
-  yield summaries.filter(s => schemaFields.contains(s._1.toLowerCase.normalizeName))
+  def getFilteredSummaries: Task[List[ColumnSummary]] =
+    for schemaFields <- getSchema.map(v => v.map(_.name.toLowerCase).toSet)
+    yield columnSummaries.filter(s => schemaFields.contains(s._1.toLowerCase.normalizeName))
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
-    getColumnSummaries
+    ZIO
+      .succeed(columnSummaries)
       .map(
         _.collect { case (name, true) =>
           name.normalizeName
@@ -344,45 +330,7 @@ class MsSqlStreamingSource(
     * @return
     *   An effect containing the schema for the data produced by Arcane.
     */
-  override lazy val getSourceSchema: Task[this.SchemaType] =
-    for
-      summaries <- getColumnSummaries
-      query <- QueryProvider.getSchemaQuery(
-        connectionSettings.schemaName,
-        connectionSettings.tableName,
-        catalog,
-        summaries
-      )
-      sqlSchema <- getSqlSchema(query)
-    yield sqlSchema
-
-  private def getSqlSchema(query: String): Task[SqlSchema] =
-    ZIO.scoped {
-      for
-        statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
-        resultSet <- statement.executeQuerySafe(query)
-        metadata = resultSet.getMetaData
-        columns <- ZIO.attemptBlocking {
-          for i <- 1 to metadata.getColumnCount
-          yield (metadata.getColumnName(i), metadata.getColumnType(i), metadata.getPrecision(i), metadata.getScale(i))
-        }
-      yield columns
-    }
-
-  private def executeColumnSummariesQuery(query: String): Task[List[ColumnSummary]] =
-    ZIO.scoped {
-      for
-        statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
-        resultSet <- statement.executeQuerySafe(query)
-      yield readColumns(resultSet, List.empty)
-    }
-
-  @tailrec
-  private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
-    val hasNext = resultSet.next()
-
-    if !hasNext then return result
-    readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
+  override lazy val getSourceSchema: Task[this.SchemaType] = ZIO.succeed(sqlSchema)
 
   private type ResultFactory[QueryResultType] = (Statement, ResultSet) => QueryResultType
 
@@ -528,28 +476,115 @@ object MsSqlStreamingSource:
   type Environment               = PluginStreamContext & NameGenerator
   private type SettingsExtractor = PluginStreamContext => MsSqlServerDatabaseSourceSettings
 
+  @tailrec
+  private def readColumns(resultSet: ResultSet, result: List[ColumnSummary]): List[ColumnSummary] =
+    val hasNext = resultSet.next()
+
+    if !hasNext then return result
+    readColumns(resultSet, result ++ List((resultSet.getString(1), resultSet.getInt(2) == 1)))
+
+  private val driver                                  = new SQLServerDriver()
+  private def getConnection(connectionString: String) = driver.connect(connectionString, new Properties())
+
+  private def executeColumnSummariesQuery(connection: Connection, query: String): Task[List[ColumnSummary]] =
+    ZIO.scoped {
+      for
+        statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+        resultSet <- statement.executeQuerySafe(query)
+      yield readColumns(resultSet, List.empty)
+    }
+
+  private def getTableSchema(
+      schemaName: String,
+      tableName: String,
+      catalog: String,
+      connection: Connection
+  ): Task[(schema: SqlSchema, summaries: List[ColumnSummary])] =
+    for
+      summaries <- getColumnSummaries(schemaName, tableName, catalog, connection)
+      query <- QueryProvider.getSchemaQuery(
+        schemaName,
+        tableName,
+        catalog,
+        summaries
+      )
+      sqlSchema <- ZIO.scoped {
+        for
+          statement <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(connection.createStatement()))
+          resultSet <- statement.executeQuerySafe(query)
+          metadata = resultSet.getMetaData
+          columns <- ZIO.attemptBlocking {
+            for i <- 1 to metadata.getColumnCount
+            yield (metadata.getColumnName(i), metadata.getColumnType(i), metadata.getPrecision(i), metadata.getScale(i))
+          }
+        yield columns
+      }
+    yield (schema = sqlSchema, summaries = summaries)
+
+  def fromSettings(
+      settings: MsSqlServerDatabaseSourceSettings,
+      nameGenerator: NameGenerator,
+      mods: Seq[DataRowModification]
+  ): Task[MsSqlStreamingSource] = for
+    connection          <- ZIO.attempt(getConnection(settings.getConnectionString))
+    (schema, summaries) <- getTableSchema(settings.schemaName, settings.tableName, connection.getCatalog, connection)
+  yield new MsSqlStreamingSource(
+    connectionSettings = settings,
+    nameGenerator = nameGenerator,
+    modifications = mods,
+    connection = connection,
+    columnSummaries = summaries,
+    sqlSchema = schema
+  )
+
+  /** Gets the column summaries for the table in the database.
+    *
+    * @return
+    *   An effect containing the column summaries for the table in the database.
+    */
+  private def getColumnSummaries(
+      schemaName: String,
+      tableName: String,
+      catalog: String,
+      connection: Connection
+  ): Task[List[ColumnSummary]] =
+    for
+      query <- QueryProvider.getColumnSummariesQuery(
+        schemaName,
+        tableName,
+        catalog
+      )
+      result <- executeColumnSummariesQuery(connection, query)
+    yield result
+
   /** The ZLayer that creates the MsSqlDataProvider.
     */
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[Environment, Nothing, MsSqlStreamingSource] =
+  ): ZLayer[Environment, Throwable, MsSqlStreamingSource] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           context       <- ZIO.service[PluginStreamContext]
           nameGenerator <- ZIO.service[NameGenerator]
+          connectionSettings = extractor(context)
+          connection <- ZIO.attempt(getConnection(connectionSettings.getConnectionString))
+          (schema, summaries) <- getTableSchema(
+            connectionSettings.schemaName,
+            connectionSettings.tableName,
+            connection.getCatalog,
+            connection
+          )
         yield new MsSqlStreamingSource(
-          connectionSettings = extractor(context),
+          connectionSettings = connectionSettings,
           nameGenerator = nameGenerator,
-          modifications = context.source.modifications.rowModifications
+          modifications = context.source.modifications.rowModifications,
+          connection = connection,
+          columnSummaries = summaries,
+          sqlSchema = schema
         )
       }
     }
-
-  /** Represents a batch of data that can be used to backfill the data. Since the data is not versioned, the version is
-    * always 0, and we don't need to be able to peek the head of the result.
-    */
-  type BackfillBatch = QueryResult[LazyQueryResult.OutputType]
 
   /** Closes the result in a safe way. MsSQL JDBC driver enforces the result set to iterate over all the rows returned
     * by the query if the result set is being closed without cancelling the statement first. see:
