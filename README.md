@@ -77,7 +77,6 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
 }
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -86,7 +85,6 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
-import com.sneaksanddata.arcane.framework.services.mssql.ColumnSummaryFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.sample.*
 import com.sneaksanddata.arcane.framework.services.sample.backfill.{
   SampleBackfillMergeStreamDataProvider,
@@ -132,7 +130,6 @@ object main extends ZIOAppDefault {
     DisposeBatchProcessor.layer,
     MergeBatchProcessor.layer,
     StagingProcessor.layer,
-    FieldsFilteringService.layer,
     SamplePluginStreamContext.layer, // Source-specific stream context
     PosixStreamLifetimeService.layer,
     SampleSourceDataProvider.layer, // Source-specific source data provider
@@ -166,7 +163,6 @@ object main extends ZIOAppDefault {
     TargetMaintenanceProcessor.layer,
     CatalogDisposeServiceClient.layer,
     DefaultNameGenerator.layer,
-    ColumnSummaryFieldsFilteringService.layer,
     DeclaredMetrics.layer,
     WatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,

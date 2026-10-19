@@ -5,7 +5,7 @@
 The `DefaultBackfillOverwriteGraphBuilder` constructs a reactive data processing graph for streaming backfill overwrite. Backfill OVERWRITE mode *replaces* data in the target table with data coming from the backfill stream. Replace is performed as an Iceberg commit via CREATE OR REPLACE statement. 
 
 Backfill OVERWRITE:
-1. Reads data from a sharded source, applies field filtering
+1. Reads data from a sharded source
 2. Stages data for each shard
 3. Inserts data from a staged shard into a combined backfill table
 4. Once all shards have been combined, backfill combine table is swapped to target.
@@ -32,7 +32,6 @@ graph TD
         
         %% Ingestion Branch
         PrepStage[Prepare Shard Stage]:::state
-        FieldFilter[Filter Fields]:::process
         StageProc[Stage Shard Data]:::process
         CommitStaged[Mark Shard as STAGED]:::state
     end
@@ -63,8 +62,7 @@ graph TD
     CheckStaged -- Yes --> SkipStage
     CheckStaged -- No --> PrepStage
     
-    PrepStage --> FieldFilter
-    FieldFilter --> StageProc
+    PrepStage --> StageProc
     StageProc --> CommitStaged
     
     %% Join Branches to Merge Stage
