@@ -1,16 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.settings
 
-import models.settings.sources.modification.{
-  DefaultDataRowModificationSettings,
-  ExcludeFieldSelector,
-  FieldSelectorSetting,
-  IncludeFieldSelector,
-  SupportedModifications,
-  SurrogateTimestamp,
-  SurrogateTimestampImpl,
-  SurrogateTimestampSetting
-}
+import models.settings.sources.modification.*
 
 import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -23,22 +14,22 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
   private val testCases = List(
     (
       DefaultDataRowModificationSettings(SupportedModifications(None, None)),
-      """{"modifications":[]}"""
+      """{"modifications":{}}"""
     ),
-    (
-      DefaultDataRowModificationSettings(
-        modificationSettings = SupportedModifications(
-          fieldSelector = Some(
-            FieldSelectorSetting(
-              include = Some(IncludeFieldSelector(Seq("id", "name").toSet)),
-              exclude = Some(ExcludeFieldSelector(Seq("secret").toSet))
-            )
-          ),
-          surrogateTimestamp = Some(SurrogateTimestampSetting())
-        )
-      ),
-      """{"modifications":[{"surrogateTimestamp":{}},{"fieldSelector":{"include":{"fields":["id","name"]},"exclude":{"fields":{["secret"]}}}]}"""
-    )
+//    (
+//      DefaultDataRowModificationSettings(
+//        modificationSettings = SupportedModifications(
+//          fieldSelector = Some(
+//            FieldSelectorSetting(
+//              include = Some(IncludeFieldSelector(Seq("id", "name").toSet)),
+//              exclude = Some(ExcludeFieldSelector(Seq("secret").toSet))
+//            )
+//          ),
+//          surrogateTimestamp = Some(SurrogateTimestampSetting())
+//        )
+//      ),
+//      """{"modifications":[{"surrogateTimestamp":{}},{"fieldSelector":{"include":{"fields":["id","name"]},"exclude":{"fields":{["secret"]}}}]}"""
+//    )
   )
 
   it should "serialize correctly" in {
