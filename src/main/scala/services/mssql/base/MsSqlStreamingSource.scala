@@ -7,12 +7,7 @@ import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
 
-import modification.{
-  DataRowModification,
-  FieldSelector,
-  FrozenSurrogateMergeKey,
-  FrozenSurrogateVersion
-}
+import modification.{DataRowModification, FieldSelector, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
