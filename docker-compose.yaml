@@ -89,6 +89,7 @@ services:
       - "localhost"
       - "--blobPort"
       - "10001"
+      - "--skipApiVersionCheck"
   create-cdm-container:
     image: python:3.11-slim-bookworm
     network_mode: host

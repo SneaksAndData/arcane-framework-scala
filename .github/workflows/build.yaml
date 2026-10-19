@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           export $(cat unit-tests.env | xargs)
-          sbt clean coverage test coverageReport
+          sbt "clean; coverage; test; coverageReport"
 
       - name: Validate formatting
         shell: bash
@@ -50,6 +50,6 @@ jobs:
       - uses: actions/upload-code-coverage@v1
         with:
           fail-on-error: false
-          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          file: target/out/jvm/scala-3.9.0/arcane-framework/coverage-report/cobertura.xml
           language: Java
           label: code-coverage/jacoco
