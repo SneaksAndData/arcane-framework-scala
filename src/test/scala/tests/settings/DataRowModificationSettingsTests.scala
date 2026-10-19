@@ -45,8 +45,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
   )
   it should "serialize correctly" in {
     forAll(testCases) { (settings, expected) =>
-      val y = write(settings)
-      y should equal(expected)
+      write(settings) should equal(expected)
     }
   }
 
