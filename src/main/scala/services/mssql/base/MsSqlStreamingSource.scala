@@ -19,7 +19,7 @@ import services.mssql.given_Conversion_SqlDataRow_DataRow
 import services.streaming.base.StructuredZStream
 import services.naming.NameGenerator
 import services.mssql.SqlDataCell.normalizeName
-import exceptions.FatalStreamFailException
+import exceptions.{FatalStreamFailException, FatalStreamFailExceptionWithCause}
 import extensions.ZExtensions.combineWith
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -568,13 +568,15 @@ object MsSqlStreamingSource:
           context       <- ZIO.service[PluginStreamContext]
           nameGenerator <- ZIO.service[NameGenerator]
           connectionSettings = extractor(context)
-          connection <- ZIO.attempt(getConnection(connectionSettings.getConnectionString))
+          connection <- ZIO
+            .attempt(getConnection(connectionSettings.getConnectionString))
+            .orDieWith(e => FatalStreamFailExceptionWithCause("Failed to establish connection to SQL Server", e))
           (schema, summaries) <- getTableSchema(
             connectionSettings.schemaName,
             connectionSettings.tableName,
             connection.getCatalog,
             connection
-          )
+          ).orDieWith(e => FatalStreamFailExceptionWithCause("Unable to fetch source table schema information", e))
         yield new MsSqlStreamingSource(
           connectionSettings = connectionSettings,
           nameGenerator = nameGenerator,

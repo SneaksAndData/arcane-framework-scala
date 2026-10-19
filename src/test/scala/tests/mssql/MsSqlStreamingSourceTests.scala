@@ -677,6 +677,12 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             ZIO.attemptBlocking {
               val st = connection.createStatement()
               st.execute(
+                "use arcane; drop table if exists dbo.[table1]; create table dbo.[table1] (x int primary key)"
+              )
+              st.execute(
+                "use arcane; alter table dbo.[table1] enable change_tracking;"
+              )
+              st.execute(
                 "use arcane; drop table if exists dbo.[backfill__s1__table1]; create table dbo.[backfill__s1__table1] (x int)"
               )
               st.execute(
@@ -696,7 +702,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             new MsSqlServerDatabaseSourceSettings {
               override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
               override val schemaName: String                             = "dbo"
-              override val tableName: String                              = "backfill__s1__table1"
+              override val tableName: String                              = "table1"
               override val fetchSize: Option[Int]                         = None
               override val extraConnectionParameters: Map[String, String] = Map.empty
               override val shardSizeMegabytes: Option[Int]                = None
