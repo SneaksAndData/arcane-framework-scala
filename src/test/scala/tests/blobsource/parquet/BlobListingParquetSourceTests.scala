@@ -55,13 +55,11 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
         )
         schema       <- source.getSchema
         mappedSchema <- sourceMapped.getSchema
-      yield assertTrue(schema.size == 11 + 3) && assertTrue(
+      yield assertTrue(schema.size == 11 + 2) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
       ) && assertTrue(
-        schema.exists(f => f.name == BlobBatchCommons.versionField.name)
-      ) && assertTrue(
         schema.exists(f => f.name == VersionField.name)
-      ) // expect 11 fields + source version + configured Arcane fields
+      ) // expect 11 fields + configured Arcane fields
         && assertTrue(schema == mappedSchema)
     },
     test("getChanges return correct rows") {
