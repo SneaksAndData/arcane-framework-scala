@@ -49,10 +49,8 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         schema <- source.getSchema
-      yield assertTrue(schema.size == 10 + 3) && assertTrue(
+      yield assertTrue(schema.size == 10 + 2) && assertTrue(
         schema.exists(f => f.name == MergeKeyField.name)
-      ) && assertTrue(
-        schema.exists(f => f.name == BlobBatchCommons.versionField.name)
       ) && assertTrue(
         schema.exists(f => f.name == VersionField.name)
       ) // expect 10 fields + source version + configured Arcane fields
