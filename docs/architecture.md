@@ -13,7 +13,6 @@ graph TD
         Bootstrap["Bootstrap<br/><i>(Target prep & cleanup)</i>"]:::bootstrap
         StreamDataProvider["Stream Data Provider"]:::core
         SourceBuffering["Source Buffering<br/>(Optional)"]:::optional
-        FieldsFiltering["Fields Filtering<br/>(Optional)"]:::optional
         SchemaDiscoveryMigration["Schema Migration<br/>(Optional)"]:::optional
         Staging["Staging<br/><i>(Iceberg micro-tables)</i>"]:::core
         Merging["Merging<br/><i>(Stage into Target)</i>"]:::core
@@ -30,8 +29,7 @@ graph TD
     %% Internal pipeline connections & Data Flows
     Bootstrap -->|Invokes stream| StreamDataProvider
     StreamDataProvider ==> SourceBuffering
-    SourceBuffering ==> FieldsFiltering
-    FieldsFiltering ==> SchemaDiscoveryMigration
+    SourceBuffering ==> SchemaDiscoveryMigration
     SchemaDiscoveryMigration ==>|"Data rows"| Staging
     Staging ==>|"Mergeable batch"| Merging
     Merging ==>|"Watermark batch"| WatermarkUpdate

@@ -6,10 +6,9 @@ import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.backfill.{BackfillBehavior, BackfillSettings}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.streaming.{ChangeCaptureSettings, StreamModeSettings}
-import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
 import services.metrics.DeclaredMetrics
 import services.mssql.*
-import services.mssql.base.{ColumnSummaryFieldSelector, MsSqlStreamingSource}
+import services.mssql.base.MsSqlStreamingSource
 import services.mssql.versioning.MsSqlWatermark
 import services.naming.DefaultNameGenerator
 import tests.mssql.util.MsSqlTestServices
@@ -51,26 +50,6 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
 
   private val fieldString = "(x int not null, y int)"
   private val pkString    = "primary key(x)"
-
-  private val emptyFieldsFilteringService: ColumnSummaryFieldSelector = new ColumnSummaryFieldSelector(
-    new FieldSelectionRuleSettings {
-
-      /** The field selection rule to use.
-        */
-      override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
-
-      /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list
-        * are used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane
-        * streaming plugin and should not be configurable.
-        */
-      override val essentialFields: Set[String] = Set.empty[String]
-      override val isServerSide: Boolean        = true
-
-      override type MergeableFrom = this.type
-      override type MergeResult   = this.type
-      override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
-    }
-  )
 
   private val streamContext = new BaseStreamContext:
     override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
@@ -136,7 +115,6 @@ object MsSqlStreamingDataProviderTests extends ZIOSpecDefault:
               override val shardSizeMegabytes: Option[Int]                = None
               override val backfillShardSchemaName: String                = "dbo"
             },
-            emptyFieldsFilteringService,
             nameGenerator,
             Seq.empty
           )

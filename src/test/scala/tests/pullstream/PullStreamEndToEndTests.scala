@@ -4,7 +4,6 @@ package tests.pullstream
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.ArcaneType.StringType
 import models.schemas.{ArcaneSchema, DataRow, Field, IndexedField, IndexedMergeKeyField, MergeKeyField}
-import services.filters.FieldsFilteringService
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
@@ -22,7 +21,7 @@ import services.streaming.processors.batch_processors.streaming.{
   MergeBatchProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 import tests.pullstream.util.PullStreamTestServices
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
@@ -91,7 +90,6 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
       )
     yield DefaultStreamingGraphBuilder(
       streamDataProvider = PullStreamTestDataProvider(source, from),
-      fieldFilteringProcessor = FieldFilteringTransformer(FieldsFilteringService(TestFieldSelectionRuleSettings)),
       stagingProcessor = StagingProcessor(
         targetTableFullName = targetTableFullName,
         icebergCatalogSettings = defaultIcebergStagingSettings,

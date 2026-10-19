@@ -1,14 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.settings
 
-import models.settings.sources.modification.{
-  DataRowModificationSetting,
-  DefaultDataRowModificationSettings,
-  FieldSelector,
-  FieldSelectorImpl,
-  SurrogateTimestamp,
-  SurrogateTimestampImpl
-}
+import models.settings.sources.modification.*
 
 import org.scalatest.Inspectors.forAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -20,27 +13,36 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
 
   private val testCases = List(
     (
-      DefaultDataRowModificationSettings(Seq.empty),
-      """{"modifications":[]}"""
+      DefaultDataRowModificationSettings(SupportedModifications(None, None)),
+      """{"modifications":{}}"""
     ),
     (
       DefaultDataRowModificationSettings(
-        Seq(
-          DataRowModificationSetting(surrogateTimestamp = Some(SurrogateTimestamp())),
-          DataRowModificationSetting(
-            fieldSelector = Some(
-              FieldSelector(
-                includeFields = Seq("id", "name"),
-                excludeFields = Seq("secret")
-              )
+        modificationSettings = SupportedModifications(
+          fieldSelector = Some(
+            FieldSelectorSetting(
+              include = Some(IncludeFieldSelector(Seq("id", "name").toSet))
             )
-          )
+          ),
+          surrogateTimestamp = Some(SurrogateTimestampSetting())
         )
       ),
-      """{"modifications":[{"surrogateTimestamp":{}},{"fieldSelector":{"includeFields":["id","name"],"excludeFields":["secret"]}}]}"""
+      """{"modifications":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
+    ),
+    (
+      DefaultDataRowModificationSettings(
+        modificationSettings = SupportedModifications(
+          fieldSelector = Some(
+            FieldSelectorSetting(
+              exclude = Some(ExcludeFieldSelector(Seq("description").toSet))
+            )
+          ),
+          surrogateTimestamp = Some(SurrogateTimestampSetting())
+        )
+      ),
+      """{"modifications":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
     )
   )
-
   it should "serialize correctly" in {
     forAll(testCases) { (settings, expected) =>
       write(settings) should equal(expected)
@@ -53,33 +55,18 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
     }
   }
 
-  it should "resolve modifications in their configured order" in {
-    val settings = testCases(1)._1
-
-    settings.modifications should equal(
-      Seq(
-        SurrogateTimestampImpl(SurrogateTimestamp()),
-        FieldSelectorImpl(
-          FieldSelector(
-            includeFields = Seq("id", "name"),
-            excludeFields = Seq("secret")
-          )
-        )
-      )
-    )
-  }
-
-  it should "reject an empty modification entry" in {
-    an[IllegalArgumentException] should be thrownBy {
-      DataRowModificationSetting().resolveSetting
-    }
-  }
-
-  it should "reject an entry containing multiple modifications" in {
-    an[IllegalArgumentException] should be thrownBy {
-      DataRowModificationSetting(
-        surrogateTimestamp = Some(SurrogateTimestamp()),
-        fieldSelector = Some(FieldSelector())
-      ).resolveSetting
-    }
-  }
+//  it should "resolve modifications in their configured order" in {
+//    val settings = testCases(1)._1
+//
+//    settings.modifications should equal(
+//      Seq(
+//        SurrogateTimestampImpl(SurrogateTimestamp()),
+//        FieldSelectorImpl(
+//          FieldSelectorSetting(
+//            includeFields = Seq("id", "name"),
+//            excludeFields = Seq("secret")
+//          )
+//        )
+//      )
+//    )
+//  }

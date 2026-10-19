@@ -77,7 +77,6 @@ import com.sneaksanddata.arcane.framework.services.backfill.processors.{
 }
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -86,7 +85,6 @@ import com.sneaksanddata.arcane.framework.services.iceberg.{
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.merging.cleanup.CatalogDisposeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
-import com.sneaksanddata.arcane.framework.services.mssql.ColumnSummaryFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.sample.*
 import com.sneaksanddata.arcane.framework.services.sample.backfill.{
   SampleBackfillMergeStreamDataProvider,
@@ -103,10 +101,8 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_pr
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
+
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import zio.logging.backend.SLF4J
 import zio.{Runtime, ZIO, ZIOAppDefault, ZLayer}
@@ -132,10 +128,8 @@ object main extends ZIOAppDefault {
     GenericStreamRunnerService.layer,
     StreamGraphResolver.composedLayer,
     DisposeBatchProcessor.layer,
-    FieldFilteringTransformer.layer,
     MergeBatchProcessor.layer,
     StagingProcessor.layer,
-    FieldsFilteringService.layer,
     SamplePluginStreamContext.layer, // Source-specific stream context
     PosixStreamLifetimeService.layer,
     SampleSourceDataProvider.layer, // Source-specific source data provider
@@ -169,7 +163,6 @@ object main extends ZIOAppDefault {
     TargetMaintenanceProcessor.layer,
     CatalogDisposeServiceClient.layer,
     DefaultNameGenerator.layer,
-    ColumnSummaryFieldsFilteringService.layer,
     DeclaredMetrics.layer,
     WatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,

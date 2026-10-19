@@ -7,7 +7,6 @@ import models.schemas.*
 import models.schemas.ArcaneType.{IntType, StringType}
 import services.backfill.base.BackfillStreamDataProvider
 import services.backfill.graph.DefaultBackfillMergeGraphBuilder
-import services.filters.FieldsFilteringService
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager, StagingPropertyManager}
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.merging.JdbcMergeServiceClient
@@ -20,7 +19,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 import tests.shared.TestTrinoConnection.{getFieldValueInTarget, getRowsInTarget, newTrinoConnection}
@@ -141,8 +140,6 @@ object DefaultBackfillMergeGraphBuilderTests extends ZIOSpecDefault:
     builder <- ZIO.succeed(
       DefaultBackfillMergeGraphBuilder(
         streamDataProvider = new TestBackfillMergeStreamDataProvider(changeSet, schema),
-        fieldFilteringProcessor =
-          new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
         stagingProcessor = new StagingProcessor(
           targetTableFullName = s"iceberg.test.$targetName",
           icebergCatalogSettings = defaultIcebergStagingSettings,

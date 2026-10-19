@@ -5,7 +5,6 @@ import models.batches.{MergeableBatch, StagedVersionedBatch, WatermarkOnlyBatch}
 import models.queries.{MergeQuery, OnSegment, WhenMatchedUpdate, WhenNotMatchedInsert}
 import models.schemas.*
 import models.schemas.ArcaneType.{IntType, StringType}
-import services.filters.FieldsFilteringService
 import services.iceberg.base.{SinkPropertyManager, StagingEntityManager}
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
 import services.merging.JdbcMergeServiceClient
@@ -22,7 +21,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 import tests.shared.*
 import tests.shared.IcebergCatalogInfo.defaultIcebergStagingSettings
 
@@ -124,8 +123,6 @@ object DefaultStreamingGraphBuilderTests extends ZIOSpecDefault:
     builder <- ZIO.succeed(
       DefaultStreamingGraphBuilder(
         streamDataProvider = new TestStreamDataProvider(input, streamSchema),
-        fieldFilteringProcessor =
-          new FieldFilteringTransformer(new FieldsFilteringService(TestFieldSelectionRuleSettings)),
         stagingProcessor = new StagingProcessor(
           targetTableFullName = s"iceberg.test.$targetName",
           icebergCatalogSettings = defaultIcebergStagingSettings,
