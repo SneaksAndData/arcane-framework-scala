@@ -5,7 +5,7 @@ import models.schemas.*
 import models.schemas.ArcaneType.*
 import models.settings.*
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
-import models.settings.sources.modification.FrozenSurrogateTimestamp
+import models.settings.sources.modification.{ExcludeFieldSelector, ExcludeFieldSelectorImpl, FrozenSurrogateTimestamp, IncludeFieldSelector, IncludeFieldSelectorImpl}
 import services.mssql.QueryProvider
 import services.mssql.QueryProvider.getBackfillQuery
 import services.mssql.base.MsSqlStreamingSource
@@ -209,7 +209,9 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
               override val backfillShardSchemaName: String                = "dbo"
             },
             nameGenerator,
-            Seq.empty
+            Seq(IncludeFieldSelectorImpl(include = IncludeFieldSelector(
+              fields = Set("x", "y", "e")
+            )))
           )
         )
         expected <- ZIO.succeed("""declare @currentVersion bigint = CHANGE_TRACKING_CURRENT_VERSION()
