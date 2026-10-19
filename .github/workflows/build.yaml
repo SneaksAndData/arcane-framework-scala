@@ -30,22 +30,21 @@ jobs:
         with:
           java-version: temurin:1.25.0.2
 
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+
       - name: Build the Docker Compose stack
-        run: docker compose up --quiet-pull -d
+        run: just up --quiet-pull
 
       - name: Get Compose Logs
         if: always()
-        run: docker compose logs
+        run: just logs
 
       - name: Build and test
-        shell: bash
-        run: |
-          export $(cat unit-tests.env | xargs)
-          sbt "clean; coverage; test; coverageReport"
+        run: just test "clean; coverage; test; coverageReport"
 
       - name: Validate formatting
-        shell: bash
-        run: sbt scalafmtCheckAll
+        run: just fmt-check
 
       - uses: actions/upload-code-coverage@v1
         with:
