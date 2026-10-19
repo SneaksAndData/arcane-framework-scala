@@ -16,25 +16,37 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
       DefaultDataRowModificationSettings(SupportedModifications(None, None)),
       """{"modifications":{}}"""
     ),
-//    (
-//      DefaultDataRowModificationSettings(
-//        modificationSettings = SupportedModifications(
-//          fieldSelector = Some(
-//            FieldSelectorSetting(
-//              include = Some(IncludeFieldSelector(Seq("id", "name").toSet)),
-//              exclude = Some(ExcludeFieldSelector(Seq("secret").toSet))
-//            )
-//          ),
-//          surrogateTimestamp = Some(SurrogateTimestampSetting())
-//        )
-//      ),
-//      """{"modifications":[{"surrogateTimestamp":{}},{"fieldSelector":{"include":{"fields":["id","name"]},"exclude":{"fields":{["secret"]}}}]}"""
-//    )
+    (
+      DefaultDataRowModificationSettings(
+        modificationSettings = SupportedModifications(
+          fieldSelector = Some(
+            FieldSelectorSetting(
+              include = Some(IncludeFieldSelector(Seq("id", "name").toSet))
+            )
+          ),
+          surrogateTimestamp = Some(SurrogateTimestampSetting())
+        )
+      ),
+      """{"modifications":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
+    ),
+    (
+      DefaultDataRowModificationSettings(
+        modificationSettings = SupportedModifications(
+          fieldSelector = Some(
+            FieldSelectorSetting(
+              exclude = Some(ExcludeFieldSelector(Seq("description").toSet))
+            )
+          ),
+          surrogateTimestamp = Some(SurrogateTimestampSetting())
+        )
+      ),
+      """{"modifications":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
+    )
   )
-
   it should "serialize correctly" in {
     forAll(testCases) { (settings, expected) =>
-      write(settings) should equal(expected)
+      val y = write(settings)
+      y should equal(expected)
     }
   }
 

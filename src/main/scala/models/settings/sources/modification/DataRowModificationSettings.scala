@@ -82,7 +82,7 @@ object NoModifications extends SupportedModifications(None, None)
 trait DataRowModificationSettings extends Mergeable:
   /** Data-row modifications to apply, in their configured order.
     */
-  val modifications: Seq[DataRowModification]
+  def rowModifications: Seq[DataRowModification]
 
 /** Default serializable implementation of [[DataRowModificationSettings]].
   *
@@ -98,7 +98,7 @@ case class DefaultDataRowModificationSettings(
 
   /** Resolved internal modification definitions.
     */
-  override val modifications: Seq[DataRowModification] = Seq(
+  override def rowModifications: Seq[DataRowModification] = Seq(
     modificationSettings.fieldSelector.map(_.resolve),
     modificationSettings.surrogateTimestamp.map(_.resolve)
   ).collect { case Some(v) =>

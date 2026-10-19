@@ -541,7 +541,7 @@ object MsSqlStreamingSource:
         yield new MsSqlStreamingSource(
           connectionSettings = extractor(context),
           nameGenerator = nameGenerator,
-          modifications = context.source.modifications.modifications
+          modifications = context.source.modifications.rowModifications
         )
       }
     }

@@ -130,6 +130,6 @@ object BlobListingJsonStreamingSource:
         nameGenerator = nameGenerator,
         avroSchemaString = sourceSettings.avroSchemaString,
         jsonPointerExpr = sourceSettings.jsonPointerExpression,
-        modifications = context.source.modifications.modifications
+        modifications = context.source.modifications.rowModifications
       )
     }

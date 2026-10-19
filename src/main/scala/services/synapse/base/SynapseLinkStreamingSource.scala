@@ -308,6 +308,6 @@ object SynapseLinkStreamingSource:
         settings.baseLocation,
         settings.entityName,
         AzureBlobStorageReader(settings.storageConnection),
-        context.source.modifications.modifications
+        context.source.modifications.rowModifications
       )
     }

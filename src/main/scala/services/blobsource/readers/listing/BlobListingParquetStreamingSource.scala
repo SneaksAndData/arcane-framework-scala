@@ -152,6 +152,6 @@ object BlobListingParquetStreamingSource:
         primaryKeys = sourceSettings.primaryKeys,
         useNameMapping = sourceSettings.useNameMapping,
         sourceSchema = sourceSettings.sourceSchema,
-        modifications = context.source.modifications.modifications
+        modifications = context.source.modifications.rowModifications
       )
     }
