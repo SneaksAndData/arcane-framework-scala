@@ -10,12 +10,10 @@ import models.settings.sources.*
 import modification.{
   DataRowModification,
   FieldSelector,
-  FrozenFieldSelector,
   FrozenSurrogateMergeKey,
   FrozenSurrogateVersion
 }
 import services.base.InsertUpdateDeleteSource
-import services.mssql.QueryProvider.{getBackfillQuery, getChangesQuery, getSchemaQuery}
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
 import services.mssql.query.LazyQueryResult.toDataRow
@@ -79,7 +77,7 @@ class MsSqlStreamingSource(
   def getFilteredSummaries: Task[List[ColumnSummary]] = for
     summaries    <- getColumnSummaries
     schemaFields <- getSchema.map(v => v.map(_.name.toLowerCase).toSet)
-  yield summaries.filter(s => schemaFields.contains(s._1.toLowerCase))
+  yield summaries.filter(s => schemaFields.contains(s._1.toLowerCase.normalizeName))
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
     getColumnSummaries
