@@ -117,8 +117,8 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
     shaperBuilder <- ZIO.succeed(
       TestThroughputShaperBuilder.default(propertyManager, tableSinkSettings)
     )
-    reader <- ZIO.succeed(
-      MsSqlStreamingSource(
+    streamingSource <-
+      MsSqlStreamingSource.fromSettings(
         new MsSqlServerDatabaseSourceSettings {
           override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
           override val schemaName: String                             = "dbo"
@@ -131,10 +131,9 @@ object MsSqlBackfillStreamDataProviderTests extends ZIOSpecDefault:
         nameGenerator,
         Seq.empty
       )
-    )
     dataProvider <- ZIO.succeed(
       new MsSqlBackfillSourceDataProvider(
-        reader,
+        streamingSource,
         backfillSettings,
         backfillStateManager,
         shaperBuilder,
