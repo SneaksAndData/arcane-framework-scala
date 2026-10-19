@@ -49,15 +49,11 @@ final class SynapseLinkStreamingSource(
 
   /** Schema from batch-level model.json
     */
-  private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] = for
-    mods <- allModifications
-    batchBaseSchema <- SynapseEntitySchemaProvider(
-      reader,
-      (location + batchFolderName).toHdfsPath,
-      entityName
-    ).getSchema
-    modifiedSchema <- applySchemaModifications(batchBaseSchema, mods)
-  yield modifiedSchema
+  private def getBatchSchema(batchFolderName: String): Task[ArcaneSchema] = SynapseEntitySchemaProvider(
+    reader,
+    (location + batchFolderName).toHdfsPath,
+    entityName
+  ).getSchema
 
   override def empty: ArcaneSchema = ArcaneSchema.empty()
 
