@@ -10,7 +10,7 @@ import models.settings.sources.*
 import modification.{DataRowModification, FieldSelector, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
-import services.mssql.base.MsSqlStreamingSource.{closeSafe, executeQuerySafe}
+import services.mssql.base.MsSqlStreamingSource.closeSafe
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
@@ -24,7 +24,7 @@ import extensions.ZExtensions.combineWith
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver
 import zio.stream.ZStream
-import zio.{Cached, Scope, Task, UIO, ZIO, ZLayer}
+import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, ResultSet, Statement}
 import java.time.format.DateTimeFormatter

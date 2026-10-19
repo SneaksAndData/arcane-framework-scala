@@ -6,10 +6,10 @@ import sbtrelease.ReleaseStateTransformations.{
   setReleaseVersion
 }
 
-val scala383 = "3.8.3"
+val scala3 = "3.9.0"
 
 ThisBuild / organization := "com.sneaksanddata"
-ThisBuild / scalaVersion := scala383
+ThisBuild / scalaVersion := scala3
 // SemanticDB is built into the Scala 3 compiler; only `semanticdbEnabled` is needed.
 // `semanticdbVersion` applies to Scala 2 (loads the semanticdb-scalac plugin) and is a no-op here.
 ThisBuild / semanticdbEnabled := true
@@ -50,46 +50,46 @@ lazy val root = (project in file("."))
     Test / logBuffered := false,
 
     // Framework dependencies
-    libraryDependencies += "dev.zio"                %% "zio"                        % "2.1.26",
-    libraryDependencies += "dev.zio"                %% "zio-streams"                % "2.1.26",
-    libraryDependencies += "dev.zio"                %% "zio-cache"                  % "0.2.8",
+    libraryDependencies += "dev.zio"                %% "zio"                        % "2.1.27",
+    libraryDependencies += "dev.zio"                %% "zio-streams"                % "2.1.27",
+    libraryDependencies += "dev.zio"                %% "zio-cache"                  % "0.3.0",
     libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc"                 % "12.8.2.jre11",
-    libraryDependencies += "software.amazon.awssdk"  % "s3"                         % "2.33.13",
-    libraryDependencies += "software.amazon.awssdk"  % "dynamodb"                   % "2.33.13",
+    libraryDependencies += "software.amazon.awssdk"  % "s3"                         % "2.56.0",
+    libraryDependencies += "software.amazon.awssdk"  % "dynamodb"                   % "2.56.0",
     libraryDependencies += "com.lihaoyi"            %% "upickle"                    % "4.4.3",
     libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0",
 
     // Iceberg deps - read
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-mapreduce-client-core
-    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.4.3",
+    libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "3.5.0",
 
     // Iceberg deps - core API, S3 and write
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-api
-    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.10.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-api" % "1.12.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-core
-    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.10.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-core" % "1.12.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-parquet
-    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.10.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-parquet" % "1.12.0",
     // https://mvnrepository.com/artifact/org.apache.iceberg/iceberg-aws
-    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.10.1",
+    libraryDependencies += "org.apache.iceberg" % "iceberg-aws" % "1.12.0",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/auth
-    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.33.13",
+    libraryDependencies += "software.amazon.awssdk" % "auth" % "2.56.0",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/http-auth-aws
-    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.33.13",
+    libraryDependencies += "software.amazon.awssdk" % "http-auth-aws" % "2.56.0",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/sts
-    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.33.13",
+    libraryDependencies += "software.amazon.awssdk" % "sts" % "2.56.0",
     // https://mvnrepository.com/artifact/software.amazon.awssdk/kms
-    libraryDependencies += "software.amazon.awssdk" % "kms" % "2.33.13",
+    libraryDependencies += "software.amazon.awssdk" % "kms" % "2.56.0",
     // https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common
-    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.4.3",
+    libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "3.5.0",
     // https://mvnrepository.com/artifact/io.trino/trino-jdbc
-    libraryDependencies += "io.trino" % "trino-jdbc" % "481",
+    libraryDependencies += "io.trino" % "trino-jdbc" % "483",
 
     // Azure dependencies
     // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
-    libraryDependencies += "com.azure" % "azure-storage-blob" % "12.32.0",
+    libraryDependencies += "com.azure" % "azure-storage-blob" % "12.36.0",
     // https://mvnrepository.com/artifact/com.azure/azure-identity
-    libraryDependencies += "com.azure" % "azure-identity" % "1.18.3",
+    libraryDependencies += "com.azure" % "azure-identity" % "1.18.7",
     // Jackson pin
     libraryDependencies += "com.fasterxml.jackson.core"     % "jackson-databind"        % "2.18.1",
     libraryDependencies += "com.fasterxml.jackson.core"     % "jackson-core"            % "2.18.1",
@@ -100,8 +100,8 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalatest"     %% "scalatest"          % "3.2.20"   % Test,
     libraryDependencies += "org.scalatest"     %% "scalatest-flatspec" % "3.2.20"   % Test,
     libraryDependencies += "org.scalatestplus" %% "easymock-5-6"       % "3.2.20.0" % Test,
-    libraryDependencies += "dev.zio"           %% "zio-test"           % "2.1.26"   % Test,
-    libraryDependencies += "dev.zio"           %% "zio-test-sbt"       % "2.1.26"   % Test,
+    libraryDependencies += "dev.zio"           %% "zio-test"           % "2.1.27"   % Test,
+    libraryDependencies += "dev.zio"           %% "zio-test-sbt"       % "2.1.27"   % Test,
 
     // Logging and metrics
     // For ZIO
@@ -109,11 +109,11 @@ lazy val root = (project in file("."))
     libraryDependencies += "dev.zio" %% "zio-logging-slf4j2" % "2.5.3",
 
     // For DataDog
-    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j"           % "2.25.3",
-    libraryDependencies += "ch.qos.logback"           % "logback-classic"          % "1.5.34",
+    libraryDependencies += "org.apache.logging.log4j" % "log4j-to-slf4j"           % "2.26.1",
+    libraryDependencies += "ch.qos.logback"           % "logback-classic"          % "1.6.5",
     libraryDependencies += "net.logstash.logback"     % "logstash-logback-encoder" % "9.0",
 
     // Metrics
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors"         % "2.5.6",
-    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.5.6"
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors"         % "2.6.0",
+    libraryDependencies += "dev.zio" %% "zio-metrics-connectors-datadog" % "2.6.0"
   )
