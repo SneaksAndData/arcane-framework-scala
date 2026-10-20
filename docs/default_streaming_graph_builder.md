@@ -15,25 +15,22 @@ The streaming pipeline is designed as a sequence of stages connected via ZIO Str
 1. **Source Stream (`streamDataProvider`)**
    Emits the continuous data stream as pairs of `(subStream, schema)`, where `subStream` is a `ZStream` of rows and `schema` is the schema of the rows in that stream.
 
-2. **Field Filtering (`fieldFilteringProcessor`)**
-   Filters columns/fields from the incoming data based on the dynamic configured field selection and matching rules, ensuring only required attributes are ingested.
-
-3. **Data Staging (`stagingProcessor`)**
+2. **Data Staging (`stagingProcessor`)**
    Stages the active stream data rows into Iceberg tables in the staging catalog.
 
-4. **Schema Migration (`schemaMigrationProcessor`)**
+3. **Schema Migration (`schemaMigrationProcessor`)**
    Compares the active staging schema with the target table schema. If any changes are detected (such as new columns), it safely executes metadata schema migrations on the target catalog to guarantee alignment before merging.
 
-5. **Data Merging (`mergeProcessor`)**
+4. **Data Merging (`mergeProcessor`)**
    Constructs and executes the merge transaction to incorporate the newly staged rows into the primary target table. Handles data de-duplication as a bonus.
 
-6. **Target Maintenance (`targetMaintenanceProcessor`)**
+5. **Target Maintenance (`targetMaintenanceProcessor`)**
    Performs routine metadata optimizations and maintenance transactions on the target catalog, such as snapshot expiration, removing orphaned files, or compacting.
 
-7. **Watermark Management (`watermarkProcessor`)**
+6. **Watermark Management (`watermarkProcessor`)**
    Registers and persists the watermark progress for the successfully processed batch, updating table/catalog properties to enable checkpointing and safe restart/resumption of the stream.
 
-8. **Batch Disposal (`disposeBatchProcessor`)**
+7. **Batch Disposal (`disposeBatchProcessor`)**
    Cleans up temporary resources, dropping the staging tables.
 
 ## Stream Initialization: DefaultStreamDataProvider
@@ -75,7 +72,6 @@ graph TD
         EmptyStream[Emit nothing/skip]:::process
     end
 
-    FieldFilter[fieldFilteringProcessor: Filter Fields]:::process
     Staging[stagingProcessor: Stage Data to Files]:::process
     SchemaMigration[schemaMigrationProcessor: Align Schema with Target]:::state
     MergeData[mergeProcessor: Upsert/Merge into Target Table]:::process
@@ -101,10 +97,9 @@ graph TD
     CheckStart -- No --> EmptyStream
     
     %% Pipeline Connections
-    EmitChanges --> FieldFilter
-    EmitEmptyWatermark --> FieldFilter
+    EmitChanges --> Staging
+    EmitEmptyWatermark --> Staging
     
-    FieldFilter --> Staging
     Staging --> SchemaMigration
     SchemaMigration --> MergeData
     MergeData --> Maintenance

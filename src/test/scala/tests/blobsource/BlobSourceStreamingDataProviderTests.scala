@@ -76,7 +76,6 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )
@@ -120,7 +119,6 @@ object BlobSourceStreamingDataProviderTests extends ZIOSpecDefault:
             Seq("col0"),
             false,
             None,
-            TestFieldSelectionRuleSettings,
             Seq.empty
           )
         )

@@ -13,76 +13,64 @@ import scala.io.Source
 import scala.math.{log, pow}
 
 object QueryProvider:
-  /** Gets the schema query for the Microsoft SQL Server database.
-    *
-    * msSqlConnection The connection to the database.
-    * @return
-    *   A future containing the schema query for the Microsoft SQL Server database.
-    */
-  extension (reader: MsSqlStreamingSource)
-    def getSchemaQuery: Task[MsSqlQuery] =
-      for
-        columnSummaries <- reader.getColumnSummaries
-        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        query <- QueryProvider.getChangesQuery(
-          reader.connectionSettings,
-          reader.catalog,
-          columnExpression,
-          matchStatement,
-          Long.MaxValue,
-          Long.MaxValue
-        )
-      yield query
 
-  /** Gets the changes query for the Microsoft SQL Server database.
-    *
-    * @param msSqlConnection
-    *   The connection to the database.
-    * @param fromVersion
-    *   The version to start from.
-    * @return
-    *   A future containing the changes query for the Microsoft SQL Server database.
-    */
-  extension (reader: MsSqlStreamingSource)
-    def getChangesQuery(fromVersion: Long, toVersion: Long): Task[MsSqlQuery] =
-      for
-        columnSummaries <- reader.getColumnSummaries
-        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "ct", "tq")
-        matchStatement   = QueryProvider.getMatchStatement(columnSummaries, "ct", "tq", None)
-        query <- QueryProvider.getChangesQuery(
-          reader.connectionSettings,
-          reader.catalog,
-          columnExpression,
-          matchStatement,
-          fromVersion,
-          toVersion
-        )
-      yield query
+  def getBackfillQuery(
+      databaseName: String,
+      shardSchemaName: String,
+      shardTableName: String,
+      columnSummaries: List[ColumnSummary]
+  ): Task[MsSqlQuery] =
+    for
+      columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
+      query <- QueryProvider.getAllQuery(
+        databaseName,
+        shardSchemaName,
+        shardTableName,
+        columnExpression
+      )
+    yield query
 
-  /** Gets the changes query for the Microsoft SQL Server database.
-    *
-    * @param msSqlConnection
-    *   The connection to the database.
-    * @return
-    *   A future containing the changes query for the Microsoft SQL Server database.
-    */
-  extension (reader: MsSqlStreamingSource)
-    def getBackfillQuery(
-        shardSchemaName: String,
-        shardTableName: String,
-        columnSummaries: List[ColumnSummary]
-    ): Task[MsSqlQuery] =
-      for
-        columnExpression = QueryProvider.getChangeTrackingColumns(columnSummaries, "tq")
-        query <- QueryProvider.getAllQuery(
-          reader.connectionSettings,
-          reader.catalog,
-          shardSchemaName,
-          shardTableName,
-          columnExpression
-        )
-      yield query
+  def getChangesForVersionRangeQuery(
+      schemaName: String,
+      tableName: String,
+      databaseName: String,
+      fromVersion: Long,
+      toVersion: Long,
+      summaries: List[ColumnSummary]
+  ): Task[MsSqlQuery] =
+    for
+      columnExpression = QueryProvider.getChangeTrackingColumns(summaries, "ct", "tq")
+      matchStatement   = QueryProvider.getMatchStatement(summaries, "ct", "tq", None)
+      query <- QueryProvider.getChangesQuery(
+        schemaName,
+        tableName,
+        databaseName,
+        columnExpression,
+        matchStatement,
+        fromVersion,
+        toVersion
+      )
+    yield query
+
+  def getSchemaQuery(
+      schemaName: String,
+      tableName: String,
+      databaseName: String,
+      summaries: List[ColumnSummary]
+  ): Task[MsSqlQuery] =
+    for
+      columnExpression = QueryProvider.getChangeTrackingColumns(summaries, "ct", "tq")
+      matchStatement   = QueryProvider.getMatchStatement(summaries, "ct", "tq", None)
+      query <- QueryProvider.getChangesQuery(
+        schemaName,
+        tableName,
+        databaseName,
+        columnExpression,
+        matchStatement,
+        Long.MaxValue,
+        Long.MaxValue
+      )
+    yield query
 
   /** Gets the column summaries query for the Microsoft SQL Server database.
     *
@@ -281,7 +269,8 @@ object QueryProvider:
     (primaryKeyColumns ++ additionalColumns ++ nonPrimaryKeyColumns).mkString(",\n")
 
   private def getChangesQuery(
-      connectionSettings: MsSqlServerDatabaseSourceSettings,
+      schemaName: String,
+      tableName: String,
       databaseName: String,
       columnStatement: String,
       matchStatement: String,
@@ -296,8 +285,8 @@ object QueryProvider:
         baseQuery <- ZIO.attempt(querySource.getLines().mkString("\n"))
         query = baseQuery
           .replace("{dbName}", databaseName)
-          .replace("{schema}", connectionSettings.schemaName)
-          .replace("{tableName}", connectionSettings.tableName)
+          .replace("{schema}", schemaName)
+          .replace("{tableName}", tableName)
           .replace("{ChangeTrackingColumnsStatement}", columnStatement)
           .replace("{ChangeTrackingMatchStatement}", matchStatement)
           .replace("{lastId}", changeTrackingId.toString)
@@ -306,7 +295,6 @@ object QueryProvider:
     }
 
   private def getAllQuery(
-      connectionSettings: MsSqlServerDatabaseSourceSettings,
       databaseName: String,
       schemaName: String,
       tableName: String,

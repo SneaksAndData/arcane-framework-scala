@@ -9,7 +9,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 
 import zio.stream.ZStream
 import zio.{Tag, ZIO, ZLayer}
@@ -19,7 +19,6 @@ import zio.{Tag, ZIO, ZLayer}
   */
 class DefaultStreamingGraphBuilder(
     streamDataProvider: StreamDataProvider,
-    fieldFilteringProcessor: FieldFilteringTransformer,
     stagingProcessor: StagingProcessor,
     mergeProcessor: MergeBatchProcessor,
     disposeBatchProcessor: DisposeBatchProcessor,
@@ -37,7 +36,6 @@ class DefaultStreamingGraphBuilder(
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] =
     streamDataProvider.stream.flatMap { case (subStream, schema) =>
       subStream
-        .via(fieldFilteringProcessor.process)
         .via(stagingProcessor.process(schema))
         .via(schemaMigrationProcessor.process)
         .via(mergeProcessor.process)
@@ -50,14 +48,13 @@ object DefaultStreamingGraphBuilder:
 
   /** The environment required for the DefaultStreamingGraphBuilder.
     */
-  type Environment = StreamDataProvider & FieldFilteringTransformer & StagingProcessor & MergeBatchProcessor &
-    DisposeBatchProcessor & WatermarkProcessor & SchemaMigrationProcessor & TargetMaintenanceProcessor
+  type Environment = StreamDataProvider & StagingProcessor & MergeBatchProcessor & DisposeBatchProcessor &
+    WatermarkProcessor & SchemaMigrationProcessor & TargetMaintenanceProcessor
 
   /** Creates a new DefaultStreamingGraphBuilder.
     */
   def apply(
       streamDataProvider: StreamDataProvider,
-      fieldFilteringProcessor: FieldFilteringTransformer,
       stagingProcessor: StagingProcessor,
       mergeProcessor: MergeBatchProcessor,
       disposeBatchProcessor: DisposeBatchProcessor,
@@ -67,7 +64,6 @@ object DefaultStreamingGraphBuilder:
   ): DefaultStreamingGraphBuilder =
     new DefaultStreamingGraphBuilder(
       streamDataProvider,
-      fieldFilteringProcessor,
       stagingProcessor,
       mergeProcessor,
       disposeBatchProcessor,
@@ -80,7 +76,6 @@ object DefaultStreamingGraphBuilder:
     ZLayer {
       for
         streamDataProvider         <- ZIO.service[StreamDataProvider]
-        fieldFilteringProcessor    <- ZIO.service[FieldFilteringTransformer]
         stagingProcessor           <- ZIO.service[StagingProcessor]
         mergeProcessor             <- ZIO.service[MergeBatchProcessor]
         disposeBatchProcessor      <- ZIO.service[DisposeBatchProcessor]
@@ -89,7 +84,6 @@ object DefaultStreamingGraphBuilder:
         targetMaintenanceProcessor <- ZIO.service[TargetMaintenanceProcessor]
       yield DefaultStreamingGraphBuilder(
         streamDataProvider,
-        fieldFilteringProcessor,
         stagingProcessor,
         mergeProcessor,
         disposeBatchProcessor,

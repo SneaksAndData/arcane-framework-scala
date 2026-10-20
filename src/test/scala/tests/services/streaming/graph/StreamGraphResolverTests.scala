@@ -19,7 +19,7 @@ import services.streaming.processors.batch_processors.streaming.{
   SchemaMigrationProcessor,
   WatermarkProcessor
 }
-import services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import services.streaming.processors.transformers.StagingProcessor
 import tests.shared.{
   CustomTestBackfillTableSettings,
   TestPluginBackfillMergeStreamContext,
@@ -59,7 +59,6 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(mock[StreamDataProvider]),
           ZLayer.succeed(mock[BackfillStreamDataProvider]),
           ZLayer.succeed(mock[StagingProcessor]),
-          ZLayer.succeed(mock[FieldFilteringTransformer]),
           ZLayer.succeed(mock[MergeBatchProcessor]),
           ZLayer.succeed(mock[DisposeBatchProcessor]),
           ZLayer.succeed(mock[WatermarkProcessor]),

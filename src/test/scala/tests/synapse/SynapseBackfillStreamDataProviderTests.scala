@@ -3,7 +3,6 @@ package tests.synapse
 
 import models.backfill.DefaultSourceBackfill
 import models.settings.TableNaming.parts
-import models.settings.{AllFields, AllFieldsImpl, FieldSelectionRule, FieldSelectionRuleSettings}
 import services.backfill.DefaultBackfillStateManager
 import services.metrics.DeclaredMetrics
 import services.naming.DefaultNameGenerator
@@ -28,22 +27,6 @@ import java.time.OffsetDateTime
 object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
   private val sourceTableName     = "dimensionattributelevelvalue"
   private val icebergUtilBackfill = IcebergUtil(TestDynamicSinkSettings("test").icebergCatalog)
-  private val allFieldsSelector = new FieldSelectionRuleSettings {
-
-    /** The field selection rule to use.
-      */
-    override val rule: FieldSelectionRule = AllFieldsImpl(AllFields())
-
-    /** The set of essential fields that must ALWAYS be included in the field selection rule. Fields from this list are
-      * used in SQL queries and ALWAYS must be present in the result set. This list is provided by the Arcane streaming
-      * plugin and should not be configurable.
-      */
-    override val essentialFields: Set[String] = Set.empty[String]
-    override val isServerSide: Boolean        = false
-    override type MergeableFrom = this.type
-    override type MergeResult   = this.type
-    override def merge(overrides: Option[MergeableFrom]): MergeResult = ???
-  }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseBackfillStreamDataProviderTests")(
     test(
@@ -85,7 +68,6 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             sourceRoot,
             sourceTableName,
             storageReader,
-            allFieldsSelector,
             Seq.empty
           )
         )
@@ -166,7 +148,6 @@ object SynapseBackfillStreamDataProviderTests extends ZIOSpecDefault:
             sourceRoot,
             sourceTableName,
             storageReader,
-            allFieldsSelector,
             Seq.empty
           )
         )

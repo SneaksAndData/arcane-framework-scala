@@ -32,7 +32,9 @@ services:
     network_mode: host
     restart: always
     environment:
-      - S2_SERVER_BUCKETS=tmp,lakehouse,s3-blob-reader,s3-blob-reader-json,s3-blob-reader-json-variable,s3-blob-reader-json-nested-array,s3-blob-reader-json-root-nested-array,s3-blob-reader-json-root-nested-jarray
+      S2_SERVER_USER: minioadmin
+      S2_SERVER_PASSWORD: minioadmin
+      S2_SERVER_BUCKETS: tmp,lakehouse,s3-blob-reader,s3-blob-reader-json,s3-blob-reader-json-variable,s3-blob-reader-json-nested-array,s3-blob-reader-json-root-nested-array,s3-blob-reader-json-root-nested-jarray
   s3_reader_prepare:
     image: python:3.11-slim-bookworm
     network_mode: host
@@ -41,8 +43,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_ENDPOINT_URL_S3=http://localhost:9000
     depends_on:
-      minio:
-        condition: service_started
+      - minio
     restart: "no"
     volumes:
       - ./populate-s3-reader-bucket.py:/populate-s3-reader-bucket.py
@@ -88,6 +89,7 @@ services:
       - "localhost"
       - "--blobPort"
       - "10001"
+      - "--skipApiVersionCheck"
   create-cdm-container:
     image: python:3.11-slim-bookworm
     network_mode: host
@@ -159,4 +161,3 @@ services:
       - "8000:8000"
     volumes:
       - "./data:/home/dynamodblocal/data"
-

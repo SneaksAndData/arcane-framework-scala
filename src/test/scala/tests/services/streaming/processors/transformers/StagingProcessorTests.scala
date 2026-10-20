@@ -11,14 +11,18 @@ import models.settings.sink.SinkSettings
 import models.settings.sources.{SourceBufferingSettings, SourceSettings, StreamSourceSettings}
 import models.settings.staging.StagingSettings
 import models.settings.streaming.*
-import models.settings.{FieldSelectionRuleSettings, FlowRate}
+import models.settings.FlowRate
 import services.iceberg.base.CatalogWriter
 import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter}
 import services.metrics.DeclaredMetrics
 import services.streaming.processors.transformers.StagingProcessor
 import services.naming.DefaultNameGenerator
 import tests.shared.*
-import models.settings.sources.modification.{DataRowModificationSettings, DefaultDataRowModificationSettings}
+import models.settings.sources.modification.{
+  DataRowModificationSettings,
+  DefaultDataRowModificationSettings,
+  SupportedModifications
+}
 
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
@@ -92,10 +96,10 @@ object StagingProcessorTests extends ZIOSpecDefault:
     override val sink: SinkSettings = TestSinkSettings
     override val source: StreamSourceSettings = new StreamSourceSettings {
       override type SourceSettingsType = SourceSettings
-      override val configuration: SourceSettingsType              = new SourceSettings {}
-      override val buffering: SourceBufferingSettings             = TestSourceBufferingSettings
-      override val fieldSelectionRule: FieldSelectionRuleSettings = TestFieldSelectionRuleSettings
-      override val modifications: DataRowModificationSettings     = DefaultDataRowModificationSettings(Seq.empty)
+      override val configuration: SourceSettingsType  = new SourceSettings {}
+      override val buffering: SourceBufferingSettings = TestSourceBufferingSettings
+      override val modifications: DataRowModificationSettings =
+        DefaultDataRowModificationSettings(SupportedModifications(None, None))
     }
     override val staging: StagingSettings             = TestStagingSettings()
     override val observability: ObservabilitySettings = TestObservabilitySettings
