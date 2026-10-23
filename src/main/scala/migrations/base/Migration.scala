@@ -8,9 +8,9 @@ import zio.{Task, ZIO}
 
 trait Migration:
   type RequiredMigrationServices
-  
+
   val shortName: String
   val description: String
   val uniqueId: Long
-  
+
   def execute: ZIO[RequiredMigrationServices, Throwable, Unit]

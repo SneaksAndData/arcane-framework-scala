@@ -21,13 +21,15 @@ trait MigrationService:
 
   def getSinkMigration(sink: TableName): Task[SinkMigrationIdentifier]
 
-  def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] = fromId match 
-    case None => definedMigrations(toId)
+  def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] = fromId match
+    case None                         => definedMigrations(toId)
     case Some(value) if value == toId => Seq.empty
-    case Some(value) if value > toId => throw new IllegalArgumentException(s"Sink start migration identifier $value is greater than target migration identifier $toId")
-    case Some(value) => 
+    case Some(value) if value > toId =>
+      throw new IllegalArgumentException(
+        s"Sink start migration identifier $value is greater than target migration identifier $toId"
+      )
+    case Some(value) =>
       val appliedMigrations = definedMigrations(value).map(_.uniqueId).toSet
-      val fullMigrations = definedMigrations(toId)
+      val fullMigrations    = definedMigrations(toId)
 
       fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
-
