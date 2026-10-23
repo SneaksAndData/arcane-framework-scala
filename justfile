@@ -31,6 +31,17 @@ ps:
 test *args="test":
     export $(cat {{ENV_FILE}} | xargs) && sbt "{{args}}"
 
+# Run specific tests with unit-tests.env loaded
+test-only *args:
+    #!/usr/bin/env bash
+    export $(cat {{ENV_FILE}} | xargs)
+    ARGS="{{args}}"
+    if [[ "$ARGS" != *"*"* ]] && [[ "$ARGS" != *" "* ]]; then
+        sbt "testOnly *${ARGS}*"
+    else
+        sbt "testOnly ${ARGS}"
+    fi
+
 # Validate formatting
 fmt-check:
     sbt scalafmtCheckAll

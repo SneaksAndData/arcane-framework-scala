@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.framework
 package tests.shared
 
 import models.settings.iceberg.IcebergCatalogSettings
-import services.iceberg.base.S3CatalogFileIO
 
 object TestIcebergStagingSettings extends IcebergCatalogSettings:
   /** The namespace of the catalog.
@@ -17,6 +16,8 @@ object TestIcebergStagingSettings extends IcebergCatalogSettings:
     */
   override val catalogUri: String = "http://localhost:8080"
 
-  override val additionalProperties: Map[String, String] = S3CatalogFileIO.properties
+  override val additionalProperties: Map[String, String] = Map(
+    "header.X-Iceberg-Access-Delegation" -> "vended-credentials"
+  )
 
   override val maxCatalogInstanceLifetime: zio.Duration = zio.Duration.fromSeconds(3600)
