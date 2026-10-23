@@ -1,11 +1,16 @@
 package com.sneaksanddata.arcane.framework
 package migrations.base
 
-import zio.Task
+import models.app.PluginStreamContext
+import services.iceberg.base.SinkPropertyManager
+
+import zio.{Task, ZIO}
 
 trait Migration:
+  type RequiredMigrationServices
+  
   val shortName: String
   val description: String
   val uniqueId: Long
   
-  def execute: Task[Unit]
+  def execute: ZIO[RequiredMigrationServices, Throwable, Unit]

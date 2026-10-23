@@ -4,13 +4,13 @@ package migrations.base
 import exceptions.FatalStreamFailExceptionWithCause
 import models.settings.TableName
 
-import zio.{Task, ZIO}
+import zio.{Task, URIO, ZIO}
 
 trait MigrationService:
   final def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
-  final def migrate(migrations: Seq[Migration]): ZIO[Any, Throwable, Unit] = ZIO
-    .foreach(migrations)(_.execute)
+  final def migrate(migrations: Seq[Migration]): URIO[Nothing, Unit] = ZIO
+    .foreach(migrations)(_.execute.map(_ => ()))
     .flatMap(_ => ZIO.unit)
     .orDieWith(e =>
       FatalStreamFailExceptionWithCause(
