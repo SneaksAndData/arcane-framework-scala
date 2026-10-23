@@ -21,4 +21,12 @@ trait MigrationService:
 
   def getSinkMigration(sink: TableName): Task[SinkMigrationIdentifier]
 
-  def diff(fromId: SinkMigrationIdentifier, toId: SinkMigrationIdentifier): Task[Seq[Migration]]
+  def diff(fromId: SinkMigrationIdentifier, toId: SinkMigrationIdentifier): Seq[Migration] =
+    if fromId == toId then
+      Seq.empty
+    else
+      val appliedMigrations = definedMigrations(fromId).map(_.uniqueId).toSet
+      val fullMigrations = definedMigrations(toId)
+      
+      fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
+
