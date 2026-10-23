@@ -63,6 +63,11 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     _     <- ZIO.attemptBlocking(table.updateProperties().set(propertyName, propertyValue).commit())
   yield ()
 
+  override def removeProperty(tableName: String, propertyName: String): Task[Unit] = for
+    table <- loadTable(tableName)
+    _ <- ZIO.attemptBlocking(table.updateProperties().remove(propertyName).commit())
+  yield ()  
+
   private def getTableMetadataScan(tableName: String, tableType: MetadataTableType) = for
     table <- loadMetadataTable(tableName, tableType)
     scanOps <- ZIO.acquireRelease(ZIO.attempt(table.newScan().includeColumnStats().planFiles())) { fileScans =>

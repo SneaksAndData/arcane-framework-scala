@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package migrations.base
 
 import exceptions.FatalStreamFailExceptionWithCause
+import logging.ZIOLogAnnotations.zlog
 import models.settings.TableName
 
 import zio.{Task, URIO, ZIO}
@@ -10,14 +11,14 @@ trait MigrationService:
   final def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   final def migrate(migrations: Seq[Migration]): URIO[Nothing, Unit] = ZIO
-    .foreach(migrations)(_.execute.map(_ => ()))
+    .foreach(migrations) { migration =>
+      (for
+        _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
+        _ <- migration.execute
+        _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
+      yield ()).orDieWith(e => FatalStreamFailExceptionWithCause(s"Failed to execute migration: ${migration.uniqueId} (${migration.shortName})", e))
+    }
     .flatMap(_ => ZIO.unit)
-    .orDieWith(e =>
-      FatalStreamFailExceptionWithCause(
-        s"Failed to execute provided migrations: ${migrations.map(_.shortName).mkString(",")}",
-        e
-      )
-    )
 
   def getSinkMigration(sink: TableName): Task[SinkMigrationIdentifier]
 

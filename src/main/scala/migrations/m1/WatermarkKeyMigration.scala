@@ -7,6 +7,7 @@ import models.app.PluginStreamContext
 import models.settings.TableNaming.parts
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.ZIO
 
 class WatermarkKeyMigration extends Migration:
@@ -24,10 +25,20 @@ class WatermarkKeyMigration extends Migration:
     // find watermark value
     legacyWatermark <- sinkPropertyManager.getProperty(context.sink.targetTableFullName.parts.name, legacyPropertyName)
     _ <- ZIO.when(legacyWatermark.isDefined)(
-      sinkPropertyManager.setProperty(
-        context.sink.targetTableFullName.parts.name,
-        MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey),
-        legacyWatermark.get
-      )
+      for
+        _ <- zlog("Found watermark value in legacy key `arcane-watermark`: %s", legacyWatermark.get)
+        newKey = MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
+        _ <- sinkPropertyManager.setProperty(
+          context.sink.targetTableFullName.parts.name,
+          newKey,
+          legacyWatermark.get
+        )
+        _ <- sinkPropertyManager.removeProperty(
+          context.sink.targetTableFullName.parts.name,
+          newKey
+        )
+        _ <- zlog("Set watermark value using key %s=%s", newKey, legacyWatermark.get)
+      yield ()
     )
+    _ <- ZIO.unless(legacyWatermark.isDefined)(zlog("No legacy watermark on a table"))
   yield ()
