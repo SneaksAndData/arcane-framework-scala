@@ -8,18 +8,19 @@ import models.MetadataKeys
 import services.iceberg.base.SinkPropertyManager
 import services.migration.MigrationService
 
+import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.prelude.PartialOrdOps
 import zio.{Task, URIO, ZIO}
 
-class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, sinkTableName: String) extends MigrationService:
+class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, sinkTableName: String, context: PluginStreamContext) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
-  override def migrate(migrations: Seq[Migration]): URIO[Nothing, Unit] = ZIO
+  override def migrate(migrations: Seq[Migration]): ZIO[Nothing, Nothing, Unit] = ZIO
     .foreach(migrations) { migration =>
       (for
         _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
-        _ <- migration.execute
+        _ <- ZIO.environment[migration.RequiredMigrationServices].flatMap(env => migration.execute.provideEnvironment(env))
         _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
       yield ()).orDieWith(e =>
         FatalStreamFailExceptionWithCause(

@@ -6,12 +6,12 @@ import logging.ZIOLogAnnotations.zlog
 import migrations.base.{Migration, SinkMigrationIdentifier}
 import models.settings.TableName
 
-import zio.{Task, URIO, ZIO}
+import zio.{Task, UIO, URIO, ZIO}
 
 trait MigrationService:
   def isCurrent(migrationId: SinkMigrationIdentifier): Boolean
 
-  def migrate(migrations: Seq[Migration]): URIO[Nothing, Unit]
+  def migrate(migrations: Seq[Migration]): ZIO[Nothing, Nothing, Unit]
 
   def getSinkMigration: Task[Option[SinkMigrationIdentifier]]
 

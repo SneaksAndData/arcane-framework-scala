@@ -12,9 +12,12 @@ final class DefaultMigrationGraphBuilder(migrationService: MigrationService) ext
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] = ZStream.fromZIO {
     for
       sinkMigration <- migrationService.getSinkMigration
-    yield migrationService.diff(sinkMigration, CurrentMigration)
-  }.flatMap(ZStream.fromIterable).mapZIO { migration =>
-    for
-      _ <- migration.execute.provide(ZLayer.succeed(services))
+      migrations = migrationService.diff(sinkMigration, CurrentMigration)
+      _ <- migrationService.migrate(migrations)
     yield ()
   }
+//    .flatMap(ZStream.fromIterable).mapZIO { migration =>
+//    for
+//      _ <- migration.execute.provide(ZLayer.succeed(services))
+//    yield ()
+//  }
