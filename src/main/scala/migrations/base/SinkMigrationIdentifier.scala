@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package migrations
+package migrations.base
 
 type SinkMigrationIdentifier = Long
 

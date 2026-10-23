@@ -6,7 +6,7 @@ object MetadataKeys:
   private val pluginGroup       = "plugin"
   private val frameworkGroup    = "core"
 
-  val watermarkKey = "arcane-watermark"
+  val watermarkKey = "watermark"
   val migrationKey = "migration-identifier"
 
   /** Get full name of a metadata key for a framework-scoped key name

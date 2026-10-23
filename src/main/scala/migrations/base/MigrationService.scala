@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.framework
-package migrations
+package migrations.base
 
 import exceptions.FatalStreamFailExceptionWithCause
 import models.settings.TableName
@@ -21,12 +21,13 @@ trait MigrationService:
 
   def getSinkMigration(sink: TableName): Task[SinkMigrationIdentifier]
 
-  def diff(fromId: SinkMigrationIdentifier, toId: SinkMigrationIdentifier): Seq[Migration] =
-    if fromId == toId then
-      Seq.empty
-    else
-      val appliedMigrations = definedMigrations(fromId).map(_.uniqueId).toSet
+  def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] = fromId match 
+    case None => definedMigrations(toId)
+    case Some(value) if value == toId => Seq.empty
+    case Some(value) if value > toId => throw new IllegalArgumentException(s"Sink start migration identifier $value is greater than target migration identifier $toId")
+    case Some(value) => 
+      val appliedMigrations = definedMigrations(value).map(_.uniqueId).toSet
       val fullMigrations = definedMigrations(toId)
-      
+
       fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
 
