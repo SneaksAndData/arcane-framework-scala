@@ -16,7 +16,7 @@ def _create_warehouse(name: str, key_prefix: str, namespaces: list[str]) -> None
                 "region": "us-east-1",
                 "path-style-access": True,
                 "flavor": "minio",
-                "sts-enabled": True,
+                "sts-enabled": False,
             },
             "storage-credential": {
                 "type": "s3",
