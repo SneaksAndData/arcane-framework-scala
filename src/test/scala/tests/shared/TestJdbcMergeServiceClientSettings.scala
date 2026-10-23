@@ -12,6 +12,10 @@ import models.settings.staging.{
 }
 
 object TestJdbcMergeServiceClientSettings extends JdbcMergeServiceClientSettings:
+  /** Eager load Trino JDBC driver
+    */
+  private val _ = Class.forName("io.trino.jdbc.TrinoDriver")
+
   /** The connection URL.
     */
   override val connectionUrl: String = "jdbc:trino://localhost:8080"
