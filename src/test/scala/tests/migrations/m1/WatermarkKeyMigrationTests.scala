@@ -25,7 +25,11 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
   )
 
   private def withProvisionedTable[R, A](tableName: String)(
-      testLogic: (IcebergSinkEntityManager, IcebergSinkTablePropertyManager, PluginStreamContext) => ZIO[R, Throwable, A]
+      testLogic: (IcebergSinkEntityManager, IcebergSinkTablePropertyManager, PluginStreamContext) => ZIO[
+        R,
+        Throwable,
+        A
+      ]
   ): ZIO[R & Scope, Throwable, A] =
     val icebergUtil = IcebergUtil(IcebergCatalogInfo.defaultSinkSettings)
     for
@@ -78,4 +82,3 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
       }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
-
