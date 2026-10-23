@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
-package migrations.base
+package services.migration
 
 import exceptions.FatalStreamFailExceptionWithCause
 import logging.ZIOLogAnnotations.zlog
+import migrations.base.{Migration, SinkMigrationIdentifier}
 import models.settings.TableName
 
 import zio.{Task, URIO, ZIO}

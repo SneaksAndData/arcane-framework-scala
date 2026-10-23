@@ -1,12 +1,14 @@
 package com.sneaksanddata.arcane.framework
-package migrations.base
+package services.migration
 
 import exceptions.FatalStreamFailExceptionWithCause
 import logging.ZIOLogAnnotations.zlog
+import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier, definedMigrations}
 import models.MetadataKeys
-import models.settings.TableName
 import services.iceberg.base.SinkPropertyManager
+import services.migration.MigrationService
 
+import zio.prelude.PartialOrdOps
 import zio.{Task, URIO, ZIO}
 
 class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager) extends MigrationService:
