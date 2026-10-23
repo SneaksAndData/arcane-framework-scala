@@ -16,6 +16,7 @@
 ### High-Value vs. Zero-Value Tests
 - **Do not write zero-value tests**: Avoid tests that merely assert static constants or metadata.
 - **Test real behaviors and state transitions**: Test actual effects against real catalog/table states.
+- **Use real domain models for test data**: Use appropriate domain representations (e.g., `TimestampOnlyWatermark` for watermark values) rather than arbitrary placeholder strings.
 - Cover both positive flows (e.g., legacy property is detected and migrated) and negative/noop flows (e.g., legacy property is absent and no unintended modifications occur).
 
 ### Provisioning Tables

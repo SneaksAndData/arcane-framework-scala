@@ -8,6 +8,7 @@ import models.ddl.CreateTableRequest
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.{IcebergSinkEntityManager, IcebergSinkTablePropertyManager}
+import services.streaming.base.TimestampOnlyWatermark
 import tests.shared.{IcebergCatalogInfo, IcebergUtil, TestDynamicSinkSettings, TestPluginStreamContextImpl}
 
 import org.apache.iceberg.Schema as IcebergSchema
@@ -16,6 +17,7 @@ import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO, ZLayer}
 
+import java.time.OffsetDateTime
 import java.util.UUID
 
 object WatermarkKeyMigrationTests extends ZIOSpecDefault:
@@ -47,12 +49,12 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("WatermarkKeyMigration")(
     test("migrates legacy watermark property to arcane.core.watermark on provisioned table") {
       val tableName       = s"wm_migration_${UUID.randomUUID().toString.replace("-", "")}"
-      val legacyWatermark = "2026-10-23T12:00:00Z"
+      val legacyWatermark = TimestampOnlyWatermark(OffsetDateTime.now())
       val migration       = new WatermarkKeyMigration()
 
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
-          _ <- propertyManager.setProperty(tableName, "arcane-watermark", legacyWatermark)
+          _ <- propertyManager.setProperty(tableName, "arcane-watermark", legacyWatermark.toJson)
           _ <- migration.execute.provide(
             ZLayer.succeed[SinkPropertyManager](propertyManager),
             ZLayer.succeed[PluginStreamContext](context)
@@ -61,7 +63,7 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
-        yield assertTrue(newWatermark == legacyWatermark)
+        yield assertTrue(newWatermark == legacyWatermark.toJson)
       }
     },
     test("does not set property when legacy watermark is not present on provisioned table") {
