@@ -65,8 +65,8 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
 
   override def removeProperty(tableName: String, propertyName: String): Task[Unit] = for
     table <- loadTable(tableName)
-    _ <- ZIO.attemptBlocking(table.updateProperties().remove(propertyName).commit())
-  yield ()  
+    _     <- ZIO.attemptBlocking(table.updateProperties().remove(propertyName).commit())
+  yield ()
 
   private def getTableMetadataScan(tableName: String, tableType: MetadataTableType) = for
     table <- loadMetadataTable(tableName, tableType)

@@ -35,7 +35,7 @@ class WatermarkKeyMigration extends Migration:
         )
         _ <- sinkPropertyManager.removeProperty(
           context.sink.targetTableFullName.parts.name,
-          newKey
+          legacyPropertyName
         )
         _ <- zlog("Set watermark value using key %s=%s", newKey, legacyWatermark.get)
       yield ()

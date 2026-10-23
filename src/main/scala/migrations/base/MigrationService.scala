@@ -16,7 +16,12 @@ trait MigrationService:
         _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
         _ <- migration.execute
         _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
-      yield ()).orDieWith(e => FatalStreamFailExceptionWithCause(s"Failed to execute migration: ${migration.uniqueId} (${migration.shortName})", e))
+      yield ()).orDieWith(e =>
+        FatalStreamFailExceptionWithCause(
+          s"Failed to execute migration: ${migration.uniqueId} (${migration.shortName})",
+          e
+        )
+      )
     }
     .flatMap(_ => ZIO.unit)
 

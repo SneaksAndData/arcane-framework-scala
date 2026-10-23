@@ -41,9 +41,9 @@ trait TablePropertyManager:
   def setProperty(tableName: String, propertyName: String, propertyValue: String): Task[Unit]
 
   /** Removes a specified property from the table
-   * @param tableName
-   *   Name of the table
-   */
+    * @param tableName
+    *   Name of the table
+    */
   def removeProperty(tableName: String, propertyName: String): Task[Unit]
 
   /** Get table partition information

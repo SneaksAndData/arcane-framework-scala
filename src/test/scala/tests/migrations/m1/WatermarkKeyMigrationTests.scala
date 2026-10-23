@@ -63,7 +63,11 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
-        yield assertTrue(newWatermark == legacyWatermark.toJson)
+          legacyWatermarkProperty <- propertyManager.getProperty(
+            tableName,
+            "arcane-watermark"
+          )
+        yield assertTrue(newWatermark == legacyWatermark.toJson, legacyWatermarkProperty.isEmpty)
       }
     },
     test("does not set property when legacy watermark is not present on provisioned table") {
