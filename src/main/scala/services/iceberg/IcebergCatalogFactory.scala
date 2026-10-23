@@ -16,7 +16,7 @@ import scala.language.implicitConversions
 
 final class IcebergCatalogFactory(
     icebergCatalogSettings: IcebergCatalogSettings,
-    scope: Scope
+    catalog: RESTSessionCatalog
 ) extends CatalogFactory:
 
   def getSessionContext: SessionContext =
@@ -29,8 +29,7 @@ final class IcebergCatalogFactory(
       Map().asJava
     );
 
-  def getCatalog: Task[RESTSessionCatalog] =
-    scope.extend(IcebergCatalogFactory.newCatalog(icebergCatalogSettings))
+  def getCatalog: Task[RESTSessionCatalog] = ZIO.succeed(catalog)
 
 object IcebergCatalogFactory:
   private def getCatalogProperties(icebergCatalogSettings: IcebergCatalogSettings): Map[String, String] =
@@ -56,7 +55,7 @@ object IcebergCatalogFactory:
         result.initialize(name, (properties ++ Map("header.X-Arcane-Runner-Identifier" -> name)).asJava)
       )
     yield result)(catalog =>
-      zlog("Closing RESTSessionCatalog %s due to cache expiry or application shutdown", catalog.name()) *> ZIO
+      zlog("Closing RESTSessionCatalog %s due to application shutdown", catalog.name()) *> ZIO
         .attemptBlocking(catalog.close())
         .orDieWith(e => new Throwable("Unable to close RESTSessionCatalog instance correctly", e))
     )
@@ -65,4 +64,5 @@ object IcebergCatalogFactory:
     * @return
     */
   def live(icebergCatalogSettings: IcebergCatalogSettings): ZIO[Scope, Throwable, IcebergCatalogFactory] =
-    ZIO.scope.map(new IcebergCatalogFactory(icebergCatalogSettings, _))
+    for catalog <- newCatalog(icebergCatalogSettings)
+    yield new IcebergCatalogFactory(icebergCatalogSettings, catalog)
