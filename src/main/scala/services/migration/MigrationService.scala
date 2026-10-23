@@ -13,6 +13,6 @@ trait MigrationService:
 
   def migrate(migrations: Seq[Migration]): URIO[Nothing, Unit]
 
-  def getSinkMigration(tableName: String): Task[Option[SinkMigrationIdentifier]]
+  def getSinkMigration: Task[Option[SinkMigrationIdentifier]]
 
   def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration]

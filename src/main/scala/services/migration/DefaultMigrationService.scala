@@ -8,10 +8,11 @@ import models.MetadataKeys
 import services.iceberg.base.SinkPropertyManager
 import services.migration.MigrationService
 
+import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.prelude.PartialOrdOps
 import zio.{Task, URIO, ZIO}
 
-class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager) extends MigrationService:
+class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, sinkTableName: String) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   override def migrate(migrations: Seq[Migration]): URIO[Nothing, Unit] = ZIO
@@ -29,9 +30,9 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager) extends 
     }
     .flatMap(_ => ZIO.unit)
 
-  override def getSinkMigration(tableName: String): Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
+  override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
     .getProperty(
-      tableName,
+      sinkTableName.parts.name,
       MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
     )
     .map(_.map(_.toLong))
