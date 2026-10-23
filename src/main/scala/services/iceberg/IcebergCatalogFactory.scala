@@ -6,18 +6,17 @@ import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.CatalogFactory
 
 import org.apache.iceberg.CatalogProperties
-import org.apache.iceberg.aws.s3.S3FileIO
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext
 import org.apache.iceberg.rest.auth.OAuth2Properties
 import org.apache.iceberg.rest.{HTTPClient, RESTSessionCatalog}
-import zio.{Cached, Schedule, Scope, Task, ZIO}
+import zio.{Scope, Task, ZIO}
 
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
 final class IcebergCatalogFactory(
     icebergCatalogSettings: IcebergCatalogSettings,
-    cachedRef: Cached[Throwable, RESTSessionCatalog]
+    catalog: RESTSessionCatalog
 ) extends CatalogFactory:
 
   def getSessionContext: SessionContext =
@@ -30,7 +29,7 @@ final class IcebergCatalogFactory(
       Map().asJava
     );
 
-  def getCatalog: Task[RESTSessionCatalog] = cachedRef.get
+  def getCatalog: Task[RESTSessionCatalog] = ZIO.succeed(catalog)
 
 object IcebergCatalogFactory:
   private def getCatalogProperties(icebergCatalogSettings: IcebergCatalogSettings): Map[String, String] =
@@ -47,10 +46,7 @@ object IcebergCatalogFactory:
       result <- ZIO.succeed(
         new RESTSessionCatalog(
           config => HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
-          (_, _) =>
-            val baseIO = new S3FileIO()
-            baseIO.initialize(properties.asJava)
-            baseIO
+          null
         )
       )
       name <- ZIO.succeed(java.util.UUID.randomUUID().toString)
@@ -59,17 +55,14 @@ object IcebergCatalogFactory:
         result.initialize(name, (properties ++ Map("header.X-Arcane-Runner-Identifier" -> name)).asJava)
       )
     yield result)(catalog =>
-      zlog("Closing RESTSessionCatalog %s due to cache expiry or application shutdown", catalog.name()) *> ZIO
+      zlog("Closing RESTSessionCatalog %s due to application shutdown", catalog.name()) *> ZIO
         .attemptBlocking(catalog.close())
         .orDieWith(e => new Throwable("Unable to close RESTSessionCatalog instance correctly", e))
     )
 
-  /** Provide an instance of IcebergCatalogFactory which rotates catalog instance automatically
+  /** Provide an instance of IcebergCatalogFactory
     * @return
     */
   def live(icebergCatalogSettings: IcebergCatalogSettings): ZIO[Scope, Throwable, IcebergCatalogFactory] =
-    for cachedRef <- Cached.auto(
-        acquire = newCatalog(icebergCatalogSettings),
-        policy = Schedule.spaced(icebergCatalogSettings.maxCatalogInstanceLifetime)
-      )
-    yield new IcebergCatalogFactory(icebergCatalogSettings, cachedRef)
+    for catalog <- newCatalog(icebergCatalogSettings)
+    yield new IcebergCatalogFactory(icebergCatalogSettings, catalog)

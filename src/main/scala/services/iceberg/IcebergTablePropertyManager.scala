@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.iceberg
 
-import exceptions.{FatalStreamFailException, TransientStreamFailException}
+import exceptions.{FatalStreamFailException, TransientStreamFailException, TransientStreamFailExceptionWithCause}
 import models.app.PluginStreamContext
 import models.settings.iceberg.IcebergCatalogSettings
 import services.iceberg.base.{SinkPropertyManager, StagingPropertyManager, TablePropertyManager}
@@ -26,7 +26,11 @@ trait IcebergTablePropertyManager(catalogSettings: IcebergCatalogSettings, catal
     catalog <- catalogFactory.getCatalog
     table <- ZIO
       .attemptBlocking(catalog.loadTable(catalogFactory.getSessionContext, tableId))
-      .orElseFail(TransientStreamFailException(s"Unable to load target table $tableName to read its properties"))
+      .catchAllDefect(e =>
+        ZIO.fail(
+          TransientStreamFailExceptionWithCause(s"Unable to load target table $tableName to read its properties", e)
+        )
+      )
   yield table
 
   private def loadMetadataTable(tableName: String, tableType: MetadataTableType): Task[Table] = for

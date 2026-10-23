@@ -4,3 +4,5 @@ package exceptions
 /** Exception thrown when stream fails with recovery (code 2)
   */
 case class TransientStreamFailException(message: String) extends RuntimeException(message)
+case class TransientStreamFailExceptionWithCause(message: String, cause: Throwable)
+    extends RuntimeException(message, cause)
