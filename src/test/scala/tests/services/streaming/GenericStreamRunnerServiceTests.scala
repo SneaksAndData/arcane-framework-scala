@@ -2,9 +2,16 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import extensions.ZExtensions.*
-import models.*
 import models.schemas.ArcaneType.StringType
-import models.schemas.*
+import models.schemas.{
+  ArcaneSchema,
+  ArcaneType,
+  DataCell,
+  IndexedField,
+  IndexedMergeKeyField,
+  MergeKeyField,
+  given_CanAdd_ArcaneSchema
+}
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
 import services.base.*
