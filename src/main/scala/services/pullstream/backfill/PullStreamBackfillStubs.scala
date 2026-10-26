@@ -10,6 +10,7 @@ import com.sneaksanddata.arcane.framework.services.backfill.base.{
 import com.sneaksanddata.arcane.framework.services.streaming.base.{JsonWatermark, StructuredZStream}
 import com.sneaksanddata.arcane.framework.exceptions.unsupported
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlogWarning
+import com.sneaksanddata.arcane.framework.services.pullstream.versioning.PullStreamWatermark
 import zio.stream.ZStream
 import zio.{Task, ULayer, ZLayer}
 
@@ -25,11 +26,14 @@ object NoopBackfillStreamDataProvider extends BackfillStreamDataProvider:
       zlogWarning(s"Backfilling is not supported by $pullStreamPlugin, BackfillStreamDataProvider.stream is a no-op")
     ) *> ZStream.empty
 
-/** Backfilling and sharding is not supported by PullStream plugin.
+/** Backfilling and sharding is not supported by PullStream plugin. Used by the backfill OVERWRITE graph; it yields no
+  * shards, so the watermark is never committed and [[NoopShardFactory]] is never invoked.
   */
 object NoopShardedBackfillStreamDataProvider extends ShardedBackfillStreamDataProvider:
   override def backfillStream: Task[(stream: ZStream[Any, Throwable, BootstrappedShard], watermark: JsonWatermark)] =
-    unsupported("ShardedBackfillStreamDataProvider.backfillStream", pullStreamPlugin)
+    zlogWarning(
+      s"Backfilling is not supported by $pullStreamPlugin, ShardedBackfillStreamDataProvider.backfillStream is a no-op"
+    ).as((stream = ZStream.empty, watermark = PullStreamWatermark.epoch))
 
 /** Sharding is not supported by pullstream.
   */
