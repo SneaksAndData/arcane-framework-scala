@@ -11,7 +11,7 @@ import services.migration.MigrationService
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.prelude.PartialOrdOps
-import zio.{Task, URIO, ZIO}
+import zio.{Task, URIO, ZIO, ZLayer}
 
 class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext)
     extends MigrationService:
@@ -49,3 +49,11 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context:
       e
     )
   )
+
+object DefaultMigrationService:
+  val layer = ZLayer {
+    for
+      sinkPropertyManager <- ZIO.service[SinkPropertyManager]
+      context             <- ZIO.service[PluginStreamContext]
+    yield new DefaultMigrationService(sinkPropertyManager, context)
+  }

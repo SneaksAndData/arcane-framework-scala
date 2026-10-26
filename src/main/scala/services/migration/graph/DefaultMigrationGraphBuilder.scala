@@ -4,8 +4,11 @@ package services.migration.graph
 import migrations.base.CurrentMigration
 import services.migration.MigrationService
 
+import zio.{ZIO, ZLayer}
 import zio.stream.ZStream
 
+/** Stream builder for running migrations
+  */
 final class DefaultMigrationGraphBuilder(migrationService: MigrationService) extends MigrationGraphBuilder:
   override type ProcessedBatch = Unit
 
@@ -16,3 +19,13 @@ final class DefaultMigrationGraphBuilder(migrationService: MigrationService) ext
     }
     .rechunk(1)
     .mapZIO { migration => migrationService.execute(migration) }
+
+object DefaultMigrationGraphBuilder:
+  type Environment = MigrationService
+  val layer =
+    ZLayer {
+      for migrationService <- ZIO.service[MigrationService]
+      yield new DefaultMigrationGraphBuilder(
+        migrationService
+      )
+    }
