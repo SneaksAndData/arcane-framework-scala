@@ -2,9 +2,11 @@ package com.sneaksanddata.arcane.framework
 package services.blobsource.readers.listing
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
-import models.schemas.{ArcaneSchema, DataRow, given_CanAdd_ArcaneSchema}
+import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import models.batches.BlobBatchCommons
+import models.schemas.{given_CanAdd_ArcaneSchema, *}
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import services.blobsource.migrations.BlobListingArcaneMergeKeyMigration
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -29,6 +31,14 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
 ) extends BlobStreamingSource(modifications):
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
+
+  override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
+    Map(
+      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
+        new BlobListingArcaneMergeKeyMigration(primaryKeys)
+      ))
+    )
+
   override protected val getPrimaryKey: Task[FrozenSurrogateMergeKey] =
     ZIO.succeed(FrozenSurrogateMergeKey(primaryKeys.map(_.toLowerCase).toSet))
 
