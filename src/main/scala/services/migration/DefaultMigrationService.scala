@@ -3,18 +3,22 @@ package services.migration
 
 import exceptions.FatalStreamFailExceptionWithCause
 import logging.ZIOLogAnnotations.zlog
-import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier, definedMigrations}
+import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import models.MetadataKeys
+import models.app.PluginStreamContext
+import models.settings.TableNaming.parts
+import services.base.{MergeServiceClient, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.migration.MigrationService
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
-import zio.prelude.PartialOrdOps
-import zio.{Task, URIO, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
-class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext)
-    extends MigrationService:
+class DefaultMigrationService(
+    sinkPropertyManager: SinkPropertyManager,
+    context: PluginStreamContext,
+    mergeClient: MergeServiceClient,
+    streamingSource: StreamingSource
+) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
@@ -27,21 +31,21 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context:
 
   override def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] =
     fromId match
-      case None                         => definedMigrations(toId)
+      case None                         => streamingSource.definedMigrations(toId)
       case Some(value) if value == toId => Seq.empty
       case Some(value) if value > toId =>
         throw new IllegalArgumentException(
           s"Sink start migration identifier $value is greater than target migration identifier $toId"
         )
       case Some(value) =>
-        val appliedMigrations = definedMigrations(value).map(_.uniqueId).toSet
-        val fullMigrations    = definedMigrations(toId)
+        val appliedMigrations = streamingSource.definedMigrations(value).map(_.uniqueId).toSet
+        val fullMigrations    = streamingSource.definedMigrations(toId)
 
         fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
 
   override def execute(migration: Migration): ZIO[Any, Throwable, Unit] = (for
     _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
-    _ <- migration.execute(sinkPropertyManager, context)
+    _ <- migration.execute(sinkPropertyManager, context, mergeClient, streamingSource)
     _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
   yield ()).orDieWith(e =>
     FatalStreamFailExceptionWithCause(
@@ -55,5 +59,7 @@ object DefaultMigrationService:
     for
       sinkPropertyManager <- ZIO.service[SinkPropertyManager]
       context             <- ZIO.service[PluginStreamContext]
-    yield new DefaultMigrationService(sinkPropertyManager, context)
+      mergeClient         <- ZIO.service[MergeServiceClient]
+      streamingSource     <- ZIO.service[StreamingSource]
+    yield new DefaultMigrationService(sinkPropertyManager, context, mergeClient, streamingSource)
   }

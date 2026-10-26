@@ -8,10 +8,19 @@ import models.ddl.CreateTableRequest
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.{IcebergSinkEntityManager, IcebergSinkTablePropertyManager}
+import services.merging.JdbcMergeServiceClient
+import services.metrics.DeclaredMetrics
 import services.migration.graph.DefaultMigrationGraphBuilder
 import services.migration.{DefaultMigrationService, MigrationService}
 import services.streaming.base.TimestampOnlyWatermark
-import tests.shared.{IcebergCatalogInfo, IcebergUtil, TestDynamicSinkSettings, TestPluginStreamContextImpl}
+import tests.shared.{
+  IcebergCatalogInfo,
+  IcebergUtil,
+  TestDynamicSinkSettings,
+  TestJdbcMergeServiceClientSettings,
+  TestPluginStreamContextImpl,
+  TestStreamingSource
+}
 
 import org.apache.iceberg.Schema as IcebergSchema
 import org.apache.iceberg.types.Types
@@ -26,6 +35,14 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
 
   private val tableSchema = new IcebergSchema(
     Types.NestedField.optional(1, "id", Types.StringType.get())
+  )
+
+  private val testMergeServiceClient = new JdbcMergeServiceClient(
+    TestJdbcMergeServiceClientSettings,
+    "iceberg",
+    "test",
+    DeclaredMetrics(),
+    false
   )
 
   private def withProvisionedTable[R, A](tableName: String)(
@@ -56,8 +73,13 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
           _ <- propertyManager.setProperty(tableName, "arcane-watermark", legacyWatermark.toJson)
-          migrationService = new DefaultMigrationService(propertyManager, context)
-          builder          = new DefaultMigrationGraphBuilder(migrationService)
+          migrationService = new DefaultMigrationService(
+            propertyManager,
+            context,
+            testMergeServiceClient,
+            TestStreamingSource
+          )
+          builder = new DefaultMigrationGraphBuilder(migrationService)
           result <- builder.produce().runCollect
           newWatermark <- propertyManager.getRequiredProperty(
             tableName,
@@ -86,8 +108,13 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             CurrentMigration.toString
           )
           _ <- propertyManager.setProperty(tableName, "arcane-watermark", legacyWatermark.toJson)
-          migrationService = new DefaultMigrationService(propertyManager, context)
-          builder          = new DefaultMigrationGraphBuilder(migrationService)
+          migrationService = new DefaultMigrationService(
+            propertyManager,
+            context,
+            testMergeServiceClient,
+            TestStreamingSource
+          )
+          builder = new DefaultMigrationGraphBuilder(migrationService)
           result <- builder.produce().runCollect
           newWatermark <- propertyManager.getProperty(
             tableName,
@@ -109,8 +136,13 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
 
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
-          migrationService = new DefaultMigrationService(propertyManager, context)
-          builder          = new DefaultMigrationGraphBuilder(migrationService)
+          migrationService = new DefaultMigrationService(
+            propertyManager,
+            context,
+            testMergeServiceClient,
+            TestStreamingSource
+          )
+          builder = new DefaultMigrationGraphBuilder(migrationService)
           result <- builder.produce().runCollect
           newWatermark <- propertyManager.getProperty(
             tableName,
@@ -138,7 +170,9 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             .service[DefaultMigrationGraphBuilder]
             .provide(
               DefaultMigrationGraphBuilder.layer,
-              ZLayer.succeed[MigrationService](new DefaultMigrationService(propertyManager, context))
+              ZLayer.succeed[MigrationService](
+                new DefaultMigrationService(propertyManager, context, testMergeServiceClient, TestStreamingSource)
+              )
             )
           result <- builder.produce().runCollect
           newWatermark <- propertyManager.getRequiredProperty(

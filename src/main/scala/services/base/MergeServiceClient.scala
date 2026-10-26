@@ -37,3 +37,14 @@ trait MergeServiceClient:
   def commitShard(shard: StagedShard): Task[ShardCommitResult]
 
   def mergeShard(shard: StagedShard): Task[ShardResetResult]
+
+  /** Executes an arbitrary SQL query on the merge client.
+    *
+    * @param query
+    *   The SQL query to execute.
+    * @param queryName
+    *   The name/identifier of the query.
+    * @param operation
+    *   The operation name.
+    */
+  def execute(query: String, queryName: String, operation: String): Task[Unit]

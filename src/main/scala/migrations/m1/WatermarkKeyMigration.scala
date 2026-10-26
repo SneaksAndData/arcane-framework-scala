@@ -1,13 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package migrations.m1
 
+import logging.ZIOLogAnnotations.zlog
 import migrations.base.Migration
 import models.MetadataKeys
 import models.app.PluginStreamContext
 import models.settings.TableNaming.parts
-import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+import services.base.{MergeServiceClient, StreamingSource}
+import services.iceberg.base.SinkPropertyManager
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.ZIO
 
 class WatermarkKeyMigration extends Migration:
@@ -17,7 +18,12 @@ class WatermarkKeyMigration extends Migration:
   val shortName: String = "watermark_key"
   val uniqueId: Long    = 61492573L
 
-  def execute(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext): ZIO[Any, Throwable, Unit] = for
+  def execute(
+      sinkPropertyManager: SinkPropertyManager,
+      context: PluginStreamContext,
+      mergeClient: MergeServiceClient,
+      streamingSource: StreamingSource
+  ): ZIO[Any, Throwable, Unit] = for
     // find watermark value
     legacyWatermark <- sinkPropertyManager.getProperty(context.sink.targetTableFullName.parts.name, legacyPropertyName)
     _ <- ZIO.when(legacyWatermark.isDefined)(
