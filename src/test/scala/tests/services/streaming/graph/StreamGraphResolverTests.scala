@@ -3,30 +3,16 @@ package tests.services.streaming.graph
 
 import models.settings.backfill.BackfillBehavior
 import services.app.StreamGraphResolver
-import services.backfill.base.{
-  BackfillStateManager,
-  BackfillStreamDataProvider,
-  ShardFactory,
-  ShardedBackfillStreamDataProvider
-}
+import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory, ShardedBackfillStreamDataProvider}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.StagingProcessor
-import tests.shared.{
-  CustomTestBackfillTableSettings,
-  TestPluginBackfillMergeStreamContext,
-  TestPluginBackfillOverwriteStreamContext,
-  TestPluginStreamContext
-}
+import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginStreamContext}
 
+import com.sneaksanddata.arcane.framework.services.migration.MigrationService
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
@@ -69,7 +55,8 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(mock[ShardStagingProcessor]),
           ZLayer.succeed(mock[MergeServiceClient]),
           ZLayer.succeed(mock[BackfillStateManager]),
-          ZLayer.succeed(mock[ShardFactory])
+          ZLayer.succeed(mock[ShardFactory]),
+          ZLayer.succeed(mock[MigrationService])
         )
 
       val getResolvedClassName = service.map(_.getClass.getName.split('.').last)
