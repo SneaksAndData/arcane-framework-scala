@@ -3,7 +3,6 @@ package services.migration.graph
 
 import services.streaming.base.StreamingGraphBuilder
 
-/**
- * A trait that represents migration pipeline builder
- */
+/** A trait that represents migration pipeline builder
+  */
 trait MigrationGraphBuilder extends StreamingGraphBuilder

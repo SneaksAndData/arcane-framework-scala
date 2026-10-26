@@ -13,7 +13,8 @@ import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.prelude.PartialOrdOps
 import zio.{Task, URIO, ZIO}
 
-class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext) extends MigrationService:
+class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext)
+    extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
@@ -24,18 +25,19 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context:
     .map(_.map(_.toLong))
     .orDieWith(e => FatalStreamFailExceptionWithCause("Invalid migration identifier", e))
 
-  override def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] = fromId match
-    case None                         => definedMigrations(toId)
-    case Some(value) if value == toId => Seq.empty
-    case Some(value) if value > toId =>
-      throw new IllegalArgumentException(
-        s"Sink start migration identifier $value is greater than target migration identifier $toId"
-      )
-    case Some(value) =>
-      val appliedMigrations = definedMigrations(value).map(_.uniqueId).toSet
-      val fullMigrations    = definedMigrations(toId)
+  override def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] =
+    fromId match
+      case None                         => definedMigrations(toId)
+      case Some(value) if value == toId => Seq.empty
+      case Some(value) if value > toId =>
+        throw new IllegalArgumentException(
+          s"Sink start migration identifier $value is greater than target migration identifier $toId"
+        )
+      case Some(value) =>
+        val appliedMigrations = definedMigrations(value).map(_.uniqueId).toSet
+        val fullMigrations    = definedMigrations(toId)
 
-      fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
+        fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
 
   override def execute(migration: Migration): ZIO[Any, Throwable, Unit] = (for
     _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
@@ -45,5 +47,5 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context:
     FatalStreamFailExceptionWithCause(
       s"Failed to execute migration: ${migration.uniqueId} (${migration.shortName})",
       e
-    ))
-
+    )
+  )
