@@ -14,10 +14,12 @@ import models.schemas.{
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
+import com.sneaksanddata.arcane.framework.migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import services.base.{SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
+import services.pullstream.migrations.PullStreamArcaneMergeKeyMigration
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 import services.iceberg.SchemaConversions.*
@@ -62,6 +64,13 @@ class PullStreamingSource(
     targetTableFullName: String,
     pageSize: Option[Int]
 ) extends StreamingSource:
+
+  override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
+    Map(
+      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
+        new PullStreamArcaneMergeKeyMigration()
+      ))
+    )
 
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"
