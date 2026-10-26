@@ -6,6 +6,7 @@ import logging.ZIOLogAnnotations.zlog
 import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier, definedMigrations}
 import models.MetadataKeys
 import services.iceberg.base.SinkPropertyManager
+import services.merging.JdbcMergeServiceClient
 import services.migration.MigrationService
 
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
@@ -13,8 +14,11 @@ import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.prelude.PartialOrdOps
 import zio.{Task, URIO, ZIO, ZLayer}
 
-class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext)
-    extends MigrationService:
+class DefaultMigrationService(
+    sinkPropertyManager: SinkPropertyManager,
+    context: PluginStreamContext,
+    mergeClient: JdbcMergeServiceClient
+) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
@@ -41,7 +45,7 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context:
 
   override def execute(migration: Migration): ZIO[Any, Throwable, Unit] = (for
     _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
-    _ <- migration.execute(sinkPropertyManager, context)
+    _ <- migration.execute(sinkPropertyManager, context, mergeClient)
     _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
   yield ()).orDieWith(e =>
     FatalStreamFailExceptionWithCause(
@@ -55,5 +59,6 @@ object DefaultMigrationService:
     for
       sinkPropertyManager <- ZIO.service[SinkPropertyManager]
       context             <- ZIO.service[PluginStreamContext]
-    yield new DefaultMigrationService(sinkPropertyManager, context)
+      mergeClient         <- ZIO.service[JdbcMergeServiceClient]
+    yield new DefaultMigrationService(sinkPropertyManager, context, mergeClient)
   }

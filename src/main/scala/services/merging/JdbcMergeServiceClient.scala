@@ -72,20 +72,29 @@ class JdbcMergeServiceClient(
 
   /** @inheritdoc
     */
+  override def execute(
+      query: String,
+      queryName: String,
+      operation: String
+  ): Task[Unit] =
+    executeBatchQuery(query, queryName, operation, _ => ())
+
+  /** @inheritdoc
+    */
   override def close(): Unit = sqlConnection.close()
 
   private type ResultMapper[Result] = Boolean => Result
 
   private def executeBatchQuery[Result](
       query: String,
-      batchName: String,
+      queryName: String,
       operation: String,
       resultMapper: ResultMapper[Result]
   ): Task[Result] =
     ZIO.scoped {
       for
         statement         <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
-        _                 <- zlog(s"$operation batch $batchName")
+        _                 <- zlog(s"$operation query $queryName")
         applicationResult <- ZIO.attempt(statement.execute()).retry(retryPolicy)
       yield resultMapper(applicationResult)
     }
