@@ -13,14 +13,10 @@ import services.merging.cleanup.CatalogDisposeServiceClient
 import services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
 import services.naming.{DefaultNameGenerator, NameGenerator}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  SchemaMigrationProcessor,
-  WatermarkProcessor
-}
+import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.StagingProcessor
 
+import com.sneaksanddata.arcane.framework.services.migration.DefaultMigrationService
 import zio.ZLayer
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -55,7 +51,8 @@ object LayerAssemblies:
       DefaultStreamBootstrapper.layer,
       GlobalMetricTagProvider.layer,
       DataDog.UdsPublisher.layer,
-      DefaultStreamFinalizer.layer
+      DefaultStreamFinalizer.layer,
+      DefaultMigrationService.layer,
     )
 
   lazy val frameworkStagingServicesLayer

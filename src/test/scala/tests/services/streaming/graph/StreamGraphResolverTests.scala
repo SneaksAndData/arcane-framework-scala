@@ -3,13 +3,23 @@ package tests.services.streaming.graph
 
 import models.settings.backfill.BackfillBehavior
 import services.app.StreamGraphResolver
-import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory, ShardedBackfillStreamDataProvider}
+import services.backfill.base.{
+  BackfillStateManager,
+  BackfillStreamDataProvider,
+  ShardFactory,
+  ShardedBackfillStreamDataProvider
+}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
 import services.migration.MigrationService
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
+import services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  SchemaMigrationProcessor,
+  WatermarkProcessor
+}
 import services.streaming.processors.transformers.StagingProcessor
 import tests.shared.*
 

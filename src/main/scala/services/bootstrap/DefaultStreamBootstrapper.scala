@@ -13,12 +13,16 @@ import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEnt
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
 import services.naming.NameGenerator
 
+import com.sneaksanddata.arcane.framework.migrations.base.CurrentMigration
+import com.sneaksanddata.arcane.framework.models.MetadataKeys
+import com.sneaksanddata.arcane.framework.services.migration.MigrationService
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
     stagingEntityManager: StagingEntityManager,
     sinkEntityManager: SinkEntityManager,
     sinkPropertyManager: SinkPropertyManager,
+    migrationService: MigrationService,
     streamingSource: StreamingSource,
     nameGenerator: NameGenerator,
     stagingSettings: StagingSettings,
@@ -70,7 +74,10 @@ class DefaultStreamBootstrapper(
         partitionSpec = None,
         replace = false,
         sortOrder = sinkSettings.targetTableProperties.getSortOder(schema),
-        parquetBloomFilterFields = Seq.empty
+        parquetBloomFilterFields = Seq.empty,
+        properties = Map(
+          MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey) -> CurrentMigration.toString
+        )
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
     )
@@ -85,6 +92,11 @@ class DefaultStreamBootstrapper(
     }
   yield ()
 
+  override def hasMigrationsApplied: Task[Boolean] = for sinkMigration <- migrationService.getSinkMigration
+  yield sinkMigration match
+    case Some(value) => migrationService.isCurrent(value)
+    case None        => false
+
 object DefaultStreamBootstrapper:
   val layer = ZLayer {
     for
@@ -92,6 +104,7 @@ object DefaultStreamBootstrapper:
       stagingEntityManager <- ZIO.service[StagingEntityManager]
       sinkEntityManager    <- ZIO.service[SinkEntityManager]
       sinkPropertyManager  <- ZIO.service[SinkPropertyManager]
+      migrationService     <- ZIO.service[MigrationService]
       streamingSource      <- ZIO.service[StreamingSource]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
       nameGenerator        <- ZIO.service[NameGenerator]
@@ -99,6 +112,7 @@ object DefaultStreamBootstrapper:
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
       sinkPropertyManager = sinkPropertyManager,
+      migrationService = migrationService,
       streamingSource = streamingSource,
       nameGenerator = nameGenerator,
       stagingSettings = context.staging,
