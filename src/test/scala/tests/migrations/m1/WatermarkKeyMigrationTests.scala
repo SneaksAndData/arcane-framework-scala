@@ -55,10 +55,7 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
           _ <- propertyManager.setProperty(tableName, "arcane-watermark", legacyWatermark.toJson)
-          _ <- migration.execute.provide(
-            ZLayer.succeed[SinkPropertyManager](propertyManager),
-            ZLayer.succeed[PluginStreamContext](context)
-          )
+          _ <- migration.execute(propertyManager, context)
           newWatermark <- propertyManager.getRequiredProperty(
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
@@ -76,10 +73,7 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
 
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
-          _ <- migration.execute.provide(
-            ZLayer.succeed[SinkPropertyManager](propertyManager),
-            ZLayer.succeed[PluginStreamContext](context)
-          )
+          _ <- migration.execute(propertyManager, context)
           newWatermark <- propertyManager.getProperty(
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
