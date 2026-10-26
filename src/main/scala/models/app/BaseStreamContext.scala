@@ -10,7 +10,7 @@ import zio.{IO, ZIO}
 import java.time.Duration
 
 enum ApplicationRunMode derives ReadWriter:
-  case Stream, Backfill, Migrate, Unspecified
+  case Stream, Backfill, Migrate
 
 /** Provides the context for the stream.
   */
@@ -32,10 +32,10 @@ trait BaseStreamContext:
     zio.System.envOrElse("STREAMCONTEXT__BACKFILL", "false").map(_.toLowerCase() == "true")
 
   def isMigrating: ZIO[Any, SecurityException, Boolean] =
-    zio.System.envOrElse("STREAMCONTEXT__RUNMODE", ApplicationRunMode.Unspecified.toString).map {
-      case value if value == ApplicationRunMode.Stream.toString   => false
-      case value if value == ApplicationRunMode.Backfill.toString => false
-      case value if value == ApplicationRunMode.Migrate.toString  => true
+    zio.System.envOrElse("STREAMCONTEXT__RUNMODE", ApplicationRunMode.Stream.toString.toLowerCase).map {
+      case value if value == ApplicationRunMode.Stream.toString.toLowerCase   => false
+      case value if value == ApplicationRunMode.Backfill.toString.toLowerCase => false
+      case value if value == ApplicationRunMode.Migrate.toString.toLowerCase  => true
       case _ =>
         throw FatalStreamFailException(
           s"Unsupported or missing application run mode. STREAMCONTEXT__RUNMODE must be set to one of: ${ApplicationRunMode.values.mkString("/")} "
