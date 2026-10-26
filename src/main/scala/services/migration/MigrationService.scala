@@ -11,8 +11,6 @@ import zio.{Task, UIO, URIO, ZIO}
 trait MigrationService:
   def isCurrent(migrationId: SinkMigrationIdentifier): Boolean
 
-  def migrate(migrations: Seq[Migration]): ZIO[Nothing, Nothing, Unit]
-
   def getSinkMigration: Task[Option[SinkMigrationIdentifier]]
 
   def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration]

@@ -16,21 +16,6 @@ import zio.{Task, URIO, ZIO}
 class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, sinkTableName: String, context: PluginStreamContext) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
-  override def migrate(migrations: Seq[Migration]): ZIO[Nothing, Nothing, Unit] = ZIO
-    .foreach(migrations) { migration =>
-      (for
-        _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
-        _ <- ZIO.environment[migration.RequiredMigrationServices].flatMap(env => migration.execute.provideEnvironment(env))
-        _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
-      yield ()).orDieWith(e =>
-        FatalStreamFailExceptionWithCause(
-          s"Failed to execute migration: ${migration.uniqueId} (${migration.shortName})",
-          e
-        )
-      )
-    }
-    .flatMap(_ => ZIO.unit)
-
   override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
     .getProperty(
       sinkTableName.parts.name,
