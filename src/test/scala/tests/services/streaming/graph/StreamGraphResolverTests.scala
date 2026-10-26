@@ -10,7 +10,7 @@ import services.streaming.base.*
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.StagingProcessor
-import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginStreamContext}
+import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginMigrationStreamContext, TestPluginStreamContext}
 
 import com.sneaksanddata.arcane.framework.services.migration.MigrationService
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -31,7 +31,9 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
     (TestPluginBackfillMergeStreamContext, mergeBackfillSettings, "DefaultBackfillMergeGraphBuilder"),
     (TestPluginBackfillOverwriteStreamContext, overwriteBackfillSettings, "DefaultBackfillOverwriteGraphBuilder"),
     (TestPluginStreamContext, overwriteBackfillSettings, "DefaultStreamingGraphBuilder"),
-    (TestPluginStreamContext, mergeBackfillSettings, "DefaultStreamingGraphBuilder")
+    (TestPluginStreamContext, mergeBackfillSettings, "DefaultStreamingGraphBuilder"),
+    (TestPluginMigrationStreamContext, overwriteBackfillSettings, "DefaultMigrationGraphBuilder"),
+    (TestPluginMigrationStreamContext, mergeBackfillSettings, "DefaultMigrationGraphBuilder")
   )
 
   it should "generate correct graph builder" in {
