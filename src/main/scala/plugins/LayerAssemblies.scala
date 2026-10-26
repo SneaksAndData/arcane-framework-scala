@@ -11,6 +11,7 @@ import services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTa
 import services.merging.JdbcMergeServiceClient
 import services.merging.cleanup.CatalogDisposeServiceClient
 import services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
+import services.migration.DefaultMigrationService
 import services.naming.{DefaultNameGenerator, NameGenerator}
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
@@ -55,7 +56,8 @@ object LayerAssemblies:
       DefaultStreamBootstrapper.layer,
       GlobalMetricTagProvider.layer,
       DataDog.UdsPublisher.layer,
-      DefaultStreamFinalizer.layer
+      DefaultStreamFinalizer.layer,
+      DefaultMigrationService.layer
     )
 
   lazy val frameworkStagingServicesLayer

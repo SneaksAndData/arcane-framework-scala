@@ -37,6 +37,8 @@ import java.time.{Duration, OffsetDateTime}
 abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
 
+  override def isMigrating: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
+
   override def streamId: IO[SecurityException, String] = ZIO.succeed("test-stream-id")
 
   override def streamKind: IO[SecurityException, String] = ZIO.succeed("test-stream-kind")
@@ -83,6 +85,11 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
       SupportedModifications(None, None)
     )
   }
+
+object TestPluginMigrationStreamContext extends TestPluginStreamContextImpl:
+  override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)
+
+  override def isMigrating: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(true)
 
 object TestPluginStreamContext extends TestPluginStreamContextImpl:
   override def isBackfilling: ZIO[Any, SecurityException, Boolean] = ZIO.succeed(false)

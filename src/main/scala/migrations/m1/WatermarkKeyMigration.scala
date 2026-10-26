@@ -11,17 +11,13 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.ZIO
 
 class WatermarkKeyMigration extends Migration:
-  override type RequiredMigrationServices = PluginStreamContext & SinkPropertyManager
-
   private val legacyPropertyName = "arcane-watermark"
   val description: String =
     "Ensures watermark value is stored under `arcane.core.watermark` property, changed from `arcane-watermark`"
   val shortName: String = "watermark_key"
   val uniqueId: Long    = 61492573L
 
-  def execute: ZIO[RequiredMigrationServices, Throwable, Unit] = for
-    sinkPropertyManager <- ZIO.service[SinkPropertyManager]
-    context             <- ZIO.service[PluginStreamContext]
+  def execute(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext): ZIO[Any, Throwable, Unit] = for
     // find watermark value
     legacyWatermark <- sinkPropertyManager.getProperty(context.sink.targetTableFullName.parts.name, legacyPropertyName)
     _ <- ZIO.when(legacyWatermark.isDefined)(

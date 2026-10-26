@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package tests.services.streaming
 
 import extensions.ZExtensions.*
-import models.*
+import models.schemas.ArcaneType.StringType
 import models.schemas.{
   ArcaneSchema,
   ArcaneType,
@@ -12,10 +12,11 @@ import models.schemas.{
   MergeKeyField,
   given_CanAdd_ArcaneSchema
 }
-import models.schemas.ArcaneType.StringType
 import services.app.GenericStreamRunnerService
 import services.app.base.StreamRunnerService
-import services.base.{BatchDisposeResult, DisposeServiceClient, MergeServiceClient, SchemaProvider, StreamingSource}
+import services.base.*
+import services.bootstrap.DefaultStreamBootstrapper
+import services.completion.DefaultStreamFinalizer
 import services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
@@ -23,7 +24,11 @@ import services.iceberg.{
   IcebergTablePropertyManager
 }
 import services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
+import services.migration.DefaultMigrationService
+import services.naming.DefaultNameGenerator
 import services.streaming.base.{StreamDataProvider, TimestampOnlyWatermark}
+import services.streaming.graph.DefaultStreamingGraphBuilder
+import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
   DisposeBatchProcessor,
   MergeBatchProcessor,
@@ -31,11 +36,6 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.StagingProcessor
-import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
-import services.bootstrap.DefaultStreamBootstrapper
-import services.streaming.graph.DefaultStreamingGraphBuilder
-import services.naming.DefaultNameGenerator
-import services.completion.DefaultStreamFinalizer
 import tests.shared.*
 
 import org.easymock.EasyMock
@@ -130,7 +130,8 @@ class GenericStreamRunnerServiceTests extends AsyncFlatSpec with Matchers with E
       IcebergTablePropertyManager.sinkLayer,
       DefaultStreamBootstrapper.layer,
       DefaultNameGenerator.layer,
-      DefaultStreamFinalizer.layer
+      DefaultStreamFinalizer.layer,
+      DefaultMigrationService.layer
     )
 
     // Act

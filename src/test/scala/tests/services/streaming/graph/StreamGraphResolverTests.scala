@@ -11,6 +11,7 @@ import services.backfill.base.{
 }
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
+import services.migration.MigrationService
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{
@@ -20,12 +21,7 @@ import services.streaming.processors.batch_processors.streaming.{
   WatermarkProcessor
 }
 import services.streaming.processors.transformers.StagingProcessor
-import tests.shared.{
-  CustomTestBackfillTableSettings,
-  TestPluginBackfillMergeStreamContext,
-  TestPluginBackfillOverwriteStreamContext,
-  TestPluginStreamContext
-}
+import tests.shared.*
 
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -45,7 +41,9 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
     (TestPluginBackfillMergeStreamContext, mergeBackfillSettings, "DefaultBackfillMergeGraphBuilder"),
     (TestPluginBackfillOverwriteStreamContext, overwriteBackfillSettings, "DefaultBackfillOverwriteGraphBuilder"),
     (TestPluginStreamContext, overwriteBackfillSettings, "DefaultStreamingGraphBuilder"),
-    (TestPluginStreamContext, mergeBackfillSettings, "DefaultStreamingGraphBuilder")
+    (TestPluginStreamContext, mergeBackfillSettings, "DefaultStreamingGraphBuilder"),
+    (TestPluginMigrationStreamContext, overwriteBackfillSettings, "DefaultMigrationGraphBuilder"),
+    (TestPluginMigrationStreamContext, mergeBackfillSettings, "DefaultMigrationGraphBuilder")
   )
 
   it should "generate correct graph builder" in {
@@ -69,7 +67,8 @@ class StreamGraphResolverTests extends AsyncFlatSpec with Matchers with EasyMock
           ZLayer.succeed(mock[ShardStagingProcessor]),
           ZLayer.succeed(mock[MergeServiceClient]),
           ZLayer.succeed(mock[BackfillStateManager]),
-          ZLayer.succeed(mock[ShardFactory])
+          ZLayer.succeed(mock[ShardFactory]),
+          ZLayer.succeed(mock[MigrationService])
         )
 
       val getResolvedClassName = service.map(_.getClass.getName.split('.').last)
