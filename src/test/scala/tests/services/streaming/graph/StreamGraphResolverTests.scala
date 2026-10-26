@@ -6,13 +6,13 @@ import services.app.StreamGraphResolver
 import services.backfill.base.{BackfillStateManager, BackfillStreamDataProvider, ShardFactory, ShardedBackfillStreamDataProvider}
 import services.backfill.processors.{BackfillCompletionProcessor, ShardStagingProcessor}
 import services.base.MergeServiceClient
+import services.migration.MigrationService
 import services.streaming.base.*
 import services.streaming.processors.batch_processors.maintenance.TargetMaintenanceProcessor
 import services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, SchemaMigrationProcessor, WatermarkProcessor}
 import services.streaming.processors.transformers.StagingProcessor
-import tests.shared.{CustomTestBackfillTableSettings, TestPluginBackfillMergeStreamContext, TestPluginBackfillOverwriteStreamContext, TestPluginMigrationStreamContext, TestPluginStreamContext}
+import tests.shared.*
 
-import com.sneaksanddata.arcane.framework.services.migration.MigrationService
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
