@@ -39,24 +39,13 @@ class SqlServerArcaneMergeKeyMigration extends Migration:
           )
         )
       )
-      primaryKeys = sqlSource.columnSummaries.collect { case (name, true) => name.normalizeName }
-      _ <- ZIO.when(primaryKeys.nonEmpty) {
-        val concatExpression = primaryKeys.map(pk => s"cast($pk as varchar)").mkString(" || '#' || ")
-        val mergeKeyExpr     = s"lower(to_hex(murmur3(to_utf8($concatExpression))))"
-        val updateQuery =
-          s"UPDATE ${context.sink.targetTableFullName} SET ${MergeKeyField.name} = $mergeKeyExpr"
+      primaryKeys      = sqlSource.columnSummaries.collect { case (name, true) => name.normalizeName }
+      concatExpression = primaryKeys.map(pk => s"cast($pk as varchar)").mkString(" || '#' || ")
+      mergeKeyExpr     = s"lower(to_hex(murmur3(to_utf8($concatExpression))))"
+      updateQuery =
+        s"UPDATE ${context.sink.targetTableFullName} SET ${MergeKeyField.name} = $mergeKeyExpr"
 
-        for
-          _ <- zlog("Executing ARCANE_MERGE_KEY migration: %s", updateQuery)
-          _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
-          _ <- zlog("Successfully migrated ARCANE_MERGE_KEY for %s", context.sink.targetTableFullName)
-        yield ()
-      }
-      _ <- ZIO.when(primaryKeys.isEmpty) {
-        zlog(
-          "No primary keys found for SQL Server table %s.%s, skipping ARCANE_MERGE_KEY migration",
-          sqlSource.connectionSettings.schemaName,
-          sqlSource.connectionSettings.tableName
-        )
-      }
+      _ <- zlog("Executing ARCANE_MERGE_KEY migration: %s", updateQuery)
+      _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
+      _ <- zlog("Successfully migrated ARCANE_MERGE_KEY for %s", context.sink.targetTableFullName)
     yield ()
