@@ -13,18 +13,18 @@ import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
 import zio.prelude.PartialOrdOps
 import zio.{Task, URIO, ZIO}
 
-class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, sinkTableName: String, context: PluginStreamContext) extends MigrationService:
+class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, context: PluginStreamContext) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
     .getProperty(
-      sinkTableName.parts.name,
+      context.sink.targetTableFullName.parts.name,
       MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
     )
     .map(_.map(_.toLong))
     .orDieWith(e => FatalStreamFailExceptionWithCause("Invalid migration identifier", e))
 
-  def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] = fromId match
+  override def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration] = fromId match
     case None                         => definedMigrations(toId)
     case Some(value) if value == toId => Seq.empty
     case Some(value) if value > toId =>
@@ -36,3 +36,14 @@ class DefaultMigrationService(sinkPropertyManager: SinkPropertyManager, sinkTabl
       val fullMigrations    = definedMigrations(toId)
 
       fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
+
+  override def execute(migration: Migration): ZIO[Any, Throwable, Unit] = (for
+    _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
+    _ <- migration.execute(sinkPropertyManager, context)
+    _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
+  yield ()).orDieWith(e =>
+    FatalStreamFailExceptionWithCause(
+      s"Failed to execute migration: ${migration.uniqueId} (${migration.shortName})",
+      e
+    ))
+

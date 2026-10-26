@@ -14,3 +14,5 @@ trait MigrationService:
   def getSinkMigration: Task[Option[SinkMigrationIdentifier]]
 
   def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration]
+  
+  def execute(migration: Migration): ZIO[Any, Throwable, Unit]
