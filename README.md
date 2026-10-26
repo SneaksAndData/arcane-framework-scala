@@ -175,3 +175,4 @@ object main extends ZIOAppDefault {
   def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(exit)
 }
 ```
+
