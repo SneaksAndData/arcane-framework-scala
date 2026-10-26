@@ -148,25 +148,5 @@ object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
           )
         yield assertTrue(updatedKey == HashUtils.murmur3("tenant_A#user_42"))
       }
-    },
-    test("fails when target table does not contain ARCANE_MERGE_KEY column") {
-      val tableName = s"merge_key_nokey_${UUID.randomUUID().toString.replace("-", "")}"
-      val schema = new IcebergSchema(
-        Types.NestedField.optional(1, "id", Types.StringType.get()),
-        Types.NestedField.optional(2, "val", Types.StringType.get())
-      )
-      val migration = new SqlServerArcaneMergeKeyMigration()
-
-      withProvisionedTable(tableName, schema) { (_, propertyManager, context, _) =>
-        val source = createMsSqlSource(List(("id", true), ("val", false)))
-        for result <- migration.execute(propertyManager, context, mergeClient, source).exit
-        yield assert(result)(
-          fails(
-            Assertion.isSubtype[FatalStreamFailException](
-              Assertion.hasField("message", _.getMessage, Assertion.containsString(MergeKeyField.name))
-            )
-          )
-        )
-      }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

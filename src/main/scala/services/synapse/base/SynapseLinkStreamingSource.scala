@@ -4,6 +4,7 @@ package services.synapse.base
 import extensions.BufferedReaderExtensions.*
 import extensions.ZExtensions.combineWith
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
+import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import models.app.PluginStreamContext
 import models.cdm.CSVParser
 import models.schemas.ArcaneType.*
@@ -17,6 +18,7 @@ import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.SynapseEntitySchemaProvider
+import services.synapse.migrations.SynapseLinkArcaneMergeKeyMigration
 import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
@@ -35,6 +37,11 @@ final class SynapseLinkStreamingSource(
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
+
+  override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
+    Map(
+      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(new SynapseLinkArcaneMergeKeyMigration()))
+    )
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
     ZIO.succeed(FrozenSurrogateMergeKey(Set("Id".toLowerCase)))
