@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package migrations.base
 
 import models.app.PluginStreamContext
+import services.base.StreamingSource
 import services.iceberg.base.SinkPropertyManager
 import services.merging.JdbcMergeServiceClient
 
@@ -15,5 +16,6 @@ trait Migration:
   def execute(
       sinkPropertyManager: SinkPropertyManager,
       context: PluginStreamContext,
-      mergeClient: JdbcMergeServiceClient
+      mergeClient: JdbcMergeServiceClient,
+      streamingSource: StreamingSource
   ): ZIO[Any, Throwable, Unit]

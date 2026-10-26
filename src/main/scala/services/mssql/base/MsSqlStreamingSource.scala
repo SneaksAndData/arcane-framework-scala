@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.mssql.base
 
 import logging.ZIOLogAnnotations.{zlog, zlogStream}
+import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
@@ -11,6 +12,7 @@ import modification.{DataRowModification, FieldSelector, FrozenSurrogateMergeKey
 import services.base.InsertUpdateDeleteSource
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.closeSafe
+import services.mssql.migrations.SqlServerArcaneMergeKeyMigration
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
@@ -49,6 +51,9 @@ class MsSqlStreamingSource(
 
   override type ShardMetadata = String
   override type WatermarkType = MsSqlWatermark
+
+  override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
+    Map(CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(new SqlServerArcaneMergeKeyMigration())))
 
   lazy val catalog: String                                   = connection.getCatalog
   private val shardingParallelism                            = Runtime.getRuntime.availableProcessors() * 2

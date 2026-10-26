@@ -5,6 +5,7 @@ import migrations.base.Migration
 import models.MetadataKeys
 import models.app.PluginStreamContext
 import models.settings.TableNaming.parts
+import services.base.StreamingSource
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
 import services.merging.JdbcMergeServiceClient
 
@@ -21,7 +22,8 @@ class WatermarkKeyMigration extends Migration:
   def execute(
       sinkPropertyManager: SinkPropertyManager,
       context: PluginStreamContext,
-      mergeClient: JdbcMergeServiceClient
+      mergeClient: JdbcMergeServiceClient,
+      streamingSource: StreamingSource
   ): ZIO[Any, Throwable, Unit] = for
     // find watermark value
     legacyWatermark <- sinkPropertyManager.getProperty(context.sink.targetTableFullName.parts.name, legacyPropertyName)
