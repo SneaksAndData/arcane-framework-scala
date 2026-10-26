@@ -1,15 +1,14 @@
 package com.sneaksanddata.arcane.framework
 package migrations.m1
 
+import logging.ZIOLogAnnotations.zlog
 import migrations.base.Migration
 import models.MetadataKeys
 import models.app.PluginStreamContext
 import models.settings.TableNaming.parts
-import services.base.StreamingSource
-import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
-import services.merging.JdbcMergeServiceClient
+import services.base.{MergeServiceClient, StreamingSource}
+import services.iceberg.base.SinkPropertyManager
 
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import zio.ZIO
 
 class WatermarkKeyMigration extends Migration:
@@ -22,7 +21,7 @@ class WatermarkKeyMigration extends Migration:
   def execute(
       sinkPropertyManager: SinkPropertyManager,
       context: PluginStreamContext,
-      mergeClient: JdbcMergeServiceClient,
+      mergeClient: MergeServiceClient,
       streamingSource: StreamingSource
   ): ZIO[Any, Throwable, Unit] = for
     // find watermark value

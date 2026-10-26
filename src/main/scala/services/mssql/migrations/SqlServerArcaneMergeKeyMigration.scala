@@ -7,9 +7,8 @@ import migrations.base.Migration
 import models.app.PluginStreamContext
 import models.schemas.MergeKeyField
 import models.settings.TableNaming.parts
-import services.base.StreamingSource
+import services.base.{MergeServiceClient, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
-import services.merging.JdbcMergeServiceClient
 import services.mssql.SqlDataCell.normalizeName
 import services.mssql.base.MsSqlStreamingSource
 
@@ -26,7 +25,7 @@ class SqlServerArcaneMergeKeyMigration extends Migration:
   def execute(
       sinkPropertyManager: SinkPropertyManager,
       context: PluginStreamContext,
-      mergeClient: JdbcMergeServiceClient,
+      mergeClient: MergeServiceClient,
       streamingSource: StreamingSource
   ): ZIO[Any, Throwable, Unit] =
     val sqlSource = streamingSource.asInstanceOf[MsSqlStreamingSource]

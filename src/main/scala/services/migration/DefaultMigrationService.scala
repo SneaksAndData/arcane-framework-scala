@@ -5,20 +5,18 @@ import exceptions.FatalStreamFailExceptionWithCause
 import logging.ZIOLogAnnotations.zlog
 import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import models.MetadataKeys
-import services.base.StreamingSource
+import models.app.PluginStreamContext
+import models.settings.TableNaming.parts
+import services.base.{MergeServiceClient, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
-import services.merging.JdbcMergeServiceClient
 import services.migration.MigrationService
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
-import com.sneaksanddata.arcane.framework.models.settings.TableNaming.parts
-import zio.prelude.PartialOrdOps
-import zio.{Task, URIO, ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 class DefaultMigrationService(
     sinkPropertyManager: SinkPropertyManager,
     context: PluginStreamContext,
-    mergeClient: JdbcMergeServiceClient,
+    mergeClient: MergeServiceClient,
     streamingSource: StreamingSource
 ) extends MigrationService:
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
@@ -61,7 +59,7 @@ object DefaultMigrationService:
     for
       sinkPropertyManager <- ZIO.service[SinkPropertyManager]
       context             <- ZIO.service[PluginStreamContext]
-      mergeClient         <- ZIO.service[JdbcMergeServiceClient]
+      mergeClient         <- ZIO.service[MergeServiceClient]
       streamingSource     <- ZIO.service[StreamingSource]
     yield new DefaultMigrationService(sinkPropertyManager, context, mergeClient, streamingSource)
   }

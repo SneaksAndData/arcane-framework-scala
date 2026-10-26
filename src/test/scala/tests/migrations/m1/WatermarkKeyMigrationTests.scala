@@ -8,8 +8,17 @@ import models.ddl.CreateTableRequest
 import models.settings.sink.SinkSettings
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.{IcebergSinkEntityManager, IcebergSinkTablePropertyManager}
+import services.merging.JdbcMergeServiceClient
+import services.metrics.DeclaredMetrics
 import services.streaming.base.TimestampOnlyWatermark
-import tests.shared.{IcebergCatalogInfo, IcebergUtil, TestDynamicSinkSettings, TestPluginStreamContextImpl}
+import tests.shared.{
+  IcebergCatalogInfo,
+  IcebergUtil,
+  TestDynamicSinkSettings,
+  TestJdbcMergeServiceClientSettings,
+  TestPluginStreamContextImpl,
+  TestStreamingSource
+}
 
 import org.apache.iceberg.Schema as IcebergSchema
 import org.apache.iceberg.types.Types
@@ -24,6 +33,14 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
 
   private val tableSchema = new IcebergSchema(
     Types.NestedField.optional(1, "id", Types.StringType.get())
+  )
+
+  private val testMergeServiceClient = new JdbcMergeServiceClient(
+    TestJdbcMergeServiceClientSettings,
+    "iceberg",
+    "test",
+    DeclaredMetrics(),
+    false
   )
 
   private def withProvisionedTable[R, A](tableName: String)(
@@ -55,7 +72,7 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
           _ <- propertyManager.setProperty(tableName, "arcane-watermark", legacyWatermark.toJson)
-          _ <- migration.execute(propertyManager, context)
+          _ <- migration.execute(propertyManager, context, testMergeServiceClient, TestStreamingSource)
           newWatermark <- propertyManager.getRequiredProperty(
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
@@ -73,7 +90,7 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
 
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
-          _ <- migration.execute(propertyManager, context)
+          _ <- migration.execute(propertyManager, context, testMergeServiceClient, TestStreamingSource)
           newWatermark <- propertyManager.getProperty(
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
