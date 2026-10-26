@@ -1,0 +1,44 @@
+package com.sneaksanddata.arcane.framework
+package migrations.m1
+
+import migrations.base.Migration
+import models.MetadataKeys
+import models.app.PluginStreamContext
+import models.settings.TableNaming.parts
+import services.iceberg.base.{SinkEntityManager, SinkPropertyManager}
+
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
+import zio.ZIO
+
+class WatermarkKeyMigration extends Migration:
+  override type RequiredMigrationServices = PluginStreamContext & SinkPropertyManager
+
+  private val legacyPropertyName = "arcane-watermark"
+  val description: String =
+    "Ensures watermark value is stored under `arcane.core.watermark` property, changed from `arcane-watermark`"
+  val shortName: String = "watermark_key"
+  val uniqueId: Long    = 61492573L
+
+  def execute: ZIO[RequiredMigrationServices, Throwable, Unit] = for
+    sinkPropertyManager <- ZIO.service[SinkPropertyManager]
+    context             <- ZIO.service[PluginStreamContext]
+    // find watermark value
+    legacyWatermark <- sinkPropertyManager.getProperty(context.sink.targetTableFullName.parts.name, legacyPropertyName)
+    _ <- ZIO.when(legacyWatermark.isDefined)(
+      for
+        _ <- zlog("Found watermark value in legacy key `arcane-watermark`: %s", legacyWatermark.get)
+        newKey = MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
+        _ <- sinkPropertyManager.setProperty(
+          context.sink.targetTableFullName.parts.name,
+          newKey,
+          legacyWatermark.get
+        )
+        _ <- sinkPropertyManager.removeProperty(
+          context.sink.targetTableFullName.parts.name,
+          legacyPropertyName
+        )
+        _ <- zlog("Set watermark value using key %s=%s", newKey, legacyWatermark.get)
+      yield ()
+    )
+    _ <- ZIO.unless(legacyWatermark.isDefined)(zlog("No legacy watermark on a table"))
+  yield ()
