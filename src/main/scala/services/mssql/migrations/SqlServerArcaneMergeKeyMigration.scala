@@ -8,11 +8,11 @@ import models.schemas.MergeKeyField
 import services.base.{MergeServiceClient, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.mssql.SqlDataCell.normalizeName
-import services.mssql.base.MsSqlStreamingSource
+import services.mssql.base.ColumnSummary
 
 import zio.ZIO
 
-class SqlServerArcaneMergeKeyMigration extends Migration:
+class SqlServerArcaneMergeKeyMigration(columnSummaries: List[ColumnSummary]) extends Migration:
   val description: String =
     "Updates ARCANE_MERGE_KEY column values for SQL Server source using unified murmur3 computation"
   val shortName: String = "arcane_merge_key"
@@ -24,8 +24,7 @@ class SqlServerArcaneMergeKeyMigration extends Migration:
       mergeClient: MergeServiceClient,
       streamingSource: StreamingSource
   ): ZIO[Any, Throwable, Unit] =
-    val sqlSource        = streamingSource.asInstanceOf[MsSqlStreamingSource]
-    val primaryKeys      = sqlSource.columnSummaries.collect { case (name, true) => name.normalizeName }
+    val primaryKeys      = columnSummaries.collect { case (name, true) => name.normalizeName }
     val concatExpression = primaryKeys.map(pk => s"cast($pk as varchar)").mkString(" || '#' || ")
     val mergeKeyExpr     = s"lower(to_hex(murmur3(to_utf8($concatExpression))))"
     val updateQuery =

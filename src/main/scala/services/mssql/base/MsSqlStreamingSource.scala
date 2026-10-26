@@ -53,7 +53,11 @@ class MsSqlStreamingSource(
   override type WatermarkType = MsSqlWatermark
 
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
-    Map(CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(new SqlServerArcaneMergeKeyMigration())))
+    Map(
+      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
+        new SqlServerArcaneMergeKeyMigration(columnSummaries)
+      ))
+    )
 
   lazy val catalog: String                                   = connection.getCatalog
   private val shardingParallelism                            = Runtime.getRuntime.availableProcessors() * 2

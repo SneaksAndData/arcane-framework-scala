@@ -107,10 +107,9 @@ object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
         Types.NestedField.optional(2, "id", Types.StringType.get()),
         Types.NestedField.optional(3, "val", Types.StringType.get())
       )
-      val migration = new SqlServerArcaneMergeKeyMigration()
-
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
-        val source = createMsSqlSource(List(("id", true), ("val", false)))
+        val source    = createMsSqlSource(List(("id", true), ("val", false)))
+        val migration = new SqlServerArcaneMergeKeyMigration(source.columnSummaries)
         for
           _ <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 'pk_1', 'hello')")
           _ <- migration.execute(propertyManager, context, mergeClient, source)
@@ -132,10 +131,10 @@ object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
         Types.NestedField.optional(3, "user_id", Types.StringType.get()),
         Types.NestedField.optional(4, "data", Types.StringType.get())
       )
-      val migration = new SqlServerArcaneMergeKeyMigration()
 
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
-        val source = createMsSqlSource(List(("tenant_id", true), ("user_id", true), ("data", false)))
+        val source    = createMsSqlSource(List(("tenant_id", true), ("user_id", true), ("data", false)))
+        val migration = new SqlServerArcaneMergeKeyMigration(source.columnSummaries)
         for
           _ <- insertRow(trinoCon, tableName, "values ('legacy_composite_key', 'tenant_A', 'user_42', 'some_data')")
           _ <- migration.execute(propertyManager, context, mergeClient, source)
