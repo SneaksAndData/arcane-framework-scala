@@ -61,11 +61,13 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
 
   }
 
-  // schema must match the JSON payload below
+  // schema must match the JSON payload below, plus `id` and the watermark column, which the sink always declares
   private val schema = ArcaneSchema(
     Seq(
       Field("userId", ArcaneType.StringType),
-      Field("level", ArcaneType.StringType)
+      Field("level", ArcaneType.StringType),
+      Field("id", ArcaneType.StringType),
+      Field(watermarkField, ArcaneType.LongType)
     )
   )
 

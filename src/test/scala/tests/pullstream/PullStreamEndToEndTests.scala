@@ -54,20 +54,16 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
   private val targetTableFullName = s"iceberg.test.$targetTableName"
   private val icebergUtil         = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
 
-  /** Columns the framework appends to every row: `ARCANE_MERGE_KEY`/`ARCANE_VERSION` are synthesized from `id` and the
-    * watermark attribute, which are themselves carried through under their own DynamoDB attribute names.
+  /** Columns the framework synthesizes: `ARCANE_MERGE_KEY`/`ARCANE_VERSION`, derived from `id` and the watermark
+    * attribute which [[PullStreamTestServices.pointedPayloadSchema]] already declares.
     */
-  private val watermarkColumn = PullStreamTestServices.watermarkField
-  private val mergeKeyColumn  = MergeKeyField.name
-  private val idColumn        = "id"
-  private val versionColumn   = VersionField.name
+  private val mergeKeyColumn = MergeKeyField.name
+  private val versionColumn  = VersionField.name
 
-  /** The decoded production payload, plus the columns the framework synthesizes or appends from the envelope. */
+  /** The decoded production payload, plus the columns the framework synthesizes from the envelope. */
   private val targetSchema: ArcaneSchema = ArcaneSchema(
     PullStreamTestServices.pointedPayloadSchema
       ++ Seq(
-        Field(idColumn, StringType),
-        Field(watermarkColumn, ArcaneType.LongType),
         Field(mergeKeyColumn, StringType),
         Field(versionColumn, ArcaneType.LongType)
       )
@@ -159,7 +155,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             watermark <- getFieldValueInTarget(
               connection,
               targetTableFullName,
-              watermarkColumn,
+              PullStreamTestServices.watermarkField,
               mergeKeyColumn,
               firstItemKey
             )

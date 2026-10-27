@@ -84,12 +84,10 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             assertTrue(changes.length == 1)
             // every inserted item surfaces as exactly one row (one row per payload)
               && assertTrue(rows.length == totalItems)
-              // row shape matches the schema plus the envelope columns the source always appends/derives
+              // row shape matches the schema plus the envelope columns the source always derives
               && assertTrue(
                 rows.head.map(_.name).toSet ==
-                  schema
-                    .map(_.name)
-                    .toSet + "id" + PullStreamTestServices.watermarkField + MergeKeyField.name + VersionField.name
+                  schema.map(_.name).toSet + MergeKeyField.name + VersionField.name
               )
               // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
               && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
@@ -108,10 +106,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
         client <- PullStreamTestServices.getClient
         result <- PullStreamTestServices.withSourceTable(tableName, client) {
           for {
-            sinkEntityManager <- icebergUtil.getSinkEntityManager
-            _ <- sinkEntityManager.createTable(
-              IcebergCreateTableRequest(tableName, PullStreamTestServices.watermarkedPayloadSchema, true)
-            )
+            sinkEntityManager   <- icebergUtil.getSinkEntityManager
+            _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             source = PullStreamingSource(
               settings = PullStreamTestServices.pullStreamSettings(tableName),
@@ -137,49 +133,12 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               .toList
           } yield assertTrue(rows.length == totalItems)
             && assertTrue(watermarks.toList == expected)
-            // the payload fields must survive alongside the appended id, watermark, and derived envelope columns
+            // the payload fields must survive alongside the derived envelope columns
             && assertTrue(
               rows.head.map(_.name).toSet ==
-                PullStreamTestServices.watermarkedPayloadSchema.map(_.name).toSet +
-                "id" + MergeKeyField.name + VersionField.name
+                schema.map(_.name).toSet + MergeKeyField.name + VersionField.name
             )
             && assertTrue(source.versionFieldName == PullStreamTestServices.watermarkField)
-        }
-      } yield result
-    },
-    test("OmitsWatermarkWhenSinkHasNoSuchColumn") {
-      // Sinks that do not declare the column must keep working: strict decoding would otherwise reject every row.
-      val totalItems = 2
-      for {
-        tableName <- PullStreamTestServices.genSourceTableName
-        targetTableName = s"wh.ns.$tableName"
-        icebergUtil     = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
-        client <- PullStreamTestServices.getClient
-        result <- PullStreamTestServices.withSourceTable(tableName, client) {
-          for {
-            sinkEntityManager   <- icebergUtil.getSinkEntityManager
-            _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
-            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
-            source = PullStreamingSource(
-              settings = PullStreamTestServices.pullStreamSettings(tableName),
-              dynamodbClient = client,
-              sinkPropertyManager = sinkPropertyManager,
-              targetTableFullName = s"testWarehouse.testNs.$tableName",
-              pageSize = None
-            )
-            _ <- PullStreamTestServices.insertMany(client, tableName, count = totalItems)
-            changes <- source
-              .getChanges(PullStreamWatermark(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)))
-              .runCollect
-            (rowStream, _) = changes.head
-            rows <- rowStream.runCollect
-          } yield assertTrue(rows.length == totalItems)
-            && assertTrue(
-              rows.head.map(_.name).toSet ==
-                schema
-                  .map(_.name)
-                  .toSet + "id" + PullStreamTestServices.watermarkField + MergeKeyField.name + VersionField.name
-            )
         }
       } yield result
     },
@@ -231,8 +190,7 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             assertTrue(rows.length == totalItems)
               && assertTrue(
                 rows.head.map(_.name).toSet ==
-                  PullStreamTestServices.pointedPayloadSchema.map(_.name).toSet +
-                  "id" + PullStreamTestServices.watermarkField + MergeKeyField.name + VersionField.name
+                  PullStreamTestServices.pointedPayloadSchema.map(_.name).toSet + MergeKeyField.name + VersionField.name
               )
               && assertTrue(eventTypes.forall(_ == "Producer1Event"))
         }

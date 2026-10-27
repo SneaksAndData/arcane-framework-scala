@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.pullstream
 
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField, VersionField}
+import models.schemas.{ArcaneSchema, DataRow, MergeKeyField, VersionField}
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
@@ -18,6 +18,8 @@ import services.pullstream.migrations.PullStreamArcaneMergeKeyMigration
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.avro.Schema as AvroSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -211,16 +213,17 @@ class PullStreamingSource(
       icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
       pointer       <- resolveJsonPointer
     yield {
-      // `id` and the watermark field are DynamoDB item attributes, not members of `payload`; ARCANE_MERGE_KEY and
-      // ARCANE_VERSION are synthesized by the row modifications from those attributes. None of the four are ever
-      // decoded from `payload`, so under strict decoding they must be excluded from the schema the decoder validates
-      // against. The unpruned schema is still returned, since the staging table must declare all of these columns for
-      // their values to be written.
-      val envelopeColumnNames = Set(pushIdFieldName, settings.versionFieldName, MergeKeyField.name, VersionField.name)
+      // ARCANE_MERGE_KEY and ARCANE_VERSION are synthesized by the row modifications from `id`/the watermark field,
+      // which the decoder reads directly off the document instead (see responseStream): they are never present in
+      // `payload` itself, so under strict decoding they must be excluded from the schema the decoder validates
+      // against. `id` and the watermark field are always declared by the sink, so no synthesis is needed for them.
+      // The unpruned schema is still returned, since the staging table must declare all of these columns for their
+      // values to be written.
+      val syntheticColumnNames = Set(MergeKeyField.name, VersionField.name)
       val payloadColumns = icebergSchema
         .columns()
         .asScala
-        .filterNot(column => envelopeColumnNames.exists(_.equalsIgnoreCase(column.name())))
+        .filterNot(column => syntheticColumnNames.exists(_.equalsIgnoreCase(column.name())))
         .asJava
 
       (
@@ -248,9 +251,10 @@ class PullStreamingSource(
 
   /** Parse the dynamodb query response into DataRows.
     *
-    * Only `payload` holds producer data; the remaining item attributes are envelope metadata. The `id` and watermark
-    * attributes are appended to every row decoded from the payload, under their own attribute names, so
-    * `FrozenSurrogateMergeKey` and `FrozenSurrogateVersion` can derive `ARCANE_MERGE_KEY`/`ARCANE_VERSION` from them.
+    * Only `payload` holds producer data; the remaining item attributes are envelope metadata. `id` and the watermark
+    * attribute are merged into the document as ordinary fields before it is handed to the decoder, so a single Avro
+    * decode produces `ARCANE_MERGE_KEY`/`ARCANE_VERSION`'s source fields alongside the rest of the row, instead of a
+    * second pass rebuilding every row to append them.
     *
     * The item iterable is chunked explicitly rather than at ZIO's default of 4096: a chunk is decoded as a unit, so
     * letting a whole page land in one chunk would hold every decoded row of that page in memory at once. A page is up
@@ -261,12 +265,10 @@ class PullStreamingSource(
       avroSchema: AvroSchema,
       jsonPointer: Option[String]
   ): ZStream[Any, Throwable, DataRow] =
-    // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant
-    val decoder = new AvroJsonDecoder(
-      schema = avroSchema,
-      jsonPointerExpr = jsonPointer,
-      tolerateMissingFields = false
-    )
+    // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant.
+    // The pointer is applied here, before `id`/the watermark are merged in, rather than passed to the decoder: a
+    // pointer into a nested member must receive the envelope fields at the pointed node, not at the document root.
+    val decoder = new AvroJsonDecoder(schema = avroSchema, tolerateMissingFields = false)
 
     ZStream
       .fromIterable(queryResponse.items().asScala, PullStreamingSource.decodeChunkSize)
@@ -275,15 +277,16 @@ class PullStreamingSource(
         val payload    = attributes(pushPayloadFieldName).s()
         val watermarkMillis =
           OffsetDateTime.parse(attributes(settings.versionFieldName).s(), formatter).toInstant.toEpochMilli
-        val envelopeCells = Seq(
-          DataCell(pushIdFieldName, ArcaneType.StringType, attributes(pushIdFieldName).s()),
-          DataCell(settings.versionFieldName, ArcaneType.LongType, watermarkMillis)
-        )
-        (payload, envelopeCells)
+        val rootNode = PullStreamingSource.jsonMapper.readTree(payload)
+        val pointedNode = jsonPointer.fold(rootNode)(rootNode.at) match
+          case obj: ObjectNode => obj
+          case other =>
+            throw IllegalArgumentException(s"Expected object node, got ${other.getNodeType.name()}")
+        pointedNode.put(pushIdFieldName, attributes(pushIdFieldName).s())
+        pointedNode.put(settings.versionFieldName, watermarkMillis)
+        pointedNode.toString
       }
-      .mapZIO { case (payload, envelopeCells) =>
-        ZIO.attempt(decoder.parse(payload).map(row => row ++ envelopeCells))
-      }
+      .mapZIO(mergedDocument => ZIO.attempt(decoder.parse(mergedDocument)))
       .flatMap(ZStream.fromIterable)
 
   /** Gets the changes in the database since the given version.
@@ -323,6 +326,9 @@ class PullStreamingSource(
     .map(_.getOrElse(PullStreamWatermark.epoch))
 
 object PullStreamingSource:
+
+  /** Shared parser used to merge `id`/the watermark attribute into each document before it reaches the decoder. */
+  private val jsonMapper = new ObjectMapper()
 
   /** Sink table property carrying the JSON pointer that selects the part of each stored document holding the data.
     *
