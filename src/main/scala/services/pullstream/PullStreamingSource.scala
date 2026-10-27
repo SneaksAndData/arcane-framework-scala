@@ -2,20 +2,15 @@ package com.sneaksanddata.arcane.framework
 package services.pullstream
 
 import models.app.PluginStreamContext
-import models.schemas.{
-  ArcaneSchema,
-  ArcaneType,
-  DataCell,
-  DataRow,
-  MergeKeyField,
-  MergeableArcaneSchema,
-  given_CanAdd_ArcaneSchema
-}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
+
 import com.sneaksanddata.arcane.framework.migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
-import services.base.{SchemaProvider, StreamingSource}
+import extensions.ZExtensions.combineWith
+import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import services.base.{InsertUpdateDeleteSource, SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
@@ -24,6 +19,7 @@ import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 import services.iceberg.SchemaConversions.*
 
+import com.sneaksanddata.arcane.framework.exceptions.FatalStreamFailException
 import org.apache.avro.Schema as AvroSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -50,20 +46,15 @@ import scala.jdk.CollectionConverters.*
   * @param versionFieldName
   *   the field that contains the watermark
   */
-/** Sink columns whose values are carried by the DynamoDB item envelope rather than by the `payload` attribute.
-  *
-  * A column is `None` when the sink does not declare it, in which case the corresponding value is not written at all.
-  */
-private final case class EnvelopeColumns(watermark: Option[String], mergeKey: Option[String]):
-  val names: Set[String] = Set(watermark, mergeKey).flatten
 
 class PullStreamingSource(
     settings: PullStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager,
     targetTableFullName: String,
-    pageSize: Option[Int]
-) extends StreamingSource:
+    pageSize: Option[Int],
+    modifications: Seq[DataRowModification] = Seq.empty
+) extends InsertUpdateDeleteSource(modifications):
 
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
@@ -71,6 +62,11 @@ class PullStreamingSource(
         new PullStreamArcaneMergeKeyMigration()
       ))
     )
+
+  /**
+   * Schema provided by Push Stream - modifications should not be applied twice.
+   */
+  override def applySchemaModification(schema: ArcaneSchema, modification: DataRowModification): Task[ArcaneSchema] = ZIO.succeed(schema)
 
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"
@@ -87,6 +83,15 @@ class PullStreamingSource(
     */
   private val targetTableName: String = targetTableFullName.parts.name
 
+  override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
+    ZIO.succeed(FrozenSurrogateMergeKey(Set(pushIdFieldName.toLowerCase)))
+
+  override protected val getVersionField: Task[FrozenSurrogateVersion] =
+    ZIO.succeed(FrozenSurrogateVersion(settings.versionFieldName))
+
+  override protected def getSourceSchema: Task[ArcaneSchema] =
+    this.sinkPropertyManager.getTableSchema(targetTableName).map(implicitly)
+
   override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
     ZStream.empty
 
@@ -96,14 +101,6 @@ class PullStreamingSource(
   override type WatermarkType = PullStreamWatermark
 
   override def empty: SchemaType = ArcaneSchema.empty()
-
-  /** Gets the Iceberg schema for the target table.
-    *
-    * @return
-    *   An effect containing the schema.
-    */
-  override def getSchema: Task[MergeableArcaneSchema] =
-    this.sinkPropertyManager.getTableSchema(targetTableName).map(implicitly)
 
   private def buildQueryGetChanges(latestVersion: PullStreamWatermark): QueryRequest =
     val exprNames = Map(
@@ -219,16 +216,13 @@ class PullStreamingSource(
     }
 
   private def getSchemaInfo: Task[
-    (avro: AvroSchema, iceberg: org.apache.iceberg.Schema, envelope: EnvelopeColumns, pointer: Option[String])
+    (avro: AvroSchema, iceberg: org.apache.iceberg.Schema, pointer: Option[String])
   ] =
     for
       icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
       pointer       <- resolveJsonPointer
+      frameworkModifications <- getPrimaryKey.map(_.fieldNames.head).combineWith(getVersionField.map(_.fieldName)).map { case (pk, vf) => Set(pk, vf)}
     yield {
-      val envelope = EnvelopeColumns(
-        watermark = resolveColumn(icebergSchema, settings.versionFieldName),
-        mergeKey = resolveColumn(icebergSchema, MergeKeyField.name)
-      )
       // Envelope columns are carried by the DynamoDB item, not by `payload`, so they are hidden from the decoder:
       // under strict decoding a column that the payload never carries would fail the whole batch. They are appended
       // to each row after decoding instead. The unpruned schema is still returned, since the staging table must
@@ -236,13 +230,12 @@ class PullStreamingSource(
       val payloadColumns = icebergSchema
         .columns()
         .asScala
-        .filterNot(column => envelope.names.contains(column.name()))
+        .filterNot(column => frameworkModifications.contains(column.name()))
         .asJava
 
       (
         AvroSchemaUtil.convert(org.apache.iceberg.Schema(payloadColumns), targetTableName),
         icebergSchema,
-        envelope,
         pointer
       )
     }
@@ -263,16 +256,6 @@ class PullStreamingSource(
           .getProperty(targetTableName, PullStreamingSource.jsonPointerPropertyName)
           .map(_.filter(_.nonEmpty))
 
-  /** Locates the sink column that receives an envelope attribute.
-    *
-    * The lookup is case-insensitive but returns the column's own spelling, because rows are matched to Iceberg fields
-    * by exact name and engines that fold unquoted identifiers create the column lowercased regardless of how the
-    * attribute is spelled. `None` means the sink does not store the attribute, in which case it is left out of the rows
-    * entirely.
-    */
-  private def resolveColumn(icebergSchema: org.apache.iceberg.Schema, attributeName: String): Option[String] =
-    icebergSchema.columns().asScala.map(_.name()).find(_.equalsIgnoreCase(attributeName))
-
   /** Parse the dynamodb query response into DataRows.
     *
     * Only `payload` holds producer data; the remaining item attributes are envelope metadata. The watermark and the
@@ -286,7 +269,6 @@ class PullStreamingSource(
   private def responseStream(
       queryResponse: QueryResponse,
       avroSchema: AvroSchema,
-      envelope: EnvelopeColumns,
       jsonPointer: Option[String]
   ): ZStream[Any, Throwable, DataRow] =
     // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant
@@ -295,39 +277,14 @@ class PullStreamingSource(
       jsonPointerExpr = jsonPointer,
       tolerateMissingFields = false
     )
-
+    
     ZStream
       .fromIterable(queryResponse.items().asScala, PullStreamingSource.decodeChunkSize)
-      .map { item =>
-        val attributes = item.asScala
-        def stringAttribute(name: String): Option[String] =
-          attributes.get(name).flatMap(attribute => Option(attribute.s()))
-
-        // TOOD: in 2.4 version this becomes dataRowModification SurrogateVersion
-        val watermarkCell =
-          for
-            column         <- envelope.watermark
-            watermarkValue <- stringAttribute(settings.versionFieldName)
-          yield DataCell(column, ArcaneType.StringType, watermarkValue)
-
-        // the merge key identifies the target row: the payload carries no identity of its own, so the id attribute
-        // of the DynamoDB item is used, giving one target row per pushed message.
-        // Unlike the watermark, the cell is named after MergeKeyField rather than after the sink column: the schema
-        // conversion re-tags any case-insensitive match as an IndexedMergeKeyField, which reports the canonical
-        // upper-case name, and it appends that field outright when the sink declares no column at all. The staging
-        // table therefore always carries the canonical spelling, and a cell named after the sink would not match it.
-
-        // TOOD: in 2.4 version this becomes dataRowModification SurrogateMergeKey
-        val mergeKeyCell =
-          stringAttribute(pushIdFieldName)
-            .map(mergeKeyValue => DataCell(MergeKeyField.name, MergeKeyField.fieldType, mergeKeyValue))
-
-        (attributes(pushPayloadFieldName).s(), watermarkCell ++ mergeKeyCell)
+      .map(_.asScala(pushPayloadFieldName).s())
+      .mapZIO { payload =>
+        ZIO.attempt(decoder.parse(payload))
       }
-      .mapZIO { case (payload, envelopeCells) =>
-        ZIO.attempt(decoder.parse(payload).map(row => row ++ envelopeCells))
-      }
-      .flatMap(rows => ZStream.fromIterable(rows))
+      .flatMap(ZStream.fromIterable)
 
   /** Gets the changes in the database since the given version.
     *
@@ -337,11 +294,13 @@ class PullStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchemaInfo).map { case (avroSchema, icebergSchema, envelope, jsonPointer) =>
-      val rowStream: ZStream[Any, Throwable, DataRow] =
-        paginatedQuery(buildQueryGetChanges(previousVersion))
-          .flatMap(response => responseStream(response, avroSchema, envelope, jsonPointer))
-      (rowStream, icebergSchema)
+    ZStream.fromZIO(getSchemaInfo.combineWith(allModifications)).map {
+      case ((avroSchema, icebergSchema, jsonPointer), mods) =>
+        val rowStream: ZStream[Any, Throwable, DataRow] =
+          paginatedQuery(buildQueryGetChanges(previousVersion))
+            .flatMap(response => responseStream(response, avroSchema, jsonPointer))
+            .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+        (rowStream, icebergSchema)
     }
 
   /** Returns true if the queue has new rows.
@@ -396,6 +355,23 @@ object PullStreamingSource:
   type Environment               = PluginStreamContext & DynamoDbClient & SinkPropertyManager
   private type SettingsExtractor = PluginStreamContext => PullStreamSourceSettings
 
+  def apply(
+      settings: PullStreamSourceSettings,
+      dynamodbClient: DynamoDbClient,
+      sinkPropertyManager: SinkPropertyManager,
+      targetTableFullName: String,
+      pageSize: Option[Int],
+      modifications: Seq[DataRowModification] = Seq.empty
+  ): PullStreamingSource =
+    new PullStreamingSource(
+      settings,
+      dynamodbClient,
+      sinkPropertyManager,
+      targetTableFullName,
+      pageSize,
+      modifications
+    )
+
   def getLayer(
       extractor: SettingsExtractor
   ): ZLayer[Environment, Nothing, PullStreamingSource & SchemaProvider[ArcaneSchema]] =
@@ -410,6 +386,7 @@ object PullStreamingSource:
         dynamodbClient,
         propertyManager,
         context.sink.targetTableFullName,
-        settings.pageSize
+        settings.pageSize,
+        context.source.modifications.rowModifications
       )
     }

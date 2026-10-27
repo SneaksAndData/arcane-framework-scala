@@ -148,7 +148,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             _          <- graph.produce().runCollect
             connection <- newTrinoConnection
             rowCount   <- getRowsInTarget(connection, targetTableFullName)
-            firstItemKey = PullStreamTestServices.defaultId(0)
+            firstItemKey = utils.HashUtils.murmur3(PullStreamTestServices.defaultId(0))
             watermark <- getFieldValueInTarget(
               connection,
               targetTableFullName,
