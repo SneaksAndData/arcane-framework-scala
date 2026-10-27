@@ -52,10 +52,11 @@ object PullStreamTestServices:
     s"""[{"userId":"user-$index","level":"user"}]"""
 
   /** [[payloadSchema]] plus the watermark column, i.e. a sink that opts into storing the DynamoDB sort key. Note that
-    * the payload deliberately never carries this field: its value comes from the item attribute.
+    * the payload deliberately never carries this field: its value comes from the item attribute, converted to epoch
+    * millis by the source.
     */
   val watermarkedPayloadSchema: ArcaneSchema =
-    ArcaneSchema(payloadSchema :+ Field(watermarkField, ArcaneType.StringType))
+    ArcaneSchema(payloadSchema :+ Field(watermarkField, ArcaneType.LongType))
 
   /** Verbatim copy of a `payload` attribute observed in the production DynamoDB table: an object root (not an array)
     * whose own `id` is a business identifier distinct from the envelope's `id`, and whose `payload` member is a nested

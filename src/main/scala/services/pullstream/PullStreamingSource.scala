@@ -2,7 +2,16 @@ package com.sneaksanddata.arcane.framework
 package services.pullstream
 
 import models.app.PluginStreamContext
-import models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField, MergeableArcaneSchema, given_CanAdd_ArcaneSchema}
+import models.schemas.{
+  ArcaneSchema,
+  ArcaneType,
+  DataCell,
+  DataRow,
+  MergeKeyField,
+  MergeableArcaneSchema,
+  VersionField,
+  given_CanAdd_ArcaneSchema
+}
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
@@ -19,7 +28,6 @@ import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 import services.iceberg.SchemaConversions.*
 
-import com.sneaksanddata.arcane.framework.exceptions.FatalStreamFailException
 import org.apache.avro.Schema as AvroSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -63,10 +71,10 @@ class PullStreamingSource(
       ))
     )
 
-  /**
-   * Schema provided by Push Stream - modifications should not be applied twice.
-   */
-  override def applySchemaModification(schema: ArcaneSchema, modification: DataRowModification): Task[ArcaneSchema] = ZIO.succeed(schema)
+  /** Schema provided by Push Stream - modifications should not be applied twice.
+    */
+  override def applySchemaModification(schema: ArcaneSchema, modification: DataRowModification): Task[ArcaneSchema] =
+    ZIO.succeed(schema)
 
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"
@@ -221,16 +229,17 @@ class PullStreamingSource(
     for
       icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
       pointer       <- resolveJsonPointer
-      frameworkModifications <- getPrimaryKey.map(_.fieldNames.head).combineWith(getVersionField.map(_.fieldName)).map { case (pk, vf) => Set(pk, vf)}
     yield {
-      // Envelope columns are carried by the DynamoDB item, not by `payload`, so they are hidden from the decoder:
-      // under strict decoding a column that the payload never carries would fail the whole batch. They are appended
-      // to each row after decoding instead. The unpruned schema is still returned, since the staging table must
-      // declare the columns for their values to be written.
+      // `id` and the watermark field are DynamoDB item attributes, not members of `payload`; ARCANE_MERGE_KEY and
+      // ARCANE_VERSION are synthesized by the row modifications from those attributes. None of the four are ever
+      // decoded from `payload`, so under strict decoding they must be excluded from the schema the decoder validates
+      // against. The unpruned schema is still returned, since the staging table must declare all of these columns for
+      // their values to be written.
+      val envelopeColumnNames = Set(pushIdFieldName, settings.versionFieldName, MergeKeyField.name, VersionField.name)
       val payloadColumns = icebergSchema
         .columns()
         .asScala
-        .filterNot(column => frameworkModifications.contains(column.name()))
+        .filterNot(column => envelopeColumnNames.exists(_.equalsIgnoreCase(column.name())))
         .asJava
 
       (
@@ -258,9 +267,9 @@ class PullStreamingSource(
 
   /** Parse the dynamodb query response into DataRows.
     *
-    * Only `payload` holds producer data; the remaining item attributes are envelope metadata. The watermark and the
-    * merge key are appended to every decoded row whenever the sink declares a column for them, so the ingestion
-    * timestamp and the row identity are persisted alongside the payload instead of being discarded.
+    * Only `payload` holds producer data; the remaining item attributes are envelope metadata. The `id` and watermark
+    * attributes are appended to every row decoded from the payload, under their own attribute names, so
+    * `FrozenSurrogateMergeKey` and `FrozenSurrogateVersion` can derive `ARCANE_MERGE_KEY`/`ARCANE_VERSION` from them.
     *
     * The item iterable is chunked explicitly rather than at ZIO's default of 4096: a chunk is decoded as a unit, so
     * letting a whole page land in one chunk would hold every decoded row of that page in memory at once. A page is up
@@ -277,12 +286,22 @@ class PullStreamingSource(
       jsonPointerExpr = jsonPointer,
       tolerateMissingFields = false
     )
-    
+
     ZStream
       .fromIterable(queryResponse.items().asScala, PullStreamingSource.decodeChunkSize)
-      .map(_.asScala(pushPayloadFieldName).s())
-      .mapZIO { payload =>
-        ZIO.attempt(decoder.parse(payload))
+      .map { item =>
+        val attributes = item.asScala
+        val payload    = attributes(pushPayloadFieldName).s()
+        val watermarkMillis =
+          OffsetDateTime.parse(attributes(settings.versionFieldName).s(), formatter).toInstant.toEpochMilli
+        val envelopeCells = Seq(
+          DataCell(pushIdFieldName, ArcaneType.StringType, attributes(pushIdFieldName).s()),
+          DataCell(settings.versionFieldName, ArcaneType.LongType, watermarkMillis)
+        )
+        (payload, envelopeCells)
+      }
+      .mapZIO { case (payload, envelopeCells) =>
+        ZIO.attempt(decoder.parse(payload).map(row => row ++ envelopeCells))
       }
       .flatMap(ZStream.fromIterable)
 
