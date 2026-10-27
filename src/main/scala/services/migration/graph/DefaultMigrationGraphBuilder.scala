@@ -23,7 +23,6 @@ final class DefaultMigrationGraphBuilder(migrationService: MigrationService) ext
     .mapZIO { migration => migrationService.execute(migration) }
     .via(aggregateMigrations)
     .mapZIO { _ => migrationService.commitMigration }
-    
 
 object DefaultMigrationGraphBuilder:
   type Environment = MigrationService
