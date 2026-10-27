@@ -2,16 +2,7 @@ package com.sneaksanddata.arcane.framework
 package services.pullstream
 
 import models.app.PluginStreamContext
-import models.schemas.{
-  ArcaneSchema,
-  ArcaneType,
-  DataCell,
-  DataRow,
-  MergeKeyField,
-  MergeableArcaneSchema,
-  VersionField,
-  given_CanAdd_ArcaneSchema
-}
+import models.schemas.{ArcaneSchema, ArcaneType, DataCell, DataRow, MergeKeyField, VersionField}
 import models.settings.TableNaming.parts
 import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
@@ -26,7 +17,6 @@ import services.iceberg.interop.AvroJsonDecoder
 import services.pullstream.migrations.PullStreamArcaneMergeKeyMigration
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
-import services.iceberg.SchemaConversions.*
 
 import org.apache.avro.Schema as AvroSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
@@ -44,15 +34,6 @@ import scala.jdk.CollectionConverters.*
   * Arcane push stream lives with the following assumptions: Data is wrapped into the following format:
   *   - primaryKey: primary identifier for the datastream e.g. ProducerId
   *   - secondaryKey: sort-key for the datasteram e.g. TimestampUTC
-  *
-  * @param primaryKeyFieldName
-  *   the field name of the producer
-  *
-  * @param primaryKeyValue
-  *   The value of the producer column
-  *
-  * @param versionFieldName
-  *   the field that contains the watermark
   */
 
 class PullStreamingSource(
