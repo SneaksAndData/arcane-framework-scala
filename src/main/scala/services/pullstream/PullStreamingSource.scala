@@ -14,7 +14,7 @@ import services.base.{InsertUpdateDeleteSource, SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
-import services.pullstream.migrations.PullStreamArcaneMergeKeyMigration
+import services.pullstream.migrations.{PullStreamArcaneMergeKeyMigration, PullStreamVersionFieldMigration}
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 
@@ -51,7 +51,8 @@ class PullStreamingSource(
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
-        new PullStreamArcaneMergeKeyMigration()
+        new PullStreamArcaneMergeKeyMigration(),
+        new PullStreamVersionFieldMigration(settings.versionFieldName)
       ))
     )
 
