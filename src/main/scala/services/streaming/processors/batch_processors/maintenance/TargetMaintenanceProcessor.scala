@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.streaming.processors.batch_processors.maintenance
 
-import logging.ZIOLogAnnotations.zlog
+import logging.ZIOLogAnnotations.{zlog, zlogWarning}
 import models.app.PluginStreamContext
 import models.batches.{MergeableBatch, StagedVersionedBatch}
 import models.maintenance.{
@@ -19,7 +19,7 @@ import services.streaming.base.StagedBatchProcessor
 import zio.stream.ZPipeline
 import zio.{Cause, Ref, Task, ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager}
+import java.sql.{Connection, DriverManager, Statement}
 
 class TargetMaintenanceProcessor(
     counterRef: Ref[Long],
@@ -43,11 +43,19 @@ class TargetMaintenanceProcessor(
         _         <- zlog("Running maintenance: %s", query)
         statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
         _ <- ZIO
-          .attempt(statement.execute())
+          .attemptBlockingCancelable(statement.execute())(cancelEffect(statement, query))
           .tapError(error => zlog("Maintenance query '%s' failed", Cause.fail(error), query))
           .ignore
       yield ()
     }
+
+  /** Cancels a running statement on the server side. This is required to avoid orphan queries being left running on
+    * the query engine when the fiber executing the statement is interrupted (e.g. on pod/process
+    * termination) while the underlying blocking JDBC call is still in progress.
+    */
+  private def cancelEffect(statement: Statement, query: String): zio.UIO[Unit] =
+    zlogWarning("Cancelling in-flight maintenance query '%s' due to interruption", query) *>
+      ZIO.succeed(statement.cancel()).ignore
 
   private def optimizeTable(tableName: String, settings: OptimizeSettings): Task[Unit] = for
     batchCount <- counterRef.get

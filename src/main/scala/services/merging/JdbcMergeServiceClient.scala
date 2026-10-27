@@ -93,11 +93,23 @@ class JdbcMergeServiceClient(
   ): Task[Result] =
     ZIO.scoped {
       for
-        statement         <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
-        _                 <- zlog(s"$operation query $queryName")
-        applicationResult <- ZIO.attempt(statement.execute()).retry(retryPolicy)
+        statement <- ZIO.fromAutoCloseable(ZIO.attempt(sqlConnection.prepareStatement(query)))
+        _         <- zlog(s"$operation query $queryName")
+        applicationResult <- ZIO
+          .attemptBlockingCancelable(statement.execute())(cancelEffect(statement, queryName))
+          .retry(retryPolicy)
       yield resultMapper(applicationResult)
     }
+
+  /** Cancels a running statement on the server side. This is required to avoid orphan queries being left running on
+    * the query engine (e.g. Trino) when the fiber executing the statement is interrupted (e.g. on pod/process
+    * termination) while the underlying blocking JDBC call is still in progress. Without an explicit cancel, the JDBC
+    * driver will keep blocking until the query engine itself completes or times out the query, which can take
+    * several minutes for large merge queries and may conflict with a subsequent run of the same query after restart.
+    */
+  private def cancelEffect(statement: Statement, queryName: String): zio.UIO[Unit] =
+    zlogWarning(s"Cancelling in-flight query $queryName due to interruption") *>
+      ZIO.succeed(statement.cancel()).ignore
 
 object JdbcMergeServiceClient:
   /** The environment type for the JdbcConsumer.
