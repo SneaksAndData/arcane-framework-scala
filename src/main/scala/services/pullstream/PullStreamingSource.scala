@@ -327,8 +327,7 @@ class PullStreamingSource(
         val rowStream: ZStream[Any, Throwable, DataRow] =
           paginatedQuery(buildQueryGetChanges(previousVersion))
             .flatMap(response => responseStream(response, avroSchema, jsonPointer))
-            .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
-            .map(dropDynamoAttributeFields)
+            .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods).map(dropDynamoAttributeFields))
         (rowStream, icebergSchema)
     }
 
