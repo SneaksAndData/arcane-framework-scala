@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.avro.Schema as AvroSchema
 import org.apache.iceberg.avro.AvroSchemaUtil
+import org.apache.iceberg.types.Types
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, QueryRequest, QueryResponse, Select}
 import zio.stream.ZStream
@@ -64,10 +65,20 @@ class PullStreamingSource(
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
   private val listPageSize                 = pageSize.getOrElse(PullStreamingSource.defaultPageSize)
 
-  /** Column used to order concurrent versions of the same merge key during a merge. This is the watermark column, whose
-    * value the source appends to every row.
+  /** Names under which the DynamoDB envelope's `id` and watermark attribute are merged into the document, in place of
+    * their literal names: `payload` may itself carry fields called `id` or named after the watermark column, and a
+    * literal merge would silently overwrite them. The prefix guarantees the merged fields never collide with anything
+    * `payload` can legally contain.
     */
-  val versionFieldName: String = settings.versionFieldName
+  private val dynamoIdFieldName: String = s"${PullStreamingSource.dynamoAttributePrefix}$pushIdFieldName"
+  private val dynamoVersionFieldName: String =
+    s"${PullStreamingSource.dynamoAttributePrefix}${settings.versionFieldName}"
+
+  /** Column used to order concurrent versions of the same merge key during a merge. Now that the literal watermark
+    * column is never populated from the DynamoDB envelope (see `dynamoVersionFieldName`), `ARCANE_VERSION` is the only
+    * column consistently carrying that ordering value.
+    */
+  val versionFieldName: String = VersionField.name
 
   /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
     * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
@@ -75,10 +86,10 @@ class PullStreamingSource(
   private val targetTableName: String = targetTableFullName.parts.name
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
-    ZIO.succeed(FrozenSurrogateMergeKey(Set(pushIdFieldName.toLowerCase)))
+    ZIO.succeed(FrozenSurrogateMergeKey(Set(dynamoIdFieldName.toLowerCase)))
 
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
-    ZIO.succeed(FrozenSurrogateVersion(settings.versionFieldName))
+    ZIO.succeed(FrozenSurrogateVersion(dynamoVersionFieldName))
 
   override protected def getSourceSchema: Task[ArcaneSchema] =
     this.sinkPropertyManager.getTableSchema(targetTableName).map(implicitly)
@@ -213,21 +224,33 @@ class PullStreamingSource(
       icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
       pointer       <- resolveJsonPointer
     yield {
-      // ARCANE_MERGE_KEY and ARCANE_VERSION are synthesized by the row modifications from `id`/the watermark field,
-      // which the decoder reads directly off the document instead (see responseStream): they are never present in
-      // `payload` itself, so under strict decoding they must be excluded from the schema the decoder validates
-      // against. `id` and the watermark field are always declared by the sink, so no synthesis is needed for them.
-      // The unpruned schema is still returned, since the staging table must declare all of these columns for their
-      // values to be written.
-      val syntheticColumnNames = Set(MergeKeyField.name, VersionField.name)
+      // ARCANE_MERGE_KEY and ARCANE_VERSION are synthesized by the row modifications from the `dattr__`-prefixed
+      // envelope fields (see responseStream); they are never present in `payload` itself, so under strict decoding
+      // they must be excluded from the schema the decoder validates against. The unpruned sink schema is still
+      // returned, since the staging table must declare both columns for their values to be written.
+      val excludedColumnNames = Set(MergeKeyField.name, VersionField.name)
       val payloadColumns = icebergSchema
         .columns()
         .asScala
-        .filterNot(column => syntheticColumnNames.exists(_.equalsIgnoreCase(column.name())))
-        .asJava
+        .filterNot(column => excludedColumnNames.exists(_.equalsIgnoreCase(column.name())))
+
+      // The `dattr__` fields are never declared by the sink, since they exist only to carry the DynamoDB envelope's
+      // `id`/watermark into the row modifications; the decoder must be told about them explicitly.
+      val withEnvelopeColumns = payloadColumns ++ Seq(
+        Types.NestedField.optional(
+          payloadColumns.map(_.fieldId()).maxOption.getOrElse(0) + 1,
+          dynamoIdFieldName,
+          Types.StringType.get()
+        ),
+        Types.NestedField.optional(
+          payloadColumns.map(_.fieldId()).maxOption.getOrElse(0) + 2,
+          dynamoVersionFieldName,
+          Types.LongType.get()
+        )
+      )
 
       (
-        AvroSchemaUtil.convert(org.apache.iceberg.Schema(payloadColumns), targetTableName),
+        AvroSchemaUtil.convert(org.apache.iceberg.Schema(withEnvelopeColumns.asJava), targetTableName),
         icebergSchema,
         pointer
       )
@@ -252,9 +275,11 @@ class PullStreamingSource(
   /** Parse the dynamodb query response into DataRows.
     *
     * Only `payload` holds producer data; the remaining item attributes are envelope metadata. `id` and the watermark
-    * attribute are merged into the document as ordinary fields before it is handed to the decoder, so a single Avro
-    * decode produces `ARCANE_MERGE_KEY`/`ARCANE_VERSION`'s source fields alongside the rest of the row, instead of a
-    * second pass rebuilding every row to append them.
+    * attribute are merged into the document under `dattr__`-prefixed field names before it is handed to the decoder, so
+    * a single Avro decode produces `ARCANE_MERGE_KEY`/`ARCANE_VERSION`'s source fields alongside the rest of the row,
+    * instead of a second pass rebuilding every row to append them. The prefix avoids a name collision with a payload
+    * that happens to carry its own `id` or watermark-named field: merging under the literal name would silently
+    * overwrite that payload data.
     *
     * The item iterable is chunked explicitly rather than at ZIO's default of 4096: a chunk is decoded as a unit, so
     * letting a whole page land in one chunk would hold every decoded row of that page in memory at once. A page is up
@@ -266,7 +291,7 @@ class PullStreamingSource(
       jsonPointer: Option[String]
   ): ZStream[Any, Throwable, DataRow] =
     // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant.
-    // The pointer is applied here, before `id`/the watermark are merged in, rather than passed to the decoder: a
+    // The pointer is applied here, before the envelope fields are merged in, rather than passed to the decoder: a
     // pointer into a nested member must receive the envelope fields at the pointed node, not at the document root.
     val decoder = new AvroJsonDecoder(schema = avroSchema, tolerateMissingFields = false)
 
@@ -282,8 +307,8 @@ class PullStreamingSource(
           case obj: ObjectNode => obj
           case other =>
             throw IllegalArgumentException(s"Expected object node, got ${other.getNodeType.name()}")
-        pointedNode.put(pushIdFieldName, attributes(pushIdFieldName).s())
-        pointedNode.put(settings.versionFieldName, watermarkMillis)
+        pointedNode.put(dynamoIdFieldName, attributes(pushIdFieldName).s())
+        pointedNode.put(dynamoVersionFieldName, watermarkMillis)
         pointedNode.toString
       }
       .mapZIO(mergedDocument => ZIO.attempt(decoder.parse(mergedDocument)))
@@ -303,8 +328,17 @@ class PullStreamingSource(
           paginatedQuery(buildQueryGetChanges(previousVersion))
             .flatMap(response => responseStream(response, avroSchema, jsonPointer))
             .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods))
+            .map(dropDynamoAttributeFields)
         (rowStream, icebergSchema)
     }
+
+  /** Removes the `dattr__`-prefixed DynamoDB envelope fields from a decoded row.
+    *
+    * They exist solely to feed `FrozenSurrogateMergeKey`/`FrozenSurrogateVersion` without colliding with payload field
+    * names (see responseStream), and are never declared as sink columns, so they must not reach the writer.
+    */
+  private def dropDynamoAttributeFields(row: DataRow): DataRow =
+    row.filterNot(_.name.startsWith(PullStreamingSource.dynamoAttributePrefix))
 
   /** Returns true if the queue has new rows.
     *
@@ -329,6 +363,12 @@ object PullStreamingSource:
 
   /** Shared parser used to merge `id`/the watermark attribute into each document before it reaches the decoder. */
   private val jsonMapper = new ObjectMapper()
+
+  /** Prefix for the field names the DynamoDB envelope's `id` and watermark attribute are merged under. `payload` may
+    * legally carry its own `id` field or one named after the watermark column; this prefix keeps the merged copies from
+    * colliding with (and overwriting) that payload data.
+    */
+  val dynamoAttributePrefix: String = "dattr__"
 
   /** Sink table property carrying the JSON pointer that selects the part of each stored document holding the data.
     *

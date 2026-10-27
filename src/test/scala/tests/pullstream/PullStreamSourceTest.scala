@@ -19,6 +19,11 @@ object PullStreamSourceTest extends ZIOSpecDefault:
 
   private val schema = PullStreamTestServices.payloadSchema
 
+  /** Fields `defaultPayload` actually carries. `schema` additionally declares `id`/the watermark column because the
+    * sink always has them, but the payload never does, so those two never surface as cells on the decoded row.
+    */
+  private val payloadFieldNames = Set("userId", "level")
+
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PullStreamTests")(
     test("DetectHasRows") {
       for {
@@ -84,10 +89,11 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             assertTrue(changes.length == 1)
             // every inserted item surfaces as exactly one row (one row per payload)
               && assertTrue(rows.length == totalItems)
-              // row shape matches the schema plus the envelope columns the source always derives
+              // row shape matches the schema plus the envelope columns the source always derives; `id`/the watermark
+              // column are absent from the row since `payload` never carries them
               && assertTrue(
                 rows.head.map(_.name).toSet ==
-                  schema.map(_.name).toSet + MergeKeyField.name + VersionField.name
+                  payloadFieldNames + MergeKeyField.name + VersionField.name
               )
               // ordering follows the DynamoDB sort key (ascending by default) so we see user-0 .. user-N
               && assertTrue(userIds.toList == (0 until totalItems).map(i => s"user-$i").toList)
@@ -95,8 +101,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
       } yield result
     },
     test("AppendsWatermarkAttributeToRows") {
-      // The watermark is an attribute of the DynamoDB item and is deliberately absent from `payload`.
-      // When the sink declares a column for it, its value must be taken from the item and written to the row.
+      // The watermark is an attribute of the DynamoDB item, never present in `payload`, and the literal watermark
+      // column is therefore never populated from it: its value reaches the row only via ARCANE_VERSION.
       val totalItems = 3
       val startAt    = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).plusHours(1)
       for {
@@ -122,8 +128,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               .runCollect
             (rowStream, _) = changes.head
             rows <- rowStream.runCollect
-            watermarks = rows.map(
-              _.find(_.name == PullStreamTestServices.watermarkField)
+            versions = rows.map(
+              _.find(_.name == VersionField.name)
                 .flatMap(cell => Option(cell.value))
                 .map(_.toString)
                 .getOrElse("")
@@ -132,13 +138,14 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               .map(i => startAt.plusSeconds(i.toLong).toInstant.toEpochMilli.toString)
               .toList
           } yield assertTrue(rows.length == totalItems)
-            && assertTrue(watermarks.toList == expected)
-            // the payload fields must survive alongside the derived envelope columns
+            && assertTrue(versions.toList == expected)
+            // the payload fields must survive alongside the derived envelope columns; `id`/the watermark column
+            // are absent from the row since `payload` never carries them
             && assertTrue(
               rows.head.map(_.name).toSet ==
-                schema.map(_.name).toSet + MergeKeyField.name + VersionField.name
+                payloadFieldNames + MergeKeyField.name + VersionField.name
             )
-            && assertTrue(source.versionFieldName == PullStreamTestServices.watermarkField)
+            && assertTrue(source.versionFieldName == VersionField.name)
         }
       } yield result
     },
@@ -186,11 +193,12 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             eventTypes = rows.flatMap(_.find(_.name == "eventType")).map(_.value.toString)
           } yield
             // the envelope around the pointed node contributes no columns, so decoding could only have started
-            // below the pointer
+            // below the pointer; `id`/the watermark column are absent from the row since the pointed node never
+            // carries them
             assertTrue(rows.length == totalItems)
               && assertTrue(
                 rows.head.map(_.name).toSet ==
-                  PullStreamTestServices.pointedPayloadSchema.map(_.name).toSet + MergeKeyField.name + VersionField.name
+                  Set("eventType", "timestamp", "source", "message") + MergeKeyField.name + VersionField.name
               )
               && assertTrue(eventTypes.forall(_ == "Producer1Event"))
         }

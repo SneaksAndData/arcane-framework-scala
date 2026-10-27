@@ -37,15 +37,13 @@ object PullStreamTestServices:
   def defaultId(index: Int): String =
     UUID.nameUUIDFromBytes(s"arcane-pull-test-$index".getBytes(StandardCharsets.UTF_8)).toString
 
-  /** Schema of the rows produced by [[defaultPayload]]: the payload's own fields plus `id` and the watermark column,
-    * which the sink always declares.
+  /** Schema of the rows produced by [[defaultPayload]]: the sink never declares `id`/the watermark column (the
+    * framework reads those out of the envelope directly), so this is just the payload's own fields.
     */
   val payloadSchema: ArcaneSchema = ArcaneSchema(
     Seq(
       Field("userId", ArcaneType.StringType),
-      Field("level", ArcaneType.StringType),
-      Field(idField, ArcaneType.StringType),
-      Field(watermarkField, ArcaneType.LongType)
+      Field("level", ArcaneType.StringType)
     )
   )
 
@@ -66,18 +64,15 @@ object PullStreamTestServices:
   val productionNestedPayload: String =
     """{"eventType":"Producer1Event","timestamp":"2026-08-04T12:34:56Z","source":"integration-test","message":"Hello from Avro map<string> payload"}"""
 
-  /** Schema of the rows produced by [[productionPayload]] when a JSON pointer selects its nested `payload` member, plus
-    * `id` and the watermark column, which the sink always declares. The envelope around the pointed node contributes
-    * nothing else, so the payload's own `id` never surfaces and needs no rename.
+  /** Schema of the rows produced by [[productionPayload]] when a JSON pointer selects its nested `payload` member. The
+    * sink never declares `id`/the watermark column (the framework reads those out of the envelope directly).
     */
   val pointedPayloadSchema: ArcaneSchema = ArcaneSchema(
     Seq(
       Field("eventType", ArcaneType.StringType),
       Field("timestamp", ArcaneType.StringType),
       Field("source", ArcaneType.StringType),
-      Field("message", ArcaneType.StringType),
-      Field(idField, ArcaneType.StringType),
-      Field(watermarkField, ArcaneType.LongType)
+      Field("message", ArcaneType.StringType)
     )
   )
 

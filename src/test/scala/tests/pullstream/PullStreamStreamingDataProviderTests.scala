@@ -61,13 +61,12 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
 
   }
 
-  // schema must match the JSON payload below, plus `id` and the watermark column, which the sink always declares
+  // schema must match the JSON payload below; the sink never declares `id`/the watermark column (the framework
+  // reads those out of the DynamoDB envelope directly)
   private val schema = ArcaneSchema(
     Seq(
       Field("userId", ArcaneType.StringType),
-      Field("level", ArcaneType.StringType),
-      Field("id", ArcaneType.StringType),
-      Field(watermarkField, ArcaneType.LongType)
+      Field("level", ArcaneType.StringType)
     )
   )
 

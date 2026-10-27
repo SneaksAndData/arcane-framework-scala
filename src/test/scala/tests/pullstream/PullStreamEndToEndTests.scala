@@ -42,11 +42,11 @@ final class PullStreamTestDataProvider(source: PullStreamingSource, from: PullSt
     extends StreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] = source.getChanges(from)
 
-/** End-to-end coverage for the watermark column, exercising the real docker-compose stack: DynamoDB local as the
-  * source, Lakekeeper + MinIO as the Iceberg catalog and storage, and Trino as the merge engine.
+/** End-to-end coverage for ARCANE_VERSION, exercising the real docker-compose stack: DynamoDB local as the source,
+  * Lakekeeper + MinIO as the Iceberg catalog and storage, and Trino as the merge engine.
   *
   * The payload deliberately omits the watermark field: its value exists only as an attribute of the DynamoDB item, so
-  * finding it in the target table proves it survived decoding, staging and the MERGE.
+  * finding it in the target table (as ARCANE_VERSION) proves it survived decoding, staging and the MERGE.
   */
 object PullStreamEndToEndTests extends ZIOSpecDefault:
 
@@ -54,19 +54,25 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
   private val targetTableFullName = s"iceberg.test.$targetTableName"
   private val icebergUtil         = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
 
-  /** Columns the framework synthesizes: `ARCANE_MERGE_KEY`/`ARCANE_VERSION`, derived from `id` and the watermark
-    * attribute which [[PullStreamTestServices.pointedPayloadSchema]] already declares.
+  /** Columns the framework synthesizes: `ARCANE_MERGE_KEY`/`ARCANE_VERSION`, derived from the DynamoDB envelope's `id`
+    * and watermark attribute. The sink never declares a literal `id`/watermark column populated from the envelope:
+    * `payload` could carry fields under those names with unrelated meaning, so the envelope is kept out of them.
     */
   private val mergeKeyColumn = MergeKeyField.name
   private val versionColumn  = VersionField.name
 
-  /** The decoded production payload, plus the columns the framework synthesizes from the envelope. */
+  /** The decoded production payload (the nested member the JSON pointer resolves to), plus the columns the framework
+    * synthesizes from the envelope.
+    */
   private val targetSchema: ArcaneSchema = ArcaneSchema(
-    PullStreamTestServices.pointedPayloadSchema
-      ++ Seq(
-        Field(mergeKeyColumn, StringType),
-        Field(versionColumn, ArcaneType.LongType)
-      )
+    Seq(
+      Field("eventType", StringType),
+      Field("timestamp", StringType),
+      Field("source", StringType),
+      Field("message", StringType),
+      Field(mergeKeyColumn, StringType),
+      Field(versionColumn, ArcaneType.LongType)
+    )
   )
 
   private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
@@ -155,7 +161,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             watermark <- getFieldValueInTarget(
               connection,
               targetTableFullName,
-              PullStreamTestServices.watermarkField,
+              VersionField.name,
               mergeKeyColumn,
               firstItemKey
             )
