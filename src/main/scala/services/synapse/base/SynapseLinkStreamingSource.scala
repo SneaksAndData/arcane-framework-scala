@@ -9,7 +9,13 @@ import models.app.PluginStreamContext
 import models.cdm.CSVParser
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import models.settings.sources.modification.{
+  DataRowModification,
+  ExcludeFieldSelector,
+  ExcludeFieldSelectorImpl,
+  FrozenSurrogateMergeKey,
+  FrozenSurrogateVersion
+}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
@@ -18,7 +24,7 @@ import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.SynapseEntitySchemaProvider
-import services.synapse.migrations.SynapseLinkArcaneMergeKeyMigration
+import services.synapse.migrations.{SynapseLinkArcaneMergeKeyMigration, SynapseLinkTechnicalFieldsMigration}
 import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
@@ -38,9 +44,22 @@ final class SynapseLinkStreamingSource(
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
 
+  /** `Id` and `versionnumber` are only used to derive `ARCANE_MERGE_KEY` and `ARCANE_VERSION` respectively, so they are
+    * excluded from the resulting schema and rows once those surrogate fields have been computed.
+    */
+  private val technicalFieldNames = Set("Id".toLowerCase, "versionnumber")
+
+  override lazy val allModifications: Task[Seq[DataRowModification]] =
+    getPrimaryKey.combineWith(getVersionField).map { case (pk, v) =>
+      modifications ++ Seq(pk, v, ExcludeFieldSelectorImpl(ExcludeFieldSelector(technicalFieldNames)))
+    }
+
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
-      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(new SynapseLinkArcaneMergeKeyMigration()))
+      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
+        new SynapseLinkArcaneMergeKeyMigration(),
+        new SynapseLinkTechnicalFieldsMigration()
+      ))
     )
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
