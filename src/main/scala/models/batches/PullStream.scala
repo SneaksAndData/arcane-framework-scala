@@ -1,9 +1,8 @@
 package com.sneaksanddata.arcane.framework
 package models.batches
 
-import models.schemas.ArcaneSchema
+import models.schemas.{ArcaneSchema, MergeKeyField, VersionField}
 import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
-
 import models.queries.{MergeQuery, MergeQueryCommons, OnSegment, WhenMatchedUpdate, WhenNotMatchedInsert}
 
 object PullStreamChangeTrackingMergeQuery:
@@ -12,10 +11,10 @@ object PullStreamChangeTrackingMergeQuery:
       ++ OnSegment(Map.empty, "", Seq.empty)
       ++ WhenNotMatchedInsert(Seq.empty)
 
-  private def matchedUpdate(cols: Seq[String], versionField: String): WhenMatchedUpdate =
+  private def matchedUpdate(cols: Seq[String]): WhenMatchedUpdate =
     new WhenMatchedUpdate {
       override val segmentCondition: Option[String] = Some(
-        s"${MergeQueryCommons.SOURCE_ALIAS}.$versionField > ${MergeQueryCommons.TARGET_ALIAS}.$versionField"
+        s"${MergeQueryCommons.SOURCE_ALIAS}.${VersionField.name} > ${MergeQueryCommons.TARGET_ALIAS}.${VersionField.name}"
       )
       override val columns: Seq[String] = cols
     }
@@ -30,13 +29,11 @@ object PullStreamChangeTrackingMergeQuery:
       targetName: String,
       sourceQuery: String,
       partitionFields: Seq[String],
-      mergeKey: String,
-      columns: Seq[String],
-      versionFieldName: String
+      columns: Seq[String]
   ): MergeQuery = {
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map.empty, mergeKey, partitionFields.filterNot(_ == mergeKey))
-      ++ matchedUpdate(columns.filterNot(_ == mergeKey), versionFieldName)
+      ++ OnSegment(Map.empty, MergeKeyField.name, partitionFields.filterNot(_ == MergeKeyField.name))
+      ++ matchedUpdate(columns.filterNot(_ == MergeKeyField.name))
       ++ NotMatchedInsert(columns)
   }
 
@@ -44,9 +41,7 @@ class PullStreamChangeTrackingMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String,
-    versionFieldName: String
+    tablePropertiesSettings: TablePropertiesSettings
 ) extends StagedVersionedBatch
     with MergeableBatch:
 
@@ -58,8 +53,8 @@ class PullStreamChangeTrackingMergeBatch(
     s"""SELECT * FROM (
        |  SELECT * FROM $name
        |  ORDER BY ROW_NUMBER() OVER (
-       |    PARTITION BY ${schema.mergeKey.name}
-       |    ORDER BY $versionFieldName DESC
+       |    PARTITION BY ${MergeKeyField.name}
+       |    ORDER BY ${VersionField.name} DESC
        |  ) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
 
@@ -70,9 +65,7 @@ class PullStreamChangeTrackingMergeBatch(
         targetName = targetName,
         sourceQuery = reduceExpr,
         partitionFields = Seq.empty,
-        mergeKey = mergeKey,
-        columns = schema.map(f => f.name),
-        versionFieldName = versionFieldName
+        columns = schema.map(f => f.name)
       )
 
   override val completedWatermarkValue: Option[String] = None
@@ -82,16 +75,13 @@ object PullStreamChangeTrackingMergeBatch:
       batchName: String,
       batchSchema: ArcaneSchema,
       targetName: String,
-      tablePropertiesSettings: TablePropertiesSettings,
-      versionFieldName: String
+      tablePropertiesSettings: TablePropertiesSettings
   ): PullStreamChangeTrackingMergeBatch =
     new PullStreamChangeTrackingMergeBatch(
       batchName,
       batchSchema,
       targetName,
-      tablePropertiesSettings,
-      batchSchema.mergeKey.name,
-      versionFieldName
+      tablePropertiesSettings
     )
 
 class PullStreamChangeTrackingWatermarkOnlyBatch(

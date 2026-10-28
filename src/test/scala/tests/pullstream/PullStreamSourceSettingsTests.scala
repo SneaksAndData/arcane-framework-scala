@@ -13,27 +13,21 @@ import scala.util.Try
 object PullStreamSourceSettingsTests extends ZIOSpecDefault:
 
   private val requiredFields =
-    """"pullIndexKey":"pk","pullIndexValue":"v","versionFieldName":"timestampUTC","region":"eu-central-1","tableName":"arcane-push-stream-tokens","endpoint":null,"pageSize":null"""
+    """"pullIndexKey":"pk","pullIndexValue":"v","versionFieldName":"timestampUTC","region":"eu-central-1","tableName":"arcane-push-stream-tokens","endpoint":null"""
 
   def spec: Spec[Any, Any] = suite("PullStreamSourceSettings")(
-    test("reads the payload pointer option from the stream configuration") {
-      val settings = upickle.read[DefaultPullStreamSourceSettings](
-        s"""{$requiredFields,"jsonPointerExpression":"/payload"}"""
-      )
-
-      assertTrue(settings.jsonPointerExpression.contains("/payload"))
-    },
-    test("reads a configuration that decodes the document from its root") {
-      val settings = upickle.read[DefaultPullStreamSourceSettings](
-        s"""{$requiredFields,"jsonPointerExpression":null}"""
-      )
-
-      assertTrue(settings.jsonPointerExpression.isEmpty)
-    },
-    test("reads a configuration that decodes the document from its root and omits jsonPointerExpression") {
+    test("deserializes default pull stream source settings") {
       val settings = upickle.read[DefaultPullStreamSourceSettings](
         s"""{$requiredFields}"""
       )
-      assertTrue(settings.jsonPointerExpression.isEmpty)
+
+      assertTrue(
+        settings.pullIndexKey == "pk",
+        settings.pullIndexValue == "v",
+        settings.versionFieldName == "timestampUTC",
+        settings.region == "eu-central-1",
+        settings.tableName == "arcane-push-stream-tokens",
+        settings.endpoint.isEmpty
+      )
     }
   )

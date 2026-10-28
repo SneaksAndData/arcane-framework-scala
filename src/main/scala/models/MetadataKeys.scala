@@ -13,6 +13,6 @@ object MetadataKeys:
     */
   def getFrameworkKey(name: String): String = s"$metadataKeyPrefix.$frameworkGroup.$name"
 
-  /** Get full name of a metadata key for a plugin-scoped key name
+  /** Get full name of a metadata key for a specific plugin and key name
     */
-  def getPluginKey(name: String): String = s"$metadataKeyPrefix.$pluginGroup.$name"
+  def getPluginKey(pluginName: String, name: String): String = s"$metadataKeyPrefix.$pluginGroup.$pluginName.$name"

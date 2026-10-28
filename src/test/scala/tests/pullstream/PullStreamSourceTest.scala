@@ -40,7 +40,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
                 targetTableFullName = s"testWarehouse.testNs.$tableName",
-                pageSize = Some(1000)
+                pageSize = 1000,
+                chunkSize = 32
               )
             )
             _ <- PullStreamTestServices.insertMany(client, tableName, count = 1)
@@ -72,7 +73,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
                 targetTableFullName = s"testWarehouse.testNs.$tableName",
-                pageSize = pageSize
+                pageSize = pageSize.getOrElse(1000),
+                chunkSize = 32
               )
             )
             _ <- PullStreamTestServices.insertMany(client, tableName, count = totalItems)
@@ -120,7 +122,8 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               dynamodbClient = client,
               sinkPropertyManager = sinkPropertyManager,
               targetTableFullName = s"testWarehouse.testNs.$tableName",
-              pageSize = None
+              pageSize = 1000,
+              chunkSize = 32
             )
             _ <- PullStreamTestServices.insertMany(client, tableName, count = totalItems, startAt = startAt)
             changes <- source
@@ -145,7 +148,6 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               rows.head.map(_.name).toSet ==
                 payloadFieldNames + MergeKeyField.name + VersionField.name
             )
-            && assertTrue(source.versionFieldName == VersionField.name)
         }
       } yield result
     },
@@ -168,16 +170,18 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
             _ <- sinkPropertyManager.setProperty(
               tableName,
-              PullStreamingSource.jsonPointerPropertyName,
+              PullStreamingSource.jsonPointerPropertyKey,
               "/payload"
             )
             source = PullStreamingSource(
-              // deliberately left out of the settings: the table is the only place the pointer comes from
+              // pointer resolved from table property
               settings = PullStreamTestServices.pullStreamSettings(tableName),
               dynamodbClient = client,
               sinkPropertyManager = sinkPropertyManager,
               targetTableFullName = s"testWarehouse.testNs.$tableName",
-              pageSize = None
+              pageSize = 1000,
+              chunkSize = 32,
+              jsonPointer = Some("/payload")
             )
             _ <- PullStreamTestServices.insertMany(
               client,

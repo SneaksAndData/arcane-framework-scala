@@ -149,18 +149,15 @@ object PullStreamTestServices:
     Random.RandomLive.nextUUID.map(uuid => s"test_${uuid.toString.replace("-", "")}")
 
   def pullStreamSettings(
-      sourceTableName: String,
-      pointerExpression: Option[String] = None
+      sourceTableName: String
   ): PullStreamSourceSettings =
     new PullStreamSourceSettings:
-      override val tableName: String                     = sourceTableName
-      override val pullIndexKey: String                  = primaryKeyField
-      override val pullIndexValue: String                = PullStreamTestServices.primaryKeyValue
-      override val versionFieldName: String              = watermarkField
-      override val region: String                        = "us-east-1"
-      override val endpoint: Option[String]              = None
-      override val pageSize: Option[Int]                 = None
-      override val jsonPointerExpression: Option[String] = pointerExpression
+      override val tableName: String        = sourceTableName
+      override val pullIndexKey: String     = primaryKeyField
+      override val pullIndexValue: String   = PullStreamTestServices.primaryKeyValue
+      override val versionFieldName: String = watermarkField
+      override val region: String           = "us-east-1"
+      override val endpoint: Option[String] = None
 
   /** Creates a source DynamoDB table for the duration of `use` and drops it afterward. */
   def withSourceTable[R, A](tableName: String, client: DynamoDbClient)(
