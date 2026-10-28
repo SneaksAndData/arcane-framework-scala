@@ -9,7 +9,13 @@ import models.app.PluginStreamContext
 import models.cdm.CSVParser
 import models.schemas.ArcaneType.*
 import models.schemas.{*, given}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import models.settings.sources.modification.{
+  DataRowModification,
+  ExcludeFieldSelector,
+  ExcludeFieldSelectorImpl,
+  FrozenSurrogateMergeKey,
+  FrozenSurrogateVersion
+}
 import models.settings.sources.synapse.MicrosoftSynapseLinkConnectionSettings
 import services.base.InsertUpdateDeleteSource
 import services.storage.models.azure.AdlsStoragePath
@@ -18,7 +24,7 @@ import services.storage.services.azure.AzureBlobStorageReader
 import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.SynapseEntitySchemaProvider
-import services.synapse.migrations.SynapseLinkArcaneMergeKeyMigration
+import services.synapse.migrations.{SynapseLinkArcaneMergeKeyMigration, SynapseLinkArcaneVersionMigration}
 import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
@@ -33,14 +39,21 @@ final class SynapseLinkStreamingSource(
     entityName: String,
     reader: AzureBlobStorageReader,
     modifications: Seq[DataRowModification]
-) extends InsertUpdateDeleteSource(modifications):
+) extends InsertUpdateDeleteSource(
+      modifications ++ Seq(
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("Id".toLowerCase, "versionnumber")))
+      )
+    ):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
 
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
-      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(new SynapseLinkArcaneMergeKeyMigration()))
+      CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
+        new SynapseLinkArcaneMergeKeyMigration(),
+        new SynapseLinkArcaneVersionMigration()
+      ))
     )
 
   override protected def getPrimaryKey: Task[FrozenSurrogateMergeKey] =
