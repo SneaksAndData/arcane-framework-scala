@@ -34,7 +34,6 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
       "test.table_a",
       "SELECT * FROM test.staged_a",
       Seq(),
-      "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
 
@@ -49,7 +48,6 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
       "test.table_a",
       "SELECT * FROM test.staged_a",
       Seq("colA"),
-      "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB")
     )
 

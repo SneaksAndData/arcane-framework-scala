@@ -263,7 +263,6 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             IndexedField("b", TimestampType, 6),
             IndexedField("cd", IntType, 7),
             IndexedField("e", FloatType, 8),
-            IndexedField("ChangeTrackingVersion", LongType, 9),
             IndexedMergeKeyField(10),
             IndexedField(VersionField.name, LongType, 11)
           )
@@ -339,12 +338,17 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         schema    <- streamingSource.getSchema
         summaries <- streamingSource.getFilteredSummaries
+        // CHANGE_TRACKING_CURRENT_VERSION() is a database-wide counter in MSSQL. When suites run concurrently,
+        // other tests may commit transactions and advance the version. Bounding with samples taken before and
+        // after createShardStream avoids flakiness while strictly validating that ARCANE_VERSION captures the version
+        // active when the shard stream was created.
+        versionBeforeStream <- streamingSource.getCurrentVersion.map(_.version.toLong)
         rows <- ZStream
           .fromZIO(streamingSource.createShardStream(testTableName, summaries))
           .flatMap(_._1)
           .runCollect
+        versionAfterStream <- streamingSource.getCurrentVersion.map(_.version.toLong)
         mergeKey         = rows.head.find(_.name == MergeKeyField.name).map(_.value)
-        sourceVersion    = rows.head.find(_.name == "SYS_CHANGE_VERSION").map(_.value)
         arcaneVersion    = rows.head.find(_.name == VersionField.name).map(_.value)
         expectedMergeKey = HashUtils.murmur3(s"$primaryKeyValue1#$primaryKeyValue2")
       yield assertTrue(
@@ -353,8 +357,13 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           case _                       => false
         },
         schema.exists(_.name == VersionField.name),
+        !schema.exists(_.name == "ChangeTrackingVersion"),
         mergeKey.contains(expectedMergeKey),
-        arcaneVersion == sourceVersion
+        arcaneVersion.exists {
+          case v: Long => v >= versionBeforeStream && v <= versionAfterStream
+          case _       => false
+        },
+        !rows.head.exists(_.name == "ChangeTrackingVersion")
       )
     },
     test("MsSqlStreamingSource adds the configured load timestamp to its schema and rows") {
@@ -428,7 +437,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           .fromZIO(streamingSource.createShardStream("backfill_columns", summaries))
           .flatMap(_._1)
           .runCollect
-      yield assertTrue(rows.head.size == 12)
+      yield assertTrue(rows.head.size == 11)
     },
     test("MsSqlStreamingSource returns correct number of columns on a shard stream with filter") {
       for
@@ -465,7 +474,6 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "SYS_CHANGE_OPERATION",
             "a",
             "b",
-            "ChangeTrackingVersion",
             MergeKeyField.name,
             VersionField.name
           )
@@ -523,7 +531,6 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "SYS_CHANGE_VERSION",
             "SYS_CHANGE_OPERATION",
             "a",
-            "ChangeTrackingVersion",
             MergeKeyField.name,
             VersionField.name
           )
@@ -582,7 +589,6 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             "b",
             "cd",
             "e",
-            "ChangeTrackingVersion",
             MergeKeyField.name,
             VersionField.name
           )
