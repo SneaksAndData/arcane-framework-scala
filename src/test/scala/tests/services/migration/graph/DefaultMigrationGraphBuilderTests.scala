@@ -85,6 +85,10 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
+          committedMigration <- propertyManager.getRequiredProperty(
+            tableName,
+            MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
+          )
           legacyWatermarkProperty <- propertyManager.getProperty(
             tableName,
             "arcane-watermark"
@@ -92,6 +96,7 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
         yield assertTrue(
           result.size == 1,
           newWatermark == legacyWatermark.toJson,
+          committedMigration == CurrentMigration.toString,
           legacyWatermarkProperty.isEmpty
         )
       }
@@ -120,13 +125,18 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
+          committedMigration <- propertyManager.getRequiredProperty(
+            tableName,
+            MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
+          )
           legacyWatermarkProperty <- propertyManager.getRequiredProperty(
             tableName,
             "arcane-watermark"
           )
         yield assertTrue(
-          result.isEmpty,
+          result.size == 1,
           newWatermark.isEmpty,
+          committedMigration == CurrentMigration.toString,
           legacyWatermarkProperty == legacyWatermark.toJson
         )
       }
@@ -148,6 +158,10 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
+          committedMigration <- propertyManager.getRequiredProperty(
+            tableName,
+            MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
+          )
           legacyWatermarkProperty <- propertyManager.getProperty(
             tableName,
             "arcane-watermark"
@@ -155,6 +169,7 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
         yield assertTrue(
           result.size == 1,
           newWatermark.isEmpty,
+          committedMigration == CurrentMigration.toString,
           legacyWatermarkProperty.isEmpty
         )
       }
@@ -179,6 +194,10 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
+          committedMigration <- propertyManager.getRequiredProperty(
+            tableName,
+            MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
+          )
           legacyWatermarkProperty <- propertyManager.getProperty(
             tableName,
             "arcane-watermark"
@@ -186,6 +205,7 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
         yield assertTrue(
           result.size == 1,
           newWatermark == legacyWatermark.toJson,
+          committedMigration == CurrentMigration.toString,
           legacyWatermarkProperty.isEmpty
         )
       }
