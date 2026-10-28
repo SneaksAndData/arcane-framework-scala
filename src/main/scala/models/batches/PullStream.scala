@@ -29,12 +29,11 @@ object PullStreamChangeTrackingMergeQuery:
       targetName: String,
       sourceQuery: String,
       partitionFields: Seq[String],
-      mergeKey: String,
       columns: Seq[String]
   ): MergeQuery = {
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map.empty, mergeKey, partitionFields.filterNot(_ == mergeKey))
-      ++ matchedUpdate(columns.filterNot(_ == mergeKey))
+      ++ OnSegment(Map.empty, MergeKeyField.name, partitionFields.filterNot(_ == MergeKeyField.name))
+      ++ matchedUpdate(columns.filterNot(_ == MergeKeyField.name))
       ++ NotMatchedInsert(columns)
   }
 
@@ -42,8 +41,7 @@ class PullStreamChangeTrackingMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    tablePropertiesSettings: TablePropertiesSettings
 ) extends StagedVersionedBatch
     with MergeableBatch:
 
@@ -67,7 +65,6 @@ class PullStreamChangeTrackingMergeBatch(
         targetName = targetName,
         sourceQuery = reduceExpr,
         partitionFields = Seq.empty,
-        mergeKey = mergeKey,
         columns = schema.map(f => f.name)
       )
 
@@ -84,8 +81,7 @@ object PullStreamChangeTrackingMergeBatch:
       batchName,
       batchSchema,
       targetName,
-      tablePropertiesSettings,
-      batchSchema.mergeKey.name
+      tablePropertiesSettings
     )
 
 class PullStreamChangeTrackingWatermarkOnlyBatch(
