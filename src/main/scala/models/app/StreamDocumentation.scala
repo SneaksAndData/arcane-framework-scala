@@ -17,7 +17,10 @@ case class StreamDocumentation(
   def asComment: String = s"Table managed by $pluginName $pluginGithubRepoLink"
 
 object StreamDocumentation:
+  val fallbackPluginName: String     = "UNSPECIFIED_PLUGIN"
+  val fallbackGithubRepoLink: String = "UNKNOWN_REPOSITORY"
+
   def fromEnvironment: IO[SecurityException, StreamDocumentation] = for
-    pluginName <- zio.System.envOrElse("STREAMCONTEXT__PLUGIN_NAME", "")
-    pluginRepo <- zio.System.envOrElse("STREAMCONTEXT__PLUGIN_GITHUB_REPO_LINK", "")
+    pluginName <- zio.System.envOrElse("STREAMCONTEXT__PLUGIN_NAME", fallbackPluginName)
+    pluginRepo <- zio.System.envOrElse("STREAMCONTEXT__PLUGIN_GITHUB_REPO_LINK", fallbackGithubRepoLink)
   yield StreamDocumentation(pluginName, pluginRepo)
