@@ -388,7 +388,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_backfill_stream")
         commitedWatermark <- stagingPropertyManager.getRequiredProperty(
           "interrupted_backfill_stream",
-          MetadataKeys.watermarkKey
+          MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
         )
       yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },
@@ -437,7 +437,7 @@ object DefaultBackfillOverwriteGraphBuilderTests extends ZIOSpecDefault:
         rowsInTarget         <- getRowsInTarget(trinoConnection, "iceberg.test.interrupted_1_backfill_stream")
         commitedWatermark <- stagingPropertyManager.getRequiredProperty(
           "interrupted_1_backfill_stream",
-          MetadataKeys.watermarkKey
+          MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
         )
       yield assertTrue(rowsInTarget == expectedRowsInTarget, commitedWatermark == expectedWatermark.getOrElse(""))
     },

@@ -64,7 +64,7 @@ abstract class DefaultSourceDataProvider[WatermarkType <: SourceWatermark[String
   final override def currentWatermark: Task[WatermarkType] = for
     watermarkString <- sinkPropertyManager.getRequiredProperty(
       sinkSettings.targetTableFullName.parts.name,
-      MetadataKeys.watermarkKey
+      MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
     )
     _ <- zlog("Current watermark value on %s is '%s'", sinkSettings.targetTableFullName, watermarkString)
     watermark <- ZIO
