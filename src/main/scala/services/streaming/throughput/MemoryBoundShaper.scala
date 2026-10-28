@@ -3,6 +3,7 @@ package services.streaming.throughput
 
 import exceptions.FatalStreamFailException
 import logging.ZIOLogAnnotations.zlog
+import models.MetadataKeys
 import models.settings.FlowRate
 import models.settings.streaming.{MemoryBoundImpl, ThroughputSettings}
 import services.iceberg.base.SinkPropertyManager
@@ -47,7 +48,7 @@ class MemoryBoundShaper(
   private val rowSizeCacheKey      = "rowsize"
   private val memCacheKey          = "memcutoff"
   private val partsCacheKey        = "partitions"
-  private val estimatePropertyName = "mbs-estimates"
+  private val estimatePropertyName = MemoryBoundShaper.estimatePropertyKey
 
   private def getTotalFreeMemory =
     val allocatedTotal = runtime.totalMemory()
@@ -334,6 +335,9 @@ class MemoryBoundShaper(
     scaledSigmoid(shaperSettings.chunkCostMax, rawCost, shaperSettings.chunkCostScale).toInt
 
 object MemoryBoundShaper:
+  val throughputMbsEstimatesKey: String = "throughput.mbs.estimates"
+  val estimatePropertyKey: String       = MetadataKeys.getFrameworkKey(throughputMbsEstimatesKey)
+
   /** Factory method to create MemoryBoundShaper
     */
   def apply(
