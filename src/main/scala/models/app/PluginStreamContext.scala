@@ -7,7 +7,6 @@ import models.settings.sources.StreamSourceSettings
 import models.settings.staging.StagingSettings
 import models.settings.streaming.{StreamModeSettings, ThroughputSettings}
 
-import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext.PluginConfiguration
 import upickle.ReadWriter
 import zio.{IO, ZIO, ZLayer}
 import zio.metrics.connectors.MetricsConfig
@@ -50,16 +49,14 @@ object PluginStreamContext:
     def apply(spec: PluginStreamContext): MetricsConfig =
       MetricsConfig(spec.metricsPublisherInterval)
 
-  type PluginConfiguration = PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
-
   /** Parses and initializes StreamContext for the plugin. This should be used when defining `layer` for plugin context
     * injection. You can also specify additional services or options to be added: object MyContext: val layer =
     * spec.loadContext() ++ ZLayer.succeed(MySourceConnectionOptions)
     */
-  def getLayer[ContextImpl <: PluginConfiguration, OverridesImpl <: OverrideStreamContext](implicit
+  def getLayer[ContextImpl <: PluginStreamContext, OverridesImpl <: OverrideStreamContext](implicit
       rwc: ReadWriter[ContextImpl],
       rwo: ReadWriter[OverridesImpl]
-  ): ZLayer[Any, Throwable, PluginConfiguration] =
+  ): ZLayer[Any, Throwable, PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig] =
 
     val effect = for
       context          <- PluginStreamContext.fromEnvironment[ContextImpl]
@@ -72,6 +69,6 @@ object PluginStreamContext:
         )
 
     ZLayer.fromZIO[Any, Throwable, PluginStreamContext](effect)
-      ++ ZLayer.fromZIO[Any, Throwable, DatagramSocketConfig](effect)
-      ++ ZLayer.fromZIO[Any, Throwable, MetricsConfig](effect)
+      ++ ZLayer.fromZIO[Any, Throwable, DatagramSocketConfig](effect.map(implicitly))
+      ++ ZLayer.fromZIO[Any, Throwable, MetricsConfig](effect.map(implicitly))
       ++ ZLayer.succeed(DatadogPublisherConfig())
