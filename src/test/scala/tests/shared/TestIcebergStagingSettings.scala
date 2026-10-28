@@ -19,5 +19,3 @@ object TestIcebergStagingSettings extends IcebergCatalogSettings:
   override val additionalProperties: Map[String, String] = Map(
     "header.X-Iceberg-Access-Delegation" -> "vended-credentials"
   )
-
-  override val maxCatalogInstanceLifetime: zio.Duration = zio.Duration.fromSeconds(3600)
