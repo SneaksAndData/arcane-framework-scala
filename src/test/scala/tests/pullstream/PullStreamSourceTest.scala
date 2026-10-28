@@ -148,7 +148,6 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               rows.head.map(_.name).toSet ==
                 payloadFieldNames + MergeKeyField.name + VersionField.name
             )
-            && assertTrue(source.versionFieldName == VersionField.name)
         }
       } yield result
     },

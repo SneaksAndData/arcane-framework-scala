@@ -82,12 +82,6 @@ class PullStreamingSource(
   private val dynamoVersionFieldName: String =
     s"${PullStreamingSource.dynamoAttributePrefix}${settings.versionFieldName}"
 
-  /** Column used to order concurrent versions of the same merge key during a merge. Now that the literal watermark
-    * column is never populated from the DynamoDB envelope (see `dynamoVersionFieldName`), `ARCANE_VERSION` is the only
-    * column consistently carrying that ordering value.
-    */
-  val versionFieldName: String = VersionField.name
-
   /** Name of the target Iceberg table, without warehouse and namespace. Note that `settings.tableName` refers to the
     * DynamoDB table holding the pushed payloads and must never be used to address the Iceberg sink.
     */
