@@ -5,8 +5,14 @@ import logging.ZIOLogAnnotations.{zlog, zlogStream}
 import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
 import models.batches.BlobBatchCommons
 import models.schemas.{given_CanAdd_ArcaneSchema, *}
-import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
-import services.blobsource.migrations.BlobListingArcaneMergeKeyMigration
+import models.settings.sources.modification.{
+  DataRowModification,
+  ExcludeFieldSelector,
+  ExcludeFieldSelectorImpl,
+  FrozenSurrogateMergeKey,
+  FrozenSurrogateVersion
+}
+import services.blobsource.migrations.{BlobListingArcaneMergeKeyMigration, BlobListingArcaneVersionMigration}
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -28,14 +34,19 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     primaryKeys: Seq[String],
     tempStoragePath: String,
     modifications: Seq[DataRowModification]
-) extends BlobStreamingSource(modifications):
+) extends BlobStreamingSource(
+      modifications ++ Seq(
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set(BlobBatchCommons.versionField.name.toLowerCase)))
+      )
+    ):
 
   protected val parallelism: Int = Runtime.getRuntime.availableProcessors()
 
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
-        new BlobListingArcaneMergeKeyMigration(primaryKeys)
+        new BlobListingArcaneMergeKeyMigration(primaryKeys),
+        new BlobListingArcaneVersionMigration()
       ))
     )
 
