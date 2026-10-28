@@ -338,11 +338,16 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
           )
         schema    <- streamingSource.getSchema
         summaries <- streamingSource.getFilteredSummaries
+        // CHANGE_TRACKING_CURRENT_VERSION() is a database-wide counter in MSSQL. When suites run concurrently,
+        // other tests may commit transactions and advance the version. Bounding with samples taken before and
+        // after createShardStream avoids flakiness while strictly validating that ARCANE_VERSION captures the version
+        // active when the shard stream was created.
+        versionBeforeStream <- streamingSource.getCurrentVersion.map(_.version.toLong)
         rows <- ZStream
           .fromZIO(streamingSource.createShardStream(testTableName, summaries))
           .flatMap(_._1)
           .runCollect
-        expectedVersion <- streamingSource.getCurrentVersion.map(_.version.toLong)
+        versionAfterStream <- streamingSource.getCurrentVersion.map(_.version.toLong)
         mergeKey         = rows.head.find(_.name == MergeKeyField.name).map(_.value)
         arcaneVersion    = rows.head.find(_.name == VersionField.name).map(_.value)
         expectedMergeKey = HashUtils.murmur3(s"$primaryKeyValue1#$primaryKeyValue2")
@@ -354,7 +359,10 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         schema.exists(_.name == VersionField.name),
         !schema.exists(_.name == "ChangeTrackingVersion"),
         mergeKey.contains(expectedMergeKey),
-        arcaneVersion.contains(expectedVersion),
+        arcaneVersion.exists {
+          case v: Long => v >= versionBeforeStream && v <= versionAfterStream
+          case _       => false
+        },
         !rows.head.exists(_.name == "ChangeTrackingVersion")
       )
     },
