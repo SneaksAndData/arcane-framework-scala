@@ -73,7 +73,7 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 50 * 100, 13)
+      yield assertValidChunk(rows, 50 * 100, 12)
     },
     test("getChanges adds required merge key and version fields") {
       val pkColumns = Seq("col1", "col3")
@@ -95,16 +95,17 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 50 * 100, 13) && assertTrue(
+      yield assertValidChunk(rows, 50 * 100, 12) && assertTrue(
         rows.forall { row =>
           val primaryKeyValues = pkColumns.map(name => row.find(_.name == name).map(_.value))
           val mergeKey         = row.find(_.name == MergeKeyField.name).map(_.value)
-          val sourceVersion    = row.find(_.name == BlobBatchCommons.versionField.name).map(_.value)
           val arcaneVersion    = row.find(_.name == VersionField.name).map(_.value)
 
           (primaryKeyValues, mergeKey) match
             case (Seq(Some(first: CharSequence), Some(second: CharSequence)), Some(value: String)) =>
-              value == HashUtils.murmur3(s"$first#$second") && arcaneVersion == sourceVersion
+              value == HashUtils.murmur3(s"$first#$second") &&
+              arcaneVersion.isDefined &&
+              !row.exists(_.name == BlobBatchCommons.versionField.name)
             case _ => false
         }
       )
@@ -127,6 +128,6 @@ object BlobListingJsonSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
-      yield assertValidChunk(rows, 50 * 100, 13)
+      yield assertValidChunk(rows, 50 * 100, 12)
     }
   ) @@ timeout(zio.Duration.fromSeconds(60)) @@ TestAspect.withLiveClock
