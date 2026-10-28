@@ -14,11 +14,11 @@ import zio.ZIO
 import scala.jdk.CollectionConverters.*
 
 /** Prior to `Id` and `versionnumber` being treated purely as technical fields used to derive `ARCANE_MERGE_KEY` and
-  * `ARCANE_VERSION` (see `SynapseLinkStreamingSource.allModifications`), both columns were carried through to the sink
-  * table as regular output columns, and `ARCANE_VERSION` did not exist on the sink table at all. This migration adds
-  * `ARCANE_VERSION` when it is missing, copies the existing `versionnumber` value into it, and then drops the legacy
-  * `Id` and `versionnumber` columns, now that they are only used internally to derive `ARCANE_MERGE_KEY` and
-  * `ARCANE_VERSION` and are no longer emitted by the source.
+  * `ARCANE_VERSION` (see `SynapseLinkStreamingSource`), both columns were carried through to the sink table as regular
+  * output columns, and `ARCANE_VERSION` did not exist on the sink table at all. This migration adds `ARCANE_VERSION`
+  * when it is missing, copies the existing `versionnumber` value into it, and then drops the legacy `Id` and
+  * `versionnumber` columns, now that they are only used internally to derive `ARCANE_MERGE_KEY` and `ARCANE_VERSION`
+  * and are no longer emitted by the source.
   *
   * This migration must run after [[SynapseLinkArcaneMergeKeyMigration]], which still relies on `Id` being present on
   * the sink table to (re)compute `ARCANE_MERGE_KEY`.

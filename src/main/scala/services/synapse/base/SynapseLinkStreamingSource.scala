@@ -39,20 +39,14 @@ final class SynapseLinkStreamingSource(
     entityName: String,
     reader: AzureBlobStorageReader,
     modifications: Seq[DataRowModification]
-) extends InsertUpdateDeleteSource(modifications):
+) extends InsertUpdateDeleteSource(
+      modifications ++ Seq(
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("Id".toLowerCase, "versionnumber")))
+      )
+    ):
 
   override type ShardMetadata = (stream: StructuredZStream, source: String)
   override type WatermarkType = SynapseWatermark
-
-  /** `Id` and `versionnumber` are only used to derive `ARCANE_MERGE_KEY` and `ARCANE_VERSION` respectively, so they are
-    * excluded from the resulting schema and rows once those surrogate fields have been computed.
-    */
-  private val technicalFieldNames = Set("Id".toLowerCase, "versionnumber")
-
-  override lazy val allModifications: Task[Seq[DataRowModification]] =
-    getPrimaryKey.combineWith(getVersionField).map { case (pk, v) =>
-      modifications ++ Seq(pk, v, ExcludeFieldSelectorImpl(ExcludeFieldSelector(technicalFieldNames)))
-    }
 
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
