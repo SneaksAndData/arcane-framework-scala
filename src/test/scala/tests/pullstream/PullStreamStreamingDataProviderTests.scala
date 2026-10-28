@@ -61,7 +61,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
 
   }
 
-  // schema must match the JSON payload below
+  // schema must match the JSON payload below; the sink never declares `id`/the watermark column (the framework
+  // reads those out of the DynamoDB envelope directly)
   private val schema = ArcaneSchema(
     Seq(
       Field("userId", ArcaneType.StringType),
@@ -79,6 +80,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
     val item = Map(
       primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
       watermarkField  -> AttributeValue.builder().s(timestamp.toString).build(),
+      "id"            -> AttributeValue.builder().s(java.util.UUID.randomUUID().toString).build(),
       // Avro JSON encoding for optional fields requires the type-tag wrapping
       "payload" -> AttributeValue
         .builder()
@@ -103,6 +105,7 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
     val item = Map(
       primaryKeyField -> AttributeValue.builder().s(primaryKeyValue).build(),
       watermarkField  -> AttributeValue.builder().s(timestamp.toString).build(),
+      "id"            -> AttributeValue.builder().s(java.util.UUID.randomUUID().toString).build(),
       // not valid JSON — leading apostrophe trips Jackson before schema validation runs
       "payload"  -> AttributeValue.builder().s("""{"not":"valid json", "level": 1}""").build(),
       "schemaId" -> AttributeValue.builder().n("1").build()

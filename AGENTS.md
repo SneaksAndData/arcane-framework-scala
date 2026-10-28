@@ -1,5 +1,9 @@
 # Agent Guidelines
 
+## Project
+- Scala 3 (`idePackagePrefix := com.sneaksanddata.arcane.framework`), ZIO-based streaming framework that writes to Iceberg. Single sbt module (`root`), not a monorepo.
+- `src/main/scala/plugins/*` contains source-specific plugins (mssql, synapse, parquets3, jsons3, pullstream); `src/main/scala/services/*` and `models/*` hold the shared framework. This repo is a library consumed by downstream plugin apps (see README "Creating plugins" for the pattern), not a standalone runnable service.
+
 ## Test Writing
 
 ### Test Framework & Architecture
@@ -9,9 +13,11 @@
 ### Test Execution & Formatting
 - **Always use `just` commands** rather than raw `sbt` invocations to ensure required environment variables (`test-resources/unit-tests.env`) are loaded:
   - Run all tests: `just test`
-  - Run specific test: `just test-only <TestName>`
+  - Run specific test: `just test-only <TestName>` (matches on substring; use a full `ClassName` or glob with `*`/spaces for an exact `testOnly` expression)
   - Check formatting: `just fmt-check`
   - Reformat code: `just fmt`
+- Most suites need live backing services (MSSQL, MinIO/S3, Lakekeeper Iceberg catalog) defined in `test-resources/docker-compose.yaml`. Check `just ps` first — only run `just up --quiet-pull` if the test environment is offline (it's expensive to start and may already be running); use `just logs` / `just stop` as needed.
+- CI (`.github/workflows/build.yaml`) runs: `just up` -> `just test "clean; coverage; test; coverageReport"` -> `just fmt-check`. Mirror this order locally before pushing.
 
 ### High-Value vs. Zero-Value Tests
 - **Do not write zero-value tests**: Avoid tests that merely assert static constants or metadata.

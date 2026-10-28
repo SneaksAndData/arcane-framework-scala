@@ -37,8 +37,8 @@ object PullStreamTestServices:
   def defaultId(index: Int): String =
     UUID.nameUUIDFromBytes(s"arcane-pull-test-$index".getBytes(StandardCharsets.UTF_8)).toString
 
-  /** Schema of the rows produced by [[defaultPayload]]. Kept alongside the payload so callers cannot get the two out of
-    * sync.
+  /** Schema of the rows produced by [[defaultPayload]]: the sink never declares `id`/the watermark column (the
+    * framework reads those out of the envelope directly), so this is just the payload's own fields.
     */
   val payloadSchema: ArcaneSchema = ArcaneSchema(
     Seq(
@@ -47,15 +47,9 @@ object PullStreamTestServices:
     )
   )
 
-  /** Default payload: single-row JSON array so that N inserted items produce exactly N rows. */
+  /** Default payload: a single-row object (payload is always one document; `id`/the watermark are merged into it). */
   def defaultPayload(index: Int): String =
-    s"""[{"userId":"user-$index","level":"user"}]"""
-
-  /** [[payloadSchema]] plus the watermark column, i.e. a sink that opts into storing the DynamoDB sort key. Note that
-    * the payload deliberately never carries this field: its value comes from the item attribute.
-    */
-  val watermarkedPayloadSchema: ArcaneSchema =
-    ArcaneSchema(payloadSchema :+ Field(watermarkField, ArcaneType.StringType))
+    s"""{"userId":"user-$index","level":"user"}"""
 
   /** Verbatim copy of a `payload` attribute observed in the production DynamoDB table: an object root (not an array)
     * whose own `id` is a business identifier distinct from the envelope's `id`, and whose `payload` member is a nested
@@ -70,9 +64,8 @@ object PullStreamTestServices:
   val productionNestedPayload: String =
     """{"eventType":"Producer1Event","timestamp":"2026-08-04T12:34:56Z","source":"integration-test","message":"Hello from Avro map<string> payload"}"""
 
-  /** Schema of the rows produced by [[productionPayload]] when a JSON pointer selects its nested `payload` member,
-    * which is how a sink provisioned from that pointer declares its columns: the envelope around the pointed node
-    * contributes nothing, so the payload's own `id` never surfaces and needs no rename.
+  /** Schema of the rows produced by [[productionPayload]] when a JSON pointer selects its nested `payload` member. The
+    * sink never declares `id`/the watermark column (the framework reads those out of the envelope directly).
     */
   val pointedPayloadSchema: ArcaneSchema = ArcaneSchema(
     Seq(
