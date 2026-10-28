@@ -1,7 +1,6 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sink
 
-import models.serialization.ZIODurationRW.*
 import models.settings.Mergeable
 import models.settings.iceberg.{IcebergCatalogSettings, OverrideIcebergCatalogSettings}
 import services.iceberg.IcebergCatalogCredential
@@ -12,8 +11,7 @@ case class DefaultIcebergSinkSettings(
     catalogProperties: Map[String, String],
     override val namespace: String,
     override val catalogUri: String,
-    override val warehouse: String,
-    override val maxCatalogInstanceLifetime: zio.Duration
+    override val warehouse: String
 ) extends IcebergCatalogSettings,
       Mergeable derives ReadWriter:
   override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
@@ -28,7 +26,5 @@ case class DefaultIcebergSinkSettings(
       catalogProperties = overrides.flatMap(_.additionalProperties).getOrElse(this.additionalProperties),
       namespace = overrides.flatMap(_.namespace).getOrElse(this.namespace),
       catalogUri = overrides.flatMap(_.catalogUri).getOrElse(this.catalogUri),
-      warehouse = overrides.flatMap(_.warehouse).getOrElse(this.warehouse),
-      maxCatalogInstanceLifetime =
-        overrides.flatMap(_.maxCatalogInstanceLifetime).getOrElse(this.maxCatalogInstanceLifetime)
+      warehouse = overrides.flatMap(_.warehouse).getOrElse(this.warehouse)
     )
