@@ -12,7 +12,7 @@ import services.metrics.DeclaredMetrics
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.services.azure.AzureBlobStorageReader
 import services.synapse.base.SynapseLinkStreamingSource
-import services.synapse.migrations.SynapseLinkTechnicalFieldsMigration
+import services.synapse.migrations.SynapseLinkArcaneVersionMigration
 import tests.shared.{
   IcebergCatalogInfo,
   IcebergUtil,
@@ -32,7 +32,7 @@ import zio.{Scope, Task, ZIO}
 import java.sql.Connection
 import java.util.UUID
 
-object SynapseLinkTechnicalFieldsMigrationTests extends ZIOSpecDefault:
+object SynapseLinkArcaneVersionMigrationTests extends ZIOSpecDefault:
 
   private val mergeClient = new JdbcMergeServiceClient(
     TestJdbcMergeServiceClientSettings,
@@ -79,23 +79,22 @@ object SynapseLinkTechnicalFieldsMigrationTests extends ZIOSpecDefault:
       yield ()
     }
 
-  override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkTechnicalFieldsMigrationTests")(
+  override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkArcaneVersionMigrationTests")(
     test(
-      "adds ARCANE_VERSION, copies versionnumber into it, then drops legacy Id and versionnumber columns"
+      "adds ARCANE_VERSION, copies versionnumber into it, then drops legacy versionnumber column"
     ) {
-      val tableName = s"synapse_tf_${UUID.randomUUID().toString.replace("-", "")}"
+      val tableName = s"synapse_ver_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
         Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
-        Types.NestedField.optional(2, "Id", Types.StringType.get()),
-        Types.NestedField.optional(3, "versionnumber", Types.LongType.get()),
-        Types.NestedField.optional(4, "name", Types.StringType.get())
+        Types.NestedField.optional(2, "versionnumber", Types.LongType.get()),
+        Types.NestedField.optional(3, "name", Types.StringType.get())
       )
-      val migration = new SynapseLinkTechnicalFieldsMigration()
+      val migration = new SynapseLinkArcaneVersionMigration()
 
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
         val source = createSynapseSource()
         for
-          _             <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 'id-101', 42, 'Alice')")
+          _             <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 42, 'Alice')")
           columnsBefore <- propertyManager.getTableSchema(tableName).map(_.columns())
           _             <- migration.execute(propertyManager, context, mergeClient, source)
           updatedVersion <- TestTrinoConnection.getFieldValueInTarget(
@@ -109,7 +108,6 @@ object SynapseLinkTechnicalFieldsMigrationTests extends ZIOSpecDefault:
         yield assertTrue(
           !columnsBefore.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
           updatedVersion == "42",
-          !columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase("Id")),
           !columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase("versionnumber")),
           columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
           columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
@@ -117,13 +115,13 @@ object SynapseLinkTechnicalFieldsMigrationTests extends ZIOSpecDefault:
         )
       }
     },
-    test("is a no-op when legacy columns are already absent") {
-      val tableName = s"synapse_tf_noop_${UUID.randomUUID().toString.replace("-", "")}"
+    test("is a no-op when legacy versionnumber column is already absent") {
+      val tableName = s"synapse_ver_noop_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
         Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
         Types.NestedField.optional(2, "name", Types.StringType.get())
       )
-      val migration = new SynapseLinkTechnicalFieldsMigration()
+      val migration = new SynapseLinkArcaneVersionMigration()
 
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
         val source = createSynapseSource()
