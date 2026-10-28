@@ -103,7 +103,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
         targetTableFullName = targetTableFullName,
         icebergCatalogSettings = defaultIcebergStagingSettings,
         catalogWriter = writer,
-        batchFactory = PullStreamStagedBatchFactory(source.versionFieldName),
+        batchFactory = PullStreamStagedBatchFactory(),
         declaredMetrics = DeclaredMetrics(),
         nameGenerator = nameGenerator
       ),

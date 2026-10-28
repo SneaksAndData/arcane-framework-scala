@@ -8,11 +8,7 @@ import services.streaming.batching.StagedBatchFactory
 
 import zio.{Task, ZIO, ZLayer}
 
-/** @param versionFieldName
-  *   Column used to order concurrent versions of the same merge key. It must exist in the sink table, and is taken from
-  *   the source's `versionFieldName` so that it always names the column the source populates.
-  */
-class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedBatchFactory:
+class PullStreamStagedBatchFactory extends StagedBatchFactory:
   override type OutputBatch    = PullStreamChangeTrackingMergeBatch
   override type WatermarkBatch = PullStreamChangeTrackingWatermarkOnlyBatch
 
@@ -26,8 +22,7 @@ class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedB
         stagedTableName,
         batchSchema,
         targetTableName,
-        EmptyTablePropertiesSettings,
-        versionFieldName
+        EmptyTablePropertiesSettings
       )
     )
 
@@ -38,8 +33,5 @@ class PullStreamStagedBatchFactory(val versionFieldName: String) extends StagedB
     ZIO.succeed(PullStreamChangeTrackingWatermarkOnlyBatch(targetTableName, watermark))
 
 object PullStreamStagedBatchFactory:
-  val layer: ZLayer[PullStreamingSource, Nothing, PullStreamStagedBatchFactory] =
-    ZLayer {
-      for source <- ZIO.service[PullStreamingSource]
-      yield new PullStreamStagedBatchFactory(source.versionFieldName)
-    }
+  val layer: ZLayer[Any, Nothing, PullStreamStagedBatchFactory] =
+    ZLayer.succeed(new PullStreamStagedBatchFactory())
