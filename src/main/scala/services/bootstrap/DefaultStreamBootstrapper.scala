@@ -2,20 +2,20 @@ package com.sneaksanddata.arcane.framework
 package services.bootstrap
 
 import logging.ZIOLogAnnotations.zlog
-import models.app.PluginStreamContext
+import models.app.{PluginStreamContext, StreamDocumentation}
 import models.ddl.CreateTableRequest
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingSettings
+import models.MetadataKeys
 import services.base.StreamingSource
 import services.bootstrap.base.StreamBootstrapper
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager}
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
 import services.naming.NameGenerator
+import services.migration.MigrationService
 
 import com.sneaksanddata.arcane.framework.migrations.base.CurrentMigration
-import com.sneaksanddata.arcane.framework.models.MetadataKeys
-import com.sneaksanddata.arcane.framework.services.migration.MigrationService
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
@@ -27,7 +27,8 @@ class DefaultStreamBootstrapper(
     nameGenerator: NameGenerator,
     stagingSettings: StagingSettings,
     sinkSettings: SinkSettings,
-    isOverwriting: Boolean
+    isOverwriting: Boolean,
+    documentation: StreamDocumentation
 ) extends StreamBootstrapper:
   override def cleanupStagingTables: Task[Unit] = for
     prefix <- nameGenerator.getStagingTablePrefix
@@ -76,7 +77,8 @@ class DefaultStreamBootstrapper(
         sortOrder = sinkSettings.targetTableProperties.getSortOder(schema),
         parquetBloomFilterFields = Seq.empty,
         properties = Map(
-          MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey) -> CurrentMigration.toString
+          MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey) -> CurrentMigration.toString,
+          "comment"                                               -> documentation.asComment
         )
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
@@ -108,6 +110,7 @@ object DefaultStreamBootstrapper:
       streamingSource      <- ZIO.service[StreamingSource]
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
       nameGenerator        <- ZIO.service[NameGenerator]
+      documentation        <- StreamDocumentation.fromEnvironment
     yield new DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
@@ -117,6 +120,7 @@ object DefaultStreamBootstrapper:
       nameGenerator = nameGenerator,
       stagingSettings = context.staging,
       sinkSettings = context.sink,
-      isOverwriting = isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite
+      isOverwriting = isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite,
+      documentation = documentation
     )
   }
