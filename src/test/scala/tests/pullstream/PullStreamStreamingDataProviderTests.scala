@@ -53,7 +53,6 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
       override val region: String           = "us-east-1"
       override val tableName: String        = sourceTable
       override val endpoint: Option[String] = None
-      override val pageSize: Option[Int]    = None
 
   // Random, collision-free DynamoDB table name.
   private val genSourceTableName: Task[String] = {
@@ -138,7 +137,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
-                pageSize = None
+                pageSize = 1000,
+                chunkSize = 32
               )
             )
             provider <- ZIO.succeed(
@@ -190,7 +190,8 @@ object PullStreamStreamingDataProviderTests extends ZIOSpecDefault:
                 settings = pullStreamSettings(sourceTableName),
                 dynamodbClient = client,
                 sinkPropertyManager = sinkPropertyManager,
-                pageSize = None
+                pageSize = 1000,
+                chunkSize = 32
               )
             )
             provider <- ZIO.succeed(

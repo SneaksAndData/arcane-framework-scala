@@ -136,15 +136,19 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             sinkEntityManager <- ZIO.service[services.iceberg.base.SinkEntityManager]
             _ <- sinkEntityManager.createTable(IcebergCreateTableRequest(targetTableName, targetSchema, true))
             sinkPropertyManager <- ZIO.service[SinkPropertyManager]
+            _ <- sinkPropertyManager.setProperty(
+              targetTableName,
+              PullStreamingSource.jsonPointerPropertyKey,
+              "/payload"
+            )
             source = PullStreamingSource(
-              settings = PullStreamTestServices.pullStreamSettings(
-                sourceTableName,
-                pointerExpression = Some("/payload")
-              ),
+              settings = PullStreamTestServices.pullStreamSettings(sourceTableName),
               dynamodbClient = client,
               sinkPropertyManager = sinkPropertyManager,
               targetTableFullName = targetTableFullName,
-              pageSize = None
+              pageSize = 1000,
+              chunkSize = 32,
+              jsonPointer = Some("/payload")
             )
             _ <- PullStreamTestServices.insertMany(
               client,

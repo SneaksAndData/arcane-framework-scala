@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package services.pullstream
 
+import models.MetadataKeys
 import models.app.PluginStreamContext
 import models.schemas.{ArcaneSchema, DataRow, MergeKeyField, VersionField}
 import models.settings.TableNaming.parts
@@ -14,7 +15,11 @@ import services.base.{InsertUpdateDeleteSource, SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_Schema_MergeableArcaneSchema
 import services.iceberg.interop.AvroJsonDecoder
-import services.pullstream.migrations.{PullStreamArcaneMergeKeyMigration, PullStreamVersionFieldMigration}
+import services.pullstream.migrations.{
+  PullStreamArcaneMergeKeyMigration,
+  PullStreamPropertiesMigration,
+  PullStreamVersionFieldMigration
+}
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 
@@ -44,7 +49,9 @@ class PullStreamingSource(
     dynamodbClient: DynamoDbClient,
     sinkPropertyManager: SinkPropertyManager,
     targetTableFullName: String,
-    pageSize: Option[Int],
+    pageSize: Int,
+    chunkSize: Int,
+    jsonPointer: Option[String],
     modifications: Seq[DataRowModification] = Seq.empty
 ) extends InsertUpdateDeleteSource(modifications):
 
@@ -52,7 +59,8 @@ class PullStreamingSource(
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
         new PullStreamArcaneMergeKeyMigration(),
-        new PullStreamVersionFieldMigration(settings.versionFieldName)
+        new PullStreamVersionFieldMigration(settings.versionFieldName),
+        new PullStreamPropertiesMigration()
       ))
     )
 
@@ -64,7 +72,6 @@ class PullStreamingSource(
   private val pushPayloadFieldName: String = "payload"
   private val pushIdFieldName: String      = "id"
   private val formatter                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME
-  private val listPageSize                 = pageSize.getOrElse(PullStreamingSource.defaultPageSize)
 
   /** Names under which the DynamoDB envelope's `id` and watermark attribute are merged into the document, in place of
     * their literal names: `payload` may itself carry fields called `id` or named after the watermark column, and a
@@ -121,7 +128,7 @@ class PullStreamingSource(
       .keyConditionExpression("#pk = :pk AND #wm > :t")
       .expressionAttributeValues(exprVals)
       .expressionAttributeNames(exprNames)
-      .limit(listPageSize)
+      .limit(pageSize)
       .build()
 
   private def buildQueryHasChanges(latestVersion: PullStreamWatermark): QueryRequest =
@@ -218,12 +225,8 @@ class PullStreamingSource(
       yield response -> next
     }
 
-  private def getSchemaInfo: Task[
-    (avro: AvroSchema, iceberg: org.apache.iceberg.Schema, pointer: Option[String])
-  ] =
-    for
-      icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
-      pointer       <- resolveJsonPointer
+  private def getSchemaInfo: Task[(AvroSchema, org.apache.iceberg.Schema)] =
+    for icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
     yield {
       // ARCANE_MERGE_KEY and ARCANE_VERSION are synthesized by the row modifications from the `dattr__`-prefixed
       // envelope fields (see responseStream); they are never present in `payload` itself, so under strict decoding
@@ -252,26 +255,9 @@ class PullStreamingSource(
 
       (
         AvroSchemaUtil.convert(org.apache.iceberg.Schema(withEnvelopeColumns.asJava), targetTableName),
-        icebergSchema,
-        pointer
+        icebergSchema
       )
     }
-
-  /** Resolves the JSON pointer applied to each stored document before decoding.
-    *
-    * The producing side publishes it on the sink table, because it is the same pointer the table's columns were derived
-    * from and the stream's own configuration has no field to carry it. Reading it back from the table is what keeps a
-    * route's columns and the document they describe in step, without the two services having to agree on anything but
-    * the table itself. A pointer given in the settings still wins, so an operator can override a table that carries a
-    * stale value, and a table that carries none behaves as it always did: decoding from the root.
-    */
-  private def resolveJsonPointer: Task[Option[String]] =
-    settings.jsonPointerExpression.filter(_.nonEmpty) match
-      case configured @ Some(_) => ZIO.succeed(configured)
-      case None =>
-        this.sinkPropertyManager
-          .getProperty(targetTableName, PullStreamingSource.jsonPointerPropertyName)
-          .map(_.filter(_.nonEmpty))
 
   /** Parse the dynamodb query response into DataRows.
     *
@@ -288,8 +274,7 @@ class PullStreamingSource(
     */
   private def responseStream(
       queryResponse: QueryResponse,
-      avroSchema: AvroSchema,
-      jsonPointer: Option[String]
+      avroSchema: AvroSchema
   ): ZStream[Any, Throwable, DataRow] =
     // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant.
     // The pointer is applied here, before the envelope fields are merged in, rather than passed to the decoder: a
@@ -297,7 +282,7 @@ class PullStreamingSource(
     val decoder = new AvroJsonDecoder(schema = avroSchema, tolerateMissingFields = false)
 
     ZStream
-      .fromIterable(queryResponse.items().asScala, PullStreamingSource.decodeChunkSize)
+      .fromIterable(queryResponse.items().asScala, chunkSize)
       .map { item =>
         val attributes = item.asScala
         val payload    = attributes(pushPayloadFieldName).s()
@@ -323,13 +308,12 @@ class PullStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchemaInfo.combineWith(allModifications)).map {
-      case ((avroSchema, icebergSchema, jsonPointer), mods) =>
-        val rowStream: ZStream[Any, Throwable, DataRow] =
-          paginatedQuery(buildQueryGetChanges(previousVersion))
-            .flatMap(response => responseStream(response, avroSchema, jsonPointer))
-            .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods).map(dropDynamoAttributeFields))
-        (rowStream, icebergSchema)
+    ZStream.fromZIO(getSchemaInfo.combineWith(allModifications)).map { case ((avroSchema, icebergSchema), mods) =>
+      val rowStream: ZStream[Any, Throwable, DataRow] =
+        paginatedQuery(buildQueryGetChanges(previousVersion))
+          .flatMap(response => responseStream(response, avroSchema))
+          .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods).map(dropDynamoAttributeFields))
+      (rowStream, icebergSchema)
     }
 
   /** Removes the `dattr__`-prefixed DynamoDB envelope fields from a decoded row.
@@ -368,7 +352,7 @@ object PullStreamingSource:
     * legally carry its own `id` field or one named after the watermark column; this prefix keeps the merged copies from
     * colliding with (and overwriting) that payload data.
     */
-  val dynamoAttributePrefix: String = "dattr__"
+  private val dynamoAttributePrefix: String = "dattr__"
 
   /** Sink table property carrying the JSON pointer that selects the part of each stored document holding the data.
     *
@@ -377,18 +361,16 @@ object PullStreamingSource:
     */
   val jsonPointerPropertyName: String = "json-pointer-expression"
 
-  /** Default page size passed as `Limit` to each DynamoDB `Query` request. DynamoDB caps the response payload at 1 MB
-    * per page anyway, so this is a soft upper bound on items evaluated per network call, not a total-result cap.
-    */
-  val defaultPageSize: Int = 1000
+  val pageSizePropertyName: String        = "page-size"
+  val decodeChunkSizePropertyName: String = "decode-chunk-size"
 
-  /** Items decoded as a single unit while a page is turned into rows.
-    *
-    * ZIO's default is 4096, which for this stream would place an entire page in one chunk: `mapZIO` materializes a
-    * whole chunk before emitting it, so every decoded row of the page would be live at once. Decoding amplifies raw
-    * JSON several times over, so the bound is kept well below a page.
+  /** Get full name of a metadata key for a push-stream plugin key name
     */
-  val decodeChunkSize: Int = 32
+  def getPushStreamPluginKey(name: String): String = MetadataKeys.getPluginKey("push-stream", name)
+
+  val jsonPointerPropertyKey: String     = getPushStreamPluginKey(jsonPointerPropertyName)
+  val pageSizePropertyKey: String        = getPushStreamPluginKey(pageSizePropertyName)
+  val decodeChunkSizePropertyKey: String = getPushStreamPluginKey(decodeChunkSizePropertyName)
 
   /** Normalizes a watermark timestamp to a lexicographically comparable ISO-8601 string in UTC. The DynamoDB sort key
     * is a string, so mixed offsets (`+02:00` vs `+00:00`) would order incorrectly under `wm > :t`. Producers are
@@ -406,7 +388,9 @@ object PullStreamingSource:
       dynamodbClient: DynamoDbClient,
       sinkPropertyManager: SinkPropertyManager,
       targetTableFullName: String,
-      pageSize: Option[Int],
+      pageSize: Int,
+      chunkSize: Int,
+      jsonPointer: Option[String] = None,
       modifications: Seq[DataRowModification] = Seq.empty
   ): PullStreamingSource =
     new PullStreamingSource(
@@ -415,24 +399,38 @@ object PullStreamingSource:
       sinkPropertyManager,
       targetTableFullName,
       pageSize,
+      chunkSize,
+      jsonPointer,
       modifications
     )
 
   def getLayer(
       extractor: SettingsExtractor
-  ): ZLayer[Environment, Nothing, PullStreamingSource & SchemaProvider[ArcaneSchema]] =
+  ): ZLayer[Environment, Throwable, PullStreamingSource & SchemaProvider[ArcaneSchema]] =
     ZLayer {
       for
         context         <- ZIO.service[PluginStreamContext]
         settings        <- ZIO.succeed(extractor(context))
         dynamodbClient  <- ZIO.service[DynamoDbClient]
         propertyManager <- ZIO.service[SinkPropertyManager]
+        targetTableName = context.sink.targetTableFullName.parts.name
+        tablePageSize <- propertyManager
+          .getRequiredProperty(targetTableName, pageSizePropertyKey)
+          .map(_.toInt)
+        tableChunkSize <- propertyManager
+          .getRequiredProperty(targetTableName, decodeChunkSizePropertyKey)
+          .map(_.toInt)
+        tableJsonPointer <- propertyManager
+          .getRequiredProperty(targetTableName, jsonPointerPropertyKey)
+          .map(ptr => Option(ptr).filter(_.nonEmpty))
       yield PullStreamingSource(
         settings,
         dynamodbClient,
         propertyManager,
         context.sink.targetTableFullName,
-        settings.pageSize,
+        tablePageSize,
+        tableChunkSize,
+        tableJsonPointer,
         context.source.modifications.rowModifications
       )
     }
