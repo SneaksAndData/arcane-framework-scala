@@ -411,9 +411,10 @@ object PullStreamingSource:
         tablePageSize <- propertyManager
           .getRequiredProperty(targetTableName, pageSizePropertyKey)
           .map(_.toInt)
-        tableChunkSize <- propertyManager
+        tableDecodeChunkSize <- propertyManager
           .getRequiredProperty(targetTableName, decodeChunkSizePropertyKey)
           .map(_.toInt)
+        // Treats empty string or null as None, indicating decoding should start from the root
         tableJsonPointer <- propertyManager
           .getRequiredProperty(targetTableName, jsonPointerPropertyKey)
           .map(ptr => Option(ptr).filter(_.nonEmpty))
@@ -423,7 +424,7 @@ object PullStreamingSource:
         propertyManager,
         context.sink.targetTableFullName,
         tablePageSize,
-        tableChunkSize,
+        tableDecodeChunkSize,
         tableJsonPointer,
         context.source.modifications.rowModifications
       )
