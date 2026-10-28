@@ -8,11 +8,18 @@ import models.schemas.{ArcaneSchema, DataRow}
 import models.settings.mssql.MsSqlServerDatabaseSourceSettings
 import models.settings.sources.*
 
-import modification.{DataRowModification, FieldSelector, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
+import modification.{
+  DataRowModification,
+  ExcludeFieldSelector,
+  ExcludeFieldSelectorImpl,
+  FieldSelector,
+  FrozenSurrogateMergeKey,
+  FrozenSurrogateVersion
+}
 import services.base.InsertUpdateDeleteSource
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.closeSafe
-import services.mssql.migrations.SqlServerArcaneMergeKeyMigration
+import services.mssql.migrations.{SqlServerArcaneMergeKeyMigration, SqlServerArcaneVersionMigration}
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
@@ -46,7 +53,11 @@ class MsSqlStreamingSource(
     connection: Connection,
     val columnSummaries: List[ColumnSummary],
     val sqlSchema: SqlSchema
-) extends InsertUpdateDeleteSource(modifications)
+) extends InsertUpdateDeleteSource(
+      modifications ++ Seq(
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("ChangeTrackingVersion".toLowerCase)))
+      )
+    )
     with AutoCloseable:
 
   override type ShardMetadata = String
@@ -55,7 +66,8 @@ class MsSqlStreamingSource(
   override def definedMigrations: Map[SinkMigrationIdentifier, Seq[Migration]] =
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
-        new SqlServerArcaneMergeKeyMigration(columnSummaries)
+        new SqlServerArcaneMergeKeyMigration(columnSummaries),
+        new SqlServerArcaneVersionMigration()
       ))
     )
 
@@ -79,7 +91,7 @@ class MsSqlStreamingSource(
       .map(v => FrozenSurrogateMergeKey(v.map(_.toLowerCase).toSet))
 
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
-    ZIO.succeed(FrozenSurrogateVersion("SYS_CHANGE_VERSION"))
+    ZIO.succeed(FrozenSurrogateVersion("ChangeTrackingVersion"))
 
   override protected def applyFieldSelector[T](
       target: Seq[T],
@@ -90,8 +102,13 @@ class MsSqlStreamingSource(
       // SQL performs schema filter and generates queries based on acquired schema
       // thus field selector mod should be applied to schema, after field name normalization
       case schema: ArcaneSchema => super.applyFieldSelector(target, comparator, fieldSelector)
-      // however, since rows come out already filtered, they should just pass through
-      case row: List[_] => target
+      // for DataRow (List[DataCell]), internal exclusion of ChangeTrackingVersion still needs to apply
+      case row: List[_] =>
+        fieldSelector match
+          case ExcludeFieldSelectorImpl(ExcludeFieldSelector(fields))
+              if fields == Set("ChangeTrackingVersion".toLowerCase) =>
+            super.applyFieldSelector(target, comparator, fieldSelector)
+          case _ => target
 
   /** Create a stream from a provided shard table.
     */
