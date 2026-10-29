@@ -9,8 +9,7 @@ import services.metrics.base.MetricTagProvider
 import services.streaming.base.StreamingGraphBuilder
 import utils.MetadataUtils
 
-import com.sneaksanddata.arcane.framework.exceptions.FatalStreamFailException
-import zio.stream.{ZPipeline, ZSink}
+import zio.stream.ZSink
 import zio.{Tag, ZIO, ZIOAspect, ZLayer}
 
 import scala.collection.SortedMap
@@ -43,14 +42,7 @@ class GenericStreamRunnerService(
           _       <- bootstrapper.cleanupOutdatedBackfill
 
           _ <- bootstrapper.createTargetTable
-          _ <- ZIO.ifZIO(bootstrapper.hasMigrationsApplied)(
-            onTrue = ZIO.unit,
-            onFalse = ZIO.fail(
-              FatalStreamFailException(
-                "Sink has missing or unapplied migrations. Please run the app with `STREAMCONTEXT__RUNMODE=Migrate` before attempting a restart."
-              )
-            )
-          )
+          _ <- bootstrapper.checkMigrations
           _ <- bootstrapper.createBackFillTable
           _ <- builder.produce().run(logResults)
           _ <- zlog("Stream completed, finalizing")

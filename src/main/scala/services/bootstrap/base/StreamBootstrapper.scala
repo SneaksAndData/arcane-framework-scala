@@ -29,7 +29,8 @@ trait StreamBootstrapper:
     */
   def cleanupOutdatedBackfill: Task[Unit]
 
-  /** Checks if the sink has migrations required by current version applied.
+  /** Checks if the sink has migrations required by current version applied. If STREAMCONTEXT__RUN_MODE=Migrate, skips
+    * the check
     * @return
     */
-  def hasMigrationsApplied: Task[Boolean]
+  def checkMigrations: Task[Unit]
