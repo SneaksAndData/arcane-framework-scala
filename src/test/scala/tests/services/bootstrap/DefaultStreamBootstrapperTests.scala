@@ -39,7 +39,9 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
   private def withProvisionedBootstrapper[R, A](
       tableName: String,
       pluginNameVal: String,
-      pluginRepoVal: String
+      pluginRepoVal: String,
+      isMigrating: Boolean = false,
+      isCurrentMigration: Boolean = false
   )(
       testLogic: (DefaultStreamBootstrapper, IcebergSinkEntityManager, IcebergSinkTablePropertyManager) => ZIO[
         R,
@@ -60,8 +62,9 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
         streamId = "stream"
       )
       migrationService = new MigrationService:
-        override def getSinkMigration                                               = ZIO.succeed(None)
-        override def isCurrent(identifier: migrations.base.SinkMigrationIdentifier) = false
+        override def getSinkMigration =
+          if isCurrentMigration then ZIO.succeed(Some(migrations.base.CurrentMigration)) else ZIO.succeed(None)
+        override def isCurrent(identifier: migrations.base.SinkMigrationIdentifier) = isCurrentMigration
         override def commitMigration                                                = ZIO.unit
         override def diff(
             fromId: Option[migrations.base.SinkMigrationIdentifier],
@@ -78,6 +81,7 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
         stagingSettings = context.staging,
         sinkSettings = context.sink,
         isOverwriting = false,
+        isMigrating = isMigrating,
         documentation = StreamDocumentation(pluginNameVal, pluginRepoVal)
       )
       result <- ZIO.acquireReleaseWith(ZIO.unit)(_ => sinkEntityManager.delete(tableName).orDie) { _ =>
@@ -97,6 +101,28 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
           _          <- bootstrapper.createTargetTable
           commentOpt <- propertyManager.getProperty(tableName, "comment")
         yield assertTrue(commentOpt.contains(expectedComment))
+      }
+    },
+    test("checkMigrations succeeds when isMigrating is true even if migrations are not current") {
+      val tableName = s"bootstrapper_mig_${UUID.randomUUID().toString.replace("-", "")}"
+      withProvisionedBootstrapper(tableName, "p", "r", isMigrating = true) { (bootstrapper, _, _) =>
+        for res <- bootstrapper.checkMigrations.exit
+        yield assertTrue(res.isSuccess)
+      }
+    },
+    test("checkMigrations fails when isMigrating is false and migrations are not current") {
+      val tableName = s"bootstrapper_fail_${UUID.randomUUID().toString.replace("-", "")}"
+      withProvisionedBootstrapper(tableName, "p", "r", isCurrentMigration = false) { (bootstrapper, _, _) =>
+        for res <- bootstrapper.checkMigrations.exit
+        yield assertTrue(res.isFailure)
+      }
+    },
+    test("checkMigrations succeeds when isMigrating is false and migrations are current") {
+      val tableName = s"bootstrapper_curr_${UUID.randomUUID().toString.replace("-", "")}"
+      withProvisionedBootstrapper(tableName, "p", "r", isMigrating = false, isCurrentMigration = true) {
+        (bootstrapper, _, _) =>
+          for res <- bootstrapper.checkMigrations.exit
+          yield assertTrue(res.isSuccess)
       }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
