@@ -1,21 +1,22 @@
 package com.sneaksanddata.arcane.framework
 package services.bootstrap
 
+import exceptions.FatalStreamFailException
 import logging.ZIOLogAnnotations.zlog
+import migrations.base.CurrentMigration
+import models.MetadataKeys
 import models.app.{PluginStreamContext, StreamDocumentation}
 import models.ddl.CreateTableRequest
 import models.settings.backfill.BackfillBehavior.Overwrite
 import models.settings.sink.SinkSettings
 import models.settings.staging.StagingSettings
-import models.MetadataKeys
 import services.base.StreamingSource
 import services.bootstrap.base.StreamBootstrapper
 import services.iceberg.base.{SinkEntityManager, SinkPropertyManager, StagingEntityManager}
 import services.iceberg.{given_Conversion_ArcaneSchema_Schema, given_Conversion_Schema_ArcaneSchema}
-import services.naming.NameGenerator
 import services.migration.MigrationService
+import services.naming.NameGenerator
 
-import com.sneaksanddata.arcane.framework.migrations.base.CurrentMigration
 import zio.{Task, ZIO, ZLayer}
 
 class DefaultStreamBootstrapper(
@@ -28,6 +29,7 @@ class DefaultStreamBootstrapper(
     stagingSettings: StagingSettings,
     sinkSettings: SinkSettings,
     isOverwriting: Boolean,
+    isMigrating: Boolean,
     documentation: StreamDocumentation
 ) extends StreamBootstrapper:
   override def cleanupStagingTables: Task[Unit] = for
@@ -94,10 +96,19 @@ class DefaultStreamBootstrapper(
     }
   yield ()
 
-  override def hasMigrationsApplied: Task[Boolean] = for sinkMigration <- migrationService.getSinkMigration
-  yield sinkMigration match
-    case Some(value) => migrationService.isCurrent(value)
-    case None        => false
+  override def checkMigrations: Task[Unit] =
+    if isMigrating then ZIO.unit
+    else
+      for
+        sinkMigration <- migrationService.getSinkMigration
+        _ <- ZIO.unless(sinkMigration.exists(migrationService.isCurrent))(
+          ZIO.fail(
+            FatalStreamFailException(
+              "Sink has missing or unapplied migrations. Please run the app with `STREAMCONTEXT__RUNMODE=Migrate` before attempting a restart."
+            )
+          )
+        )
+      yield ()
 
 object DefaultStreamBootstrapper:
   val layer = ZLayer {
@@ -111,6 +122,7 @@ object DefaultStreamBootstrapper:
       isBackfilling        <- context.isBackfilling.orElseSucceed(false)
       nameGenerator        <- ZIO.service[NameGenerator]
       documentation        <- StreamDocumentation.fromEnvironment
+      isMigrating          <- context.isMigrating
     yield new DefaultStreamBootstrapper(
       stagingEntityManager = stagingEntityManager,
       sinkEntityManager = sinkEntityManager,
@@ -121,6 +133,7 @@ object DefaultStreamBootstrapper:
       stagingSettings = context.staging,
       sinkSettings = context.sink,
       isOverwriting = isBackfilling && context.streamMode.backfill.backfillBehavior == Overwrite,
+      isMigrating = isMigrating,
       documentation = documentation
     )
   }
