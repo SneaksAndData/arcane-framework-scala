@@ -17,7 +17,6 @@ object IcebergCatalogInfo:
       Map(
         "header.X-Iceberg-Access-Delegation" -> "vended-credentials"
       ) ++ IcebergCatalogCredential.oAuth2Properties
-    override val maxCatalogInstanceLifetime: zio.Duration = zio.Duration.fromSeconds(3600)
 
   val defaultSinkSettings: IcebergCatalogSettings = new IcebergCatalogSettings:
     override val namespace: String  = defaultNamespace
@@ -27,4 +26,3 @@ object IcebergCatalogInfo:
       Map(
         "header.X-Iceberg-Access-Delegation" -> "vended-credentials"
       ) ++ IcebergCatalogCredential.oAuth2Properties
-    override val maxCatalogInstanceLifetime: zio.Duration = zio.Duration.fromSeconds(3600)

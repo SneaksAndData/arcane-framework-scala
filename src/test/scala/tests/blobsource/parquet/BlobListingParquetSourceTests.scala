@@ -80,10 +80,10 @@ object BlobListingParquetSourceTests extends ZIOSpecDefault:
           )
         )
         rows <- source.getChanges(BlobSourceWatermark.epoch, BlobSourceWatermark.eot).flatMap(_._1).runCollect
-      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 14)) && assertTrue(
+      yield assertTrue(rows.size == 50 * 100) && assertTrue(rows.forall(v => v.size == 13)) && assertTrue(
         rows.forall { row =>
-          row.find(_.name == VersionField.name).map(_.value) ==
-            row.find(_.name == BlobBatchCommons.versionField.name).map(_.value)
+          row.find(_.name == VersionField.name).flatMap(c => Option(c.value)).isDefined &&
+          !row.exists(_.name == BlobBatchCommons.versionField.name)
         }
       )
     }

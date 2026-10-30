@@ -25,7 +25,6 @@ class MsSqlShardFactory(nameGenerator: NameGenerator) extends ShardFactory:
         targetName = shard.combinedTableName,
         sourceQuery = s"SELECT * FROM $shardTableName",
         partitionFields = Seq(),
-        mergeKey = shard.shardStream._2.mergeKey.name,
         columns = shard.shardStream._2.map(f => f.name)
       ),
       backfillId = shard.backfillId

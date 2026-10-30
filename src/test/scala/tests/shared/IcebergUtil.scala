@@ -70,7 +70,11 @@ class IcebergUtil(catalogSettings: IcebergCatalogSettings):
         _ <- entityManager.createTable(
           CreateTableRequest(targetName, schema.getOrElse(ArcaneSchema(Seq(Field("test", StringType)))), true)
         )
-        _ <- propertyManager.setProperty(targetName, MetadataKeys.watermarkKey, value.toJson)
+        _ <- propertyManager.setProperty(
+          targetName,
+          MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey),
+          value.toJson
+        )
       yield ()
     }
     .provide(getSinkTablePropertyManagerLayer, getSinkEntityManagerLayer)

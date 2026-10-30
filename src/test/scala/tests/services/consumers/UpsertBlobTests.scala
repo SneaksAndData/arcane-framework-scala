@@ -34,7 +34,6 @@ class UpsertBlobTests extends AnyFlatSpec with Matchers:
         | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Seq(),
-      "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", VersionField.name)
     )
 
@@ -51,7 +50,6 @@ class UpsertBlobTests extends AnyFlatSpec with Matchers:
         | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Seq("colA"),
-      "ARCANE_MERGE_KEY",
       Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", VersionField.name)
     )
 

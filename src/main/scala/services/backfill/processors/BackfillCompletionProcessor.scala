@@ -30,9 +30,13 @@ class BackfillCompletionProcessor(
         _ <- mergeServiceClient.commitShard(shard)
         _ <- zlog("Target %s updated, will now update watermark", shard.targetTableName)
         previousWatermark <- propertyManager
-          .getProperty(shard.targetTableName.parts.name, MetadataKeys.watermarkKey)
+          .getProperty(shard.targetTableName.parts.name, MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey))
           .map(_.getOrElse("null"))
-        _ <- propertyManager.setProperty(shard.targetTableName.parts.name, MetadataKeys.watermarkKey, shard.watermark)
+        _ <- propertyManager.setProperty(
+          shard.targetTableName.parts.name,
+          MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey),
+          shard.watermark
+        )
         _ <- zlog(
           "Updated watermark from %s to %s",
           Seq(getAnnotation("processor", "BackfillWatermarkProcessor")),

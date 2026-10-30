@@ -21,7 +21,7 @@ abstract class InsertUpdateDeleteSource(
 
   override lazy val allModifications: Task[Seq[DataRowModification]] =
     getPrimaryKey.combineWith(getVersionField).map { case (pk, v) =>
-      suppliedModifications ++ Seq(pk, v)
+      Seq(pk, v) ++ suppliedModifications
     }
 
   override protected def applyDataRowModification(

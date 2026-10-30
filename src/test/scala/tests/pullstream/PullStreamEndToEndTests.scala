@@ -2,8 +2,9 @@ package com.sneaksanddata.arcane.framework
 package tests.pullstream
 
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
+import models.schemas.ArcaneType
 import models.schemas.ArcaneType.StringType
-import models.schemas.{ArcaneSchema, DataRow, Field, IndexedField, IndexedMergeKeyField, MergeKeyField}
+import models.schemas.{ArcaneSchema, DataRow, Field, IndexedField, IndexedMergeKeyField, MergeKeyField, VersionField}
 import services.iceberg.base.SinkPropertyManager
 import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergStagingEntityManager}
@@ -41,11 +42,11 @@ final class PullStreamTestDataProvider(source: PullStreamingSource, from: PullSt
     extends StreamDataProvider:
   override def stream: ZStream[Any, Throwable, StructuredZStream] = source.getChanges(from)
 
-/** End-to-end coverage for the watermark column, exercising the real docker-compose stack: DynamoDB local as the
-  * source, Lakekeeper + MinIO as the Iceberg catalog and storage, and Trino as the merge engine.
+/** End-to-end coverage for ARCANE_VERSION, exercising the real docker-compose stack: DynamoDB local as the source,
+  * Lakekeeper + MinIO as the Iceberg catalog and storage, and Trino as the merge engine.
   *
   * The payload deliberately omits the watermark field: its value exists only as an attribute of the DynamoDB item, so
-  * finding it in the target table proves it survived decoding, staging and the MERGE.
+  * finding it in the target table (as ARCANE_VERSION) proves it survived decoding, staging and the MERGE.
   */
 object PullStreamEndToEndTests extends ZIOSpecDefault:
 
@@ -53,17 +54,25 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
   private val targetTableFullName = s"iceberg.test.$targetTableName"
   private val icebergUtil         = IcebergUtil(TestDynamicSinkSettings(targetTableName).icebergCatalog)
 
-  /** The sink stores both synthesized columns under lowercase names while the DynamoDB attribute is `timestampUTC` and
-    * the canonical merge key is upper-case, mirroring a target table created through an engine that folds unquoted
-    * identifiers, e.g. `ALTER TABLE ... ADD COLUMN arcane_merge_key VARCHAR` issued through Trino.
+  /** Columns the framework synthesizes: `ARCANE_MERGE_KEY`/`ARCANE_VERSION`, derived from the DynamoDB envelope's `id`
+    * and watermark attribute. The sink never declares a literal `id`/watermark column populated from the envelope:
+    * `payload` could carry fields under those names with unrelated meaning, so the envelope is kept out of them.
     */
-  private val watermarkColumn = "timestamputc"
-  private val mergeKeyColumn  = MergeKeyField.name.toLowerCase
+  private val mergeKeyColumn = MergeKeyField.name
+  private val versionColumn  = VersionField.name
 
-  /** The decoded production payload, plus the two columns the framework synthesizes from the envelope. */
+  /** The decoded production payload (the nested member the JSON pointer resolves to), plus the columns the framework
+    * synthesizes from the envelope.
+    */
   private val targetSchema: ArcaneSchema = ArcaneSchema(
-    PullStreamTestServices.pointedPayloadSchema
-      ++ Seq(Field(watermarkColumn, StringType), Field(mergeKeyColumn, StringType))
+    Seq(
+      Field("eventType", StringType),
+      Field("timestamp", StringType),
+      Field("source", StringType),
+      Field("message", StringType),
+      Field(mergeKeyColumn, StringType),
+      Field(versionColumn, ArcaneType.LongType)
+    )
   )
 
   private val writerLayer: ZLayer[Any, Throwable, IcebergS3CatalogWriter] = ZLayer.scoped {
@@ -94,7 +103,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
         targetTableFullName = targetTableFullName,
         icebergCatalogSettings = defaultIcebergStagingSettings,
         catalogWriter = writer,
-        batchFactory = PullStreamStagedBatchFactory(source.versionFieldName),
+        batchFactory = PullStreamStagedBatchFactory(),
         declaredMetrics = DeclaredMetrics(),
         nameGenerator = nameGenerator
       ),
@@ -127,15 +136,19 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             sinkEntityManager <- ZIO.service[services.iceberg.base.SinkEntityManager]
             _ <- sinkEntityManager.createTable(IcebergCreateTableRequest(targetTableName, targetSchema, true))
             sinkPropertyManager <- ZIO.service[SinkPropertyManager]
+            _ <- sinkPropertyManager.setProperty(
+              targetTableName,
+              PullStreamingSource.jsonPointerPropertyKey,
+              "/payload"
+            )
             source = PullStreamingSource(
-              settings = PullStreamTestServices.pullStreamSettings(
-                sourceTableName,
-                pointerExpression = Some("/payload")
-              ),
+              settings = PullStreamTestServices.pullStreamSettings(sourceTableName),
               dynamodbClient = client,
               sinkPropertyManager = sinkPropertyManager,
               targetTableFullName = targetTableFullName,
-              pageSize = None
+              pageSize = 1000,
+              chunkSize = 32,
+              jsonPointer = Some("/payload")
             )
             _ <- PullStreamTestServices.insertMany(
               client,
@@ -148,11 +161,11 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             _          <- graph.produce().runCollect
             connection <- newTrinoConnection
             rowCount   <- getRowsInTarget(connection, targetTableFullName)
-            firstItemKey = PullStreamTestServices.defaultId(0)
+            firstItemKey = utils.HashUtils.murmur3(PullStreamTestServices.defaultId(0))
             watermark <- getFieldValueInTarget(
               connection,
               targetTableFullName,
-              watermarkColumn,
+              VersionField.name,
               mergeKeyColumn,
               firstItemKey
             )
@@ -174,7 +187,7 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
             // one target row per DynamoDB item: a missing or constant merge key would have collapsed them
             assertTrue(rowCount == totalItems)
             // the watermark is absent from the payload, so it can only have come from the item attribute
-              && assertTrue(watermark == startAt.toString)
+              && assertTrue(watermark == startAt.toInstant.toEpochMilli.toString)
               // members of the nested `payload` object landed in their own columns instead of one JSON string
               && assertTrue(eventType == "Producer1Event")
               && assertTrue(message == "Hello from Avro map<string> payload")

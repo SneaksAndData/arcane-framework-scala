@@ -11,7 +11,7 @@ import models.queries.{
   WhenMatchedUpdate,
   WhenNotMatchedInsert
 }
-import models.schemas.{ArcaneSchema, VersionField}
+import models.schemas.{ArcaneSchema, MergeKeyField, VersionField}
 import models.settings.{EmptyTablePropertiesSettings, TableFormat, TablePropertiesSettings}
 
 object MatchedUpdate {
@@ -39,12 +39,11 @@ object UpsertBlobMergeQuery:
       targetName: String,
       sourceQuery: String,
       partitionFields: Seq[String],
-      mergeKey: String,
       columns: Seq[String]
   ): MergeQuery =
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map(), mergeKey, partitionFields.filterNot(c => c == mergeKey))
-      ++ MatchedUpdate(columns.filterNot(c => c == mergeKey))
+      ++ OnSegment(Map(), MergeKeyField.name, partitionFields.filterNot(c => c == MergeKeyField.name))
+      ++ MatchedUpdate(columns.filterNot(c => c == MergeKeyField.name))
       ++ NotMatchedInsert(columns)
 
 object UpsertBlobBackfillQuery:
@@ -55,8 +54,7 @@ class UpsertBlobMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    tablePropertiesSettings: TablePropertiesSettings
 ) extends StagedVersionedBatch
     with MergeableBatch:
   override val name: String            = batchName
@@ -66,7 +64,7 @@ class UpsertBlobMergeBatch(
   override def reduceExpr: String =
     // for merge query, we must carry over deletions so they can be applied in a MERGE statement by MatchedAppendOnlyDelete
     s"""SELECT * FROM (
-       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
+       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${MergeKeyField.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
        |)""".stripMargin
 
   override val completedWatermarkValue: Option[String] = None
@@ -78,7 +76,6 @@ class UpsertBlobMergeBatch(
         targetName = targetName,
         sourceQuery = reduceExpr,
         partitionFields = Seq.empty,
-        mergeKey = mergeKey,
         columns = schema.map(f => f.name)
       )
 
@@ -93,8 +90,7 @@ object UpsertBlobMergeBatch:
       batchName,
       batchSchema,
       targetName,
-      tablePropertiesSettings,
-      batchSchema.mergeKey.name
+      tablePropertiesSettings
     )
 
 class UpsertBlobWatermarkOnlyBatch(

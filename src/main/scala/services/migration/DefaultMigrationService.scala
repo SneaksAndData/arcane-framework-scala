@@ -54,6 +54,12 @@ class DefaultMigrationService(
     )
   )
 
+  override def commitMigration: Task[Unit] = sinkPropertyManager.setProperty(
+    context.sink.targetTableFullName.parts.name,
+    MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey),
+    CurrentMigration.toString
+  )
+
 object DefaultMigrationService:
   val layer = ZLayer {
     for

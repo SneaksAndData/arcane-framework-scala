@@ -30,11 +30,14 @@ import zio.metrics.connectors.statsd.DatagramSocketConfig
 object LayerAssemblies:
 
   lazy val frameworkPipelineServicesLayer: ZLayer[
-    PluginStreamContext.PluginConfiguration & StreamingSource,
+    PluginStreamContext & MetricsConfig & DatadogPublisherConfig & DatagramSocketConfig & StreamingSource,
     Throwable,
     FrameworkProvidedPipelineServices
   ] =
-    ZLayer.makeSome[PluginStreamContext.PluginConfiguration & StreamingSource, FrameworkProvidedPipelineServices](
+    ZLayer.makeSome[
+      PluginStreamContext & MetricsConfig & DatadogPublisherConfig & DatagramSocketConfig & StreamingSource,
+      FrameworkProvidedPipelineServices
+    ](
       DisposeBatchProcessor.layer,
       MergeBatchProcessor.layer,
       IcebergS3CatalogWriter.layer,

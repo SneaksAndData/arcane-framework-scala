@@ -83,7 +83,7 @@ object SynapseLinkArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
     }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SynapseLinkArcaneMergeKeyMigrationTests")(
-    test("migrates ARCANE_MERGE_KEY on provisioned table using Id column") {
+    test("migrates ARCANE_MERGE_KEY on provisioned table using Id column and drops Id column") {
       val tableName = s"synapse_mk_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
         Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
@@ -102,19 +102,51 @@ object SynapseLinkArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
             trinoCon,
             s"iceberg.test.$tableName",
             MergeKeyField.name,
-            "Id",
-            "id-101"
+            "name",
+            "Alice"
           )
           updatedKey2 <- TestTrinoConnection.getFieldValueInTarget(
             trinoCon,
             s"iceberg.test.$tableName",
             MergeKeyField.name,
-            "Id",
-            "id-102"
+            "name",
+            "Bob"
           )
+          columnsAfter <- propertyManager.getTableSchema(tableName).map(_.columns())
         yield assertTrue(
           updatedKey1 == HashUtils.murmur3("id-101"),
-          updatedKey2 == HashUtils.murmur3("id-102")
+          updatedKey2 == HashUtils.murmur3("id-102"),
+          !columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase("Id")),
+          columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
+          columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase("name"))
+        )
+      }
+    },
+    test("is a no-op when legacy Id column is already absent") {
+      val tableName = s"synapse_mk_noop_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(2, "name", Types.StringType.get())
+      )
+      val migration = new SynapseLinkArcaneMergeKeyMigration()
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        val source = createSynapseSource()
+        for
+          _       <- insertRow(trinoCon, tableName, "values ('existing_key_1', 'Alice')")
+          _       <- migration.execute(propertyManager, context, mergeClient, source)
+          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          keyVal <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            MergeKeyField.name,
+            "name",
+            "Alice"
+          )
+        yield assertTrue(
+          keyVal == "existing_key_1",
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase("name"))
         )
       }
     }

@@ -46,9 +46,11 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         )
         schema <- synapseLinkReader.getSchema
       yield assertTrue(
-        schema.size == 27,
+        schema.size == 25,
         schema.exists(_.name == MergeKeyField.name),
-        schema.exists(_.name == VersionField.name)
+        schema.exists(_.name == VersionField.name),
+        !schema.exists(_.name.equalsIgnoreCase("Id")),
+        !schema.exists(_.name.equalsIgnoreCase("versionnumber"))
       )
     },
     test("fails on incorrect schema") {

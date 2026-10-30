@@ -11,7 +11,7 @@ import models.queries.{
   WhenMatchedUpdate,
   WhenNotMatchedInsert
 }
-import models.schemas.{ArcaneSchema, VersionField}
+import models.schemas.{ArcaneSchema, MergeKeyField, VersionField}
 import models.settings.{EmptyTablePropertiesSettings, TablePropertiesSettings}
 
 object WhenMatchedDelete:
@@ -48,13 +48,12 @@ object SqlServerChangeTrackingMergeQuery:
       targetName: String,
       sourceQuery: String,
       partitionFields: Seq[String],
-      mergeKey: String,
       columns: Seq[String]
   ): MergeQuery =
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map(), mergeKey, partitionFields.filterNot(c => c == mergeKey))
+      ++ OnSegment(Map(), MergeKeyField.name, partitionFields.filterNot(c => c == MergeKeyField.name))
       ++ WhenMatchedDelete()
-      ++ WhenMatchedUpdate(columns.filterNot(c => c == mergeKey))
+      ++ WhenMatchedUpdate(columns.filterNot(c => c == MergeKeyField.name))
       ++ WhenNotMatchedInsert(columns)
 
 object SqlServerChangeTrackingBackfillQuery:
@@ -65,8 +64,7 @@ class SqlServerChangeTrackingMergeBatch(
     batchName: String,
     batchSchema: ArcaneSchema,
     targetName: String,
-    tablePropertiesSettings: TablePropertiesSettings,
-    mergeKey: String
+    tablePropertiesSettings: TablePropertiesSettings
 ) extends StagedVersionedBatch
     with MergeableBatch:
 
@@ -76,7 +74,7 @@ class SqlServerChangeTrackingMergeBatch(
 
   override def reduceExpr: String =
     s"""SELECT * FROM (
-     |SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${schema.mergeKey.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
+     |SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY ${MergeKeyField.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
      |)""".stripMargin
 
   override val batchQuery: MergeQuery =
@@ -86,7 +84,6 @@ class SqlServerChangeTrackingMergeBatch(
         targetName = targetName,
         sourceQuery = reduceExpr,
         partitionFields = Seq.empty,
-        mergeKey = mergeKey,
         columns = schema.map(f => f.name)
       )
 
@@ -103,8 +100,7 @@ object SqlServerChangeTrackingMergeBatch:
       batchName,
       batchSchema,
       targetName,
-      tablePropertiesSettings,
-      batchSchema.mergeKey.name
+      tablePropertiesSettings
     )
 
 class SqlServerChangeTrackingWatermarkOnlyBatch(
