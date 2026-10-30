@@ -2,7 +2,6 @@
 - **Sink Migrations**: Introduced a versioned sink migration mechanism (`migrations.base.Migration`, `MigrationService`, `DefaultMigrationService`) and a dedicated migration stream graph (`DefaultMigrationGraphBuilder`). The applied migration set is recorded in the target table property `arcane.core.migration-identifier`. Migrations are declared per source via `StreamingSource.definedMigrations`, so each plugin runs the framework migrations followed by its own, and `MergeServiceClient.execute(query, queryName, operation)` was added to run the required DDL/DML.
   - **Run Mode**: Migrations are executed by starting the application with `STREAMCONTEXT__RUNMODE=Migrate`. `ApplicationRunMode` now enumerates `Stream`, `Backfill` and `Migrate`, exposed as `BaseStreamContext.isMigrating`; `StreamGraphResolver` resolves the migration graph in that mode, and an unrecognized run mode fails with a `FatalStreamFailException`.
 - **Migration Gate**: `DefaultStreamBootstrapper.checkMigrations` now runs before the stream graph starts. When the sink is missing migrations or is not at the current migration set, the stream fails fast with a `FatalStreamFailException` instructing the operator to run the application in `Migrate` mode. The check is skipped in `Migrate` mode itself.
-- **Framework Migrations (set 1)**: Added `WatermarkKeyMigration` (moves the watermark from the legacy `arcane-watermark` property to `arcane.core.watermark`), `MbsEstimatesKeyMigration` (moves throughput estimates from `mbs-estimates` to `arcane.core.throughput.mbs.estimates`, preserving an already migrated value) and `TableCommentMigration` (aligns the table `comment` property).
 - **Metadata Key Namespacing**: `MetadataKeys` now exposes `getFrameworkKey(name)` for `arcane.core.*` keys and `getPluginKey(pluginName, name)` for `arcane.plugin.<plugin>.*` keys. All framework property reads and writes were moved to the new keys, including watermarking, throughput estimates and backfill completion.
 - **Legacy Watermark Fallback Removed**: The deprecated fallback that read the watermark from the Iceberg table `comment` property was dropped. Watermarks are now required to exist under `arcane.core.watermark`; tables from 2.3 need the migration set applied before restart.
 - **Table Documentation**: Added `StreamDocumentation` (`STREAMCONTEXT__PLUGIN_NAME`, `STREAMCONTEXT__PLUGIN_GITHUB_REPO_LINK`) and target table `comment` set to `Table managed by {plugin name} {repository link}` both on table creation and via migration.
@@ -23,6 +22,12 @@
 - **Failure Handling**: Added `FatalStreamFailExceptionWithCause`, `TransientStreamFailExceptionWithCause`, `UnsupportedPluginOperationException` and the `unsupported(operation, component)` helper for members that cannot be meaningfully implemented by a plugin.
 - **Removed Dead Code**: Removed `StreamLifetimeService`/`PosixStreamLifetimeService` and the stream lifetime guard from `GenericStreamRunnerService` (the stream now completes when the graph completes; SIGTERM/SIGINT are handled by `handleAppFailure`). Removed `CdmParser` (replaced by `CSVParser`), unused catalog settings and other 2.1-era leftovers.
 - **CI / Build**: Moved test execution to `just` recipes (`just test`, `just test-only`, `just fmt-check`), moved test resources to `test-resources/`, added Dependabot for GitHub Actions with auto-merge and gated CI to the top PR of a stacked pull request.
+
+## Migrations for this release
+Applied once by starting the application with `STREAMCONTEXT__RUNMODE=Migrate`.
+- `WatermarkKeyMigration` — moves the watermark from the legacy `arcane-watermark` property to `arcane.core.watermark`.
+- `MbsEstimatesKeyMigration` — moves throughput estimates from `mbs-estimates` to `arcane.core.throughput.mbs.estimates`, preserving an already migrated value.
+- `TableCommentMigration` — aligns the target table `comment` property with the stream documentation string (`Table managed by {plugin name} {repository link}`).
 
 ## Plugin Compatibility
 - `StreamSourceSettings` now requires `modifications: DataRowModificationSettings`; `fieldSelectionRule` was removed and plugin stream contexts must be updated accordingly.
