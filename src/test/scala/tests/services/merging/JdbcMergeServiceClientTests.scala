@@ -76,8 +76,8 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
     yield ()
 
   /** A purely CPU-bound query (no joins/large allocations) that is slow enough (~5-10s) to give a reliable window to
-    * interrupt it mid-flight, while staying safe on memory. The leading comment embeds a unique marker so the query
-    * can be correlated with its Trino `query_id` via `system.runtime.queries`.
+    * interrupt it mid-flight, while staying safe on memory. The leading comment embeds a unique marker so the query can
+    * be correlated with its Trino `query_id` via `system.runtime.queries`.
     */
   private def slowQuery(marker: String): String =
     s"""-- $marker
@@ -92,11 +92,11 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
 
   /** Looks up the Trino `query_id` of the running query submitted with the given marker comment.
     *
-    * `JdbcMergeServiceClient` always goes through `Connection.prepareStatement`, which the Trino JDBC driver
-    * executes as two separate server-side queries: a `PREPARE statement1 FROM <sql>` (which carries our marker
-    * comment) followed by an `EXECUTE statement1` (which does not). This correlates the two by finding the `EXECUTE`
-    * query immediately following the matching `PREPARE`, using a dedicated connection so the lookup is not blocked
-    * by the (possibly still running) statement being observed.
+    * `JdbcMergeServiceClient` always goes through `Connection.prepareStatement`, which the Trino JDBC driver executes
+    * as two separate server-side queries: a `PREPARE statement1 FROM <sql>` (which carries our marker comment) followed
+    * by an `EXECUTE statement1` (which does not). This correlates the two by finding the `EXECUTE` query immediately
+    * following the matching `PREPARE`, using a dedicated connection so the lookup is not blocked by the (possibly still
+    * running) statement being observed.
     */
   private def findQueryId(marker: String): Task[Option[String]] =
     ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) { connection =>
@@ -149,7 +149,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
   private def pollUntilTerminal(queryId: String): Task[Option[(String, Option[String])]] =
     pollUntil(maxAttempts = 20, delay = zio.Duration.fromMillis(500))(getQueryState(queryId)) {
       case Some((state, _)) => !nonTerminalStates.contains(state)
-      case None              => false
+      case None             => false
     }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("JdbcMergeServiceClientTests")(

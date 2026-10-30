@@ -101,11 +101,11 @@ class JdbcMergeServiceClient(
       yield resultMapper(applicationResult)
     }
 
-  /** Cancels a running statement on the server side. This is required to avoid orphan queries being left running on
-    * the query engine (e.g. Trino) when the fiber executing the statement is interrupted (e.g. on pod/process
-    * termination) while the underlying blocking JDBC call is still in progress. Without an explicit cancel, the JDBC
-    * driver will keep blocking until the query engine itself completes or times out the query, which can take
-    * several minutes for large merge queries and may conflict with a subsequent run of the same query after restart.
+  /** Cancels a running statement on the server side. This is required to avoid orphan queries being left running on the
+    * query engine (e.g. Trino) when the fiber executing the statement is interrupted (e.g. on pod/process termination)
+    * while the underlying blocking JDBC call is still in progress. Without an explicit cancel, the JDBC driver will
+    * keep blocking until the query engine itself completes or times out the query, which can take several minutes for
+    * large merge queries and may conflict with a subsequent run of the same query after restart.
     */
   private def cancelEffect(statement: Statement, queryName: String): zio.UIO[Unit] =
     zlogWarning(s"Cancelling in-flight query $queryName due to interruption") *>

@@ -49,9 +49,9 @@ class TargetMaintenanceProcessor(
       yield ()
     }
 
-  /** Cancels a running statement on the server side. This is required to avoid orphan queries being left running on
-    * the query engine when the fiber executing the statement is interrupted (e.g. on pod/process
-    * termination) while the underlying blocking JDBC call is still in progress.
+  /** Cancels a running statement on the server side. This is required to avoid orphan queries being left running on the
+    * query engine when the fiber executing the statement is interrupted (e.g. on pod/process termination) while the
+    * underlying blocking JDBC call is still in progress.
     */
   private def cancelEffect(statement: Statement, query: String): zio.UIO[Unit] =
     zlogWarning("Cancelling in-flight maintenance query '%s' due to interruption", query) *>
