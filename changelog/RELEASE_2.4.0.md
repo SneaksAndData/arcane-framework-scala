@@ -32,10 +32,10 @@
 - Existing sinks created by 2.3.x must run once with `STREAMCONTEXT__RUNMODE=Migrate` before a normal restart; otherwise the stream fails the migration check.
 
 ## Pull Stream (DynamoDB)
-- **New Source**: Added the `PullStream` plugin (`PullStreamingSource`, `PullStreamSourceDataProvider`, `PullStreamStreamingDataProvider`, `PullStreamStagedBatchFactory`, `plugins.pullstream.Services`) that reads Arcane push-stream output from a DynamoDB table. Configuration is provided by `PullStreamSourceSettings` (`pullIndexKey`, `pullIndexValue`, `versionFieldName`, `region`, `tableName`, `endpoint`).
+- **New Source**: Added the `PullStream` plugin (`PullStreamingSource`, `PullStreamSourceDataProvider`, `PullStreamStreamingDataProvider`, `PullStreamStagedBatchFactory`) that reads Arcane push-stream output from a DynamoDB table. Configuration is provided by `PullStreamSourceSettings`.
 - **Watermarking**: Introduced `PullStreamWatermark` over the configured version field, with epoch fallback for empty sources. Change queries use `#pk = :pk AND #wm > :t`, and watermark values are normalized to UTC ISO-8601 so string range comparisons stay correct when producers use mixed offsets.
 - **Pagination**: DynamoDB queries transparently follow `LastEvaluatedKey`, logging per-page item counts, and decoded rows are chunked explicitly to bound peak memory for large pages.
-- **Payload Decoding**: Each item's `payload` is decoded against the sink table schema with `AvroJsonDecoder`; the DynamoDB `id` and version attribute are merged into the document under `dattr__`-prefixed field names so they can feed `ARCANE_MERGE_KEY`/`ARCANE_VERSION` without colliding with payload fields, and are stripped before writing. Nested documents and arrays are stored as Iceberg `variant` columns.
+- **Payload Decoding**: Each item's `payload` is decoded against the sink table schema with `AvroJsonDecoder`; the DynamoDB `id` and version attribute are merged into the document under `dattr__`-prefixed field names so they can feed `ARCANE_MERGE_KEY`/`ARCANE_VERSION` without colliding with payload fields, and are stripped before emitting final `DataRow`. Nested documents and arrays are stored as Iceberg `variant` columns.
 - **Table-Driven Source Settings**: `json-pointer-expression`, `page-size` and `decode-chunk-size` are stored as sink table properties (`arcane.plugin.push-stream.*`) and are required when the source layer is built, so the reader uses the same layout the producer provisioned.
 - **Merging**: `PullStreamChangeTrackingMergeBatch` deduplicates by merge key and keeps the row with the highest `ARCANE_VERSION` before merging, matching the behavior of other change-tracking sources.
 - **Backfill**: Backfill and sharding are not supported. No-op backfill providers keep the plugin startable, while unsupported shard operations fail with `UnsupportedPluginOperationException`.
@@ -56,15 +56,14 @@
 ## Blob List (CSV / JSON / Parquet)
 - **Merge Key**: Primary keys are now hashed into `ARCANE_MERGE_KEY` with the shared murmur3 implementation instead of the previous SHA-256/Base64 scheme; `BlobBatchCommons.enrichBatchRow` only adds the version column now.
 - **ARCANE_VERSION**: File `createdon` (epoch seconds) is used to populate `ARCANE_VERSION`, which drives merge deduplication; `createdon` is no longer emitted as a sink column.
-- **JSON Decoding**: Replaced the inlined JSON handling with `AvroJsonDecoder` (optional-union encoding, tolerant/strict missing-field modes, JSON pointer support) and `JsonVariantConverter` (Iceberg `Variant` construction). The `jsonArrayPointers` setting and array-explode behavior were removed: nested objects and arrays are always written as Iceberg `variant`, requiring format version 3. Gzip-compressed (`.gz`) inputs remain supported.
-- **Change Capture Window**: `getChanges(startFrom, endAt)` now filters listed files by `createdOn` within the requested window, so the change capture range limit is applied to the files actually read.
+- **JSON Decoding**: Replaced the inlined JSON handling with `AvroJsonDecoder` (optional-union encoding, tolerant/strict missing-field modes, JSON pointer support) and `JsonVariantConverter` (Iceberg `Variant` construction). The `jsonArrayPointers` setting and array-explode behavior were removed: nested objects and arrays are always written as Iceberg `variant`, requiring format version 3.
+- **Change Capture Window**: `getChanges(startFrom, endAt)` now filters listed files by `createdOn` within the requested window, so the change capture range limit is applied correctly.
 - **Migrations**: Added `BlobListingArcaneMergeKeyMigration` (murmur3 merge key) and `BlobListingArcaneVersionMigration` (adds `ARCANE_VERSION`, copies `createdon` into it and drops the legacy column).
 
 ## Dependencies
 - **Language / Build**:
   - Scala compiler upgraded from `3.8.3` to `3.9.0`
   - `sbt` upgraded from `1.12.9` to `2.0.9`
-  - Coverage report path changed to `target/out/jvm/scala-3.9.0/arcane-framework/coverage-report/cobertura.xml`
 - **ZIO**:
   - `dev.zio:zio`, `zio-streams` and `zio-test` upgraded from `2.1.26` to `2.1.27`
   - `dev.zio:zio-cache` upgraded from `0.2.8` to `0.3.0`
