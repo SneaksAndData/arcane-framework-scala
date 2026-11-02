@@ -19,6 +19,26 @@ abstract class InsertUpdateDeleteSource(
     with PrimaryKeyProvider
     with VersionProvider:
 
+  protected def essentialFields: Set[String] = Set(
+    MergeKeyField.name.toLowerCase,
+    VersionField.name.toLowerCase
+  )
+
+  override protected def applyFieldSelector[T](
+      target: Seq[T],
+      comparator: T => String,
+      fieldSelector: FieldSelector
+  ): Seq[T] =
+    val modifiedSelector: FieldSelector = fieldSelector match
+      case IncludeFieldSelectorImpl(IncludeFieldSelector(includeFields)) =>
+        IncludeFieldSelectorImpl(IncludeFieldSelector(includeFields ++ essentialFields))
+      case ExcludeFieldSelectorImpl(ExcludeFieldSelector(excludeFields)) =>
+        ExcludeFieldSelectorImpl(
+          ExcludeFieldSelector(excludeFields.filterNot(f => essentialFields.contains(f.toLowerCase)))
+        )
+
+    super.applyFieldSelector(target, comparator, modifiedSelector)
+
   override lazy val allModifications: Task[Seq[DataRowModification]] =
     getPrimaryKey.combineWith(getVersionField).map { case (pk, v) =>
       Seq(pk, v) ++ suppliedModifications
