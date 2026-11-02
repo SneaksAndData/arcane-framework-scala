@@ -54,3 +54,35 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
       read[DefaultDataRowModificationSettings](expected) should equal(settings)
     }
   }
+
+  it should "resolve empty rowModifications when no modifications are configured" in {
+    val json     = """{"supported":{}}"""
+    val settings = read[DefaultDataRowModificationSettings](json)
+    settings.rowModifications should equal(Seq.empty)
+  }
+
+  it should "resolve rowModifications with include fieldSelector and surrogateTimestamp" in {
+    val json =
+      """{"supported":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
+    val settings = read[DefaultDataRowModificationSettings](json)
+
+    settings.rowModifications should equal(
+      Seq(
+        IncludeFieldSelectorImpl(IncludeFieldSelector(Set("id", "name"))),
+        SurrogateTimestampImpl(SurrogateTimestamp())
+      )
+    )
+  }
+
+  it should "resolve rowModifications with exclude fieldSelector and surrogateTimestamp" in {
+    val json =
+      """{"supported":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
+    val settings = read[DefaultDataRowModificationSettings](json)
+
+    settings.rowModifications should equal(
+      Seq(
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("description"))),
+        SurrogateTimestampImpl(SurrogateTimestamp())
+      )
+    )
+  }

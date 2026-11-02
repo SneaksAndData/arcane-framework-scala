@@ -65,8 +65,11 @@ case class FieldSelectorSetting(
   override def resolve: FieldSelector = include
     .map(IncludeFieldSelectorImpl(_))
     .orElse(exclude.map(ExcludeFieldSelectorImpl(_)))
-    .getOrElse(throw FatalStreamFailException("Invalid fieldSelector setting: neither `include`, nor `exclude` sections are defined."))
-
+    .getOrElse(
+      throw FatalStreamFailException(
+        "Invalid fieldSelector setting: neither `include`, nor `exclude` sections are defined."
+      )
+    )
 
 case class SurrogateTimestampSetting() extends CompositeSetting[DataRowModification] derives ReadWriter:
   override def resolve: DataRowModification = SurrogateTimestampImpl(SurrogateTimestamp())
@@ -93,7 +96,7 @@ trait DataRowModificationSettings extends Mergeable:
   *   serialized modification entries to resolve and apply in order
   */
 case class DefaultDataRowModificationSettings(
-    @key("modifications") modificationSettings: SupportedModifications
+    @key("supported") modificationSettings: SupportedModifications
 ) extends DataRowModificationSettings,
       Mergeable derives ReadWriter:
 
