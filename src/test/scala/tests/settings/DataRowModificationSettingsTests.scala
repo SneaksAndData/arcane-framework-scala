@@ -14,7 +14,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
   private val testCases = List(
     (
       DefaultDataRowModificationSettings(SupportedModifications(None, None)),
-      """{"modifications":{}}"""
+      """{"supported":{}}"""
     ),
     (
       DefaultDataRowModificationSettings(
@@ -27,7 +27,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           surrogateTimestamp = Some(SurrogateTimestampSetting())
         )
       ),
-      """{"modifications":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
+      """{"supported":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
     ),
     (
       DefaultDataRowModificationSettings(
@@ -40,7 +40,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           surrogateTimestamp = Some(SurrogateTimestampSetting())
         )
       ),
-      """{"modifications":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
+      """{"supported":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
     )
   )
   it should "serialize correctly" in {
@@ -55,18 +55,34 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
     }
   }
 
-//  it should "resolve modifications in their configured order" in {
-//    val settings = testCases(1)._1
-//
-//    settings.modifications should equal(
-//      Seq(
-//        SurrogateTimestampImpl(SurrogateTimestamp()),
-//        FieldSelectorImpl(
-//          FieldSelectorSetting(
-//            includeFields = Seq("id", "name"),
-//            excludeFields = Seq("secret")
-//          )
-//        )
-//      )
-//    )
-//  }
+  it should "resolve empty rowModifications when no modifications are configured" in {
+    val json     = """{"supported":{}}"""
+    val settings = read[DefaultDataRowModificationSettings](json)
+    settings.rowModifications should equal(Seq.empty)
+  }
+
+  it should "resolve rowModifications with include fieldSelector and surrogateTimestamp" in {
+    val json =
+      """{"supported":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
+    val settings = read[DefaultDataRowModificationSettings](json)
+
+    settings.rowModifications should equal(
+      Seq(
+        IncludeFieldSelectorImpl(IncludeFieldSelector(Set("id", "name"))),
+        SurrogateTimestampImpl(SurrogateTimestamp())
+      )
+    )
+  }
+
+  it should "resolve rowModifications with exclude fieldSelector and surrogateTimestamp" in {
+    val json =
+      """{"supported":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
+    val settings = read[DefaultDataRowModificationSettings](json)
+
+    settings.rowModifications should equal(
+      Seq(
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("description"))),
+        SurrogateTimestampImpl(SurrogateTimestamp())
+      )
+    )
+  }
