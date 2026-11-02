@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package models.settings.sources.modification
 
-import models.settings.{CompositeSetting, Mergeable}
+import exceptions.FatalStreamFailException
 import models.settings.sources.*
+import models.settings.{CompositeSetting, Mergeable}
 
 import upickle.default.*
 import upickle.implicits.key
@@ -61,11 +62,11 @@ case class FieldSelectorSetting(
     include: Option[IncludeFieldSelector] = None,
     exclude: Option[ExcludeFieldSelector] = None
 ) extends CompositeSetting[FieldSelector] derives ReadWriter:
-  override def resolve: FieldSelector =
-    if include.isDefined then IncludeFieldSelectorImpl(include.get)
-    if exclude.isDefined then ExcludeFieldSelectorImpl(exclude.get)
+  override def resolve: FieldSelector = include
+    .map(IncludeFieldSelectorImpl(_))
+    .orElse(exclude.map(ExcludeFieldSelectorImpl(_)))
+    .getOrElse(throw FatalStreamFailException("Invalid fieldSelector setting: neither `include`, nor `exclude` sections are defined."))
 
-    throw new RuntimeException("Invalid fieldSelector setting: neither `include`, nor `exclude` sections are defined.")
 
 case class SurrogateTimestampSetting() extends CompositeSetting[DataRowModification] derives ReadWriter:
   override def resolve: DataRowModification = SurrogateTimestampImpl(SurrogateTimestamp())

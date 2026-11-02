@@ -17,5 +17,5 @@ trait OverrideDataRowModificationSettings:
 /** Default implementation for `OverrideDataRowModificationSettings` using optional values.
   */
 case class DefaultOverrideDataRowModificationSettings(
-    @key("modifications") override val modificationSettings: Option[SupportedModifications] = None
+    @key("supported") override val modificationSettings: Option[SupportedModifications] = None
 ) extends OverrideDataRowModificationSettings derives ReadWriter

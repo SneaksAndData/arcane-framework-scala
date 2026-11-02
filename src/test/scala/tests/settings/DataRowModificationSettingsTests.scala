@@ -14,7 +14,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
   private val testCases = List(
     (
       DefaultDataRowModificationSettings(SupportedModifications(None, None)),
-      """{"modifications":{}}"""
+      """{"supported":{}}"""
     ),
     (
       DefaultDataRowModificationSettings(
@@ -27,7 +27,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           surrogateTimestamp = Some(SurrogateTimestampSetting())
         )
       ),
-      """{"modifications":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
+      """{"supported":{"fieldSelector":{"include":{"fields":["id","name"]}},"surrogateTimestamp":{}}}"""
     ),
     (
       DefaultDataRowModificationSettings(
@@ -40,7 +40,7 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
           surrogateTimestamp = Some(SurrogateTimestampSetting())
         )
       ),
-      """{"modifications":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
+      """{"supported":{"fieldSelector":{"exclude":{"fields":["description"]}},"surrogateTimestamp":{}}}"""
     )
   )
   it should "serialize correctly" in {
@@ -54,19 +54,3 @@ class DataRowModificationSettingsTests extends AnyFlatSpec with Matchers:
       read[DefaultDataRowModificationSettings](expected) should equal(settings)
     }
   }
-
-//  it should "resolve modifications in their configured order" in {
-//    val settings = testCases(1)._1
-//
-//    settings.modifications should equal(
-//      Seq(
-//        SurrogateTimestampImpl(SurrogateTimestamp()),
-//        FieldSelectorImpl(
-//          FieldSelectorSetting(
-//            includeFields = Seq("id", "name"),
-//            excludeFields = Seq("secret")
-//          )
-//        )
-//      )
-//    )
-//  }
