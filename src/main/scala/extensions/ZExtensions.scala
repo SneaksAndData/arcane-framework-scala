@@ -39,7 +39,7 @@ object ZExtensions:
         (cause.isInterrupted, cause.isDie, cause.isFailure) match
           case (true, _, _) =>
             for
-              _ <- zlog("Received SIGTERM/SIGINT, stopping gracefully")
+              _ <- zlog("Interrupted, details: %s, stopping gracefully", cause.prettyPrint)
               _ <- exitHandler(zio.ExitCode(0))
             yield ()
           // all Die calls are hard failures
