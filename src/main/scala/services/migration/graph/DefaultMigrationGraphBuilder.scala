@@ -16,8 +16,10 @@ final class DefaultMigrationGraphBuilder(migrationService: MigrationService) ext
 
   override def produce(): ZStream[Any, Throwable, ProcessedBatch] = ZStream
     .fromIterableZIO {
-      for sinkMigration <- migrationService.getSinkMigration
-      yield migrationService.diff(sinkMigration, CurrentMigration)
+      for
+        sinkMigration <- migrationService.getSinkMigration
+        pending       <- migrationService.getPendingMigrations(migrationService.diff(sinkMigration, CurrentMigration))
+      yield pending
     }
     .rechunk(1)
     .mapZIO { migration => migrationService.execute(migration) }
