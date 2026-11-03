@@ -19,11 +19,15 @@ class DefaultMigrationService(
     mergeClient: MergeServiceClient,
     streamingSource: StreamingSource
 ) extends MigrationService:
+  private val targetTableName = context.sink.targetTableFullName.parts.name
+
+  private val appliedMigrationsProperty = MetadataKeys.getFrameworkKey(MetadataKeys.appliedMigrationsKey)
+
   override def isCurrent(migrationId: SinkMigrationIdentifier): Boolean = migrationId == CurrentMigration
 
   override def getSinkMigration: Task[Option[SinkMigrationIdentifier]] = sinkPropertyManager
     .getProperty(
-      context.sink.targetTableFullName.parts.name,
+      targetTableName,
       MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey)
     )
     .map(_.map(_.toLong))
@@ -43,9 +47,40 @@ class DefaultMigrationService(
 
         fullMigrations.filterNot(fm => appliedMigrations.contains(fm.uniqueId))
 
+  override def getPendingMigrations(migrations: Seq[Migration]): Task[Seq[Migration]] = for
+    applied <- getAppliedMigrations
+    (skipped, pending) = migrations.partition(m => applied.contains(m.uniqueId))
+    _ <- ZIO.foreachDiscard(skipped) { migration =>
+      zlog(
+        "Skipping migration already applied by an unfinished migration run: %s (%s)",
+        migration.uniqueId.toString,
+        migration.shortName
+      )
+    }
+  yield pending
+
+  /** Reads identifiers of migrations already applied by the current, not yet committed, migration run.
+    */
+  private def getAppliedMigrations: Task[Set[SinkMigrationIdentifier]] = sinkPropertyManager
+    .getProperty(targetTableName, appliedMigrationsProperty)
+    .map(_.map(_.split(',').map(_.toLong).toSet).getOrElse(Set.empty))
+    .orDieWith(e => FatalStreamFailExceptionWithCause("Invalid applied migrations identifier", e))
+
+  /** Checkpoints a successfully applied migration so it is skipped if a later migration in the same run fails.
+    */
+  private def recordAppliedMigration(migration: Migration): Task[Unit] = for
+    applied <- getAppliedMigrations
+    _ <- sinkPropertyManager.setProperty(
+      targetTableName,
+      appliedMigrationsProperty,
+      (applied + migration.uniqueId).toSeq.sorted.mkString(",")
+    )
+  yield ()
+
   override def execute(migration: Migration): ZIO[Any, Throwable, Unit] = (for
     _ <- zlog("Running migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
     _ <- migration.execute(sinkPropertyManager, context, mergeClient, streamingSource)
+    _ <- recordAppliedMigration(migration)
     _ <- zlog("Successfully applied migration: %s (%s)", migration.uniqueId.toString, migration.shortName)
   yield ()).orDieWith(e =>
     FatalStreamFailExceptionWithCause(
@@ -54,11 +89,14 @@ class DefaultMigrationService(
     )
   )
 
-  override def commitMigration: Task[Unit] = sinkPropertyManager.setProperty(
-    context.sink.targetTableFullName.parts.name,
-    MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey),
-    CurrentMigration.toString
-  )
+  override def commitMigration: Task[Unit] = for
+    _ <- sinkPropertyManager.setProperty(
+      targetTableName,
+      MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey),
+      CurrentMigration.toString
+    )
+    _ <- sinkPropertyManager.removeProperty(targetTableName, appliedMigrationsProperty)
+  yield ()
 
 object DefaultMigrationService:
   val layer = ZLayer {

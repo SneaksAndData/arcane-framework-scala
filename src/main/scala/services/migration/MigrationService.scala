@@ -4,9 +4,8 @@ package services.migration
 import exceptions.FatalStreamFailExceptionWithCause
 import logging.ZIOLogAnnotations.zlog
 import migrations.base.{Migration, SinkMigrationIdentifier}
-import models.settings.TableName
 
-import zio.{Task, UIO, URIO, ZIO}
+import zio.{Task, ZIO}
 
 trait MigrationService:
   def isCurrent(migrationId: SinkMigrationIdentifier): Boolean
@@ -14,6 +13,11 @@ trait MigrationService:
   def getSinkMigration: Task[Option[SinkMigrationIdentifier]]
 
   def diff(fromId: Option[SinkMigrationIdentifier], toId: SinkMigrationIdentifier): Seq[Migration]
+
+  /** Returns the migrations that still need to run, skipping those already applied by a previous migration run that did
+    * not complete.
+    */
+  def getPendingMigrations(migrations: Seq[Migration]): Task[Seq[Migration]]
 
   def execute(migration: Migration): ZIO[Any, Throwable, Unit]
 

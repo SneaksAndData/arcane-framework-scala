@@ -73,7 +73,8 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
             fromId: Option[migrations.base.SinkMigrationIdentifier],
             toId: migrations.base.SinkMigrationIdentifier
         ) = Seq.empty
-        override def execute(migration: migrations.base.Migration) = ZIO.unit
+        override def getPendingMigrations(pending: Seq[migrations.base.Migration]) = ZIO.succeed(pending)
+        override def execute(migration: migrations.base.Migration)                 = ZIO.unit
       bootstrapper = new DefaultStreamBootstrapper(
         stagingEntityManager = stagingEntityManager,
         sinkEntityManager = sinkEntityManager,

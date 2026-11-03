@@ -9,6 +9,11 @@ object MetadataKeys:
   val watermarkKey = "watermark"
   val migrationKey = "migration-identifier"
 
+  /** Temporary key holding unique identifiers of migrations already applied within an unfinished migration run. Removed
+    * once the whole run completes and the migration identifier is committed.
+    */
+  val appliedMigrationsKey = "applied-migrations"
+
   /** Get full name of a metadata key for a framework-scoped key name
     */
   def getFrameworkKey(name: String): String = s"$metadataKeyPrefix.$frameworkGroup.$name"
