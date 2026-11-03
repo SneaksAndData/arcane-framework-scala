@@ -86,7 +86,7 @@ class DefaultStreamBootstrapper(
       )
     )
     // pre-migrate sources with unified schema and skip migration of each staged batch
-    _ <- ZIO.when(stagingSettings.table.isUnifiedSchema) {
+    _ <- ZIO.when(!isMigrating && stagingSettings.table.isUnifiedSchema) {
       for
         targetSchema <- sinkPropertyManager.getTableSchema(targetName)
         // note that if a table was not created by Arcane, this will lead to merge failure later on, as we assume target schema has MergeKeyField
