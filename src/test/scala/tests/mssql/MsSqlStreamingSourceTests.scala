@@ -676,6 +676,87 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         rowsAfterDelete.exists(row => row.contains(DataCell("SYS_CHANGE_OPERATION", StringType, "D")))
       )
     },
+    test("QueryProvider bounds the change capture range by SYS_CHANGE_VERSION") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection => ZIO.attemptBlocking(createTable("range_limit_query", connection, fieldString, pkString))
+        )
+        streamingSource <-
+          MsSqlStreamingSource.fromSettings(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = "range_limit_query"
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            nameGenerator,
+            Seq.empty
+          )
+        summaries <- streamingSource.getFilteredSummaries
+        query <- QueryProvider.getChangesForVersionRangeQuery(
+          "dbo",
+          "range_limit_query",
+          "arcane",
+          5,
+          42,
+          summaries
+        )
+      yield assertTrue(
+        // the upper bound has to filter the change table, not compare two substituted constants
+        query.contains("WHERE ct.SYS_CHANGE_VERSION <= 42"),
+        !query.contains("WHERE CAST(5 AS bigint) <= 42")
+      )
+    },
+    test("MsSqlStreamingSource getChanges applies the change capture upper bound") {
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie)(
+          connection =>
+            ZIO
+              .attemptBlocking(createTable("get_changes_range_limit", connection, fieldString, pkString))
+              .flatMap(_ => insertData(connection, "get_changes_range_limit"))
+        )
+        streamingSource <-
+          MsSqlStreamingSource.fromSettings(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = "get_changes_range_limit"
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            nameGenerator,
+            Seq.empty
+          )
+        startWatermark = MsSqlWatermark(
+          version = "1",
+          timestamp = OffsetDateTime.ofInstant(Instant.now().minus(Duration.ofDays(1)), ZoneOffset.UTC)
+        )
+        unboundedWatermark = MsSqlWatermark(
+          version = Long.MaxValue.toString,
+          timestamp = OffsetDateTime.ofInstant(Instant.now().plus(Duration.ofDays(365)), ZoneOffset.UTC)
+        )
+        // insertData writes 20 rows, each insert bumping SYS_CHANGE_VERSION, so the full range returns all of them
+        allRows <- streamingSource.getChanges(startWatermark, unboundedWatermark).flatMap(_._1).runCollect
+        // resolve the version window the limit would pick for a range limit of 5
+        limitedVersion <- streamingSource.getVersionInRange(startWatermark, unboundedWatermark, 5)
+        limitedRows    <- streamingSource.getChanges(startWatermark, limitedVersion).flatMap(_._1).runCollect
+        maxVersionInLimitedRows = limitedRows
+          .flatMap(_.find(_.name == "SYS_CHANGE_VERSION"))
+          .map(_.value.toString.toLong)
+          .maxOption
+      yield assertTrue(
+        allRows.size == 20,
+        // the bounded read must be a strict subset, not the whole changeset
+        limitedRows.size < allRows.size,
+        limitedRows.nonEmpty,
+        maxVersionInLimitedRows.exists(_ <= limitedVersion.version.toLong)
+      )
+    },
     test("MsSqlStreamingSource deleteShards correctly filters matching tables minimizing LIKE wildcards impact") {
       for
         _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) {
