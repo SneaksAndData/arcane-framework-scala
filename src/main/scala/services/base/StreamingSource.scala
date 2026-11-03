@@ -22,7 +22,6 @@ trait StreamingSource extends SchemaProvider[ArcaneSchema] with ShardProvider:
     CurrentMigration -> Seq(
       new WatermarkKeyMigration(),
       new MbsEstimatesKeyMigration(),
-      new TableCommentMigration(),
-      new FieldSelectorSchemaMigration()
+      new TableCommentMigration()
     )
   )

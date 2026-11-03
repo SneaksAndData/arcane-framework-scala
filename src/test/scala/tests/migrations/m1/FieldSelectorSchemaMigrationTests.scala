@@ -49,11 +49,15 @@ object FieldSelectorSchemaMigrationTests extends ZIOSpecDefault:
     false
   )
 
-  private def createStreamingSource(schema: ArcaneSchema): StreamingSource =
+  private def createStreamingSource(
+      schema: ArcaneSchema,
+      sourceEssentialFields: Set[String] = Set.empty
+  ): StreamingSource =
     new StreamingSource:
       override type SchemaType    = ArcaneSchema
       override type WatermarkType = TimestampOnlyWatermark
       override type ShardMetadata = String
+      override def essentialFields: Set[String]                                  = sourceEssentialFields
       override def getSchema: Task[SchemaType]                                   = ZIO.succeed(schema)
       override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType) = ZStream.empty
       override def deleteShards(prefix: String): Task[Unit]                      = ZIO.unit
@@ -144,9 +148,12 @@ object FieldSelectorSchemaMigrationTests extends ZIOSpecDefault:
         Types.NestedField.optional(4, "leakedCol", Types.StringType.get())
       )
 
-      // Source schema doesn't even list essential fields, e.g. raw source
+      // Source schema doesn't even list essential fields, e.g. raw source schema before modifications
       val sourceSchema: ArcaneSchema = Seq(Field("colA", StringType))
-      val source                     = createStreamingSource(sourceSchema)
+      val source = createStreamingSource(
+        sourceSchema,
+        sourceEssentialFields = Set(MergeKeyField.name.toLowerCase, VersionField.name.toLowerCase)
+      )
 
       val mods = DefaultDataRowModificationSettings(
         SupportedModifications(

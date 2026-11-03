@@ -13,6 +13,7 @@ import models.settings.sources.modification.{
   FrozenSurrogateVersion
 }
 import services.blobsource.migrations.{BlobListingArcaneMergeKeyMigration, BlobListingArcaneVersionMigration}
+import migrations.m1.FieldSelectorSchemaMigration
 import services.blobsource.readers.BlobStreamingSource
 import services.blobsource.versioning.BlobSourceWatermark
 import services.naming.NameGenerator
@@ -46,7 +47,8 @@ abstract class BlobListingStreamingSource[PathType <: BlobPath](
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
         new BlobListingArcaneMergeKeyMigration(primaryKeys),
-        new BlobListingArcaneVersionMigration()
+        new BlobListingArcaneVersionMigration(),
+        new FieldSelectorSchemaMigration()
       ))
     )
 

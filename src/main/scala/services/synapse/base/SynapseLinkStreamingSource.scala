@@ -25,6 +25,7 @@ import services.streaming.base.StructuredZStream
 import services.synapse.SynapseAzureBlobReaderExtensions.*
 import services.synapse.SynapseEntitySchemaProvider
 import services.synapse.migrations.{SynapseLinkArcaneMergeKeyMigration, SynapseLinkArcaneVersionMigration}
+import migrations.m1.FieldSelectorSchemaMigration
 import services.synapse.versioning.SynapseWatermark
 
 import zio.stream.ZStream
@@ -52,7 +53,8 @@ final class SynapseLinkStreamingSource(
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
         new SynapseLinkArcaneMergeKeyMigration(),
-        new SynapseLinkArcaneVersionMigration()
+        new SynapseLinkArcaneVersionMigration(),
+        new FieldSelectorSchemaMigration()
       ))
     )
 
