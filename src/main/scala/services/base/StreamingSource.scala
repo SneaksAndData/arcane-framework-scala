@@ -2,7 +2,12 @@ package com.sneaksanddata.arcane.framework
 package services.base
 
 import migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
-import migrations.m1.{MbsEstimatesKeyMigration, TableCommentMigration, WatermarkKeyMigration}
+import migrations.m1.{
+  FieldSelectorSchemaMigration,
+  MbsEstimatesKeyMigration,
+  TableCommentMigration,
+  WatermarkKeyMigration
+}
 import models.schemas.ArcaneSchema
 
 trait StreamingSource extends SchemaProvider[ArcaneSchema] with ShardProvider:
@@ -13,6 +18,7 @@ trait StreamingSource extends SchemaProvider[ArcaneSchema] with ShardProvider:
     CurrentMigration -> Seq(
       new WatermarkKeyMigration(),
       new MbsEstimatesKeyMigration(),
-      new TableCommentMigration()
+      new TableCommentMigration(),
+      new FieldSelectorSchemaMigration()
     )
   )
