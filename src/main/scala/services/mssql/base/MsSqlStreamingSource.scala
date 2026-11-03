@@ -93,7 +93,7 @@ class MsSqlStreamingSource(
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion("ChangeTrackingVersion"))
 
-  override protected def essentialFields: Set[String] = super.essentialFields ++ Set(
+  override def essentialFields: Set[String] = super.essentialFields ++ Set(
     "sys_change_version",
     "sys_change_operation"
   )

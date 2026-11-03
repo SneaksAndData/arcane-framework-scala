@@ -4,7 +4,6 @@ package migrations.m1
 import logging.ZIOLogAnnotations.zlog
 import migrations.base.Migration
 import models.app.PluginStreamContext
-import models.schemas.{MergeKeyField, VersionField}
 import models.settings.TableNaming.parts
 import models.settings.sources.modification.FieldSelector
 import services.base.{MergeServiceClient, StreamingSource}
@@ -23,11 +22,6 @@ class FieldSelectorSchemaMigration extends Migration:
     "Aligns sink table schema with field selector rules by dropping excess columns, preserving essential fields"
   val shortName: String = "field_selector_schema"
   val uniqueId: Long    = 81920374L
-
-  private val essentialFields: Set[String] = Set(
-    MergeKeyField.name.toLowerCase,
-    VersionField.name.toLowerCase
-  )
 
   def execute(
       sinkPropertyManager: SinkPropertyManager,
@@ -49,7 +43,7 @@ class FieldSelectorSchemaMigration extends Migration:
         targetColumns = targetSchema.columns().asScala.map(_.name()).toSet
         sourceSchema <- streamingSource.getSchema
         sourceFieldNames = sourceSchema.map(_.name.toLowerCase).toSet
-        allowedColumns   = sourceFieldNames ++ essentialFields
+        allowedColumns   = sourceFieldNames ++ streamingSource.essentialFields.map(_.toLowerCase)
         excessColumns    = targetColumns.filterNot(col => allowedColumns.contains(col.toLowerCase))
         _ <- ZIO.when(excessColumns.nonEmpty) {
           for
