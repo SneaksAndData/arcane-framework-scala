@@ -8,6 +8,7 @@ import models.settings.sink.SinkSettings
 import services.base.StreamingSource
 import services.bootstrap.DefaultStreamBootstrapper
 import services.iceberg.base.SinkPropertyManager
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import services.iceberg.{IcebergSinkEntityManager, IcebergSinkTablePropertyManager}
 import services.migration.MigrationService
 import services.naming.DefaultNameGenerator
@@ -20,6 +21,7 @@ import zio.test.TestAspect.timeout
 import zio.{Scope, Task, ZIO}
 
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
 
@@ -41,7 +43,8 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
       pluginNameVal: String,
       pluginRepoVal: String,
       isMigrating: Boolean = false,
-      isCurrentMigration: Boolean = false
+      isCurrentMigration: Boolean = false,
+      source: StreamingSource = testSource
   )(
       testLogic: (DefaultStreamBootstrapper, IcebergSinkEntityManager, IcebergSinkTablePropertyManager) => ZIO[
         R,
@@ -76,7 +79,7 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
         sinkEntityManager = sinkEntityManager,
         sinkPropertyManager = sinkPropertyManager,
         migrationService = migrationService,
-        streamingSource = testSource,
+        streamingSource = source,
         nameGenerator = nameGenerator,
         stagingSettings = context.staging,
         sinkSettings = context.sink,
@@ -101,6 +104,29 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
           _          <- bootstrapper.createTargetTable
           commentOpt <- propertyManager.getProperty(tableName, "comment")
         yield assertTrue(commentOpt.contains(expectedComment))
+      }
+    },
+    test("createTargetTable does not migrate schema when isMigrating is true") {
+      val tableName                   = s"bootstrapper_nomig_${UUID.randomUUID().toString.replace("-", "")}"
+      val initialSchema: ArcaneSchema = Seq(MergeKeyField)
+      val evolvedSource = new StreamingSource:
+        override type SchemaType    = ArcaneSchema
+        override type WatermarkType = TimestampOnlyWatermark
+        override def getSchema: Task[SchemaType] =
+          ZIO.succeed(Seq(MergeKeyField, models.schemas.Field("new_col", models.schemas.ArcaneType.StringType)))
+        override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType) = ZStream.empty
+        override def deleteShards(prefix: String): Task[Unit]                      = ZIO.unit
+        override def empty: SchemaType                                             = ArcaneSchema.empty()
+
+      withProvisionedBootstrapper(tableName, "p", "r", isMigrating = true, source = evolvedSource) {
+        (bootstrapper, sinkEntityManager, propertyManager) =>
+          for
+            _           <- sinkEntityManager.createTable(CreateTableRequest(tableName, initialSchema, replace = false))
+            _           <- bootstrapper.createTargetTable
+            schemaAfter <- propertyManager.getTableSchema(tableName)
+          yield assertTrue(
+            !schemaAfter.columns().asScala.exists(_.name().equalsIgnoreCase("new_col"))
+          )
       }
     },
     test("checkMigrations succeeds when isMigrating is true even if migrations are not current") {
