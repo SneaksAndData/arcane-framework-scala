@@ -20,6 +20,7 @@ import services.base.InsertUpdateDeleteSource
 import services.mssql.given_Conversion_SqlSchema_ArcaneSchema
 import services.mssql.base.MsSqlStreamingSource.closeSafe
 import services.mssql.migrations.{SqlServerArcaneMergeKeyMigration, SqlServerArcaneVersionMigration}
+import migrations.m1.FieldSelectorSchemaMigration
 import services.mssql.query.LazyQueryResult.toDataRow
 import services.mssql.query.{LazyQueryResult, ScalarQueryResult}
 import services.mssql.versioning.MsSqlWatermark
@@ -67,7 +68,8 @@ class MsSqlStreamingSource(
     Map(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
         new SqlServerArcaneMergeKeyMigration(columnSummaries),
-        new SqlServerArcaneVersionMigration()
+        new SqlServerArcaneVersionMigration(),
+        new FieldSelectorSchemaMigration()
       ))
     )
 
@@ -93,7 +95,7 @@ class MsSqlStreamingSource(
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion("ChangeTrackingVersion"))
 
-  override protected def essentialFields: Set[String] = super.essentialFields ++ Set(
+  override def essentialFields: Set[String] = super.essentialFields ++ Set(
     "sys_change_version",
     "sys_change_operation"
   )

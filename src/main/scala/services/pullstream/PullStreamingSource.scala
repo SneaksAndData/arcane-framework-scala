@@ -20,6 +20,7 @@ import services.pullstream.migrations.{
   PullStreamPropertiesMigration,
   PullStreamVersionFieldMigration
 }
+import com.sneaksanddata.arcane.framework.migrations.m1.FieldSelectorSchemaMigration
 import services.pullstream.versioning.PullStreamWatermark
 import services.streaming.base.StructuredZStream
 
@@ -60,7 +61,8 @@ class PullStreamingSource(
       CurrentMigration -> (super.definedMigrations(CurrentMigration) ++ Seq(
         new PullStreamArcaneMergeKeyMigration(),
         new PullStreamVersionFieldMigration(settings.versionFieldName),
-        new PullStreamPropertiesMigration()
+        new PullStreamPropertiesMigration(),
+        new FieldSelectorSchemaMigration()
       ))
     )
 

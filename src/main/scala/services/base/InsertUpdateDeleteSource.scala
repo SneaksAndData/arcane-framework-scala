@@ -19,7 +19,7 @@ abstract class InsertUpdateDeleteSource(
     with PrimaryKeyProvider
     with VersionProvider:
 
-  protected def essentialFields: Set[String] = Set(
+  override def essentialFields: Set[String] = super.essentialFields ++ Set(
     MergeKeyField.name.toLowerCase,
     VersionField.name.toLowerCase
   )
