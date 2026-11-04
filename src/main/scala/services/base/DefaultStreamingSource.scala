@@ -8,7 +8,7 @@ import extensions.ZExtensions.combineWith
 
 import zio.{Chunk, Task, ZIO}
 
-import java.time.{Instant, OffsetDateTime, ZoneOffset}
+import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneOffset}
 
 abstract class DefaultStreamingSource(
     protected val modifications: Seq[DataRowModification]
@@ -66,8 +66,8 @@ abstract class DefaultStreamingSource(
         name = LoadTimestampField.name,
         Type = LoadTimestampField.fieldType,
         value = timestamp match
-          case None     => OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
-          case Some(ts) => ts
+          case None     => LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
+          case Some(ts) => ts.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime
       )
     }
 

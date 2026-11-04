@@ -404,7 +404,7 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
         rows.nonEmpty,
         rows.forall(
           _.find(_.name == LoadTimestampField.name).exists(cell =>
-            cell.Type == LoadTimestampField.fieldType && cell.value == fixedTimestamp
+            cell.Type == LoadTimestampField.fieldType && cell.value == fixedTimestamp.toLocalDateTime
           )
         )
       )
