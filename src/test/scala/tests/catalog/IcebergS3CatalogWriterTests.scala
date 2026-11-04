@@ -10,6 +10,7 @@ import services.iceberg.{IcebergCatalogFactory, IcebergS3CatalogWriter, IcebergS
 import tests.shared.IcebergCatalogInfo.*
 import tests.shared.TestStagingSettings
 
+import org.apache.iceberg.SnapshotChanges
 import org.apache.iceberg.data.Record
 import org.apache.iceberg.data.parquet.GenericParquetReaders
 import org.apache.iceberg.parquet.Parquet
@@ -106,7 +107,8 @@ object IcebergS3CatalogWriterTests extends ZIOSpecDefault:
           logAnnotations = Seq()
         )
         written <- ZIO.attemptBlocking {
-          val file = tbl.currentSnapshot().addedDataFiles(tbl.io()).iterator().next()
+          val file =
+            SnapshotChanges.builderFor(tbl).snapshot(tbl.currentSnapshot()).build().addedDataFiles().iterator().next()
           Using.resource(
             Parquet
               .read(tbl.io().newInputFile(file.location()))
