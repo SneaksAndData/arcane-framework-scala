@@ -54,7 +54,7 @@ Applied once by starting the application with `STREAMCONTEXT__RUNMODE=Migrate`.
 
 ## Microsoft SQL Server (MsSql)
 - **Cached Schema**: `MsSqlStreamingSource` now resolves the table schema and column summaries once when the source is constructed (`SqlSchema`, `ColumnSummary`) instead of querying `INFORMATION_SCHEMA` and rebuilding the schema for every batch. `getFilteredSummaries` restricts PK/column summaries to the currently selected fields.
-- **Change Capture Window**: Added `getChangesForVersionRangeQuery`, which reads changes between two change-tracking versions and applies the upper bound in SQL (`WHERE CAST(lastId AS bigint) <= maxId`), so `changeCaptureRangeLimit` is enforced by the source itself.
+- **Change Capture Window**: Added `getChangesForVersionRangeQuery`, which reads changes between two change-tracking versions and applies the upper bound in SQL (`WHERE ct.SYS_CHANGE_VERSION <= maxId`), so `changeCaptureRangeLimit` is enforced by the source itself.
 - **Surrogate Columns**: `ChangeTrackingVersion` is now used internally to derive `ARCANE_VERSION` and is excluded from emitted rows; `ARCANE_MERGE_KEY` is computed in the framework with murmur3 over the primary-key columns. The SHA-256 merge-key expression was removed from the generated select queries.
 - **Migrations**: Added `SqlServerArcaneMergeKeyMigration` (murmur3 merge key) and `SqlServerArcaneVersionMigration` (adds `ARCANE_VERSION`, copies `ChangeTrackingVersion` into it and drops the legacy column).
 
