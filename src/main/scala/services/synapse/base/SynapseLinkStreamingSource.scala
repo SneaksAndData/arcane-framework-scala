@@ -312,7 +312,13 @@ final class SynapseLinkStreamingSource(
       .filterZIO(wm => isValidSynapseBatch(wm.prefix))
       .mapZIO(wm =>
         getBatchSchema(wm.prefix)
-          .map(batchSchema => (stream = (getChangesForVersion(wm, batchSchema), batchSchema), source = wm.prefix))
+          .combineWith(allModifications)
+          .flatMap { case (batchSchema, mods) =>
+            applySchemaModifications(batchSchema, mods)
+              .map(modifiedSchema =>
+                (stream = (getChangesForVersion(wm, modifiedSchema), modifiedSchema), source = wm.prefix)
+              )
+          }
       )
 
 object SynapseLinkStreamingSource:
