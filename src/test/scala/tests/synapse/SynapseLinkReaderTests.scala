@@ -53,6 +53,36 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         !schema.exists(_.name.equalsIgnoreCase("versionnumber"))
       )
     },
+    test("getShards applies schema modifications to shard schemas and rows") {
+      for
+        path <- ZIO.succeed(AdlsStoragePath(s"abfss://$container@$storageAccount.dfs.core.windows.net/").get)
+        synapseLinkReader <- ZIO.succeed(
+          new SynapseLinkStreamingSource(path, tableName, storageReader, Seq.empty)
+        )
+        startFrom <- ZIO.succeed(OffsetDateTime.now().minus(Duration.ofHours(12)))
+        shards <- synapseLinkReader
+          .getShards(
+            SynapseWatermark(version = "", timestamp = startFrom, prefix = ""),
+            SynapseWatermark(version = "", timestamp = startFrom.plusDays(1), prefix = "")
+          )
+          .mapZIO { shard =>
+            val (rows, schema) = shard.stream
+            rows.runCollect.map(collected => (schema, collected))
+          }
+          .runCollect
+        rows = shards.flatMap(_._2)
+      yield assertTrue(
+        shards.nonEmpty,
+        rows.nonEmpty,
+        shards.forall { case (schema, _) =>
+          schema.exists(_.name == MergeKeyField.name) &&
+          schema.exists(_.name == VersionField.name) &&
+          !schema.exists(_.name.equalsIgnoreCase("Id")) &&
+          !schema.exists(_.name.equalsIgnoreCase("versionnumber"))
+        },
+        shards.forall { case (schema, shardRows) => shardRows.forall(_.map(_.name) == schema.map(_.name)) }
+      )
+    },
     test("fails on incorrect schema") {
       for
         path <- ZIO.succeed(

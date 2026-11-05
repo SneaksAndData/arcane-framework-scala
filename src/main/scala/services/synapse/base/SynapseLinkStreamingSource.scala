@@ -316,7 +316,7 @@ final class SynapseLinkStreamingSource(
           .flatMap { case (batchSchema, mods) =>
             applySchemaModifications(batchSchema, mods)
               .map(modifiedSchema =>
-                (stream = (getChangesForVersion(wm, modifiedSchema), modifiedSchema), source = wm.prefix)
+                (stream = (getChangesForVersion(wm, batchSchema), modifiedSchema), source = wm.prefix)
               )
           }
       )
