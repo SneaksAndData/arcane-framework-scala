@@ -3,13 +3,15 @@ package services.storage.services.azure
 
 import logging.ZIOLogAnnotations.zlog
 import models.settings.azure.AzureStorageConnectionSettings
-import models.settings.azure.{SharedKeyImpl, DefaultImpl}
+import models.settings.azure.{AzureProxySettings, SharedKeyImpl, DefaultImpl}
 import services.storage.base.BlobStorageReader
 import services.storage.models.azure.AdlsStoragePath
 import services.storage.models.azure.AzureModelConversions.given
 import services.storage.models.base.StoredBlob
 
 import com.azure.core.credential.{AccessToken, TokenCredential, TokenRequestContext}
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder
+import com.azure.core.http.{HttpClient, ProxyOptions}
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
@@ -20,6 +22,7 @@ import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO}
 
 import java.io.{BufferedReader, InputStreamReader}
+import java.net.InetSocketAddress
 import java.time.Duration
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
@@ -31,13 +34,22 @@ final class AzureBlobStorageReader(
 ) extends BlobStorageReader[AdlsStoragePath]:
 
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
+
+  private def proxiedHttpClient(proxy: AzureProxySettings): HttpClient =
+    val options = new ProxyOptions(ProxyOptions.Type.HTTP, new InetSocketAddress(proxy.host, proxy.port))
+    new NettyAsyncHttpClientBuilder().proxy(proxy.nonProxyHosts.fold(options)(options.setNonProxyHosts)).build()
+
   private lazy val serviceClient =
-    val builder = storageConnectionSettings.credentialType match
+    val credentialBuilder = storageConnectionSettings.credentialType match
       case SharedKeyImpl(sharedKey) =>
         new BlobServiceClientBuilder().credential(
           StorageSharedKeyCredential(storageConnectionSettings.accountName, sharedKey.accessKey)
         )
       case DefaultImpl(_) => new BlobServiceClientBuilder().credential(defaultCredential)
+
+    val builder = storageConnectionSettings.httpClient.proxy.fold(credentialBuilder)(proxy =>
+      credentialBuilder.httpClient(proxiedHttpClient(proxy))
+    )
 
     builder
       .endpoint(
