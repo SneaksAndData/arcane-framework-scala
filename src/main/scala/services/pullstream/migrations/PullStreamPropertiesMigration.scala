@@ -52,7 +52,7 @@ class PullStreamPropertiesMigration extends Migration:
 
       existingPageSize <- sinkPropertyManager.getProperty(targetTableName, pageSizeKey)
       _ <- ZIO.when(existingPageSize.isEmpty) {
-        val pageSizeValue = "1000"
+        val pageSizeValue = PullStreamingSource.defaultPageSize.toString
         for
           _ <- sinkPropertyManager.setProperty(targetTableName, pageSizeKey, pageSizeValue)
           _ <- zlog("Set property %s=%s on %s", pageSizeKey, pageSizeValue, targetTableName)
@@ -61,7 +61,7 @@ class PullStreamPropertiesMigration extends Migration:
 
       existingDecodeChunk <- sinkPropertyManager.getProperty(targetTableName, decodeChunkKey)
       _ <- ZIO.when(existingDecodeChunk.isEmpty) {
-        val decodeChunkValue = "32"
+        val decodeChunkValue = PullStreamingSource.defaultDecodeChunkSize.toString
         for
           _ <- sinkPropertyManager.setProperty(targetTableName, decodeChunkKey, decodeChunkValue)
           _ <- zlog("Set property %s=%s on %s", decodeChunkKey, decodeChunkValue, targetTableName)
