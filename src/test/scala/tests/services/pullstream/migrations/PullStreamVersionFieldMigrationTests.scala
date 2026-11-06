@@ -104,5 +104,58 @@ object PullStreamVersionFieldMigrationTests extends ZIOSpecDefault:
           !columns.stream().anyMatch(_.name().equalsIgnoreCase(legacyVersionFieldName))
         )
       }
+    },
+    test("adds ARCANE_VERSION when it does not exist, then moves the legacy watermark column into it") {
+      val tableName = s"pull_vf_add_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, legacyVersionFieldName, Types.StringType.get()),
+        Types.NestedField.optional(2, "userId", Types.StringType.get())
+      )
+      val migration      = new PullStreamVersionFieldMigration(legacyVersionFieldName)
+      val timestamp      = OffsetDateTime.ofInstant(Instant.parse("2026-08-04T12:34:56.000Z"), ZoneOffset.UTC)
+      val expectedMillis = timestamp.toInstant.toEpochMilli
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _             <- insertRow(trinoCon, tableName, s"values ('${timestamp.toString}', 'user-1')")
+          columnsBefore <- propertyManager.getTableSchema(tableName).map(_.columns())
+          _             <- migration.execute(propertyManager, context, mergeClient, TestStreamingSource)
+          updatedVersion <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            VersionField.name,
+            "userId",
+            "user-1"
+          )
+          columnsAfter <- propertyManager.getTableSchema(tableName).map(_.columns())
+        yield assertTrue(
+          !columnsBefore.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
+          updatedVersion == expectedMillis.toString,
+          columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
+          !columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase(legacyVersionFieldName))
+        )
+      }
+    },
+    test("is a no-op when the legacy watermark column is already absent") {
+      val tableName = s"pull_vf_noop_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, "userId", Types.StringType.get()),
+        Types.NestedField.optional(2, VersionField.name, Types.LongType.get())
+      )
+      val migration = new PullStreamVersionFieldMigration(legacyVersionFieldName)
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _ <- insertRow(trinoCon, tableName, "values ('user-1', 42)")
+          _ <- migration.execute(propertyManager, context, mergeClient, TestStreamingSource)
+          version <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            VersionField.name,
+            "userId",
+            "user-1"
+          )
+        yield assertTrue(version == "42")
+      }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

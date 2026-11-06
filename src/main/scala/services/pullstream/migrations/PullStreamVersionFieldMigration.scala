@@ -5,10 +5,13 @@ import logging.ZIOLogAnnotations.zlog
 import migrations.base.Migration
 import models.app.PluginStreamContext
 import models.schemas.VersionField
+import models.settings.TableNaming.parts
 import services.base.{MergeServiceClient, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
 
 import zio.ZIO
+
+import scala.jdk.CollectionConverters.*
 
 /** Prior to the `dattr__`-prefixed envelope merge (see `PullStreamingSource.responseStream`), the DynamoDB watermark
   * attribute was written straight into the sink's literal `versionFieldName` column, and that column was used to order
@@ -33,18 +36,31 @@ class PullStreamVersionFieldMigration(legacyVersionFieldName: String) extends Mi
       streamingSource: StreamingSource
   ): ZIO[Any, Throwable, Unit] =
     val targetTable = context.sink.targetTableFullName
-    val versionExpr =
-      s"cast(to_unixtime(from_iso8601_timestamp($legacyVersionFieldName)) * 1000 as bigint)"
-    val updateQuery =
-      s"UPDATE $targetTable SET ${VersionField.name} = $versionExpr"
-    val dropColumnQuery =
-      s"ALTER TABLE $targetTable DROP COLUMN $legacyVersionFieldName"
-
     for
-      _ <- zlog("Executing ARCANE_VERSION migration: %s", updateQuery)
-      _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
-      _ <- zlog("Successfully migrated ARCANE_VERSION for %s", targetTable)
-      _ <- zlog("Dropping legacy watermark column: %s", dropColumnQuery)
-      _ <- mergeClient.execute(dropColumnQuery, shortName, "Migrating")
-      _ <- zlog("Successfully dropped legacy watermark column %s from %s", legacyVersionFieldName, targetTable)
+      existingColumns <- sinkPropertyManager
+        .getTableSchema(targetTable.parts.name)
+        .map(_.columns().asScala.map(_.name()).toSet)
+      _ <- ZIO.when(existingColumns.exists(_.equalsIgnoreCase(legacyVersionFieldName))) {
+        val hasVersionColumn = existingColumns.exists(_.equalsIgnoreCase(VersionField.name))
+        val versionExpr =
+          s"cast(to_unixtime(from_iso8601_timestamp($legacyVersionFieldName)) * 1000 as bigint)"
+        val updateQuery     = s"UPDATE $targetTable SET ${VersionField.name} = $versionExpr"
+        val dropColumnQuery = s"ALTER TABLE $targetTable DROP COLUMN $legacyVersionFieldName"
+        for
+          _ <- ZIO.unless(hasVersionColumn) {
+            val addColumnQuery = s"ALTER TABLE $targetTable ADD COLUMN ${VersionField.name} bigint"
+            for
+              _ <- zlog("Adding missing ARCANE_VERSION column: %s", addColumnQuery)
+              _ <- mergeClient.execute(addColumnQuery, shortName, "Migrating")
+              _ <- zlog("Successfully added ARCANE_VERSION column to %s", targetTable)
+            yield ()
+          }
+          _ <- zlog("Executing ARCANE_VERSION migration: %s", updateQuery)
+          _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
+          _ <- zlog("Successfully migrated ARCANE_VERSION for %s", targetTable)
+          _ <- zlog("Dropping legacy watermark column: %s", dropColumnQuery)
+          _ <- mergeClient.execute(dropColumnQuery, shortName, "Migrating")
+          _ <- zlog("Successfully dropped legacy watermark column %s from %s", legacyVersionFieldName, targetTable)
+        yield ()
+      }
     yield ()
