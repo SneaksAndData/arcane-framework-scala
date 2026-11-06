@@ -360,6 +360,12 @@ object PullStreamingSource:
   val pageSizePropertyName: String        = "page-size"
   val decodeChunkSizePropertyName: String = "decode-chunk-size"
 
+  /** Values assumed for a table that has not been migrated yet. Match the values `PullStreamPropertiesMigration`
+    * writes.
+    */
+  val defaultPageSize: Int        = 1000
+  val defaultDecodeChunkSize: Int = 32
+
   /** Get full name of a metadata key for a push-stream plugin key name
     */
   def getPushStreamPluginKey(name: String): String = MetadataKeys.getPluginKey("push-stream", name)
@@ -411,15 +417,19 @@ object PullStreamingSource:
         propertyManager <- ZIO.service[SinkPropertyManager]
         targetTableName = context.sink.targetTableFullName.parts.name
         tablePageSize <- propertyManager
-          .getRequiredProperty(targetTableName, pageSizePropertyKey)
-          .map(_.toInt)
+          .getProperty(targetTableName, pageSizePropertyKey)
+          .map(_.fold(defaultPageSize)(_.toInt))
         tableDecodeChunkSize <- propertyManager
-          .getRequiredProperty(targetTableName, decodeChunkSizePropertyKey)
-          .map(_.toInt)
-        // Treats empty string or null as None, indicating decoding should start from the root
+          .getProperty(targetTableName, decodeChunkSizePropertyKey)
+          .map(_.fold(defaultDecodeChunkSize)(_.toInt))
+        // Treats empty string or null as None, indicating decoding should start from the root.
+        // Falls back to the legacy unprefixed property, which is what the migration moves to the prefixed key.
         tableJsonPointer <- propertyManager
-          .getRequiredProperty(targetTableName, jsonPointerPropertyKey)
-          .map(ptr => Option(ptr).filter(_.nonEmpty))
+          .getProperty(targetTableName, jsonPointerPropertyKey)
+          .flatMap(
+            _.fold(propertyManager.getProperty(targetTableName, jsonPointerPropertyName))(ptr => ZIO.succeed(Some(ptr)))
+          )
+          .map(_.filter(_.nonEmpty))
       yield PullStreamingSource(
         settings,
         dynamodbClient,

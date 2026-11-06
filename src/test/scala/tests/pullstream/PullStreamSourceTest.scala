@@ -1,23 +1,38 @@
 package com.sneaksanddata.arcane.framework
 package tests.pullstream
 
+import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest as IcebergCreateTableRequest
 import models.schemas.{MergeKeyField, VersionField}
+import models.settings.sink.SinkSettings
+import services.iceberg.base.SinkPropertyManager
+import services.merging.JdbcMergeServiceClient
+import services.metrics.DeclaredMetrics
+import services.migration.DefaultMigrationService
 import services.pullstream.PullStreamingSource
+import services.pullstream.migrations.PullStreamPropertiesMigration
 import services.pullstream.versioning.PullStreamWatermark
+import services.iceberg.given_Conversion_ArcaneSchema_Schema
 import tests.pullstream.util.PullStreamTestServices
-import tests.shared.{IcebergUtil, TestDynamicSinkSettings}
-import com.sneaksanddata.arcane.framework.services.iceberg.given_Conversion_ArcaneSchema_Schema
+import tests.shared.{
+  IcebergUtil,
+  TestDynamicSinkSettings,
+  TestJdbcMergeServiceClientSettings,
+  TestPluginStreamContextImpl
+}
 
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, ZIO}
+import zio.{Scope, ZIO, ZLayer}
 
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 
 object PullStreamSourceTest extends ZIOSpecDefault:
 
   private val schema = PullStreamTestServices.payloadSchema
+
+  private val mergeClient =
+    new JdbcMergeServiceClient(TestJdbcMergeServiceClientSettings, "iceberg", "test", DeclaredMetrics(), false)
 
   /** Fields `defaultPayload` actually carries. `schema` additionally declares `id`/the watermark column because the
     * sink always has them, but the payload never does, so those two never surface as cells on the decoded row.
@@ -205,6 +220,43 @@ object PullStreamSourceTest extends ZIOSpecDefault:
                   Set("eventType", "timestamp", "source", "message") + MergeKeyField.name + VersionField.name
               )
               && assertTrue(eventTypes.forall(_ == "Producer1Event"))
+        }
+      } yield result
+    },
+    test("MigrationServiceRunsMigrationsOnUnmigratedTable") {
+      // the migration service needs a source to run, so the source has to be constructible before the table
+      // carries any of the push-stream properties
+      for {
+        tableName <- PullStreamTestServices.genSourceTableName
+        icebergUtil = IcebergUtil(TestDynamicSinkSettings(s"iceberg.test.$tableName").icebergCatalog)
+        client <- PullStreamTestServices.getClient
+        result <- PullStreamTestServices.withSourceTable(tableName, client) {
+          for {
+            sinkEntityManager   <- icebergUtil.getSinkEntityManager
+            _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
+            sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            context = new TestPluginStreamContextImpl:
+              override val sink: SinkSettings = new TestDynamicSinkSettings(s"iceberg.test.$tableName")
+            source <- ZIO
+              .service[PullStreamingSource]
+              .provide(
+                PullStreamingSource.getLayer(_ => PullStreamTestServices.pullStreamSettings(tableName)),
+                ZLayer.succeed[PluginStreamContext](context),
+                ZLayer.succeed(client),
+                ZLayer.succeed[SinkPropertyManager](sinkPropertyManager)
+              )
+            migrationService = DefaultMigrationService(sinkPropertyManager, context, mergeClient, source)
+            _        <- migrationService.execute(new PullStreamPropertiesMigration())
+            pageSize <- sinkPropertyManager.getRequiredProperty(tableName, PullStreamingSource.pageSizePropertyKey)
+            decodeChunkSize <- sinkPropertyManager.getRequiredProperty(
+              tableName,
+              PullStreamingSource.decodeChunkSizePropertyKey
+            )
+            jsonPointer <- sinkPropertyManager.getRequiredProperty(
+              tableName,
+              PullStreamingSource.jsonPointerPropertyKey
+            )
+          } yield assertTrue(pageSize == "1000", decodeChunkSize == "32", jsonPointer == "")
         }
       } yield result
     }
