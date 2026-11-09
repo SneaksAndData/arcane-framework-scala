@@ -1,15 +1,15 @@
 MERGE INTO test.table_a t_o
 USING (SELECT * FROM (
- SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ARCANE_VERSION DESC) FETCH FIRST 1 ROWS WITH TIES
+ SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY arcane_merge_key ORDER BY arcane_version DESC) FETCH FIRST 1 ROWS WITH TIES
 )) t_s
-ON t_o.ARCANE_MERGE_KEY = t_s.ARCANE_MERGE_KEY AND (t_o.colA = t_s.colA OR t_s.colA IS NULL)
-WHEN MATCHED AND t_s.ARCANE_VERSION > t_o.ARCANE_VERSION THEN UPDATE SET
+ON t_o.arcane_merge_key = t_s.arcane_merge_key AND (t_o.colA = t_s.colA OR t_s.colA IS NULL)
+WHEN MATCHED AND t_s.arcane_version > t_o.arcane_version THEN UPDATE SET
  colA = t_s.colA,
 colB = t_s.colB,
 Id = t_s.Id,
-ARCANE_VERSION = t_s.ARCANE_VERSION
-WHEN NOT MATCHED  THEN INSERT (ARCANE_MERGE_KEY,colA,colB,Id,ARCANE_VERSION) VALUES (t_s.ARCANE_MERGE_KEY,
+arcane_version = t_s.arcane_version
+WHEN NOT MATCHED  THEN INSERT (arcane_merge_key,colA,colB,Id,arcane_version) VALUES (t_s.arcane_merge_key,
 t_s.colA,
 t_s.colB,
 t_s.Id,
-t_s.ARCANE_VERSION)
+t_s.arcane_version)

@@ -24,8 +24,8 @@ class BlobListingArcaneVersionMigration extends Migration:
   private val legacyVersionFieldName = BlobBatchCommons.versionField.name
 
   val description: String =
-    s"Copies $legacyVersionFieldName into ARCANE_VERSION, then drops the legacy $legacyVersionFieldName column from the sink " +
-      "table, now that it is only used internally to derive ARCANE_VERSION"
+    s"Copies $legacyVersionFieldName into ${VersionField.name}, then drops the legacy $legacyVersionFieldName column from the sink " +
+      s"table, now that it is only used internally to derive ${VersionField.name}"
   val shortName: String = "arcane_version"
   val uniqueId: Long    = 73960215L
 
@@ -48,14 +48,14 @@ class BlobListingArcaneVersionMigration extends Migration:
           _ <- ZIO.unless(hasVersionColumn) {
             val addColumnQuery = s"ALTER TABLE $targetTable ADD COLUMN ${VersionField.name} bigint"
             for
-              _ <- zlog("Adding missing ARCANE_VERSION column: %s", addColumnQuery)
+              _ <- zlog("Adding missing %s column: %s", VersionField.name, addColumnQuery)
               _ <- mergeClient.execute(addColumnQuery, shortName, "Migrating")
-              _ <- zlog("Successfully added ARCANE_VERSION column to %s", targetTable)
+              _ <- zlog("Successfully added %s column to %s", VersionField.name, targetTable)
             yield ()
           }
-          _ <- zlog("Executing ARCANE_VERSION migration: %s", updateQuery)
+          _ <- zlog("Executing %s migration: %s", VersionField.name, updateQuery)
           _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
-          _ <- zlog("Successfully migrated ARCANE_VERSION for %s", targetTable)
+          _ <- zlog("Successfully migrated %s for %s", VersionField.name, targetTable)
           _ <- zlog("Dropping legacy column: %s", dropColumnQuery)
           _ <- mergeClient.execute(dropColumnQuery, shortName, "Migrating")
           _ <- zlog("Successfully dropped legacy column %s from %s", legacyVersionFieldName, targetTable)

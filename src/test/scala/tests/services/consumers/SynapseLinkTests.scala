@@ -32,11 +32,11 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     val query = SynapseLinkMergeQuery(
       "test.table_a",
       s"""SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ${MergeKeyField.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Seq(),
-      "ARCANE_MERGE_KEY",
-      Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", VersionField.name)
+      MergeKeyField.name,
+      Seq(MergeKeyField.name, "colA", "colB", "Id", VersionField.name)
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query_synapse_link.sql"))) {
@@ -49,11 +49,11 @@ class SynapseLinkTests extends AnyFlatSpec with Matchers:
     val query = SynapseLinkMergeQuery(
       "test.table_a",
       s"""SELECT * FROM (
-        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ARCANE_MERGE_KEY ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
+        | SELECT * FROM test.staged_a ORDER BY ROW_NUMBER() OVER (PARTITION BY ${MergeKeyField.name} ORDER BY ${VersionField.name} DESC) FETCH FIRST 1 ROWS WITH TIES
         |)""".stripMargin,
       Seq("colA"),
-      "ARCANE_MERGE_KEY",
-      Seq("ARCANE_MERGE_KEY", "colA", "colB", "Id", VersionField.name)
+      MergeKeyField.name,
+      Seq(MergeKeyField.name, "colA", "colB", "Id", VersionField.name)
     )
 
     val expected =

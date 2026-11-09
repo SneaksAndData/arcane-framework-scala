@@ -9,7 +9,6 @@ import models.settings.sources.pullstream.PullStreamSourceSettings
 import logging.ZIOLogAnnotations.zlog
 
 import com.sneaksanddata.arcane.framework.migrations.base.{CurrentMigration, Migration, SinkMigrationIdentifier}
-import extensions.ZExtensions.combineWith
 import models.settings.sources.modification.{DataRowModification, FrozenSurrogateMergeKey, FrozenSurrogateVersion}
 import services.base.{InsertUpdateDeleteSource, SchemaProvider, StreamingSource}
 import services.iceberg.base.SinkPropertyManager
@@ -48,7 +47,7 @@ import scala.jdk.CollectionConverters.*
 class PullStreamingSource(
     settings: PullStreamSourceSettings,
     dynamodbClient: DynamoDbClient,
-    sinkPropertyManager: SinkPropertyManager,
+    sinkSchema: org.apache.iceberg.Schema,
     targetTableFullName: String,
     pageSize: Int,
     chunkSize: Int,
@@ -95,8 +94,7 @@ class PullStreamingSource(
   override protected val getVersionField: Task[FrozenSurrogateVersion] =
     ZIO.succeed(FrozenSurrogateVersion(dynamoVersionFieldName))
 
-  override protected def getSourceSchema: Task[ArcaneSchema] =
-    this.sinkPropertyManager.getTableSchema(targetTableName).map(implicitly)
+  override protected def getSourceSchema: Task[ArcaneSchema] = ZIO.succeed(sinkSchema)
 
   override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType): ZStream[Any, Throwable, ShardMetadata] =
     ZStream.empty
@@ -221,39 +219,38 @@ class PullStreamingSource(
       yield response -> next
     }
 
-  private def getSchemaInfo: Task[(AvroSchema, org.apache.iceberg.Schema)] =
-    for icebergSchema <- this.sinkPropertyManager.getTableSchema(targetTableName)
-    yield {
-      // ARCANE_MERGE_KEY and ARCANE_VERSION are synthesized by the row modifications from the `dattr__`-prefixed
-      // envelope fields (see responseStream); they are never present in `payload` itself, so under strict decoding
-      // they must be excluded from the schema the decoder validates against. The unpruned sink schema is still
-      // returned, since the staging table must declare both columns for their values to be written.
-      val excludedColumnNames = Set(MergeKeyField.name, VersionField.name)
-      val payloadColumns = icebergSchema
-        .columns()
-        .asScala
-        .filterNot(column => excludedColumnNames.exists(_.equalsIgnoreCase(column.name())))
+  /** Avro schema the decoder validates payloads against, derived once from the sink schema this source was created
+    * with.
+    *
+    * ARCANE_MERGE_KEY and ARCANE_VERSION are synthesized by the row modifications from the `dattr__`-prefixed envelope
+    * fields (see responseStream); they are never present in `payload` itself, so under strict decoding they must be
+    * excluded from the schema the decoder validates against. The unpruned sink schema is still what the source reports
+    * to the stream, since the staging table must declare both columns for their values to be written.
+    *
+    * The `dattr__` fields are never declared by the sink, since they exist only to carry the DynamoDB envelope's
+    * `id`/watermark into the row modifications; the decoder must be told about them explicitly.
+    */
+  private val decoderAvroSchema: AvroSchema =
+    val excludedColumnNames = Set(MergeKeyField.name, VersionField.name)
+    val payloadColumns = sinkSchema
+      .columns()
+      .asScala
+      .filterNot(column => excludedColumnNames.exists(_.equalsIgnoreCase(column.name())))
 
-      // The `dattr__` fields are never declared by the sink, since they exist only to carry the DynamoDB envelope's
-      // `id`/watermark into the row modifications; the decoder must be told about them explicitly.
-      val withEnvelopeColumns = payloadColumns ++ Seq(
-        Types.NestedField.optional(
-          payloadColumns.map(_.fieldId()).maxOption.getOrElse(0) + 1,
-          dynamoIdFieldName,
-          Types.StringType.get()
-        ),
-        Types.NestedField.optional(
-          payloadColumns.map(_.fieldId()).maxOption.getOrElse(0) + 2,
-          dynamoVersionFieldName,
-          Types.LongType.get()
-        )
+    val withEnvelopeColumns = payloadColumns ++ Seq(
+      Types.NestedField.optional(
+        payloadColumns.map(_.fieldId()).maxOption.getOrElse(0) + 1,
+        dynamoIdFieldName,
+        Types.StringType.get()
+      ),
+      Types.NestedField.optional(
+        payloadColumns.map(_.fieldId()).maxOption.getOrElse(0) + 2,
+        dynamoVersionFieldName,
+        Types.LongType.get()
       )
+    )
 
-      (
-        AvroSchemaUtil.convert(org.apache.iceberg.Schema(withEnvelopeColumns.asJava), targetTableName),
-        icebergSchema
-      )
-    }
+    AvroSchemaUtil.convert(org.apache.iceberg.Schema(withEnvelopeColumns.asJava), targetTableName)
 
   /** Parse the dynamodb query response into DataRows.
     *
@@ -268,14 +265,11 @@ class PullStreamingSource(
     * letting a whole page land in one chunk would hold every decoded row of that page in memory at once. A page is up
     * to `listPageSize` items of raw JSON, and decoding amplifies that into DataRows, which is where the peak sits.
     */
-  private def responseStream(
-      queryResponse: QueryResponse,
-      avroSchema: AvroSchema
-  ): ZStream[Any, Throwable, DataRow] =
+  private def responseStream(queryResponse: QueryResponse): ZStream[Any, Throwable, DataRow] =
     // nested documents land in Types.VariantType columns on the sink, whose parquet writer expects a Variant.
     // The pointer is applied here, before the envelope fields are merged in, rather than passed to the decoder: a
     // pointer into a nested member must receive the envelope fields at the pointed node, not at the document root.
-    val decoder = new AvroJsonDecoder(schema = avroSchema, tolerateMissingFields = false)
+    val decoder = new AvroJsonDecoder(schema = decoderAvroSchema, tolerateMissingFields = false)
 
     ZStream
       .fromIterable(queryResponse.items().asScala, chunkSize)
@@ -304,12 +298,12 @@ class PullStreamingSource(
     *   An effect containing the changes in the database since the given version and the latest observed version.
     */
   def getChanges(previousVersion: PullStreamWatermark): ZStream[Any, Throwable, StructuredZStream] =
-    ZStream.fromZIO(getSchemaInfo.combineWith(allModifications)).map { case ((avroSchema, icebergSchema), mods) =>
+    ZStream.fromZIO(allModifications).map { mods =>
       val rowStream: ZStream[Any, Throwable, DataRow] =
         paginatedQuery(buildQueryGetChanges(previousVersion))
-          .flatMap(response => responseStream(response, avroSchema))
+          .flatMap(responseStream)
           .mapChunks(rowChunk => applyDataRowModifications(rowChunk, mods).map(dropDynamoAttributeFields))
-      (rowStream, icebergSchema)
+      (rowStream, sinkSchema)
     }
 
   /** Removes the `dattr__`-prefixed DynamoDB envelope fields from a decoded row.
@@ -388,7 +382,7 @@ object PullStreamingSource:
   def apply(
       settings: PullStreamSourceSettings,
       dynamodbClient: DynamoDbClient,
-      sinkPropertyManager: SinkPropertyManager,
+      sinkSchema: org.apache.iceberg.Schema,
       targetTableFullName: String,
       pageSize: Int,
       chunkSize: Int,
@@ -398,7 +392,7 @@ object PullStreamingSource:
     new PullStreamingSource(
       settings,
       dynamodbClient,
-      sinkPropertyManager,
+      sinkSchema,
       targetTableFullName,
       pageSize,
       chunkSize,
@@ -416,6 +410,7 @@ object PullStreamingSource:
         dynamodbClient  <- ZIO.service[DynamoDbClient]
         propertyManager <- ZIO.service[SinkPropertyManager]
         targetTableName = context.sink.targetTableFullName.parts.name
+        sinkSchema <- propertyManager.getTableSchema(targetTableName)
         tablePageSize <- propertyManager
           .getProperty(targetTableName, pageSizePropertyKey)
           .map(_.fold(defaultPageSize)(_.toInt))
@@ -433,7 +428,7 @@ object PullStreamingSource:
       yield PullStreamingSource(
         settings,
         dynamodbClient,
-        propertyManager,
+        sinkSchema,
         context.sink.targetTableFullName,
         tablePageSize,
         tableDecodeChunkSize,

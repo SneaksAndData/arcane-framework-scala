@@ -34,8 +34,12 @@ import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
+
+  /** Name of the merge key column in tables created before 2.4 */
+  private val legacyMergeKeyName = "ARCANE_MERGE_KEY"
 
   private val mergeClient = new JdbcMergeServiceClient(
     TestJdbcMergeServiceClientSettings,
@@ -103,7 +107,7 @@ object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
     test("migrates single primary key ARCANE_MERGE_KEY on provisioned table") {
       val tableName = s"merge_key_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
-        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(1, legacyMergeKeyName, Types.StringType.get()),
         Types.NestedField.optional(2, "id", Types.StringType.get()),
         Types.NestedField.optional(3, "val", Types.StringType.get())
       )
@@ -120,13 +124,19 @@ object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
             "id",
             "pk_1"
           )
-        yield assertTrue(updatedKey == HashUtils.murmur3("pk_1"))
+          columns <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+        yield assertTrue(
+          updatedKey == HashUtils.murmur3("pk_1"),
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.exists(_.endsWith("_tmp"))
+        )
       }
     },
     test("migrates composite primary keys ARCANE_MERGE_KEY on provisioned table") {
       val tableName = s"merge_key_comp_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
-        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(1, legacyMergeKeyName, Types.StringType.get()),
         Types.NestedField.optional(2, "tenant_id", Types.StringType.get()),
         Types.NestedField.optional(3, "user_id", Types.StringType.get()),
         Types.NestedField.optional(4, "data", Types.StringType.get())
@@ -145,7 +155,13 @@ object SqlServerArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
             "tenant_id",
             "tenant_A"
           )
-        yield assertTrue(updatedKey == HashUtils.murmur3("tenant_A#user_42"))
+          columns <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+        yield assertTrue(
+          updatedKey == HashUtils.murmur3("tenant_A#user_42"),
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.exists(_.endsWith("_tmp"))
+        )
       }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

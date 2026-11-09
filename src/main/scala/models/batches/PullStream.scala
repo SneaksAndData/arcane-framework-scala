@@ -32,8 +32,8 @@ object PullStreamChangeTrackingMergeQuery:
       columns: Seq[String]
   ): MergeQuery = {
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map.empty, MergeKeyField.name, partitionFields.filterNot(_ == MergeKeyField.name))
-      ++ matchedUpdate(columns.filterNot(_ == MergeKeyField.name))
+      ++ OnSegment(Map.empty, MergeKeyField.name, partitionFields.filterNot(_.equalsIgnoreCase(MergeKeyField.name)))
+      ++ matchedUpdate(columns.filterNot(_.equalsIgnoreCase(MergeKeyField.name)))
       ++ NotMatchedInsert(columns)
   }
 
