@@ -13,4 +13,3 @@ trait StreamSourceSettings extends Mergeable:
   val buffering: SourceBufferingSettings
 
   val modifications: DataRowModificationSettings
-
