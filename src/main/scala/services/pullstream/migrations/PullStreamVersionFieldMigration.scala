@@ -25,7 +25,7 @@ import scala.jdk.CollectionConverters.*
   */
 class PullStreamVersionFieldMigration(legacyVersionFieldName: String) extends Migration:
   val description: String =
-    "Moves the pull stream watermark column into ARCANE_VERSION (as epoch millis) and drops the legacy column"
+    s"Moves the pull stream watermark column into ${VersionField.name} (as epoch millis) and drops the legacy column"
   val shortName: String = "arcane_version_field"
   val uniqueId: Long    = 95713208L
 
@@ -50,14 +50,14 @@ class PullStreamVersionFieldMigration(legacyVersionFieldName: String) extends Mi
           _ <- ZIO.unless(hasVersionColumn) {
             val addColumnQuery = s"ALTER TABLE $targetTable ADD COLUMN ${VersionField.name} bigint"
             for
-              _ <- zlog("Adding missing ARCANE_VERSION column: %s", addColumnQuery)
+              _ <- zlog("Adding missing %s column: %s", VersionField.name, addColumnQuery)
               _ <- mergeClient.execute(addColumnQuery, shortName, "Migrating")
-              _ <- zlog("Successfully added ARCANE_VERSION column to %s", targetTable)
+              _ <- zlog("Successfully added %s column to %s", VersionField.name, targetTable)
             yield ()
           }
-          _ <- zlog("Executing ARCANE_VERSION migration: %s", updateQuery)
+          _ <- zlog("Executing %s migration: %s", VersionField.name, updateQuery)
           _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
-          _ <- zlog("Successfully migrated ARCANE_VERSION for %s", targetTable)
+          _ <- zlog("Successfully migrated %s for %s", VersionField.name, targetTable)
           _ <- zlog("Dropping legacy watermark column: %s", dropColumnQuery)
           _ <- mergeClient.execute(dropColumnQuery, shortName, "Migrating")
           _ <- zlog("Successfully dropped legacy watermark column %s from %s", legacyVersionFieldName, targetTable)

@@ -14,6 +14,11 @@ object MetadataKeys:
     */
   val appliedMigrationsKey = "applied-migrations"
 
+  /** Temporary key holding the number of steps of the merge key column rebuild that have completed. Removed once the
+    * rebuild finishes.
+    */
+  val mergeKeyRebuildStepKey = "merge-key-rebuild-step"
+
   /** Get full name of a metadata key for a framework-scoped key name
     */
   def getFrameworkKey(name: String): String = s"$metadataKeyPrefix.$frameworkGroup.$name"

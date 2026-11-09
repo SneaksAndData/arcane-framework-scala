@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.pullstream.migrations
 
+import migrations.base.MergeKeyColumnRebuild
 import models.app.PluginStreamContext
 import models.ddl.CreateTableRequest
 import models.schemas.MergeKeyField
@@ -29,8 +30,14 @@ import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 object PullStreamArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
+
+  /** Name of the merge key column in tables created before 2.4 */
+  private val legacyMergeKeyName = "ARCANE_MERGE_KEY"
+
+  private val tmpMergeKeyName = s"${MergeKeyField.name}_tmp"
 
   private val mergeClient = new JdbcMergeServiceClient(
     TestJdbcMergeServiceClientSettings,
@@ -73,7 +80,7 @@ object PullStreamArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
     test("migrates ARCANE_MERGE_KEY on provisioned table using existing raw key") {
       val tableName = s"pull_mk_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
-        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(1, legacyMergeKeyName, Types.StringType.get()),
         Types.NestedField.optional(2, "userId", Types.StringType.get()),
         Types.NestedField.optional(3, "level", Types.StringType.get())
       )
@@ -98,9 +105,142 @@ object PullStreamArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
             "userId",
             "user-2"
           )
+          columns  <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+          progress <- propertyManager.getProperty(tableName, MergeKeyColumnRebuild.progressProperty)
         yield assertTrue(
           updatedKey1 == HashUtils.murmur3("raw_push_id_1"),
-          updatedKey2 == HashUtils.murmur3("raw_push_id_2")
+          progress.isEmpty,
+          updatedKey2 == HashUtils.murmur3("raw_push_id_2"),
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.exists(_.endsWith("_tmp"))
+        )
+      }
+    },
+    test("resumes after the temporary column was computed") {
+      val tableName = s"pull_mk_step1_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, legacyMergeKeyName, Types.StringType.get()),
+        Types.NestedField.optional(2, tmpMergeKeyName, Types.StringType.get()),
+        Types.NestedField.optional(3, "userId", Types.StringType.get())
+      )
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _ <- insertRow(trinoCon, tableName, "values ('raw_push_id_1', 'computed_key_1', 'user-1')")
+          _ <- propertyManager.setProperty(tableName, MergeKeyColumnRebuild.progressProperty, "1")
+          _ <- new PullStreamArcaneMergeKeyMigration()
+            .execute(propertyManager, context, mergeClient, TestStreamingSource)
+          key <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            MergeKeyField.name,
+            "userId",
+            "user-1"
+          )
+          columns  <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+          progress <- propertyManager.getProperty(tableName, MergeKeyColumnRebuild.progressProperty)
+        yield assertTrue(
+          key == "computed_key_1",
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.contains(tmpMergeKeyName),
+          progress.isEmpty
+        )
+      }
+    },
+    test("resumes after the legacy column was dropped") {
+      val tableName = s"pull_mk_step2_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, tmpMergeKeyName, Types.StringType.get()),
+        Types.NestedField.optional(2, "userId", Types.StringType.get())
+      )
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _ <- insertRow(trinoCon, tableName, "values ('computed_key_2', 'user-1')")
+          _ <- propertyManager.setProperty(tableName, MergeKeyColumnRebuild.progressProperty, "2")
+          _ <- new PullStreamArcaneMergeKeyMigration()
+            .execute(propertyManager, context, mergeClient, TestStreamingSource)
+          key <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            MergeKeyField.name,
+            "userId",
+            "user-1"
+          )
+          columns  <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+          progress <- propertyManager.getProperty(tableName, MergeKeyColumnRebuild.progressProperty)
+        yield assertTrue(
+          key == "computed_key_2",
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.contains(tmpMergeKeyName),
+          progress.isEmpty
+        )
+      }
+    },
+    test("resumes when the new column was added but not filled") {
+      val tableName = s"pull_mk_step2b_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, tmpMergeKeyName, Types.StringType.get()),
+        Types.NestedField.optional(2, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(3, "userId", Types.StringType.get())
+      )
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _ <- insertRow(trinoCon, tableName, "values ('computed_key_3', NULL, 'user-1')")
+          _ <- propertyManager.setProperty(tableName, MergeKeyColumnRebuild.progressProperty, "2")
+          _ <- new PullStreamArcaneMergeKeyMigration()
+            .execute(propertyManager, context, mergeClient, TestStreamingSource)
+          key <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            MergeKeyField.name,
+            "userId",
+            "user-1"
+          )
+          columns  <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+          progress <- propertyManager.getProperty(tableName, MergeKeyColumnRebuild.progressProperty)
+        yield assertTrue(
+          key == "computed_key_3",
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.contains(tmpMergeKeyName),
+          progress.isEmpty
+        )
+      }
+    },
+    test("resumes after the values were copied") {
+      val tableName = s"pull_mk_step3_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, tmpMergeKeyName, Types.StringType.get()),
+        Types.NestedField.optional(2, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(3, "userId", Types.StringType.get())
+      )
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _ <- insertRow(trinoCon, tableName, "values ('computed_key_4', 'computed_key_4', 'user-1')")
+          _ <- propertyManager.setProperty(tableName, MergeKeyColumnRebuild.progressProperty, "3")
+          _ <- new PullStreamArcaneMergeKeyMigration()
+            .execute(propertyManager, context, mergeClient, TestStreamingSource)
+          key <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            MergeKeyField.name,
+            "userId",
+            "user-1"
+          )
+          columns  <- propertyManager.getTableSchema(tableName).map(_.columns().asScala.map(_.name()).toList)
+          progress <- propertyManager.getProperty(tableName, MergeKeyColumnRebuild.progressProperty)
+        yield assertTrue(
+          key == "computed_key_4",
+          columns.contains(MergeKeyField.name),
+          !columns.contains(legacyMergeKeyName),
+          !columns.contains(tmpMergeKeyName),
+          progress.isEmpty
         )
       }
     }

@@ -34,8 +34,12 @@ import zio.{Scope, Task, ZIO}
 
 import java.sql.Connection
 import java.util.UUID
+import scala.jdk.CollectionConverters.*
 
 object SynapseLinkArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
+
+  /** Name of the merge key column in tables created before 2.4 */
+  private val legacyMergeKeyName = "ARCANE_MERGE_KEY"
 
   private val mergeClient = new JdbcMergeServiceClient(
     TestJdbcMergeServiceClientSettings,
@@ -86,7 +90,7 @@ object SynapseLinkArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
     test("migrates ARCANE_MERGE_KEY on provisioned table using Id column and drops Id column") {
       val tableName = s"synapse_mk_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
-        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(1, legacyMergeKeyName, Types.StringType.get()),
         Types.NestedField.optional(2, "Id", Types.StringType.get()),
         Types.NestedField.optional(3, "name", Types.StringType.get())
       )
@@ -117,7 +121,9 @@ object SynapseLinkArcaneMergeKeyMigrationTests extends ZIOSpecDefault:
           updatedKey1 == HashUtils.murmur3("id-101"),
           updatedKey2 == HashUtils.murmur3("id-102"),
           !columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase("Id")),
-          columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
+          columnsAfter.stream().anyMatch(_.name() == MergeKeyField.name),
+          !columnsAfter.stream().anyMatch(_.name() == legacyMergeKeyName),
+          !columnsAfter.stream().anyMatch(_.name().endsWith("_tmp")),
           columnsAfter.stream().anyMatch(_.name().equalsIgnoreCase("name"))
         )
       }
