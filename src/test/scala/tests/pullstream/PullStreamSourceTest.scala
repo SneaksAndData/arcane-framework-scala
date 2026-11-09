@@ -47,13 +47,16 @@ object PullStreamSourceTest extends ZIOSpecDefault:
         client <- PullStreamTestServices.getClient
         result <- PullStreamTestServices.withSourceTable(tableName, client) {
           for {
+            sinkEntityManager   <- icebergUtil.getSinkEntityManager
+            _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            sinkSchema          <- sinkPropertyManager.getTableSchema(tableName)
             source <- ZIO.succeed(
               PullStreamingSource(
                 settings = PullStreamTestServices
                   .pullStreamSettings(tableName),
                 dynamodbClient = client,
-                sinkPropertyManager = sinkPropertyManager,
+                sinkSchema = sinkSchema,
                 targetTableFullName = s"testWarehouse.testNs.$tableName",
                 pageSize = 1000,
                 chunkSize = 32
@@ -82,11 +85,12 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             sinkEntityManager   <- icebergUtil.getSinkEntityManager
             _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            sinkSchema          <- sinkPropertyManager.getTableSchema(tableName)
             source <- ZIO.succeed(
               PullStreamingSource(
                 settings = PullStreamTestServices.pullStreamSettings(tableName),
                 dynamodbClient = client,
-                sinkPropertyManager = sinkPropertyManager,
+                sinkSchema = sinkSchema,
                 targetTableFullName = s"testWarehouse.testNs.$tableName",
                 pageSize = pageSize.getOrElse(1000),
                 chunkSize = 32
@@ -132,10 +136,11 @@ object PullStreamSourceTest extends ZIOSpecDefault:
             sinkEntityManager   <- icebergUtil.getSinkEntityManager
             _                   <- sinkEntityManager.createTable(IcebergCreateTableRequest(tableName, schema, true))
             sinkPropertyManager <- icebergUtil.getSinkTablePropertyManager
+            sinkSchema          <- sinkPropertyManager.getTableSchema(tableName)
             source = PullStreamingSource(
               settings = PullStreamTestServices.pullStreamSettings(tableName),
               dynamodbClient = client,
-              sinkPropertyManager = sinkPropertyManager,
+              sinkSchema = sinkSchema,
               targetTableFullName = s"testWarehouse.testNs.$tableName",
               pageSize = 1000,
               chunkSize = 32
@@ -188,11 +193,12 @@ object PullStreamSourceTest extends ZIOSpecDefault:
               PullStreamingSource.jsonPointerPropertyKey,
               "/payload"
             )
+            sinkSchema <- sinkPropertyManager.getTableSchema(tableName)
             source = PullStreamingSource(
               // pointer resolved from table property
               settings = PullStreamTestServices.pullStreamSettings(tableName),
               dynamodbClient = client,
-              sinkPropertyManager = sinkPropertyManager,
+              sinkSchema = sinkSchema,
               targetTableFullName = s"testWarehouse.testNs.$tableName",
               pageSize = 1000,
               chunkSize = 32,

@@ -46,10 +46,10 @@ final class StreamTestBatch(stagedTableName: String, tableName: String, batchSch
   override val completedWatermarkValue: Option[String] = None
   override val batchQuery: MergeQuery = MergeQuery(tableName, s"select * from $stagedTableName") ++ OnSegment(
     Map(),
-    "ARCANE_MERGE_KEY",
+    MergeKeyField.name,
     Seq()
   ) ++ new WhenNotMatchedInsert {
-    override val columns: Seq[String]             = Seq("colA", "colB", "ARCANE_MERGE_KEY")
+    override val columns: Seq[String]             = Seq("colA", "colB", MergeKeyField.name)
     override val segmentCondition: Option[String] = None
   } ++ new WhenMatchedUpdate {
     override val columns: Seq[String]             = Seq("colA", "colB")

@@ -42,8 +42,8 @@ object UpsertBlobMergeQuery:
       columns: Seq[String]
   ): MergeQuery =
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map(), MergeKeyField.name, partitionFields.filterNot(c => c == MergeKeyField.name))
-      ++ MatchedUpdate(columns.filterNot(c => c == MergeKeyField.name))
+      ++ OnSegment(Map(), MergeKeyField.name, partitionFields.filterNot(_.equalsIgnoreCase(MergeKeyField.name)))
+      ++ MatchedUpdate(columns.filterNot(_.equalsIgnoreCase(MergeKeyField.name)))
       ++ NotMatchedInsert(columns)
 
 object UpsertBlobBackfillQuery:

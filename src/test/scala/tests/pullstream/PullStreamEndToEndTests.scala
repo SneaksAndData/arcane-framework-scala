@@ -141,10 +141,11 @@ object PullStreamEndToEndTests extends ZIOSpecDefault:
               PullStreamingSource.jsonPointerPropertyKey,
               "/payload"
             )
+            sinkSchema <- sinkPropertyManager.getTableSchema(targetTableName)
             source = PullStreamingSource(
               settings = PullStreamTestServices.pullStreamSettings(sourceTableName),
               dynamodbClient = client,
-              sinkPropertyManager = sinkPropertyManager,
+              sinkSchema = sinkSchema,
               targetTableFullName = targetTableFullName,
               pageSize = 1000,
               chunkSize = 32,

@@ -34,7 +34,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
       "test.table_a",
       "SELECT * FROM test.staged_a",
       Seq(),
-      Seq("ARCANE_MERGE_KEY", "colA", "colB")
+      Seq(MergeKeyField.name, "colA", "colB")
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query.sql"))) {
@@ -48,7 +48,7 @@ class SqlServerChangeTrackingTests extends AnyFlatSpec with Matchers:
       "test.table_a",
       "SELECT * FROM test.staged_a",
       Seq("colA"),
-      Seq("ARCANE_MERGE_KEY", "colA", "colB")
+      Seq(MergeKeyField.name, "colA", "colB")
     )
 
     val expected = Using(Source.fromURL(getClass.getResource("/generate_a_valid_merge_query_with_partitions.sql"))) {

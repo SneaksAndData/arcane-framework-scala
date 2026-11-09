@@ -50,7 +50,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       dropTableStatement = s"DROP TABLE IF EXISTS iceberg.test.$tableName"
       _ <- ZIO.attemptBlocking(statement.execute(dropTableStatement))
       createTableStatement =
-        s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, ${VersionField.name} BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
+        s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (${MergeKeyField.name} VARCHAR, ${VersionField.name} BIGINT, IsDelete BOOLEAN, colA VARCHAR, colB VARCHAR, Id VARCHAR)"
       _ <- ZIO.attemptBlocking(statement.execute(createTableStatement))
     yield ()
 
@@ -59,7 +59,7 @@ object JdbcMergeServiceClientTests extends ZIOSpecDefault:
       updateStatement <- ZIO.attemptBlocking(connection.createStatement())
       _ <- ZIO.foreach(1 to 10) { i =>
         val insertCmd =
-          s"insert into iceberg.test.$tableName (ARCANE_MERGE_KEY, ${VersionField.name}, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
+          s"insert into iceberg.test.$tableName (${MergeKeyField.name}, ${VersionField.name}, IsDelete, colA, colB, Id) values ('$i', $i, false, '$i', '$i', '$i')"
         ZIO.attemptBlocking(updateStatement.execute(insertCmd))
       }
     yield ()

@@ -92,9 +92,9 @@ object MemoryBoundShaperTests extends ZIOSpecDefault:
         dropTableStatement = s"DROP TABLE IF EXISTS iceberg.test.$tableName"
         _ <- ZIO.attemptBlocking(statement.execute(dropTableStatement))
         createTableStatement =
-          s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (ARCANE_MERGE_KEY VARCHAR, colA VARCHAR, colB INT)"
+          s"CREATE TABLE IF NOT EXISTS iceberg.test.$tableName (${MergeKeyField.name} VARCHAR, colA VARCHAR, colB INT)"
         _ <- ZIO.attemptBlocking(statement.execute(createTableStatement))
-        insertRowsStatement = s"""INSERT INTO iceberg.test.$tableName (ARCANE_MERGE_KEY, colA, colB)
+        insertRowsStatement = s"""INSERT INTO iceberg.test.$tableName (${MergeKeyField.name}, colA, colB)
                                 |VALUES
                                 |  ('KEY_CUOP_1', 'Value_VP', 694),
                                 |  ('KEY_HOQ5_2', 'Value_U3', 702),

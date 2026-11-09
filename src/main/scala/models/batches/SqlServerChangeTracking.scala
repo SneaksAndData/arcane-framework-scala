@@ -51,9 +51,9 @@ object SqlServerChangeTrackingMergeQuery:
       columns: Seq[String]
   ): MergeQuery =
     MergeQuery(targetName, sourceQuery)
-      ++ OnSegment(Map(), MergeKeyField.name, partitionFields.filterNot(c => c == MergeKeyField.name))
+      ++ OnSegment(Map(), MergeKeyField.name, partitionFields.filterNot(_.equalsIgnoreCase(MergeKeyField.name)))
       ++ WhenMatchedDelete()
-      ++ WhenMatchedUpdate(columns.filterNot(c => c == MergeKeyField.name))
+      ++ WhenMatchedUpdate(columns.filterNot(_.equalsIgnoreCase(MergeKeyField.name)))
       ++ WhenNotMatchedInsert(columns)
 
 object SqlServerChangeTrackingBackfillQuery:
