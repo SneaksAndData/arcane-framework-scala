@@ -6,6 +6,7 @@ import models.settings.Mergeable
 
 trait StreamSourceSettings extends Mergeable:
   type SourceSettingsType <: SourceSettings
+  override type MergeableFrom <: OverrideStreamSourceSettings
 
   val configuration: SourceSettingsType
 
@@ -13,4 +14,3 @@ trait StreamSourceSettings extends Mergeable:
 
   val modifications: DataRowModificationSettings
 
-  override type MergeableFrom = OverrideStreamSourceSettings
