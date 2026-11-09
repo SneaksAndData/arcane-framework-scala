@@ -11,6 +11,6 @@ trait OverrideStreamSourceSettings:
 
   val configuration: Option[SourceSettingsOverrideType]
 
-  val buffering: Option[SourceBufferingSettings]
+  val buffering: Option[DefaultOverrideSourceBufferingSettings]
 
   val modifications: Option[DefaultOverrideDataRowModificationSettings]
