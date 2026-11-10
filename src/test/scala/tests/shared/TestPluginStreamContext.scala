@@ -68,7 +68,7 @@ abstract class TestPluginStreamContextImpl extends PluginStreamContext:
   }
   override val staging: StagingSettings = TestStagingSettings()
 
-  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type = ???
+  override def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): TestPluginStreamContextImpl = ???
 
   override val source: StreamSourceSettings = new StreamSourceSettings {
     override type SourceSettingsType = SourceSettings

@@ -28,7 +28,7 @@ trait PluginStreamContext extends BaseStreamContext:
 
   val throughput: ThroughputSettings
 
-  def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): this.type
+  def merge[OtherImpl <: OverrideStreamContext](other: Option[OtherImpl]): PluginStreamContext
 
 object PluginStreamContext:
   def apply[Spec <: PluginStreamContext](value: String)(implicit rw: ReadWriter[Spec]): Spec = upickle.read(value)
