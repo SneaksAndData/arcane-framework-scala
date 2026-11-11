@@ -46,10 +46,10 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         )
         schema <- synapseLinkReader.getSchema
       yield assertTrue(
-        schema.size == 25,
+        schema.size == 26,
         schema.exists(_.name == MergeKeyField.name),
         schema.exists(_.name == VersionField.name),
-        !schema.exists(_.name.equalsIgnoreCase("Id")),
+        schema.exists(_.name.equalsIgnoreCase("Id")),
         !schema.exists(_.name.equalsIgnoreCase("versionnumber"))
       )
     },
@@ -77,7 +77,7 @@ object SynapseLinkReaderTests extends ZIOSpecDefault:
         shards.forall { case (schema, _) =>
           schema.exists(_.name == MergeKeyField.name) &&
           schema.exists(_.name == VersionField.name) &&
-          !schema.exists(_.name.equalsIgnoreCase("Id")) &&
+          schema.exists(_.name.equalsIgnoreCase("Id")) &&
           !schema.exists(_.name.equalsIgnoreCase("versionnumber"))
         },
         shards.forall { case (schema, shardRows) => shardRows.forall(_.map(_.name) == schema.map(_.name)) }

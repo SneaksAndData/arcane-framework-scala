@@ -42,7 +42,7 @@ final class SynapseLinkStreamingSource(
     modifications: Seq[DataRowModification]
 ) extends InsertUpdateDeleteSource(
       modifications ++ Seq(
-        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("Id".toLowerCase, "versionnumber")))
+        ExcludeFieldSelectorImpl(ExcludeFieldSelector(Set("versionnumber")))
       )
     ):
 
