@@ -157,5 +157,24 @@ object PullStreamVersionFieldMigrationTests extends ZIOSpecDefault:
           )
         yield assertTrue(version == "42")
       }
+    },
+    test("fails when arcane_version is missing and legacy watermark column is absent") {
+      val tableName = s"pull_vf_fail_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, "userId", Types.StringType.get())
+      )
+      val migration = new PullStreamVersionFieldMigration(legacyVersionFieldName)
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _ <- insertRow(trinoCon, tableName, "values ('user-1')")
+          result <- migration
+            .execute(propertyManager, context, mergeClient, TestStreamingSource)
+            .exit
+        yield assertTrue(
+          result.isFailure,
+          result.causeOption.exists(c => c.prettyPrint.contains("is not eligible for migration"))
+        )
+      }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

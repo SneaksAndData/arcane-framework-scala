@@ -1,8 +1,9 @@
 package com.sneaksanddata.arcane.framework
 package services.pullstream.migrations
 
+import exceptions.FatalStreamFailException
 import logging.ZIOLogAnnotations.zlog
-import migrations.base.Migration
+import migrations.base.{Migration, MigrationQueryHelper}
 import models.app.PluginStreamContext
 import models.schemas.VersionField
 import models.settings.TableNaming.parts
@@ -40,27 +41,47 @@ class PullStreamVersionFieldMigration(legacyVersionFieldName: String) extends Mi
       existingColumns <- sinkPropertyManager
         .getTableSchema(targetTable.parts.name)
         .map(_.columns().asScala.map(_.name()).toSet)
-      _ <- ZIO.when(existingColumns.exists(_.equalsIgnoreCase(legacyVersionFieldName))) {
-        val hasVersionColumn = existingColumns.exists(_.equalsIgnoreCase(VersionField.name))
-        val versionExpr =
-          s"cast(to_unixtime(from_iso8601_timestamp($legacyVersionFieldName)) * 1000 as bigint)"
-        val updateQuery     = s"UPDATE $targetTable SET ${VersionField.name} = $versionExpr"
-        val dropColumnQuery = s"ALTER TABLE $targetTable DROP COLUMN $legacyVersionFieldName"
-        for
-          _ <- ZIO.unless(hasVersionColumn) {
-            val addColumnQuery = s"ALTER TABLE $targetTable ADD COLUMN ${VersionField.name} bigint"
-            for
-              _ <- zlog("Adding missing %s column: %s", VersionField.name, addColumnQuery)
-              _ <- mergeClient.execute(addColumnQuery, shortName, "Migrating")
-              _ <- zlog("Successfully added %s column to %s", VersionField.name, targetTable)
-            yield ()
-          }
-          _ <- zlog("Executing %s migration: %s", VersionField.name, updateQuery)
-          _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
-          _ <- zlog("Successfully migrated %s for %s", VersionField.name, targetTable)
-          _ <- zlog("Dropping legacy watermark column: %s", dropColumnQuery)
-          _ <- mergeClient.execute(dropColumnQuery, shortName, "Migrating")
-          _ <- zlog("Successfully dropped legacy watermark column %s from %s", legacyVersionFieldName, targetTable)
-        yield ()
-      }
+      hasVersionColumn = existingColumns.exists(_.equalsIgnoreCase(VersionField.name))
+      hasNulls <- MigrationQueryHelper
+        .hasNulls(targetTable, VersionField.name, context)
+        .when(hasVersionColumn)
+        .someOrElse(true)
+      hasLegacyColumn = existingColumns.exists(_.equalsIgnoreCase(legacyVersionFieldName))
+
+      _ <- (hasVersionColumn, hasNulls, hasLegacyColumn) match
+        case (true, false, true) =>
+          val dropColumnQuery = s"ALTER TABLE $targetTable DROP COLUMN $legacyVersionFieldName"
+          zlog("Dropping legacy watermark column: %s", dropColumnQuery) *>
+            mergeClient.execute(dropColumnQuery, shortName, "Migrating") *>
+            zlog("Successfully dropped legacy watermark column %s from %s", legacyVersionFieldName, targetTable)
+
+        case (true, false, false) =>
+          zlog("%s is already migrated on %s", VersionField.name, targetTable)
+
+        case (_, _, false) =>
+          ZIO.fail(
+            FatalStreamFailException(
+              s"Table '$targetTable' is not eligible for migration: '${VersionField.name}' is missing or contains NULL values, and legacy version column '$legacyVersionFieldName' does not exist to migrate from."
+            )
+          )
+
+        case (hasVersion, _, true) =>
+          val versionExpr =
+            s"cast(to_unixtime(from_iso8601_timestamp($legacyVersionFieldName)) * 1000 as bigint)"
+          val updateQuery     = s"UPDATE $targetTable SET ${VersionField.name} = $versionExpr"
+          val dropColumnQuery = s"ALTER TABLE $targetTable DROP COLUMN $legacyVersionFieldName"
+          for
+            _ <- ZIO.unless(hasVersion) {
+              val addColumnQuery = s"ALTER TABLE $targetTable ADD COLUMN ${VersionField.name} bigint"
+              zlog("Adding missing %s column: %s", VersionField.name, addColumnQuery) *>
+                mergeClient.execute(addColumnQuery, shortName, "Migrating") *>
+                zlog("Successfully added %s column to %s", VersionField.name, targetTable)
+            }
+            _ <- zlog("Executing %s migration: %s", VersionField.name, updateQuery)
+            _ <- mergeClient.execute(updateQuery, shortName, "Migrating")
+            _ <- zlog("Successfully migrated %s for %s", VersionField.name, targetTable)
+            _ <- zlog("Dropping legacy watermark column: %s", dropColumnQuery)
+            _ <- mergeClient.execute(dropColumnQuery, shortName, "Migrating")
+            _ <- zlog("Successfully dropped legacy watermark column %s from %s", legacyVersionFieldName, targetTable)
+          yield ()
     yield ()

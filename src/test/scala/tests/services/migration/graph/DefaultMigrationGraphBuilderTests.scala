@@ -141,7 +141,7 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
         )
       }
     },
-    test("runs migration stream without modifications when legacy property is absent") {
+    test("fails migration stream when table is unwatermarked and legacy property is absent") {
       val tableName = s"test_${UUID.randomUUID().toString.replace("-", "")}"
 
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
@@ -153,8 +153,33 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
             TestStreamingSource
           )
           builder = new DefaultMigrationGraphBuilder(migrationService)
+          exit <- builder.produce().runCollect.exit
+        yield assertTrue(
+          exit.isFailure,
+          exit.causeOption.exists(_.prettyPrint.contains("is not eligible for migration"))
+        )
+      }
+    },
+    test("runs migration stream without modifications when table already has current watermark") {
+      val tableName        = s"test_${UUID.randomUUID().toString.replace("-", "")}"
+      val currentWatermark = TimestampOnlyWatermark(OffsetDateTime.now())
+
+      withProvisionedTable(tableName) { (_, propertyManager, context) =>
+        for
+          _ <- propertyManager.setProperty(
+            tableName,
+            MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey),
+            currentWatermark.toJson
+          )
+          migrationService = new DefaultMigrationService(
+            propertyManager,
+            context,
+            testMergeServiceClient,
+            TestStreamingSource
+          )
+          builder = new DefaultMigrationGraphBuilder(migrationService)
           result <- builder.produce().runCollect
-          newWatermark <- propertyManager.getProperty(
+          newWatermark <- propertyManager.getRequiredProperty(
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
@@ -168,7 +193,7 @@ object DefaultMigrationGraphBuilderTests extends ZIOSpecDefault:
           )
         yield assertTrue(
           result.size == 1,
-          newWatermark.isEmpty,
+          newWatermark == currentWatermark.toJson,
           committedMigration == CurrentMigration.toString,
           legacyWatermarkProperty.isEmpty
         )

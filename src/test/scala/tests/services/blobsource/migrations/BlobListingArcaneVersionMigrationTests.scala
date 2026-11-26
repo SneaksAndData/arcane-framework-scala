@@ -104,8 +104,37 @@ object BlobListingArcaneVersionMigrationTests extends ZIOSpecDefault:
         )
       }
     },
-    test("is a no-op when legacy createdon column is already absent") {
+    test("is a no-op when arcane_version is already present and populated") {
       val tableName = s"blob_ver_noop_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(2, VersionField.name, Types.LongType.get()),
+        Types.NestedField.optional(3, "name", Types.StringType.get())
+      )
+      val migration = new BlobListingArcaneVersionMigration()
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        for
+          _       <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 300, 'file1')")
+          _       <- migration.execute(propertyManager, context, mergeClient, TestStreamingSource)
+          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          version <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            VersionField.name,
+            "name",
+            "file1"
+          )
+        yield assertTrue(
+          version == "300",
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase("name"))
+        )
+      }
+    },
+    test("fails when arcane_version is missing and legacy createdon is absent") {
+      val tableName = s"blob_ver_fail_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
         Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
         Types.NestedField.optional(2, "name", Types.StringType.get())
@@ -114,12 +143,13 @@ object BlobListingArcaneVersionMigrationTests extends ZIOSpecDefault:
 
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
         for
-          _       <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 'file1')")
-          _       <- migration.execute(propertyManager, context, mergeClient, TestStreamingSource)
-          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          _ <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 'file1')")
+          result <- migration
+            .execute(propertyManager, context, mergeClient, TestStreamingSource)
+            .exit
         yield assertTrue(
-          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
-          columns.stream().anyMatch(_.name().equalsIgnoreCase("name"))
+          result.isFailure,
+          result.causeOption.exists(c => c.prettyPrint.contains("is not eligible for migration"))
         )
       }
     }
