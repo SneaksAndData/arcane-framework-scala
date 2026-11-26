@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.framework
 package tests.services.bootstrap
 
+import models.MetadataKeys
 import models.app.{PluginStreamContext, StreamDocumentation}
 import models.ddl.CreateTableRequest
 import models.schemas.{ArcaneSchema, MergeKeyField, given_CanAdd_ArcaneSchema}
@@ -66,9 +67,15 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
       )
       migrationService = new MigrationService:
         override def getSinkMigration =
-          if isCurrentMigration then ZIO.succeed(Some(migrations.base.CurrentMigration)) else ZIO.succeed(None)
-        override def isCurrent(identifier: migrations.base.SinkMigrationIdentifier) = isCurrentMigration
-        override def commitMigration                                                = ZIO.unit
+          if isCurrentMigration then ZIO.succeed(Some(migrations.base.CurrentMigration))
+          else
+            sinkPropertyManager
+              .getProperty(tableName, MetadataKeys.getFrameworkKey(MetadataKeys.migrationKey))
+              .map(_.map(_.toLong))
+              .catchAll(_ => ZIO.succeed(None))
+        override def isCurrent(identifier: migrations.base.SinkMigrationIdentifier) =
+          identifier == migrations.base.CurrentMigration
+        override def commitMigration = ZIO.unit
         override def diff(
             fromId: Option[migrations.base.SinkMigrationIdentifier],
             toId: migrations.base.SinkMigrationIdentifier
@@ -128,6 +135,38 @@ object DefaultStreamBootstrapperTests extends ZIOSpecDefault:
           yield assertTrue(
             !schemaAfter.columns().asScala.exists(_.name().equalsIgnoreCase("new_col"))
           )
+      }
+    },
+    test(
+      "createTargetTable fails and does not migrate schema when existing table is unmigrated and isMigrating is false"
+    ) {
+      val tableName                   = s"bootstrapper_unmig_${UUID.randomUUID().toString.replace("-", "")}"
+      val initialSchema: ArcaneSchema = Seq(MergeKeyField)
+      val evolvedSource = new StreamingSource:
+        override type SchemaType    = ArcaneSchema
+        override type WatermarkType = TimestampOnlyWatermark
+        override def getSchema: Task[SchemaType] =
+          ZIO.succeed(Seq(MergeKeyField, models.schemas.Field("new_col", models.schemas.ArcaneType.StringType)))
+        override def getShards(rangeStart: WatermarkType, rangeEnd: WatermarkType) = ZStream.empty
+        override def deleteShards(prefix: String): Task[Unit]                      = ZIO.unit
+        override def empty: SchemaType                                             = ArcaneSchema.empty()
+
+      withProvisionedBootstrapper(
+        tableName,
+        "p",
+        "r",
+        isMigrating = false,
+        isCurrentMigration = false,
+        source = evolvedSource
+      ) { (bootstrapper, sinkEntityManager, propertyManager) =>
+        for
+          _           <- sinkEntityManager.createTable(CreateTableRequest(tableName, initialSchema, replace = false))
+          exit        <- bootstrapper.createTargetTable.exit
+          schemaAfter <- propertyManager.getTableSchema(tableName)
+        yield assertTrue(
+          exit.isFailure,
+          !schemaAfter.columns().asScala.exists(_.name().equalsIgnoreCase("new_col"))
+        )
       }
     },
     test("checkMigrations succeeds when isMigrating is true even if migrations are not current") {

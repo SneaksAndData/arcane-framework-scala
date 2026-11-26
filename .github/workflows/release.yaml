@@ -53,7 +53,7 @@ jobs:
       - name: Setup Scala
         uses: japgolly/setup-everything-scala@v4.1
         with:
-          java-version: temurin:1.25.0.2
+          java-version: temurin:25
       - name: Release new version
         shell: bash
         env:
