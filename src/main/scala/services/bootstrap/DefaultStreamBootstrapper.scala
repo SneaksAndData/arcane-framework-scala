@@ -85,6 +85,7 @@ class DefaultStreamBootstrapper(
         // TODO: https://github.com/SneaksAndData/arcane-framework-scala/issues/307
       )
     )
+    _ <- checkMigrations
     // pre-migrate sources with unified schema and skip migration of each staged batch
     _ <- ZIO.when(!isMigrating && stagingSettings.table.isUnifiedSchema) {
       for
