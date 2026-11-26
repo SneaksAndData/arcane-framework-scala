@@ -84,18 +84,38 @@ object WatermarkKeyMigrationTests extends ZIOSpecDefault:
         yield assertTrue(newWatermark == legacyWatermark.toJson, legacyWatermarkProperty.isEmpty)
       }
     },
-    test("does not set property when legacy watermark is not present on provisioned table") {
+    test("fails when neither current nor legacy watermark property is present on provisioned table") {
       val tableName = s"wm_migration_none_${UUID.randomUUID().toString.replace("-", "")}"
       val migration = new WatermarkKeyMigration()
 
       withProvisionedTable(tableName) { (_, propertyManager, context) =>
+        for result <- migration
+            .execute(propertyManager, context, testMergeServiceClient, TestStreamingSource)
+            .exit
+        yield assertTrue(
+          result.isFailure,
+          result.causeOption.exists(c => c.prettyPrint.contains("is not eligible for migration"))
+        )
+      }
+    },
+    test("succeeds when arcane.core.watermark is already present on provisioned table") {
+      val tableName        = s"wm_migration_curr_${UUID.randomUUID().toString.replace("-", "")}"
+      val currentWatermark = TimestampOnlyWatermark(OffsetDateTime.now())
+      val migration        = new WatermarkKeyMigration()
+
+      withProvisionedTable(tableName) { (_, propertyManager, context) =>
         for
+          _ <- propertyManager.setProperty(
+            tableName,
+            MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey),
+            currentWatermark.toJson
+          )
           _ <- migration.execute(propertyManager, context, testMergeServiceClient, TestStreamingSource)
-          newWatermark <- propertyManager.getProperty(
+          watermark <- propertyManager.getRequiredProperty(
             tableName,
             MetadataKeys.getFrameworkKey(MetadataKeys.watermarkKey)
           )
-        yield assertTrue(newWatermark.isEmpty)
+        yield assertTrue(watermark == currentWatermark.toJson)
       }
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock

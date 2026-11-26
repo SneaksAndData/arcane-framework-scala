@@ -131,8 +131,38 @@ object SqlServerArcaneVersionMigrationTests extends ZIOSpecDefault:
         )
       }
     },
-    test("is a no-op when legacy ChangeTrackingVersion column is already absent") {
+    test("is a no-op when arcane_version is already present and populated") {
       val tableName = s"mssql_ver_noop_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(2, VersionField.name, Types.LongType.get()),
+        Types.NestedField.optional(3, "val", Types.StringType.get())
+      )
+      val migration = new SqlServerArcaneVersionMigration()
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        val source = createMsSqlSource(List(("val", false)))
+        for
+          _       <- insertRow(trinoCon, tableName, "values ('mk_1', 100, 'hello')")
+          _       <- migration.execute(propertyManager, context, mergeClient, source)
+          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          version <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            VersionField.name,
+            "val",
+            "hello"
+          )
+        yield assertTrue(
+          version == "100",
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase("val"))
+        )
+      }
+    },
+    test("fails when arcane_version is missing and legacy ChangeTrackingVersion is absent") {
+      val tableName = s"mssql_ver_fail_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
         Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
         Types.NestedField.optional(2, "val", Types.StringType.get())
@@ -142,12 +172,13 @@ object SqlServerArcaneVersionMigrationTests extends ZIOSpecDefault:
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
         val source = createMsSqlSource(List(("val", false)))
         for
-          _       <- insertRow(trinoCon, tableName, "values ('mk_1', 'hello')")
-          _       <- migration.execute(propertyManager, context, mergeClient, source)
-          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          _ <- insertRow(trinoCon, tableName, "values ('mk_1', 'hello')")
+          result <- migration
+            .execute(propertyManager, context, mergeClient, source)
+            .exit
         yield assertTrue(
-          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
-          columns.stream().anyMatch(_.name().equalsIgnoreCase("val"))
+          result.isFailure,
+          result.causeOption.exists(c => c.prettyPrint.contains("is not eligible for migration"))
         )
       }
     }

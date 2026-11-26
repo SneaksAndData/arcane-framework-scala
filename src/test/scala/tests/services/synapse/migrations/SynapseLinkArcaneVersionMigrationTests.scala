@@ -115,8 +115,38 @@ object SynapseLinkArcaneVersionMigrationTests extends ZIOSpecDefault:
         )
       }
     },
-    test("is a no-op when legacy versionnumber column is already absent") {
+    test("is a no-op when arcane_version is already present and populated") {
       val tableName = s"synapse_ver_noop_${UUID.randomUUID().toString.replace("-", "")}"
+      val schema = new IcebergSchema(
+        Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
+        Types.NestedField.optional(2, VersionField.name, Types.LongType.get()),
+        Types.NestedField.optional(3, "name", Types.StringType.get())
+      )
+      val migration = new SynapseLinkArcaneVersionMigration()
+
+      withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
+        val source = createSynapseSource()
+        for
+          _       <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 200, 'Alice')")
+          _       <- migration.execute(propertyManager, context, mergeClient, source)
+          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          version <- TestTrinoConnection.getFieldValueInTarget(
+            trinoCon,
+            s"iceberg.test.$tableName",
+            VersionField.name,
+            "name",
+            "Alice"
+          )
+        yield assertTrue(
+          version == "200",
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase(VersionField.name)),
+          columns.stream().anyMatch(_.name().equalsIgnoreCase("name"))
+        )
+      }
+    },
+    test("fails when arcane_version is missing and legacy versionnumber is absent") {
+      val tableName = s"synapse_ver_fail_${UUID.randomUUID().toString.replace("-", "")}"
       val schema = new IcebergSchema(
         Types.NestedField.optional(1, MergeKeyField.name, Types.StringType.get()),
         Types.NestedField.optional(2, "name", Types.StringType.get())
@@ -126,12 +156,13 @@ object SynapseLinkArcaneVersionMigrationTests extends ZIOSpecDefault:
       withProvisionedTable(tableName, schema) { (_, propertyManager, context, trinoCon) =>
         val source = createSynapseSource()
         for
-          _       <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 'Alice')")
-          _       <- migration.execute(propertyManager, context, mergeClient, source)
-          columns <- propertyManager.getTableSchema(tableName).map(_.columns())
+          _ <- insertRow(trinoCon, tableName, "values ('legacy_key_1', 'Alice')")
+          result <- migration
+            .execute(propertyManager, context, mergeClient, source)
+            .exit
         yield assertTrue(
-          columns.stream().anyMatch(_.name().equalsIgnoreCase(MergeKeyField.name)),
-          columns.stream().anyMatch(_.name().equalsIgnoreCase("name"))
+          result.isFailure,
+          result.causeOption.exists(c => c.prettyPrint.contains("is not eligible for migration"))
         )
       }
     }

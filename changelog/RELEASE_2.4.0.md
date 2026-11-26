@@ -27,7 +27,7 @@
 
 ## Migrations for this release
 Applied once by starting the application with `STREAMCONTEXT__RUNMODE=Migrate`.
-- `WatermarkKeyMigration` — moves the watermark from the legacy `arcane-watermark` property to `arcane.core.watermark`.
+- `WatermarkKeyMigration` — moves the watermark from the legacy `arcane-watermark` property to `arcane.core.watermark`; fails fast if neither property is present.
 - `MbsEstimatesKeyMigration` — moves throughput estimates from `mbs-estimates` to `arcane.core.throughput.mbs.estimates`, preserving an already migrated value.
 - `TableCommentMigration` — aligns the target table `comment` property with the stream documentation string (`Table managed by {plugin name} {repository link}`).
 

@@ -26,4 +26,10 @@ class SynapseLinkArcaneMergeKeyMigration extends Migration:
     val targetTable  = context.sink.targetTableFullName
     val mergeKeyExpr = s"lower(to_hex(murmur3(to_utf8(cast($legacyIdFieldName as varchar)))))"
 
-    MergeKeyColumnRebuild(targetTable, mergeKeyExpr, sinkPropertyManager, mergeClient, shortName)
+    MergeKeyColumnRebuild(
+      targetTable,
+      mergeKeyExpr,
+      sinkPropertyManager,
+      mergeClient,
+      shortName
+    )
