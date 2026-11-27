@@ -816,5 +816,57 @@ object MsSqlStreamingSourceTests extends ZIOSpecDefault:
             )
         }
       yield assertTrue(remainingTables == List("backfill__s11__table1", "backfill__s11__table2"))
+    },
+    test(
+      "MsSqlStreamingSource getChanges populates arcane_version with row change version greater than base watermark"
+    ) {
+      val testTableName = "get_changes_version_advance"
+      for
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) {
+          connection =>
+            ZIO.attemptBlocking {
+              createTable(testTableName, connection, fieldString, pkString)
+              val st = connection.createStatement()
+              st.execute(
+                s"use arcane; insert into dbo.$testTableName values (1, 10, null, CAST(123 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+              )
+              st.execute(
+                s"use arcane; insert into dbo.$testTableName values (2, 20, null, CAST(123 AS VARBINARY(MAX)), '2023-10-01 12:34:56', 0, 0)"
+              )
+              st.close()
+            }
+        }
+        streamingSource <-
+          MsSqlStreamingSource.fromSettings(
+            new MsSqlServerDatabaseSourceSettings {
+              override val connectionUrl: String                          = MsSqlTestServices.connectionUrl
+              override val schemaName: String                             = "dbo"
+              override val tableName: String                              = testTableName
+              override val fetchSize: Option[Int]                         = None
+              override val extraConnectionParameters: Map[String, String] = Map.empty
+              override val shardSizeMegabytes: Option[Int]                = None
+              override val backfillShardSchemaName: String                = "dbo"
+            },
+            nameGenerator,
+            Seq.empty
+          )
+        snapshotWatermark <- streamingSource.getCurrentVersion
+        _ <- ZIO.acquireReleaseWith(getConnection)(connection => ZIO.attemptBlocking(connection.close()).orDie) {
+          connection =>
+            ZIO.attemptBlocking {
+              val st = connection.createStatement()
+              st.execute(s"use arcane; update dbo.$testTableName set a = 99 where x = 1")
+              st.close()
+            }
+        }
+        afterUpdateWatermark <- streamingSource.getCurrentVersion
+        changes <- streamingSource.getChanges(snapshotWatermark, afterUpdateWatermark).flatMap(_._1).runCollect
+        updatedRow       = changes.find(r => r.find(_.name == "x").exists(_.value == 1))
+        rowArcaneVersion = updatedRow.flatMap(_.find(_.name == VersionField.name)).map(_.value.toString.toLong)
+      yield assertTrue(
+        changes.size == 1,
+        rowArcaneVersion.exists(_ > snapshotWatermark.version.toLong),
+        !changes.exists(r => r.find(_.name == "x").exists(_.value == 2))
+      )
     }
   ) @@ timeout(zio.Duration.fromSeconds(30)) @@ TestAspect.withLiveClock
