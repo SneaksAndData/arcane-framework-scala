@@ -230,8 +230,8 @@ class MsSqlStreamingSource(
                 connectionSettings.schemaName,
                 connectionSettings.tableName,
                 catalog,
-                fromVersion - 1,
-                toVersion - 0,
+                fromVersion.version.toLong,
+                toVersion.version.toLong,
                 summaries
               )
 
@@ -254,7 +254,7 @@ class MsSqlStreamingSource(
           connectionSettings.schemaName,
           connectionSettings.tableName,
           catalog,
-          latestVersion - 1,
+          latestVersion.version.toLong,
           Long.MaxValue,
           summaries
         )
